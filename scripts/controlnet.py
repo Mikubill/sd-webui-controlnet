@@ -162,15 +162,14 @@ class Script(scripts.Script):
                             selected = dd
                         else:
                             selected = "None"
-                        print(cn_models)
-                        update = gr.Dropdown.update(
-                            value=selected, choices=list(cn_models.keys()))
+
+                        update = gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
                         updates.append(update)
                     return updates
 
                 refresh_models = gr.Button(value='Refresh models')
                 refresh_models.click(refresh_all_models, inputs=model_dropdowns, outputs=model_dropdowns)
-                ctrls += (refresh_models, )
+                # ctrls += (refresh_models, )
 
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
@@ -182,7 +181,7 @@ class Script(scripts.Script):
                 gr.Markdown(value='Don\'t drag image into the box! Use upload instead. Change your brush width to make it thinner if you want to draw something.')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
-                ctrls += (canvas_width, canvas_height, create_button, input_image, scribble_mode)
+                ctrls += (input_image, scribble_mode)
 
         return ctrls
 
@@ -212,15 +211,14 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight, _ = args[:5]
-        _, _, _, image, scribble_mode = args[5:]
+        enabled, module, model, weight,image, scribble_mode = args
 
         if not enabled:
             restore_networks()
             return
 
         models_changed = self.latest_params[0] != module or self.latest_params[1] != model \
-            or self.latest_model_hash != p.sd_model.sd_model_hash
+            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None
 
         if models_changed:
             restore_networks()
@@ -273,6 +271,8 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params)
         
     def postprocess(self, p, processed, *args):
+        if self.latest_network is None:
+            return
         if hasattr(self, "control") and self.control is not None:
             processed.images.append(ToPILImage()((self.control).clip(0, 255)))
 

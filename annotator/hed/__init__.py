@@ -3,9 +3,11 @@ import cv2
 import torch
 from einops import rearrange
 
+import os 
+from modules import extensions
 
 class Network(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, model_path):
         super().__init__()
 
         self.netVggOne = torch.nn.Sequential(
@@ -64,7 +66,7 @@ class Network(torch.nn.Module):
             torch.nn.Sigmoid()
         )
 
-        self.load_state_dict({strKey.replace('module', 'net'): tenWeight for strKey, tenWeight in torch.load('./annotator/ckpts/network-bsds500.pth').items()})
+        self.load_state_dict({strKey.replace('module', 'net'): tenWeight for strKey, tenWeight in torch.load(model_path).items()})
     # end
 
     def forward(self, tenInput):
@@ -93,11 +95,19 @@ class Network(torch.nn.Module):
     # end
 # end
 
-
-netNetwork = Network().cuda().eval()
-
+netNetwork = None
+remote_model_path = "https://huggingface.co/datasets/nyanko7/tmp-public/resolve/main/network-bsds500.pt"
+modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator")
 
 def apply_hed(input_image):
+    global netNetwork
+    if netNetwork is None:
+        modelpath = os.path.join(modeldir, "network-bsds500.pt")
+        if not os.path.exists(modelpath):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(remote_model_path, model_dir=modeldir)
+        netNetwork = Network(modelpath).cuda().eval()
+        
     assert input_image.ndim == 3
     input_image = input_image[:, :, ::-1].copy()
     with torch.no_grad():

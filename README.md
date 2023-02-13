@@ -13,6 +13,8 @@ Dragging a file on the Web UI will freeze the entire page. It is better to use t
 
 ### Install
 
+Some users may need to install the cv2 library before installing it: `pip install opencv-python`
+
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
 3. Enter URL of this repo to "URL for extension's git repository".
@@ -32,3 +34,4 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 | Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_input.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_canny.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_gen.png?raw=true"> |
+|<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_source.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_hed.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_gen.png?raw=true"> |
