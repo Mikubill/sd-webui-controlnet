@@ -277,7 +277,7 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params)
         
     def postprocess(self, p, processed, *args):
-        # processed.images.append(ToPILImage()((self.control).clip(0, 255)))
+        processed.images.append(ToPILImage()((self.control).clip(0, 255)))
         pass
 
 def update_script_args(p, value, arg_idx):
