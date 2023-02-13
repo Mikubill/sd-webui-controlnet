@@ -81,14 +81,14 @@ class PlugableControlModel(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
-        self._orginal_forward = model.forward
+        model._original_forward = model.forward
         model.forward = forward.__get__(model, UNetModel)
     
     def notify(self, cond_like):
         self.hint_cond = cond_like
 
     def restore(self, model):
-        model.forward = self._original_forward
+        model.forward = model._original_forward
         del model._original_forward
 
 
