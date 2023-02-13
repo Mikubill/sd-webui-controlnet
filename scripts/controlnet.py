@@ -270,7 +270,7 @@ class Script(scripts.Script):
         control = rearrange(control, 'h w c -> c h w')
         
         if resize_mode == "Scale to Fit":
-            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
+            control = Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC)(control)
             control = CenterCrop((h, w))(control)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
