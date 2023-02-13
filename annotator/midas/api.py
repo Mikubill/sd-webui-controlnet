@@ -3,6 +3,9 @@
 import cv2
 import torch
 import torch.nn as nn
+import os
+from modules import extensions
+
 from torchvision.transforms import Compose
 
 from .midas.dpt_depth import DPTDepthModel
@@ -10,10 +13,12 @@ from .midas.midas_net import MidasNet
 from .midas.midas_net_custom import MidasNet_small
 from .midas.transforms import Resize, NormalizeImage, PrepareForNet
 
+base_model_path = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "midas")
+remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/dpt_hybrid-midas-501f0c75.pt"
 
 ISL_PATHS = {
-    "dpt_large": "annotator/ckpts/dpt_large-midas-2f21e586.pt",
-    "dpt_hybrid": "annotator/ckpts/dpt_hybrid-midas-501f0c75.pt",
+    "dpt_large": os.path.join(base_model_path, "dpt_large-midas-2f21e586.pt"),
+    "dpt_hybrid": os.path.join(base_model_path, "dpt_hybrid-midas-501f0c75.pt"),
     "midas_v21": "",
     "midas_v21_small": "",
 }
@@ -85,6 +90,10 @@ def load_model(model_type):
         normalization = NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 
     elif model_type == "dpt_hybrid":  # DPT-Hybrid
+        if not os.path.exists(model_path):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(remote_model_path, model_dir=base_model_path)
+        
         model = DPTDepthModel(
             path=model_path,
             backbone="vitb_rn50_384",

@@ -137,7 +137,7 @@ class Script(scripts.Script):
             with gr.Accordion('ControlNet', open=False):
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
-                    scribble_mode = gr.Checkbox(label='Scibble Mode (Reverse color)', value=False)
+                    scribble_mode = gr.Checkbox(label='Scribble Mode (Reverse color)', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
                     
                 ctrls += (enabled,)

@@ -1,4 +1,5 @@
 
+import numpy as np
 from annotator.util import resize_image, HWC3
 
 model_canny = None
@@ -52,13 +53,13 @@ def mlsd(img, res=512, thr_v=0.1, thr_d=0.1):
 model_midas = None
 
 
-def midas(img, res, a):
+def midas(img, res=512, a=np.pi * 2.0):
     img = resize_image(HWC3(img), res)
     global model_midas
     if model_midas is None:
         from annotator.midas import apply_midas
         model_midas = apply_midas
-    results = model_midas(img, a)
+    results, _ = model_midas(img, a)
     return results
 
 
