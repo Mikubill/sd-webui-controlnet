@@ -102,7 +102,7 @@ modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annot
 def apply_hed(input_image):
     global netNetwork
     if netNetwork is None:
-        modelpath = os.path.join(modeldir, "network-bsds500.pt")
+        modelpath = os.path.join(modeldir, "network-bsds500.pth")
         if not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)

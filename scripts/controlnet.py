@@ -156,10 +156,11 @@ class Script(scripts.Script):
                 ])
                 model_dropdowns.append(model)
 
-                def refresh_all_models(*dropdowns):
+                def refresh_all_models(dropdowns):
                     update_cn_models()
                     updates = []
                     for dd in dropdowns:
+                        dd = dd["value"] if isinstance(dd, dict) else dd
                         if dd in cn_models:
                             selected = dd
                         else:
@@ -176,14 +177,17 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
-                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=1)
-                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=1)
+                resize_mode = gr.Radio(choices=["Scale to Fit", "Just Resize"], value="Scale to Fit", label="Resize Mode")
+                with gr.Row():
+                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
                 gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
                 
-                create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
-                ctrls += (input_image, scribble_mode, lowvram)
+                create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+                ctrls += (input_image, scribble_mode, resize_mode)
+                ctrls += (lowvram,)
 
         return ctrls
 
@@ -213,18 +217,15 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight,image, scribble_mode, *rest = args
-        if len(rest) != 0:
-            lowvram = bool(rest[0])
-        else:
-            lowvram = False
+        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
 
         if not enabled:
             restore_networks()
             return
 
         models_changed = self.latest_params[0] != module or self.latest_params[1] != model \
-            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None
+            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None \
+            or (self.latest_network is not None and self.latest_network.lowvram != lowvram)
 
         if models_changed:
             restore_networks()
@@ -251,7 +252,7 @@ class Script(scripts.Script):
             self.latest_network = network
             
         input_image = HWC3(image['image'])
-        if 255 - np.mean(input_image) < 5:
+        if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
             print("using mask as input")
             input_image = HWC3(image['mask'][:, :, 0])
                 
@@ -267,11 +268,15 @@ class Script(scripts.Script):
 
         control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
         control = rearrange(control, 'h w c -> c h w')
-        control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
-        control = CenterCrop((h, w))(control)
+        
+        if resize_mode == "Scale to Fit":
+            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
+            control = CenterCrop((h, w))(control)
+        else:
+            control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             
         self.control = control
-        control = torch.stack([control for _ in range(bsz)], dim=0)
+        # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control)
 
         self.set_infotext_fields(p, self.latest_params)
