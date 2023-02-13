@@ -7,11 +7,11 @@ ControlNet is a neural network structure to control diffusion models by adding e
 
 Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
-## Limits
+### Limits
 
 Dragging a file on the Web UI will freeze the entire page. It is better to use the upload file option instead.
 
-## Install
+### Install
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
@@ -19,7 +19,7 @@ Dragging a file on the Web UI will freeze the entire page. It is better to use t
 4. Press "Install" button.
 5. Reload/Restart Web UI.
 
-## Usage
+### Usage
 
 1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the sd-webui-controlnet/models folder.
 2. Press "Refresh models" to update the models list.
@@ -27,7 +27,7 @@ Dragging a file on the Web UI will freeze the entire page. It is better to use t
 
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
-## Examples
+### Examples
 
 | Input | Processed | Image |
 |:-------------------------:|:-------------------------:|:-------------------------:|
