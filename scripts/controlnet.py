@@ -181,7 +181,7 @@ class Script(scripts.Script):
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
                 gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
                 
-                create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
+                create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode)
 
         return ctrls
@@ -246,7 +246,7 @@ class Script(scripts.Script):
             self.latest_network = network
             
         input_image = HWC3(image['image'])
-        if 255 - np.mean(input_image) < 5:
+        if not (image['mask'][:, :, 0]==0).all():
             print("using mask as input")
             input_image = HWC3(image['mask'][:, :, 0])
                 
