@@ -177,7 +177,7 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
-                resize_mode = gr.Radio(choices=["Scale to Fit", "Just Resize"], value="Scale to Fit", label="Resize Mode")
+                resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
                     canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                     canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
@@ -269,8 +269,11 @@ class Script(scripts.Script):
         control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
         control = rearrange(control, 'h w c -> c h w')
         
-        if resize_mode == "Scale to Fit":
+        if resize_mode == "Scale to Fit (Inner Fit)":
             control = Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC)(control)
+            control = CenterCrop((h, w))(control)
+        elif resize_mode == "Envelope (Outer Fit)":
+            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
             control = CenterCrop((h, w))(control)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
