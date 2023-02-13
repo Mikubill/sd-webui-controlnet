@@ -29,6 +29,6 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 
 ### Examples
 
-| Input | Processed | Image |
+| Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_input.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_canny.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/mahiro_gen.png?raw=true"> |
