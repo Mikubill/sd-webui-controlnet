@@ -112,6 +112,7 @@ class Script(scripts.Script):
             "midas": midas,
             "mlsd": mlsd,
             "openpose": openpose,
+            "fake_scribble": fake_scribble,
         }
         self.input_image = None
         self.latest_model_hash = ""

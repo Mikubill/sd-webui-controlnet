@@ -14,9 +14,7 @@ from ldm.modules.diffusionmodules.util import (
 
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
-from ldm.util import log_txt_as_img, exists, instantiate_from_config
-from ldm.models.diffusion.ddpm import LatentDiffusion
-from modules import shared, script_callbacks
+from ldm.util import exists
 
 
 def load_state_dict(ckpt_path, location='cpu'):

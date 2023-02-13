@@ -26,11 +26,20 @@ def hed(img, res=512):
     result = model_hed(img)
     return result
 
+def fake_scribble(img, res=512):
+    result = hed(img, res)
+    import cv2
+    from annotator.hed import nms
+    result = nms(result, 127, 3.0)
+    result = cv2.GaussianBlur(result, (0, 0), 3.0)
+    result[result > 10] = 255
+    result[result < 255] = 0
+    return result
 
 model_mlsd = None
 
 
-def mlsd(img, res, thr_v, thr_d):
+def mlsd(img, res=512, thr_v=0.1, thr_d=0.1):
     img = resize_image(HWC3(img), res)
     global model_mlsd
     if model_mlsd is None:
