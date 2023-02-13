@@ -266,7 +266,7 @@ class Script(scripts.Script):
         control = CenterCrop((h, w))(control)
             
         self.control = control
-        control = torch.stack([control for _ in range(bsz)], dim=0)
+        # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control)
 
         self.set_infotext_fields(p, self.latest_params)

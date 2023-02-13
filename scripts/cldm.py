@@ -56,6 +56,7 @@ class PlugableControlModel(nn.Module):
             only_mid_control = outer.only_mid_control
             control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
 
+            assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with torch.no_grad():
                 t_emb = timestep_embedding(
@@ -85,6 +86,7 @@ class PlugableControlModel(nn.Module):
     
     def notify(self, cond_like):
         self.hint_cond = cond_like
+        # print(self.hint_cond.shape)
 
     def restore(self, model):
         model.forward = model._original_forward
@@ -343,6 +345,7 @@ class ControlNet(nn.Module):
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
             if guided_hint is not None:
                 h = module(h, emb, context)
+                # print(h.shape, guided_hint.shape)
                 h += guided_hint
                 guided_hint = None
             else:
