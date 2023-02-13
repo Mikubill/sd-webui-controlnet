@@ -331,22 +331,37 @@ class ControlNet(nn.Module):
 
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
+    
+    def align(self, hint, h, w):
+        c, h1, w1 = hint.shape
+        if h != h1 or w != w1:
+            hint = torch.nn.functional.interpolate(
+                hint.unsqueeze(0),
+                size=(h, w),
+                mode="nearest-exact",
+                antialias=False,
+            )
+            return hint.squeeze(0)
+        return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
         t_emb = timestep_embedding(
             timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
+        _, _, h1, w1 = x.shape
+        hint = self.align(hint, h1 * 8, w1 * 8)
+            
         guided_hint = self.input_hint_block(hint, emb, context)
-
         outs = []
 
         h = x.type(self.dtype)
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
             if guided_hint is not None:
                 h = module(h, emb, context)
-                # print(h.shape, guided_hint.shape)
-                h += guided_hint
+                # handle corner cases
+                _, _, h1, w1 = h.shape
+                h += self.align(guided_hint, h1, w1)
                 guided_hint = None
             else:
                 h = module(h, emb, context)

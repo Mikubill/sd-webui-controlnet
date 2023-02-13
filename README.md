@@ -10,7 +10,7 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 ### Limits
 
 * Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* ~~Batch size > 1~~(fixed) Latent Upscale will encounter errors.
+* ~~Batch size > 1 or Latent Upscale will encounter errors.~~(fixed)
 * MiDas Mode not working due to init issue.
 
 ### Install
@@ -25,6 +25,7 @@ Some users may need to install the cv2 library before installing it: `pip instal
 
 ### Usage
 
+0. Write your prompt first.
 1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the sd-webui-controlnet/models folder.
 2. Press "Refresh models" to update the models list.
 3. Upload your image and select preprocessor, done.
