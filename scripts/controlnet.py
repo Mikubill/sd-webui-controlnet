@@ -155,10 +155,11 @@ class Script(scripts.Script):
                 ])
                 model_dropdowns.append(model)
 
-                def refresh_all_models(*dropdowns):
+                def refresh_all_models(dropdowns):
                     update_cn_models()
                     updates = []
                     for dd in dropdowns:
+                        dd = dd["value"] if isinstance(dd, dict) else dd
                         if dd in cn_models:
                             selected = dd
                         else:
@@ -175,14 +176,16 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
-                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=1)
-                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=1)
+                resize_mode = gr.Radio(choices=["Scale to Fit", "Just Resize"], value="Scale to Fit", label="Resize Mode")
+                with gr.Row():
+                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
                 gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                ctrls += (input_image, scribble_mode)
+                ctrls += (input_image, scribble_mode, resize_mode)
 
         return ctrls
 
@@ -212,7 +215,7 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight,image, scribble_mode = args
+        enabled, module, model, weight,image, scribble_mode, resize_mode = args
 
         if not enabled:
             restore_networks()
@@ -262,8 +265,12 @@ class Script(scripts.Script):
 
         control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
         control = rearrange(control, 'h w c -> c h w')
-        control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
-        control = CenterCrop((h, w))(control)
+        
+        if resize_mode == "Scale to Fit":
+            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
+            control = CenterCrop((h, w))(control)
+        else:
+            control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             
         self.control = control
         # control = torch.stack([control for _ in range(bsz)], dim=0)
