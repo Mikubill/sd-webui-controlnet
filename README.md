@@ -10,7 +10,7 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 ### Limits
 
 * Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* ~~Batch size > 1 or Latent Upscale will encounter errors.~~(fixed)
+* ~~Batch size > 1~~(fixed) Latent Upscale will encounter errors.
 * MiDas Mode not working due to init issue.
 
 ### Install
@@ -19,7 +19,7 @@ Some users may need to install the cv2 library before installing it: `pip instal
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. ~~Enter URL of this repo to "URL for extension's git repository".~~ (fixed)
+3. Enter URL of this repo to "URL for extension's git repository".
 4. Press "Install" button.
 5. Reload/Restart Web UI.
 
