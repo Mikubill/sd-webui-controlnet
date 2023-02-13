@@ -35,11 +35,15 @@ def get_state_dict(d):
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, model_path, config_path, weight=1.0) -> None:
+    def __init__(self, model_path, config_path, weight=1.0, lowvram=False) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
-        self.control_model = ControlNet(**config.model.params.control_stage_config.params).cuda()
-        state_dict = load_state_dict(model_path, location='cuda')
+        if lowvram:
+            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cpu()
+            state_dict = load_state_dict(model_path, location='cpu')
+        else:
+            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cuda()
+            state_dict = load_state_dict(model_path, location='cuda')
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         
@@ -48,8 +52,9 @@ class PlugableControlModel(nn.Module):
         self.only_mid_control = False
         self.control = None
         self.hint_cond = None
+        self.lowvram = lowvram
 
-    def hook(self, model):
+    def hook(self, model, parent_model):
         outer = self
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
@@ -80,8 +85,21 @@ class PlugableControlModel(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
+        def forward2(*args, **kwargs):
+            try:
+                if self.lowvram:
+                    parent_model.first_stage_model.cpu()
+                    parent_model.cond_stage_model.cpu()
+                    self.control_model.cuda()
+                return forward(*args, **kwargs)
+            finally:
+                if self.lowvram:
+                    self.control_model.cpu()
+                    parent_model.first_stage_model.cuda()
+                    parent_model.cond_stage_model.cuda()
+        
         model._original_forward = model.forward
-        model.forward = forward.__get__(model, UNetModel)
+        model.forward = forward2.__get__(model, UNetModel)
     
     def notify(self, cond_like):
         self.hint_cond = cond_like

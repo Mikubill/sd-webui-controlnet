@@ -138,6 +138,7 @@ class Script(scripts.Script):
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scibble Mode (Reverse color)', value=False)
+                    lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -182,7 +183,7 @@ class Script(scripts.Script):
                 gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
-                ctrls += (input_image, scribble_mode)
+                ctrls += (input_image, scribble_mode, lowvram)
 
         return ctrls
 
@@ -212,7 +213,11 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight,image, scribble_mode = args
+        enabled, module, model, weight,image, scribble_mode, *rest = args
+        if len(rest) != 0:
+            lowvram = bool(rest[0])
+        else:
+            lowvram = False
 
         if not enabled:
             restore_networks()
@@ -238,9 +243,9 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight)
+            network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight, lowvram=lowvram)
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
-            network.hook(unet)
+            network.hook(unet, p.sd_model)
 
             print(f"ControlNet model {model} loaded.")
             self.latest_network = network
