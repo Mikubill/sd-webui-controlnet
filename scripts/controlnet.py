@@ -275,7 +275,7 @@ class Script(scripts.Script):
         if self.latest_network is None:
             return
         if hasattr(self, "control") and self.control is not None:
-            processed.images.append(ToPILImage()((self.control).clip(0, 255)))
+            processed.images.extend([ToPILImage()(self.control)])
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
