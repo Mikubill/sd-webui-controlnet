@@ -277,7 +277,7 @@ class Script(scripts.Script):
             
         self.control = control
         # control = torch.stack([control for _ in range(bsz)], dim=0)
-        self.latest_network.notify(control)
+        self.latest_network.notify(control, weight)
 
         self.set_infotext_fields(p, self.latest_params)
         

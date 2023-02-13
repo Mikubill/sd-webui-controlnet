@@ -102,8 +102,9 @@ class PlugableControlModel(nn.Module):
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
     
-    def notify(self, cond_like):
+    def notify(self, cond_like, weight):
         self.hint_cond = cond_like
+        self.weight = weight
         # print(self.hint_cond.shape)
 
     def restore(self, model):
