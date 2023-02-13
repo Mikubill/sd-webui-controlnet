@@ -31,6 +31,8 @@ Some users may need to install the cv2 library before installing it: `pip instal
 
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
+Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+
 ### Examples
 
 | Source | Input | Output |
