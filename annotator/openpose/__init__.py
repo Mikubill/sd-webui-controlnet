@@ -6,12 +6,29 @@ import numpy as np
 from . import util
 from .body import Body
 from .hand import Hand
+from modules import extensions
 
-body_estimation = Body('./annotator/ckpts/body_pose_model.pth')
-hand_estimation = Hand('./annotator/ckpts/hand_pose_model.pth')
+body_estimation = None 
+hand_estimation = None 
 
+body_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/body_pose_model.pth"
+hand_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/hand_pose_model.pth"
+modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "openpose")
 
 def apply_openpose(oriImg, hand=False):
+    global body_estimation, hand_estimation
+    if body_estimation is None:
+        body_modelpath = os.path.join(modeldir, "body_pose_model.pth")
+        hand_modelpath = os.path.join(modeldir, "hand_pose_model.pth")
+        
+        if not os.path.exists(hand_modelpath):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(body_model_path, model_dir=modeldir)
+            load_file_from_url(hand_model_path, model_dir=modeldir)
+            
+        body_estimation = Body(body_modelpath)
+        hand_estimation = Hand(hand_modelpath)
+    
     oriImg = oriImg[:, :, ::-1].copy()
     with torch.no_grad():
         candidate, subset = body_estimation(oriImg)

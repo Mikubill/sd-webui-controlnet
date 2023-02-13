@@ -56,7 +56,7 @@ def midas(img, res, a):
 model_openpose = None
 
 
-def openpose(img, res, has_hand):
+def openpose(img, res=512, has_hand=False):
     img = resize_image(HWC3(img), res)
     global model_openpose
     if model_openpose is None:
