@@ -5,7 +5,7 @@ from collections import OrderedDict
 import torch
 
 import modules.scripts as scripts
-from modules import shared
+from modules import shared, devices
 import gradio as gr
 
 import numpy as np
@@ -266,7 +266,7 @@ class Script(scripts.Script):
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
 
-        control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+        control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         control = rearrange(control, 'h w c -> c h w')
         
         if resize_mode == "Scale to Fit (Inner Fit)":

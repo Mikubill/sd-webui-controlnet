@@ -15,6 +15,7 @@ from ldm.modules.diffusionmodules.util import (
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.util import exists
+import modules.devices as devices
 
 
 def load_state_dict(ckpt_path, location='cpu'):
@@ -38,16 +39,16 @@ class PlugableControlModel(nn.Module):
     def __init__(self, model_path, config_path, weight=1.0, lowvram=False) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
-        if lowvram:
-            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cpu()
-            state_dict = load_state_dict(model_path, location='cpu')
-        else:
-            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cuda()
-            state_dict = load_state_dict(model_path, location='cuda')
+
+        self.control_model = ControlNet(**config.model.params.control_stage_config.params)
+        state_dict = load_state_dict(model_path)
+
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         
         self.control_model.load_state_dict(state_dict)
+        self.control_model.to(devices.get_device_for("controlnet"))
+
         self.weight = weight
         self.only_mid_control = False
         self.control = None
