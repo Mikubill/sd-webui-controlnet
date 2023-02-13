@@ -174,9 +174,8 @@ class Script(scripts.Script):
                 ctrls += (refresh_models, )
 
                 def create_canvas(h, w): 
-                    return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, True
+                    return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
-                canvas_state = gr.State(False)
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=1)
                 canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=1)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
@@ -184,8 +183,8 @@ class Script(scripts.Script):
                 gr.Markdown(value='Do not forget to change your brush width to make it thinner. (Gradio do not allow developers to set brush width so you need to do it manually.) '
                             'Just click on the small pencil icon in the upper right corner of the above block.')
                 
-                create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image, canvas_state])
-                ctrls += (canvas_width, canvas_height, create_button, input_image, canvas_state, scribble_mode)
+                create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
+                ctrls += (canvas_width, canvas_height, create_button, input_image, scribble_mode)
 
         return ctrls
 
@@ -216,7 +215,9 @@ class Script(scripts.Script):
                 self.latest_network = None
     
         enabled, module, model, weight, _ = args[:5]
-        _, _, _, image, canvas_state, scribble_mode = args[5:]
+        _, _, _, image, scribble_mode = args[5:]
+        
+        print("called here")
 
         if not enabled:
             restore_networks()
@@ -241,7 +242,7 @@ class Script(scripts.Script):
             if not os.path.exists(model_path):
                 raise ValueError(f"file not found: {model_path}")
 
-            print(f"using preprocessor: {module}, model: {model}")
+            print(f"loading preprocessor: {module}, model: {model}")
             network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight)
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
             network.hook(unet)
@@ -249,35 +250,34 @@ class Script(scripts.Script):
             print(f"ControlNet model {model} loaded.")
             self.latest_network = network
             
-            input_image = HWC3(image['image'])
-            if canvas_state:
-                print("using mask as input")
-                input_image = HWC3(image['mask'][:, :, 0])
+        input_image = HWC3(image['image'])
+        if 255 - np.mean(input_image) < 5:
+            print("using mask as input")
+            input_image = HWC3(image['mask'][:, :, 0])
                 
-            if scribble_mode:
-                detected_map = np.zeros_like(input_image, dtype=np.uint8)
-                detected_map[np.min(input_image, axis=2) < 127] = 255
-                input_image = detected_map
+        if scribble_mode:
+            detected_map = np.zeros_like(input_image, dtype=np.uint8)
+            detected_map[np.min(input_image, axis=2) < 127] = 255
+            input_image = detected_map
                 
-            preprocessor = self.preprocessor[self.latest_params[0]]
-            h, w, bsz = p.height, p.width, p.batch_size
-            detected_map = preprocessor(input_image)
-            detected_map = HWC3(detected_map)
+        preprocessor = self.preprocessor[self.latest_params[0]]
+        h, w, bsz = p.height, p.width, p.batch_size
+        detected_map = preprocessor(input_image)
+        detected_map = HWC3(detected_map)
 
-            control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
-            control = rearrange(control, 'h w c -> c h w')
-            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
-            control = CenterCrop((h, w))(control)
-            print(control)
+        control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+        control = rearrange(control, 'h w c -> c h w')
+        control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
+        control = CenterCrop((h, w))(control)
             
-            self.control = control
-            control = torch.stack([control for _ in range(bsz)], dim=0)
-            self.latest_network.notify(control)
+        self.control = control
+        control = torch.stack([control for _ in range(bsz)], dim=0)
+        self.latest_network.notify(control)
 
         self.set_infotext_fields(p, self.latest_params)
         
     def postprocess(self, p, processed, *args):
-        processed.images.append(ToPILImage()((self.control).clip(0, 255)))
+        # processed.images.append(ToPILImage()((self.control).clip(0, 255)))
         pass
 
 def update_script_args(p, value, arg_idx):
