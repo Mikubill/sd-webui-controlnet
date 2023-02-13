@@ -138,6 +138,7 @@ class Script(scripts.Script):
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scibble Mode (Reverse color)', value=False)
+                    lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -186,6 +187,7 @@ class Script(scripts.Script):
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode)
+                ctrls += (lowvram,)
 
         return ctrls
 
@@ -215,14 +217,15 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode = args
+        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
 
         if not enabled:
             restore_networks()
             return
 
         models_changed = self.latest_params[0] != module or self.latest_params[1] != model \
-            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None
+            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None \
+            or (self.latest_network is not None and self.latest_network.lowvram != lowvram)
 
         if models_changed:
             restore_networks()
@@ -241,9 +244,9 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight)
+            network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight, lowvram=lowvram)
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
-            network.hook(unet)
+            network.hook(unet, p.sd_model)
 
             print(f"ControlNet model {model} loaded.")
             self.latest_network = network
