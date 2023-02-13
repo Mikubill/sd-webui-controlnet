@@ -19,7 +19,7 @@ Some users may need to install the cv2 library before installing it: `pip instal
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. Enter URL of this repo to "URL for extension's git repository".
+3. ~~Enter URL of this repo to "URL for extension's git repository".~~ (fixed)
 4. Press "Install" button.
 5. Reload/Restart Web UI.
 
