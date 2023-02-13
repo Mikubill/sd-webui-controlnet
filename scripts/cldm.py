@@ -42,7 +42,8 @@ class PlugableControlModel(nn.Module):
         config = OmegaConf.load(config_path)
         self.control_model = ControlNet(**config.model.params.control_stage_config.params).cuda()
         state_dict = load_state_dict(model_path, location='cuda')
-        state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
+        if any([k.startswith("control_model.") for k, v in state_dict.items()]):
+            state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         
         self.control_model.load_state_dict(state_dict)
         self.weight = weight

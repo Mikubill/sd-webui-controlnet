@@ -112,7 +112,6 @@ class Script(scripts.Script):
             "midas": midas,
             "mlsd": mlsd,
             "openpose": openpose,
-            "uniformer": uniformer,
         }
         self.input_image = None
         self.latest_model_hash = ""
@@ -180,8 +179,7 @@ class Script(scripts.Script):
                 canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=1)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.Markdown(value='Do not forget to change your brush width to make it thinner. (Gradio do not allow developers to set brush width so you need to do it manually.) '
-                            'Just click on the small pencil icon in the upper right corner of the above block.')
+                gr.Markdown(value='Don\'t drag image into the box! Use upload instead. Change your brush width to make it thinner if you want to draw something.')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_width, canvas_height], outputs=[input_image])
                 ctrls += (canvas_width, canvas_height, create_button, input_image, scribble_mode)
@@ -216,8 +214,6 @@ class Script(scripts.Script):
     
         enabled, module, model, weight, _ = args[:5]
         _, _, _, image, scribble_mode = args[5:]
-        
-        print("called here")
 
         if not enabled:
             restore_networks()
@@ -277,8 +273,8 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params)
         
     def postprocess(self, p, processed, *args):
-        processed.images.append(ToPILImage()((self.control).clip(0, 255)))
-        pass
+        if hasattr(self, "control") and self.control is not None:
+            processed.images.append(ToPILImage()((self.control).clip(0, 255)))
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
