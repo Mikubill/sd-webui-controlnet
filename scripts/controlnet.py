@@ -255,7 +255,7 @@ class Script(scripts.Script):
             print(f"ControlNet model {model} loaded.")
             self.latest_network = network
             
-        if image is None and getattr(p, init_images, None):
+        if image is None and getattr(p, "init_images", None):
             input_image = HWC3(np.asarray(p.init_images[0]))
         else:
             input_image = HWC3(image['image'])
