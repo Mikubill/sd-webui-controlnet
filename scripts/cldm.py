@@ -108,6 +108,10 @@ class PlugableControlModel(nn.Module):
         # print(self.hint_cond.shape)
 
     def restore(self, model):
+        if not hasattr(model, "_original_forward"):
+            # no such handle, ignore
+            return
+        
         model.forward = model._original_forward
         del model._original_forward
 
