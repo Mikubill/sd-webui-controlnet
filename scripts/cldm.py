@@ -90,7 +90,7 @@ class PlugableControlModel(nn.Module):
         def forward2(*args, **kwargs):
             # webui will handle other compoments 
             try:
-                if cmd_opts.lowvram or cmd_opts.medvram:
+                if cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
                 if self.lowvram:
                     self.control_model.to(devices.get_device_for("controlnet"))
