@@ -4,15 +4,16 @@ import torch
 
 from einops import rearrange
 from .api import MiDaSInference
+from modules import devices
 
-model = MiDaSInference(model_type="dpt_hybrid").cuda()
+model = MiDaSInference(model_type="dpt_hybrid").to(devices.get_device_for("controlnet"))
 
 
 def apply_midas(input_image, a=np.pi * 2.0, bg_th=0.1):
     assert input_image.ndim == 3
     image_depth = input_image
     with torch.no_grad():
-        image_depth = torch.from_numpy(image_depth).float().cuda()
+        image_depth = torch.from_numpy(image_depth).float().to(devices.get_device_for("controlnet"))
         image_depth = image_depth / 127.5 - 1.0
         image_depth = rearrange(image_depth, 'h w c -> 1 c h w')
         depth = model(image_depth)[0]

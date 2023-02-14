@@ -4,7 +4,7 @@ import torch
 from einops import rearrange
 
 import os 
-from modules import extensions
+from modules import extensions, devices
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):
@@ -106,12 +106,12 @@ def apply_hed(input_image):
         if not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)
-        netNetwork = Network(modelpath).cuda().eval()
+        netNetwork = Network(modelpath).to(devices.get_device_for("controlnet")).eval()
         
     assert input_image.ndim == 3
     input_image = input_image[:, :, ::-1].copy()
     with torch.no_grad():
-        image_hed = torch.from_numpy(input_image).float().cuda()
+        image_hed = torch.from_numpy(input_image).float().to(devices.get_device_for("controlnet"))
         image_hed = image_hed / 255.0
         image_hed = rearrange(image_hed, 'h w c -> 1 c h w')
         edge = netNetwork(image_hed)[0]
