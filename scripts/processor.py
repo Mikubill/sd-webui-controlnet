@@ -14,6 +14,12 @@ def canny(img, res=512, l=100, h=200):
     result = model_canny(img, l, h)
     return result
 
+def simple_scribble(img, res=512):
+    img = resize_image(HWC3(img), res)
+    result = np.zeros_like(img, dtype=np.uint8)
+    result[np.min(img, axis=2) < 127] = 255
+    return result
+
 
 model_hed = None
 
@@ -36,6 +42,7 @@ def fake_scribble(img, res=512):
     result[result > 10] = 255
     result[result < 255] = 0
     return result
+
 
 model_mlsd = None
 
