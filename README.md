@@ -10,7 +10,7 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 ### Limits
 
 * Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* Juse like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `align(x, size)` function in `scripts/cldm.py`)
+* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
 * Processor thresholds are set in `scripts/processor.py`. Change it if needed.
 * ~~Batch size > 1 or Latent Upscale will encounter errors.~~ (fixed)
 * ~~MiDas Mode not working due to init issue.~~ (fixed)
