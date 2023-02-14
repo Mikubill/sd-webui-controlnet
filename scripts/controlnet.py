@@ -289,7 +289,7 @@ class Script(scripts.Script):
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
-            if self.latest_params[0] == "canny":
+            if self.latest_params[0] in ["canny", "mlds", "fake_scribble"]:
                 result = 255-result
             processed.images.extend([result])
 
