@@ -272,6 +272,8 @@ class Script(scripts.Script):
         detected_map = HWC3(detected_map)
         self.detected_map = detected_map
 
+        if module == "normal_map":
+            detected_map = detected_map[:, :, ::-1].copy()
         control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         control = rearrange(control, 'h w c -> c h w')
         
