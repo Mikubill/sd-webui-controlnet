@@ -62,6 +62,15 @@ def midas(img, res=512, a=np.pi * 2.0):
     results, _ = model_midas(img, a)
     return results
 
+def midas_normal(img, res=512, a=np.pi * 2.0, bg_th=0.4):
+    img = resize_image(HWC3(img), res)
+    global model_midas
+    if model_midas is None:
+        from annotator.midas import apply_midas
+        model_midas = apply_midas
+    _, results  = model_midas(img, a, bg_th)
+    return results
+
 
 model_openpose = None
 

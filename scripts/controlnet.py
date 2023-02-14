@@ -115,6 +115,7 @@ class Script(scripts.Script):
             "openpose": openpose,
             "openpose_hand": openpose_hand,
             "segmentation": uniformer,
+            "normal_map": midas_normal,
             "fake_scribble": fake_scribble,
         }
         self.input_image = None
