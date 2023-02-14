@@ -12,7 +12,7 @@ import gradio as gr
 import numpy as np
 from einops import rearrange
 from modules import sd_models
-from torchvision.transforms import Resize, InterpolationMode, ToPILImage, CenterCrop
+from torchvision.transforms import Resize, InterpolationMode, ToPILImage, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 
@@ -270,21 +270,34 @@ class Script(scripts.Script):
         h, w, bsz = p.height, p.width, p.batch_size
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
-        self.detected_map = detected_map
-
-        if module == "normal_map":
-            detected_map = detected_map[:, :, ::-1].copy()
-        control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
-        control = rearrange(control, 'h w c -> c h w')
         
+        if module == "normal_map":
+            control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+        else:
+            control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+        
+        control = rearrange(control, 'h w c -> c h w')
+        detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
         if resize_mode == "Scale to Fit (Inner Fit)":
-            control = Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC)(control)
-            control = CenterCrop((h, w))(control)
+            transform = Compose([
+                Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(size=(h, w))
+            ]) 
+            control = transform(control)
+            detected_map = transform(detected_map)
         elif resize_mode == "Envelope (Outer Fit)":
-            control = Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC)(control)
-            control = CenterCrop((h, w))(control)
+            transform = Compose([
+                Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(size=(h, w))
+            ]) 
+            control = transform(control)
+            detected_map = transform(detected_map)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
+            detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
+            
+        # for log use
+        self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight)
