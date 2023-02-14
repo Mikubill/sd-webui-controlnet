@@ -256,7 +256,7 @@ class Script(scripts.Script):
             self.latest_network = network
           
         if image is None:
-            input_image = getattr(p, "control_net_input_image", None)  # Other script may need this
+            input_image = getattr(p, "control_net_input_image", None)  # Other scripts may need this
             if input_image is None:
                 input_image = getattr(p, "init_images", [None])[0]
             input_image = HWC3(np.asarray(input_image))
