@@ -256,12 +256,13 @@ class Script(scripts.Script):
             self.latest_network = network
             
         if image is None:
-            image = {'image':np.asarray(p.init_images[0])}
-        input_image = HWC3(image['image'])
-        if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-            print("using mask as input")
-            input_image = HWC3(image['mask'][:, :, 0])
-            scribble_mode = True
+            input_image = HWC3(np.asarray(p.init_images[0]))
+        else:
+            input_image = HWC3(image['image'])
+            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                print("using mask as input")
+                input_image = HWC3(image['mask'][:, :, 0])
+                scribble_mode = True
                 
         if scribble_mode:
             detected_map = np.zeros_like(input_image, dtype=np.uint8)
