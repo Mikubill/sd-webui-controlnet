@@ -1,6 +1,7 @@
 import os
 import stat
 from collections import OrderedDict
+import einops
 
 import torch
 
@@ -265,6 +266,7 @@ class Script(scripts.Script):
         h, w, bsz = p.height, p.width, p.batch_size
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
+        self.detected_map = detected_map
 
         control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         control = rearrange(control, 'h w c -> c h w')
@@ -278,17 +280,18 @@ class Script(scripts.Script):
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             
-        self.control = control
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight)
-
         self.set_infotext_fields(p, self.latest_params)
         
     def postprocess(self, p, processed, *args):
         if self.latest_network is None:
             return
-        if hasattr(self, "control") and self.control is not None:
-            processed.images.extend([ToPILImage()(self.control)])
+        if hasattr(self, "detected_map") and self.detected_map is not None:
+            result =  self.detected_map
+            if self.latest_params[0] == "canny":
+                result = 255-result
+            processed.images.extend([result])
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
