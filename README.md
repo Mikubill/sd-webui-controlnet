@@ -17,8 +17,6 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
-Some users may need to install the cv2 library before installing it: `pip install opencv-python`
-
 Install prettytable if you want to use img2seg preprocessor: `pip install prettytable`
 
 1. Open "Extensions" tab.
