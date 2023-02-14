@@ -258,6 +258,7 @@ class Script(scripts.Script):
         if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
             print("using mask as input")
             input_image = HWC3(image['mask'][:, :, 0])
+            scribble_mode = True
                 
         if scribble_mode:
             detected_map = np.zeros_like(input_image, dtype=np.uint8)
