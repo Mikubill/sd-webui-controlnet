@@ -109,14 +109,14 @@ class Script(scripts.Script):
         self.preprocessor = {
             "none": lambda x: x,
             "canny": canny,
+            "depth": midas,
             "hed": hed,
-            "midas": midas,
             "mlsd": mlsd,
+            "normal_map": midas_normal,
             "openpose": openpose,
             "openpose_hand": openpose_hand,
-            "segmentation": uniformer,
-            "normal_map": midas_normal,
             "fake_scribble": fake_scribble,
+            "segmentation": uniformer,
         }
         self.input_image = None
         self.latest_model_hash = ""
@@ -195,7 +195,7 @@ class Script(scripts.Script):
 
         return ctrls
 
-    def set_infotext_fields(self, p, params):
+    def set_infotext_fields(self, p, params, weight):
         module, model = params
         if model == "None" or model == "none":
             return
@@ -203,7 +203,7 @@ class Script(scripts.Script):
             "ControlNet Enabled": True,
             f"ControlNet Module": module,
             f"ControlNet Model": model,
-            # f"ControlNet Weight": weight,
+            f"ControlNet Weight": weight,
         })
 
     def process(self, p, *args):
@@ -307,7 +307,7 @@ class Script(scripts.Script):
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight)
-        self.set_infotext_fields(p, self.latest_params)
+        self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):
         if self.latest_network is None:
