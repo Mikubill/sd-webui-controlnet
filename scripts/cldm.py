@@ -4,6 +4,8 @@ from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
+from modules.shared import cmd_opts
+from modules import devices, lowvram
 
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
@@ -38,21 +40,20 @@ class PlugableControlModel(nn.Module):
     def __init__(self, model_path, config_path, weight=1.0, lowvram=False) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
-        if lowvram:
-            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cpu()
-            state_dict = load_state_dict(model_path, location='cpu')
-        else:
-            self.control_model = ControlNet(**config.model.params.control_stage_config.params).cuda()
-            state_dict = load_state_dict(model_path, location='cuda')
+        
+        self.control_model = ControlNet(**config.model.params.control_stage_config.params)
+        state_dict = load_state_dict(model_path)
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         
         self.control_model.load_state_dict(state_dict)
+        self.lowvram = lowvram            
         self.weight = weight
         self.only_mid_control = False
         self.control = None
         self.hint_cond = None
-        self.lowvram = lowvram
+        if not self.lowvram:
+            self.control_model.to(devices.get_device_for("controlnet"))
 
     def hook(self, model, parent_model):
         outer = self
@@ -87,17 +88,16 @@ class PlugableControlModel(nn.Module):
             return self.out(h)
 
         def forward2(*args, **kwargs):
+            # webui will handle other compoments 
             try:
+                if cmd_opts.lowvram or cmd_opts.medvram:
+                    lowvram.send_everything_to_cpu()
                 if self.lowvram:
-                    parent_model.first_stage_model.cpu()
-                    parent_model.cond_stage_model.cpu()
-                    self.control_model.cuda()
+                    self.control_model.to(devices.get_device_for("controlnet"))
                 return forward(*args, **kwargs)
             finally:
                 if self.lowvram:
                     self.control_model.cpu()
-                    parent_model.first_stage_model.cuda()
-                    parent_model.cond_stage_model.cuda()
         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
