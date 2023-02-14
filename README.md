@@ -27,7 +27,7 @@ Some users may need to install the cv2 library before installing it: `pip instal
 
 ### Usage
 
-0. Write your prompt first.
+0. Open "txt2Img" tab, write your prompts first.
 1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the sd-webui-controlnet/models folder.
 2. Press "Refresh models" to update the models list.
 3. Upload your image and select preprocessor, done.
