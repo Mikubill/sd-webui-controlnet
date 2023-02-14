@@ -75,15 +75,24 @@ def openpose(img, res=512, has_hand=False):
     result, _ = model_openpose(img, has_hand)
     return result
 
+def openpose_hand(img, res=512, has_hand=True):
+    img = resize_image(HWC3(img), res)
+    global model_openpose
+    if model_openpose is None:
+        from annotator.openpose import apply_openpose
+        model_openpose = apply_openpose
+    result, _ = model_openpose(img, has_hand)
+    return result
 
-# model_uniformer = None
+
+model_uniformer = None
 
 
-# def uniformer(img, res):
-#     img = resize_image(HWC3(img), res)
-#     global model_uniformer
-#     if model_uniformer is None:
-#         from annotator.uniformer import apply_uniformer
-#         model_uniformer = apply_uniformer
-#     result = model_uniformer(img)
-#     return result
+def uniformer(img, res=512):
+    img = resize_image(HWC3(img), res)
+    global model_uniformer
+    if model_uniformer is None:
+        from annotator.uniformer import apply_uniformer
+        model_uniformer = apply_uniformer
+    result = model_uniformer(img)
+    return result

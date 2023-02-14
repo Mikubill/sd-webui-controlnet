@@ -113,6 +113,8 @@ class Script(scripts.Script):
             "midas": midas,
             "mlsd": mlsd,
             "openpose": openpose,
+            "openpose_hand": openpose_hand,
+            "segmentation": uniformer,
             "fake_scribble": fake_scribble,
         }
         self.input_image = None
@@ -224,14 +226,14 @@ class Script(scripts.Script):
             restore_networks()
             return
 
-        models_changed = self.latest_params[0] != module or self.latest_params[1] != model \
+        models_changed = self.latest_params[1] != model \
             or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None \
             or (self.latest_network is not None and self.latest_network.lowvram != lowvram)
 
+        self.latest_params = (module, model)
+        self.latest_model_hash = p.sd_model.sd_model_hash
         if models_changed:
             restore_networks()
-            self.latest_params = (module, model)
-            self.latest_model_hash = p.sd_model.sd_model_hash
             model_path = cn_models.get(model, None)
 
             if model_path is None:
@@ -289,7 +291,7 @@ class Script(scripts.Script):
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
-            if self.latest_params[0] in ["canny", "mlds", "fake_scribble"]:
+            if self.latest_params[0] in ["canny", "mlsd", "fake_scribble"]:
                 result = 255-result
             processed.images.extend([result])
 
