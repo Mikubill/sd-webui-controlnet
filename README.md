@@ -27,6 +27,8 @@ Install prettytable if you want to use img2seg preprocessor: `pip install pretty
 4. Press "Install" button.
 5. Reload/Restart Web UI.
 
+[YouTube Video Tutorial](https://www.youtube.com/watch?v=vhqqmkTBMlU)
+
 ### Usage
 
 0. Open "txt2img" tab, write your prompts first.
