@@ -36,6 +36,14 @@ def get_state_dict(d):
     return d.get('state_dict', d)
 
 
+def align(hint, size):
+    b, c, h1, w1 = hint.shape
+    h, w = size
+    if h != h1 or w != w1:
+         hint = torch.nn.functional.interpolate(hint, size=size, mode="nearest")
+    return hint
+
+
 class PlugableControlModel(nn.Module):
     def __init__(self, model_path, config_path, weight=1.0, lowvram=False) -> None:
         super().__init__()
@@ -80,8 +88,9 @@ class PlugableControlModel(nn.Module):
                 if only_mid_control:
                     h = torch.cat([h, hs.pop()], dim=1)
                 else:
-                    h = torch.cat(
-                        [h, hs.pop() + control.pop() * outer.weight], dim=1)
+                    hs_input, control_input = hs.pop(), control.pop()
+                    control_input = align(control_input, hs_input.shape[-2:])
+                    h = torch.cat([h, hs_input + control_input * outer.weight], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -358,12 +367,7 @@ class ControlNet(nn.Module):
     def align(self, hint, h, w):
         c, h1, w1 = hint.shape
         if h != h1 or w != w1:
-            hint = torch.nn.functional.interpolate(
-                hint.unsqueeze(0),
-                size=(h, w),
-                mode="nearest-exact",
-                antialias=False,
-            )
+            hint = align(hint.unsqueeze(0), (h, w))
             return hint.squeeze(0)
         return hint
 
