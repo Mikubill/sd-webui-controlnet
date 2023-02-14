@@ -60,6 +60,7 @@ class PlugableControlModel(nn.Module):
         self.only_mid_control = False
         self.control = None
         self.hint_cond = None
+        
         if not self.lowvram:
             self.control_model.to(devices.get_device_for("controlnet"))
 
@@ -89,7 +90,7 @@ class PlugableControlModel(nn.Module):
                     h = torch.cat([h, hs.pop()], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
-                    control_input = align(control_input, hs_input.shape[-2:])
+                    h = align(h, hs_input.shape[-2:])
                     h = torch.cat([h, hs_input + control_input * outer.weight], dim=1)
                 h = module(h, emb, context)
 
@@ -376,19 +377,18 @@ class ControlNet(nn.Module):
             timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-        _, _, h1, w1 = x.shape
-        hint = self.align(hint, h1 * 8, w1 * 8)
             
         guided_hint = self.input_hint_block(hint, emb, context)
         outs = []
+        
+        _, _, h1, w1 = x.shape
+        guided_hint = self.align(guided_hint, h1, w1)
 
         h = x.type(self.dtype)
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
             if guided_hint is not None:
                 h = module(h, emb, context)
-                # handle corner cases
-                _, _, h1, w1 = h.shape
-                h += self.align(guided_hint, h1, w1)
+                h += guided_hint
                 guided_hint = None
             else:
                 h = module(h, emb, context)

@@ -243,7 +243,7 @@ class Script(scripts.Script):
             if not os.path.exists(model_path):
                 raise ValueError(f"file not found: {model_path}")
 
-            print(f"loading preprocessor: {module}, model: {model}")
+            print(f"Loading preprocessor: {module}, model: {model}")
             network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight, lowvram=lowvram)
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
             network.hook(unet, p.sd_model)
