@@ -76,10 +76,9 @@ def find_closest_lora_model_name(search: str):
 def update_cn_models():
     global cn_models, cn_models_names
     res = OrderedDict()
-    extra_lora_paths = (extra_lora_path
-                        for extra_lora_path
-                        in (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
-                        if extra_lora_path is not None and os.path.exists(extra_lora_path))
+    ext_dirs = (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
+    extra_lora_paths = (extra_lora_path for extra_lora_path in ext_dirs
+                if extra_lora_path is not None and os.path.exists(extra_lora_path))
     paths = [cn_models_dir, *extra_lora_paths]
 
     for path in paths:
@@ -302,7 +301,7 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):
-        if self.latest_network is None:
+        if self.latest_network is None or shared.opts.data.get("control_net_no_detectmap", False):
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -331,5 +330,7 @@ def on_ui_settings():
     section = ('control_net', "ControlNet")
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+    shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
+        False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
 
 script_callbacks.on_ui_settings(on_ui_settings)
