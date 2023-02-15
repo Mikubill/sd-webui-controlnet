@@ -1,7 +1,6 @@
 import os
 import stat
 from collections import OrderedDict
-import einops
 
 import torch
 
@@ -153,30 +152,24 @@ class Script(scripts.Script):
                     model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
 
-                ctrls += (module, model, weight,)
+                    ctrls += (module, model, weight,)
+                    # model_dropdowns.append(model)
+                    
                 self.infotext_fields.extend([
                     (module, f"ControlNet Preprocessor"),
                     (model, f"ControlNet Model"),
                     (weight, f"ControlNet Weight"),
                 ])
-                model_dropdowns.append(model)
 
-                def refresh_all_models(dropdowns):
+                def refresh_all_models(*inputs):
                     update_cn_models()
-                    updates = []
-                    for dd in dropdowns:
-                        dd = dd["value"] if isinstance(dd, dict) else dd
-                        if dd in cn_models:
-                            selected = dd
-                        else:
-                            selected = "None"
-
-                        update = gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
-                        updates.append(update)
-                    return updates
+                    
+                    dd = inputs[0]
+                    selected = dd if dd in cn_models else "None"
+                    return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
 
                 refresh_models = gr.Button(value='Refresh models')
-                refresh_models.click(refresh_all_models, inputs=model_dropdowns, outputs=model_dropdowns)
+                refresh_models.click(refresh_all_models, model, model)
                 # ctrls += (refresh_models, )
 
                 def create_canvas(h, w): 
