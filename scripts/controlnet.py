@@ -152,8 +152,9 @@ class Script(scripts.Script):
             with gr.Accordion('ControlNet', open=False):
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
-                    scribble_mode = gr.Checkbox(label='Scribble Mode (Reverse color)', value=False)
-                    lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
+                    scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
+                    rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
+                    lowvram = gr.Checkbox(label='Low VRAM', value=False)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -195,7 +196,7 @@ class Script(scripts.Script):
                 gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                ctrls += (input_image, scribble_mode, resize_mode)
+                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
 
         return ctrls
@@ -230,7 +231,7 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
+        enabled, module, model, weight,image, scribble_mode, resize_mode, rgbbgr_mode, lowvram = args
 
         if not enabled:
             restore_networks()
@@ -283,7 +284,7 @@ class Script(scripts.Script):
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
         
-        if module == "normal_map" and self.latest_params[0] != "none":
+        if module == "normal_map" or rgbbgr_mode:
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
