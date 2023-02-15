@@ -18,7 +18,7 @@ from scripts.processor import *
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
-cn_models_dir = os.path.join(scripts.basedir(), "models")
+cn_models_dir = shared.cmd_opts.controlnet_dir
 os.makedirs(cn_models_dir, exist_ok=True)
 
 def traverse_all_files(curr_path, model_list):
