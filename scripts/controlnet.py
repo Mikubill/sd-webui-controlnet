@@ -283,7 +283,7 @@ class Script(scripts.Script):
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
         
-        if module == "normal_map":
+        if module == "normal_map" and preprocessor != "none":
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
