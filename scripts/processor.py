@@ -2,6 +2,7 @@
 import numpy as np
 from annotator.util import resize_image, HWC3
 
+
 model_canny = None
 
 
@@ -33,6 +34,12 @@ def hed(img, res=512):
     result = model_hed(img)
     return result
 
+def unload_hed():
+    global model_hed
+    if model_hed is not None:
+        from annotator.hed import unload_hed_model
+        unload_hed_model()
+
 def fake_scribble(img, res=512):
     result = hed(img, res)
     import cv2
@@ -56,6 +63,12 @@ def mlsd(img, res=512, thr_v=0.1, thr_d=0.1):
     result = model_mlsd(img, thr_v, thr_d)
     return result
 
+def unload_mlsd():
+    global model_mlsd
+    if model_mlsd is not None:
+        from annotator.mlsd import unload_mlsd_model
+        unload_mlsd_model()
+
 
 model_midas = None
 
@@ -77,6 +90,12 @@ def midas_normal(img, res=512, a=np.pi * 2.0, bg_th=0.4):
         model_midas = apply_midas
     _, results  = model_midas(img, a, bg_th)
     return results
+
+def unload_midas():
+    global model_midas
+    if model_midas is not None:
+        from annotator.midas import unload_midas_model
+        unload_midas_model()
 
 
 model_openpose = None
@@ -100,6 +119,12 @@ def openpose_hand(img, res=512, has_hand=True):
     result, _ = model_openpose(img, has_hand)
     return result
 
+def unload_openpose():
+    global model_openpose
+    if model_openpose is not None:
+        from annotator.openpose import unload_openpose_model
+        unload_openpose_model()
+
 
 model_uniformer = None
 
@@ -112,3 +137,9 @@ def uniformer(img, res=512):
         model_uniformer = apply_uniformer
     result = model_uniformer(img)
     return result
+
+def unload_uniformer():
+    global model_uniformer
+    if model_uniformer is not None:
+        from annotator.uniformer import unload_uniformer_model
+        unload_uniformer_model()

@@ -22,6 +22,8 @@ class Hand(object):
         self.model.eval()
 
     def __call__(self, oriImg):
+        self.model = self.model.to(devices.get_device_for("controlnet"))
+        
         scale_search = [0.5, 1.0, 1.5, 2.0]
         # scale_search = [0.5]
         boxsize = 368

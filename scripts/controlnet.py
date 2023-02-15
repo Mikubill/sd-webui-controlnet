@@ -20,6 +20,7 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
+default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -118,6 +119,16 @@ class Script(scripts.Script):
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
         }
+        self.unloadable = {
+            "hed": unload_hed,
+            "fake_scribble": unload_hed,
+            "mlsd": unload_mlsd,
+            "depth": unload_midas,
+            "normal_map": unload_midas,
+            "openpose": unload_openpose,
+            "openpose_hand": unload_openpose,
+            "segmentation": unload_uniformer,
+        }
         self.input_image = None
         self.latest_model_hash = ""
 
@@ -214,6 +225,10 @@ class Script(scripts.Script):
                 self.input_image = None
                 self.latest_network.restore(unet)
                 self.latest_network = None
+            
+            last_module = self.latest_params[0]
+            if last_module is not None:
+                self.unloadable.get(last_module, lambda:None)()
     
         enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
 
@@ -242,7 +257,7 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(model_path, os.path.join(cn_models_dir, "cldm_v15.yaml"), weight, lowvram=lowvram)
+            network = PlugableControlModel(model_path, shared.opts.data.get("control_net_model_config", default_conf), weight, lowvram=lowvram)
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
             network.hook(unet, p.sd_model)
 
@@ -328,9 +343,12 @@ def update_script_args(p, value, arg_idx):
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
+    shared.opts.add_option("control_net_model_config", shared.OptionInfo(
+        default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+
 
 script_callbacks.on_ui_settings(on_ui_settings)

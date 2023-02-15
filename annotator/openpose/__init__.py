@@ -15,6 +15,12 @@ body_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/ann
 hand_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/hand_pose_model.pth"
 modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "openpose")
 
+def unload_openpose_model():
+    global body_estimation, hand_estimation
+    if body_estimation is not None:
+        body_estimation.model.cpu()
+        hand_estimation.model.cpu()
+
 def apply_openpose(oriImg, hand=False):
     global body_estimation, hand_estimation
     if body_estimation is None:

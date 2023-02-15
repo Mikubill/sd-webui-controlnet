@@ -6,10 +6,19 @@ from einops import rearrange
 from .api import MiDaSInference
 from modules import devices
 
-model = MiDaSInference(model_type="dpt_hybrid").to(devices.get_device_for("controlnet"))
+model = None
 
+def unload_midas_model():
+    global model
+    if model is not None:
+        model = model.to(devices.get_device_for("controlnet"))
 
 def apply_midas(input_image, a=np.pi * 2.0, bg_th=0.1):
+    global model
+    if model is None:
+        model = MiDaSInference(model_type="dpt_hybrid")
+    model = model.to(devices.get_device_for("controlnet"))
+    
     assert input_image.ndim == 3
     image_depth = input_image
     with torch.no_grad():
