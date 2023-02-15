@@ -78,7 +78,7 @@ def update_cn_models():
     res = OrderedDict()
     extra_lora_paths = (extra_lora_path
                         for extra_lora_path
-                        in (shared.opts.data.get("control_net_models_path", None), shared.cmd_opts.controlnet_dir)
+                        in (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
                         if extra_lora_path is not None and os.path.exists(extra_lora_path))
     paths = [cn_models_dir, *extra_lora_paths]
 
@@ -328,8 +328,8 @@ def update_script_args(p, value, arg_idx):
 #             raise RuntimeError(f"Unknown ControlNet model: {x}")
 
 def on_ui_settings():
-  section = ('control_net', "ControlNet")
-  shared.opts.add_option("control_net_models_path", shared.OptionInfo(
-      "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+    section = ('control_net', "ControlNet")
+    shared.opts.add_option("control_net_models_path", shared.OptionInfo(
+        "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
 script_callbacks.on_ui_settings(on_ui_settings)
