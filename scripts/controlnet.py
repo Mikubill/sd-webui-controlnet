@@ -11,7 +11,7 @@ import gradio as gr
 import numpy as np
 from einops import rearrange
 from modules import sd_models
-from torchvision.transforms import Resize, InterpolationMode, ToPILImage, CenterCrop, Compose
+from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 
@@ -355,7 +355,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_transfer_control", shared.OptionInfo(
-        True, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
+        False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
