@@ -4,7 +4,7 @@ from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules.shared import cmd_opts
+from modules.shared import cmd_opts, opts
 from modules import devices, lowvram
 
 from ldm.modules.diffusionmodules.util import (
@@ -69,8 +69,15 @@ class PlugableControlModel(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
+            
+            # hires stuffs
+            # note that this method may not works if hr_scale < 1.1
+            if abs(x.shape[-1] - outer.hint_cond.shape[-1] // 8) > 8:
+                only_mid_control = opts.data.get("control_net_only_midctrl_hires", True)
+                # If you want to completely disable control net, uncomment this.
+                # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
+            
             control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
-
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with torch.no_grad():
@@ -381,7 +388,7 @@ class ControlNet(nn.Module):
         guided_hint = self.input_hint_block(hint, emb, context)
         outs = []
         
-        _, _, h1, w1 = x.shape
+        h1, w1 = x.shape[-2:]
         guided_hint = self.align(guided_hint, h1, w1)
 
         h = x.type(self.dtype)

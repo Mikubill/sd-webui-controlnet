@@ -349,6 +349,10 @@ def on_ui_settings():
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
+        True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
+
+    # control_net_skip_hires
 
 
 script_callbacks.on_ui_settings(on_ui_settings)
