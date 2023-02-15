@@ -5,7 +5,7 @@ from collections import OrderedDict
 import torch
 
 import modules.scripts as scripts
-from modules import shared, devices
+from modules import shared, devices, script_callbacks
 import gradio as gr
 
 import numpy as np
@@ -76,10 +76,11 @@ def find_closest_lora_model_name(search: str):
 def update_cn_models():
     global cn_models, cn_models_names
     res = OrderedDict()
-    paths = [cn_models_dir]
-    extra_lora_path = shared.opts.data.get("control_net_models_path", None)
-    if extra_lora_path and os.path.exists(extra_lora_path):
-        paths.append(extra_lora_path)
+    extra_lora_paths = (extra_lora_path
+                        for extra_lora_path
+                        in (shared.opts.data.get("control_net_models_path", None), shared.cmd_opts.controlnet_dir)
+                        if extra_lora_path is not None and os.path.exists(extra_lora_path))
+    paths = [cn_models_dir, *extra_lora_paths]
 
     for path in paths:
         sort_by = shared.opts.data.get(
@@ -326,9 +327,9 @@ def update_script_args(p, value, arg_idx):
 #         if not find_closest_lora_model_name(x):
 #             raise RuntimeError(f"Unknown ControlNet model: {x}")
 
-# def on_ui_settings():
-#   section = ('control_net', "ControlNet")
-#   shared.opts.add_option("control_net_path", shared.OptionInfo(
-#       "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+def on_ui_settings():
+  section = ('control_net', "ControlNet")
+  shared.opts.add_option("control_net_models_path", shared.OptionInfo(
+      "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
-# script_callbacks.on_ui_settings(on_ui_settings)
+script_callbacks.on_ui_settings(on_ui_settings)
