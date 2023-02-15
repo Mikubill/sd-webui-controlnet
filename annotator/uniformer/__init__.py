@@ -9,6 +9,11 @@ checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/ann
 config_file = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer", "exp", "upernet_global_small", "config.py")
 model = None
 
+def unload_uniformer_model():
+    global model
+    if model is not None:
+        model = model.cpu()
+
 def apply_uniformer(img):
     global model
     if model is None:
@@ -17,7 +22,8 @@ def apply_uniformer(img):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(checkpoint_file, model_dir=modeldir)
             
-        model = init_segmentor(config_file, checkpoint_file).to(devices.get_device_for("controlnet"))
+        model = init_segmentor(config_file, checkpoint_file)
+    model = model.to(devices.get_device_for("controlnet"))
     
     if devices.get_device_for("controlnet").type == 'mps':
         # adaptive_avg_pool2d can fail on MPS, workaround with CPU

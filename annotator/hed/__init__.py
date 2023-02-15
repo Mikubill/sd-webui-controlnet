@@ -106,7 +106,8 @@ def apply_hed(input_image):
         if not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)
-        netNetwork = Network(modelpath).to(devices.get_device_for("controlnet")).eval()
+        netNetwork = Network(modelpath)
+    netNetwork.to(devices.get_device_for("controlnet")).eval()
         
     assert input_image.ndim == 3
     input_image = input_image[:, :, ::-1].copy()
@@ -117,7 +118,11 @@ def apply_hed(input_image):
         edge = netNetwork(image_hed)[0]
         edge = (edge.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
         return edge[0]
-
+    
+def unload_hed_model():
+    global netNetwork
+    if netNetwork is not None:
+        netNetwork.cpu()
 
 def nms(x, t, s):
     x = cv2.GaussianBlur(x.astype(np.float32), (0, 0), s)
