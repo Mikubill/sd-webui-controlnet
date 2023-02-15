@@ -67,7 +67,7 @@ class PlugableControlModel(nn.Module):
             final_state_dict = {}
             counter = 0
             for key in state_dict.keys():
-                if not (key.startswith("model.diffusion_model.") or key.startswith("control_model.")):
+                if not key.startswith("control_model."):
                     continue
                 
                 p = state_dict[key]
