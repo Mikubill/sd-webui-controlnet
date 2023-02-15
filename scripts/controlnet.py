@@ -197,6 +197,9 @@ class Script(scripts.Script):
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode)
                 ctrls += (lowvram,)
+                
+                enable_api = gr.Checkbox(label='Enable API for other scripts', value=True)
+                ctrls += (enable_api,)
 
         return ctrls
 
@@ -230,19 +233,22 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
+        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram, enable_api = args
         
         # Other scripts can control this extension now
-        enabled = getattr(p, 'control_net_enabled', enabled)
-        module = getattr(p, 'control_net_module', module)
-        model = getattr(p, 'control_net_model', model)
-        weight = getattr(p, 'control_net_weight', weight)
-        image = getattr(p, 'control_net_image', image)
-        scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
-        resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
-        lowvram = getattr(p, 'control_net_lowvram', lowvram)
-        
-        input_image = getattr(p, 'control_net_input_image', None)
+        if enable_api:
+            enabled = getattr(p, 'control_net_enabled', enabled)
+            module = getattr(p, 'control_net_module', module)
+            model = getattr(p, 'control_net_model', model)
+            weight = getattr(p, 'control_net_weight', weight)
+            image = getattr(p, 'control_net_image', image)
+            scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
+            resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
+            lowvram = getattr(p, 'control_net_lowvram', lowvram)
+
+            input_image = getattr(p, 'control_net_input_image', None)
+        else:
+            input_image = None
 
         if not enabled:
             restore_networks()
