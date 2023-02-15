@@ -60,7 +60,7 @@ class PlugableControlModel(nn.Module):
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
         state_dict = load_state_dict(model_path)
         if any([k.startswith("model.diffusion_model.") for k, v in state_dict.items()]) and \
-            shared.opts.data.get("control_net_transfer_control", True):
+            shared.opts.data.get("control_net_transfer_control", False):
             # apply transfer control - https://github.com/lllyasviel/ControlNet/blob/main/tool_transfer_control.py
             input_state_dict = base_model.state_dict()  
             input_state_dict_keys = input_state_dict.keys()
@@ -84,7 +84,7 @@ class PlugableControlModel(nn.Module):
             print(f'Offset cloned: {counter} values')    
             state_dict = {k.replace("control_model.", ""): v for k, v in final_state_dict.items() if k.startswith("control_model.")}
         elif any([k.startswith("control_model.") for k, v in state_dict.items()]):
-            # old method for low-ram user
+            #
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         else:
             # assume that model is done by user
