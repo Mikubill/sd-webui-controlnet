@@ -258,7 +258,13 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(model_path, shared.opts.data.get("control_net_model_config", default_conf), weight, lowvram=lowvram)
+            network = PlugableControlModel(
+                model_path=model_path, 
+                config_path=shared.opts.data.get("control_net_model_config", default_conf), 
+                weight=weight, 
+                lowvram=lowvram,
+                base_model=unet,
+            )
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
             network.hook(unet, p.sd_model)
 
@@ -348,6 +354,8 @@ def on_ui_settings():
         default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+    shared.opts.add_option("control_net_transfer_control", shared.OptionInfo(
+        True, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(

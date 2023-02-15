@@ -4,8 +4,7 @@ from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules.shared import cmd_opts, opts
-from modules import devices, lowvram
+from modules import devices, lowvram, shared
 
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
@@ -44,16 +43,53 @@ def align(hint, size):
     return hint
 
 
+def get_node_name(name, parent_name):
+    if len(name) <= len(parent_name):
+        return False, ''
+    p = name[:len(parent_name)]
+    if p != parent_name:
+        return False, ''
+    return True, name[len(parent_name):]
+
+
 class PlugableControlModel(nn.Module):
-    def __init__(self, model_path, config_path, weight=1.0, lowvram=False) -> None:
+    def __init__(self, model_path, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
         
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
         state_dict = load_state_dict(model_path)
-        if any([k.startswith("control_model.") for k, v in state_dict.items()]):
+        if any([k.startswith("model.diffusion_model.") for k, v in state_dict.items()]) and \
+            shared.opts.data.get("control_net_transfer_control", True):
+            # apply transfer control - https://github.com/lllyasviel/ControlNet/blob/main/tool_transfer_control.py
+            input_state_dict = base_model.state_dict()  
+            input_state_dict_keys = input_state_dict.keys()
+            final_state_dict = {}
+            counter = 0
+            for key in state_dict.keys():
+                if not (key.startswith("model.diffusion_model.") or key.startswith("control_model.")):
+                    continue
+                
+                p = state_dict[key]
+                is_control, node_name = get_node_name(key, 'control_')
+                key_name = node_name.replace("model.", "") if is_control else key
+                    
+                if key_name in input_state_dict_keys:
+                    p_new = p + input_state_dict[key_name].clone().cpu() - state_dict["model.diffusion_model."+key_name]
+                    counter += 1
+                else:
+                    p_new = p
+                final_state_dict[key] = p_new
+                
+            print(f'Offset cloned: {counter} values')    
+            state_dict = {k.replace("control_model.", ""): v for k, v in final_state_dict.items() if k.startswith("control_model.")}
+        elif any([k.startswith("control_model.") for k, v in state_dict.items()]):
+            # old method for low-ram user
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
-        
+        else:
+            # assume that model is done by user
+            pass
+            
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram            
         self.weight = weight
@@ -73,7 +109,7 @@ class PlugableControlModel(nn.Module):
             # hires stuffs
             # note that this method may not works if hr_scale < 1.1
             if abs(x.shape[-1] - outer.hint_cond.shape[-1] // 8) > 8:
-                only_mid_control = opts.data.get("control_net_only_midctrl_hires", True)
+                only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
                 # If you want to completely disable control net, uncomment this.
                 # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
             
@@ -107,7 +143,7 @@ class PlugableControlModel(nn.Module):
         def forward2(*args, **kwargs):
             # webui will handle other compoments 
             try:
-                if cmd_opts.lowvram:
+                if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
                 if self.lowvram:
                     self.control_model.to(devices.get_device_for("controlnet"))
