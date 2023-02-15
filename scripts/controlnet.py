@@ -225,7 +225,7 @@ class Script(scripts.Script):
         enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
         
         # Other scripts can control this extension now
-        enables = getattr(p, 'control_net_enabled', enabled)
+        enabled = getattr(p, 'control_net_enabled', enabled)
         module = getattr(p, 'control_net_module', module)
         model = getattr(p, 'control_net_model', model)
         weight = getattr(p, 'control_net_weight', weight)
