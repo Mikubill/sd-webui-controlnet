@@ -192,7 +192,7 @@ class Script(scripts.Script):
                     canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
+                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode)
