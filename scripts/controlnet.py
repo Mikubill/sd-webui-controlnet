@@ -143,7 +143,8 @@ class Script(scripts.Script):
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Reverse color)', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
-                    
+                    batch_generation = gr.Checkbox(label='Batch generation', value=False, visible=is_img2img)
+
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
 
@@ -185,7 +186,7 @@ class Script(scripts.Script):
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode)
-                ctrls += (lowvram,)
+                ctrls += (lowvram, batch_generation)
 
         return ctrls
 
@@ -215,11 +216,13 @@ class Script(scripts.Script):
                 self.latest_network.restore(unet)
                 self.latest_network = None
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram = args
+        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram, batch_generation = args
 
         if not enabled:
             restore_networks()
             return
+
+        self.batch_generation = batch_generation
 
         models_changed = self.latest_params[1] != model \
             or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None \
@@ -301,7 +304,7 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):
-        if self.latest_network is None:
+        if self.latest_network is None is None or self.batch_generation:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
