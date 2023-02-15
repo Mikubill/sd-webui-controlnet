@@ -29,10 +29,10 @@ Install prettytable if you want to use img2seg preprocessor: `pip install pretty
 
 ### Usage
 
-0. Open "txt2img" tab, write your prompts first.
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the sd-webui-controlnet/models folder.
-2. Press "Refresh models" to update the models list.
-3. Upload your image and select preprocessor, done.
+1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `sd-webui-controlnet/models` folder.
+2. Open "txt2img" or "img2img" tab, write your prompts.
+3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
+4. Upload your image and select preprocessor, done.
 
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
