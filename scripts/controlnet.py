@@ -109,7 +109,7 @@ class Script(scripts.Script):
         self.latest_params = (None, None)
         self.latest_network = None
         self.preprocessor = {
-            "none": lambda x: x,
+            "none": lambda x, *args, **kwargs: x,
             "canny": canny,
             "depth": midas,
             "hed": hed,
