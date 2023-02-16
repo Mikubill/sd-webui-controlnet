@@ -59,33 +59,41 @@ class PlugableControlModel(nn.Module):
         
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
         state_dict = load_state_dict(model_path)
-
-        if any([k.startswith("control_model.") for k, v in state_dict.items()]) and 'difference' in state_dict and base_model is not None:
-            # apply transfer control - https://github.com/lllyasviel/ControlNet/blob/main/tool_transfer_control.py
-            # yet another implementation: make difference in advance
-            unet_state_dict = base_model.state_dict()
-            unet_state_dict_keys = unet_state_dict.keys()
-            final_state_dict = {}
-            counter = 0
-            for key in state_dict.keys():
-                if not key.startswith("control_model."):
-                    continue
+        
+        if any([k.startswith("control_model.") for k, v in state_dict.items()]):
+            
+            is_diff_model = 'difference' in state_dict
+            transfer_ctrl_opt = shared.opts.data.get("control_net_transfer_control", False)
+            if (is_diff_model or transfer_ctrl_opt) and base_model is not None:
+                # apply transfer control - https://github.com/lllyasviel/ControlNet/blob/main/tool_transfer_control.py
                 
-                p = state_dict[key]
-                is_control, node_name = get_node_name(key, 'control_')
-                key_name = node_name.replace("model.", "") if is_control else key
+                unet_state_dict = base_model.state_dict()
+                unet_state_dict_keys = unet_state_dict.keys()
+                final_state_dict = {}
+                counter = 0
+                for key in state_dict.keys():
+                    if not key.startswith("control_model."):
+                        continue
+                    
+                    p = state_dict[key]
+                    is_control, node_name = get_node_name(key, 'control_')
+                    key_name = node_name.replace("model.", "") if is_control else key
 
-                if key_name in unet_state_dict_keys:
-                    p_new = unet_state_dict[key_name].clone().cpu() + state_dict[key]
-                    counter += 1
-                else:
-                    p_new = p
-                final_state_dict[key] = p_new
+                    if key_name in unet_state_dict_keys:
+                        if is_diff_model:
+                            # transfer control by make difference in advance
+                            p_new = p + unet_state_dict[key_name].clone().cpu()
+                        else:
+                            # transfer control by calculate offsets from (delta = p + current_unet_encoder - frozen_unet_encoder)
+                            p_new = p + unet_state_dict[key_name].clone().cpu() - state_dict["model.diffusion_model."+key_name]
+                        counter += 1
+                    else:
+                        p_new = p
+                    final_state_dict[key] = p_new
+                    
+                print(f'Offset cloned: {counter} values')
+                state_dict = final_state_dict
                 
-            print(f'Offset cloned: {counter} values')    
-            state_dict = {k.replace("control_model.", ""): v for k, v in final_state_dict.items() if k.startswith("control_model.")}
-        elif any([k.startswith("control_model.") for k, v in state_dict.items()]):
-            #
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
         else:
             # assume that model is done by user
