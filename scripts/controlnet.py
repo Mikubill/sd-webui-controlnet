@@ -11,7 +11,7 @@ import gradio as gr
 import numpy as np
 from einops import rearrange
 from modules import sd_models
-from torchvision.transforms import Resize, InterpolationMode, ToPILImage, CenterCrop, Compose
+from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 
@@ -152,8 +152,9 @@ class Script(scripts.Script):
             with gr.Accordion('ControlNet', open=False):
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
-                    scribble_mode = gr.Checkbox(label='Scribble Mode (Reverse color)', value=False)
-                    lowvram = gr.Checkbox(label='Low VRAM (8GB or below)', value=False)
+                    scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
+                    rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
+                    lowvram = gr.Checkbox(label='Low VRAM', value=False)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -192,10 +193,10 @@ class Script(scripts.Script):
                     canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.Markdown(value='Change your brush width to make it thinner if you want to draw something.')
+                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                ctrls += (input_image, scribble_mode, resize_mode)
+                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 
                 enable_api = gr.Checkbox(label='Enable API for other scripts', value=True)
@@ -233,7 +234,7 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode, lowvram, enable_api = args
+        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram, enable_api = args
         
         # Other scripts can control this extension now
         if enable_api:
@@ -244,6 +245,7 @@ class Script(scripts.Script):
             image = getattr(p, 'control_net_image', image)
             scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
             resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
+            rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
             lowvram = getattr(p, 'control_net_lowvram', lowvram)
 
             input_image = getattr(p, 'control_net_input_image', None)
@@ -275,7 +277,13 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(model_path, shared.opts.data.get("control_net_model_config", default_conf), weight, lowvram=lowvram)
+            network = PlugableControlModel(
+                model_path=model_path, 
+                config_path=shared.opts.data.get("control_net_model_config", default_conf), 
+                weight=weight, 
+                lowvram=lowvram,
+                base_model=unet,
+            )
             network.to(p.sd_model.device, dtype=p.sd_model.dtype)
             network.hook(unet, p.sd_model)
 
@@ -309,7 +317,7 @@ class Script(scripts.Script):
         detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
         
-        if module == "normal_map":
+        if module == "normal_map" or rgbbgr_mode:
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
@@ -375,6 +383,10 @@ def on_ui_settings():
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
+        True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
+
+    # control_net_skip_hires
 
 
 script_callbacks.on_ui_settings(on_ui_settings)
