@@ -12,7 +12,6 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 * Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
 * Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
 * Processor thresholds are set in `scripts/processor.py`. Change it if needed.
-* Transfer control is disabled by default currently. This option is experimental and may change in the future.
 
 ### Install
 
