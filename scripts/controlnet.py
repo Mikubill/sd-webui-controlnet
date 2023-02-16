@@ -198,6 +198,9 @@ class Script(scripts.Script):
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
+                
+                enable_api = gr.Checkbox(label='Enable API for other scripts', value=True)
+                ctrls += (enable_api,)
 
         return ctrls
 
@@ -231,7 +234,23 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight,image, scribble_mode, resize_mode, rgbbgr_mode, lowvram = args
+        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram, enable_api = args
+        
+        # Other scripts can control this extension now
+        if enable_api:
+            enabled = getattr(p, 'control_net_enabled', enabled)
+            module = getattr(p, 'control_net_module', module)
+            model = getattr(p, 'control_net_model', model)
+            weight = getattr(p, 'control_net_weight', weight)
+            image = getattr(p, 'control_net_image', image)
+            scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
+            resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
+            rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
+            lowvram = getattr(p, 'control_net_lowvram', lowvram)
+
+            input_image = getattr(p, 'control_net_input_image', None)
+        else:
+            input_image = None
 
         if not enabled:
             restore_networks()
@@ -270,15 +289,23 @@ class Script(scripts.Script):
 
             print(f"ControlNet model {model} loaded.")
             self.latest_network = network
-            
-        if image is None and getattr(p, "init_images", None):
-            input_image = HWC3(np.asarray(p.init_images[0]))
-        else:
+          
+        if input_image is not None:
+            input_image = HWC3(np.asarray(input_image))
+        elif image is not None:
             input_image = HWC3(image['image'])
             if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
                 print("using mask as input")
                 input_image = HWC3(image['mask'][:, :, 0])
                 scribble_mode = True
+        else:
+            # use img2img init_image as default
+            input_image = getattr(p, "init_images", [None])[0]
+            if input_image is None:
+                raise ValueError('controlnet is enabled but no input image is given')
+            input_image = HWC3(np.asarray(input_image))
+                
+            
                 
         if scribble_mode:
             detected_map = np.zeros_like(input_image, dtype=np.uint8)
