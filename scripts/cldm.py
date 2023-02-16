@@ -431,7 +431,6 @@ class ControlNet(nn.Module):
             timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-            
         guided_hint = self.input_hint_block(hint, emb, context)
         outs = []
         

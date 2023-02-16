@@ -141,6 +141,9 @@ class Script(scripts.Script):
         # if is_img2img:
             # return False
         return scripts.AlwaysVisible
+    
+    def get_threshold_block(self, proc):
+        pass
 
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
@@ -183,6 +186,58 @@ class Script(scripts.Script):
                     ctrls += (module, model, weight,)
                     # model_dropdowns.append(model)
                     
+                def build_sliders(module):
+                    if module == "canny":
+                        return [
+                            gr.Slider.update(label=f"Annotator resolution", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.Slider.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
+                            gr.Slider.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
+                        ]
+                    elif module == "mlsd": #Hough
+                        return [
+                            gr.Slider.update(label="Hough Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.Slider.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
+                            gr.Slider.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True)
+                        ]
+                    elif module in ["hed", "fake_scribble"]:
+                        return [
+                            gr.Slider.update(label="HED Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.Slider.update(label=f"Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.Slider.update(label=f"Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    elif module in ["openpose", "openpose_hand", "segmentation"]:
+                        return [
+                            gr.Slider.update(label=f"{module} Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.Slider.update(label=f"Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.Slider.update(label=f"Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    elif module == "depth":
+                        return [
+                            gr.Slider.update(label="Midas Resolution", minimum=128, maximum=1024, value=384, step=1, interactive=True),
+                            gr.Slider.update(label=f"Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.Slider.update(label=f"Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    elif module == "normal_map":
+                        return [
+                            gr.Slider.update(label="Normal Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.Slider.update(label="Normal background threshold", interactive=False),
+                            gr.Slider.update(label=f"Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    else:
+                        return [
+                            gr.Slider.update(label=f"Annotator resolution", value=64, interactive=False),
+                            gr.Slider.update(label=f"Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.Slider.update(label=f"Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    
+                # advanced options    
+                with gr.Column():
+                    processor_res = gr.Slider(label=f"Annotator resolution", value=64, minimum=512, maximum=1024, step=64, interactive=False)
+                    threshold_a =  gr.Slider(label=f"Threshold A", value=64, minimum=512, maximum=1024, step=64, interactive=False)
+                    threshold_b =  gr.Slider(label=f"Threshold B", value=64, minimum=512, maximum=1024, step=64, interactive=False)
+                    
+                module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
+                    
                 self.infotext_fields.extend([
                     (module, f"ControlNet Preprocessor"),
                     (model, f"ControlNet Model"),
@@ -201,6 +256,7 @@ class Script(scripts.Script):
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
+                ctrls += (processor_res, threshold_a, threshold_b)
                 
         return ctrls
 
@@ -234,7 +290,8 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram = args
+        enabled, module, model, weight, image, scribble_mode, \
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b = args
         
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -305,8 +362,6 @@ class Script(scripts.Script):
                 raise ValueError('controlnet is enabled but no input image is given')
             input_image = HWC3(np.asarray(input_image))
                 
-            
-                
         if scribble_mode:
             detected_map = np.zeros_like(input_image, dtype=np.uint8)
             detected_map[np.min(input_image, axis=2) < 127] = 255
@@ -314,7 +369,7 @@ class Script(scripts.Script):
                 
         preprocessor = self.preprocessor[self.latest_params[0]]
         h, w, bsz = p.height, p.width, p.batch_size
-        detected_map = preprocessor(input_image)
+        detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
         detected_map = HWC3(detected_map)
         
         if module == "normal_map" or rgbbgr_mode:
