@@ -4,9 +4,9 @@ from modules.shared import extensions
 from modules import devices
 import os
 
-modeldir = os.path.join(__file__, "..")
+modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer")
 checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
-config_file = os.path.join(__file__, "..", "exp", "upernet_global_small", "config.py")
+config_file = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer", "exp", "upernet_global_small", "config.py")
 model = None
 
 def unload_uniformer_model():
