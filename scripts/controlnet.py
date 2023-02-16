@@ -207,7 +207,7 @@ class Script(scripts.Script):
                         ]
                     elif module in ["openpose", "openpose_hand", "segmentation"]:
                         return [
-                            gr.Slider.update(label=f"{module} Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.Slider.update(label="Annotator Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
                             gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
@@ -225,16 +225,16 @@ class Script(scripts.Script):
                         ]
                     else:
                         return [
-                            gr.Slider.update(label="Annotator resolution", value=64, interactive=False),
+                            gr.Slider.update(label="Annotator resolution", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     
                 # advanced options    
                 with gr.Column():
-                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=512, maximum=1024, step=64, interactive=False)
-                    threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=512, maximum=1024, step=64, interactive=False)
-                    threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=512, maximum=1024, step=64, interactive=False)
+                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=512, maximum=1024, interactive=False)
+                    threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=512, maximum=1024, interactive=False)
+                    threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=512, maximum=1024, interactive=False)
                     
                 module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
                     
