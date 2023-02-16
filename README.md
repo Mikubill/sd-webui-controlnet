@@ -49,6 +49,8 @@ All type of models can be correctly recognized and loaded. The results of differ
 
 Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
 
+Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
+
 ### Examples
 
 | Source | Input | Output |
