@@ -14,6 +14,7 @@ from modules import sd_models
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
+from modules.ui_components import ToolButton
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
@@ -21,6 +22,7 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
+refresh_symbol = '\U0001f504'  # 🔄
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -150,6 +152,10 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
+                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
+                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                create_button = gr.Button(label="Start", value='Open drawing canvas!')  
+
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
@@ -158,10 +164,21 @@ class Script(scripts.Script):
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
+                
+                def refresh_all_models(*inputs):
+                    update_cn_models()
+                    
+                    dd = inputs[0]
+                    selected = dd if dd in cn_models else "None"
+                    return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
+
 
                 with gr.Row():
                     module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value="none")
                     model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
+                    refresh_models = ToolButton(value=refresh_symbol)
+                    refresh_models.click(refresh_all_models, model, model)
+                    # ctrls += (refresh_models, )
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
 
                     ctrls += (module, model, weight,)
@@ -173,28 +190,13 @@ class Script(scripts.Script):
                     (weight, f"ControlNet Weight"),
                 ])
 
-                def refresh_all_models(*inputs):
-                    update_cn_models()
-                    
-                    dd = inputs[0]
-                    selected = dd if dd in cn_models else "None"
-                    return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
-
-                refresh_models = gr.Button(value='Refresh models')
-                refresh_models.click(refresh_all_models, model, model)
-                # ctrls += (refresh_models, )
-
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
                     canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                create_button = gr.Button(label="Start", value='Open drawing canvas!')
-                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-                
+                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)              
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
@@ -354,6 +356,8 @@ def on_ui_settings():
         default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+    shared.opts.add_option("control_net_transfer_control", shared.OptionInfo(
+        False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
