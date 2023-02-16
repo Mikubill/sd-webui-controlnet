@@ -37,6 +37,12 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 
 Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
+#### Batch generation
+
+You can batch process multiple images from the `Batch` tab in the `img2img` tab.
+When batch processing, the canvas for ControlNet must be empty.
+Also, `Do not append detectmap to output` must be enabled in the ControlNet section of the Setting tab for batch processing.
+
 ### Extraction
 
 Two methods can be used to reduce the model's filesize:
