@@ -13,7 +13,7 @@ from .midas.midas_net import MidasNet
 from .midas.midas_net_custom import MidasNet_small
 from .midas.transforms import Resize, NormalizeImage, PrepareForNet
 
-base_model_path = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "midas")
+base_model_path = os.path.join(__file__, "..")
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/dpt_hybrid-midas-501f0c75.pt"
 
 ISL_PATHS = {
