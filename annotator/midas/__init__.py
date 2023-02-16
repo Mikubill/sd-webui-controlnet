@@ -11,18 +11,21 @@ model = None
 def unload_midas_model():
     global model
     if model is not None:
-        model = model.to(devices.get_device_for("controlnet"))
+        model = model.cpu()
 
 def apply_midas(input_image, a=np.pi * 2.0, bg_th=0.1):
     global model
     if model is None:
         model = MiDaSInference(model_type="dpt_hybrid")
-    model = model.to(devices.get_device_for("controlnet"))
+    if devices.get_device_for("controlnet").type != 'mps':
+        model = model.to(devices.get_device_for("controlnet"))
     
     assert input_image.ndim == 3
     image_depth = input_image
     with torch.no_grad():
-        image_depth = torch.from_numpy(image_depth).float().to(devices.get_device_for("controlnet"))
+        image_depth = torch.from_numpy(image_depth).float()
+        if devices.get_device_for("controlnet").type != 'mps':
+            image_depth = image_depth.to(devices.get_device_for("controlnet"))
         image_depth = image_depth / 127.5 - 1.0
         image_depth = rearrange(image_depth, 'h w c -> 1 c h w')
         depth = model(image_depth)[0]
