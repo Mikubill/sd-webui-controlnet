@@ -199,9 +199,6 @@ class Script(scripts.Script):
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 
-                enable_api = gr.Checkbox(label='Enable API for other scripts', value=True)
-                ctrls += (enable_api,)
-
         return ctrls
 
     def set_infotext_fields(self, p, params, weight):
@@ -234,10 +231,10 @@ class Script(scripts.Script):
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
     
-        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram, enable_api = args
+        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram = args
         
         # Other scripts can control this extension now
-        if enable_api:
+        if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
             module = getattr(p, 'control_net_module', module)
             model = getattr(p, 'control_net_model', model)
@@ -381,12 +378,14 @@ def on_ui_settings():
         default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
-    shared.opts.add_option("control_net_transfer_control", shared.OptionInfo(
+    shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
         True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
+        False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
 
     # control_net_skip_hires
 

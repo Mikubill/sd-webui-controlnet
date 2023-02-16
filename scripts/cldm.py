@@ -63,7 +63,7 @@ class PlugableControlModel(nn.Module):
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             
             is_diff_model = 'difference' in state_dict
-            transfer_ctrl_opt = shared.opts.data.get("control_net_transfer_control", False) and \
+            transfer_ctrl_opt = shared.opts.data.get("control_net_control_transfer", False) and \
                 any([k.startswith("model.diffusion_model.") for k, v in state_dict.items()])
                 
             if (is_diff_model or transfer_ctrl_opt) and base_model is not None:
