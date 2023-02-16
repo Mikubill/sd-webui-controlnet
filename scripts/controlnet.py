@@ -308,9 +308,6 @@ class Script(scripts.Script):
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, use_i2i_init_image, lowvram, pres, pthr_a, pthr_b = args
 
-        if use_i2i_init_image:
-            swap_img2img_pipeline(p)
-
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
@@ -421,7 +418,10 @@ class Script(scripts.Script):
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight)
         self.set_infotext_fields(p, self.latest_params, weight)
-        
+
+        if use_i2i_init_image:
+            swap_img2img_pipeline(p)
+
     def postprocess(self, p, processed, *args):
         if self.latest_network is None or shared.opts.data.get("control_net_no_detectmap", False):
             return
