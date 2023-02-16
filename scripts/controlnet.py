@@ -5,7 +5,7 @@ from collections import OrderedDict
 import torch
 
 import modules.scripts as scripts
-from modules import shared, devices, script_callbacks
+from modules import shared, devices, script_callbacks, processing
 import gradio as gr
 
 import numpy as np
@@ -74,6 +74,15 @@ def find_closest_lora_model_name(search: str):
         return None
     applicable = sorted(applicable, key=lambda name: len(name))
     return cn_models_names[applicable[0]]
+
+
+def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
+    p.__class__ = processing.StableDiffusionProcessingTxt2Img
+    dummy = processing.StableDiffusionProcessingTxt2Img()
+    for k,v in dummy.__dict__.items():
+        if hasattr(p, k):
+            continue
+        setattr(p, k, v)
 
 
 def update_cn_models():
@@ -160,6 +169,7 @@ class Script(scripts.Script):
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
+                    use_i2i_init_image = gr.Checkbox(label='Use i2i initial image', value=False, visible=is_img2img)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -189,7 +199,7 @@ class Script(scripts.Script):
                     (weight, f"ControlNet Weight"),
                 ])
 
-                def create_canvas(h, w): 
+                def create_canvas(h, w):
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
@@ -199,9 +209,14 @@ class Script(scripts.Script):
                 with gr.Row():
                     create_button = gr.Button(value="Create blank canvas")              
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
+                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, use_i2i_init_image)
                 ctrls += (lowvram,)
-                
+
+        def toggle_input_image(use_i2i_init_image):
+            update = lambda: gr.update(visible=not use_i2i_init_image)
+            return update(), update(), update(), update(), update()
+        use_i2i_init_image.change(fn=toggle_input_image, inputs=[use_i2i_init_image], outputs=[input_image, resize_mode, canvas_width, canvas_height, create_button])
+
         return ctrls
 
     def set_infotext_fields(self, p, params, weight):
@@ -229,13 +244,16 @@ class Script(scripts.Script):
                 self.input_image = None
                 self.latest_network.restore(unet)
                 self.latest_network = None
-            
+
             last_module = self.latest_params[0]
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
-    
-        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, lowvram = args
-        
+
+        enabled, module, model, weight, image, scribble_mode, resize_mode, rgbbgr_mode, use_i2i_init_image, lowvram = args
+
+        if use_i2i_init_image:
+            swap_img2img_pipeline(p)
+
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
