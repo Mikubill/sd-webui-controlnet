@@ -11,7 +11,7 @@ from modules import extensions, devices
 
 mlsdmodel = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/mlsd_large_512_fp32.pth"
-modeldir = os.path.join(__file__, "..")
+modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "mlsd")
 
 def unload_mlsd_model():
     global mlsdmodel
