@@ -6,7 +6,8 @@ from annotator.util import resize_image, HWC3
 model_canny = None
 
 
-def canny(img, res=512, l=100, h=200):
+def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
+    l, h = thr_a, thr_b
     img = resize_image(HWC3(img), res)
     global model_canny
     if model_canny is None:
@@ -15,7 +16,7 @@ def canny(img, res=512, l=100, h=200):
     result = model_canny(img, l, h)
     return result
 
-def simple_scribble(img, res=512):
+def simple_scribble(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) < 127] = 255
@@ -25,7 +26,7 @@ def simple_scribble(img, res=512):
 model_hed = None
 
 
-def hed(img, res=512):
+def hed(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_hed
     if model_hed is None:
@@ -40,7 +41,7 @@ def unload_hed():
         from annotator.hed import unload_hed_model
         unload_hed_model()
 
-def fake_scribble(img, res=512):
+def fake_scribble(img, res=512, **kwargs):
     result = hed(img, res)
     import cv2
     from annotator.hed import nms
@@ -54,7 +55,8 @@ def fake_scribble(img, res=512):
 model_mlsd = None
 
 
-def mlsd(img, res=512, thr_v=0.1, thr_d=0.1):
+def mlsd(img, res=512, thr_a=0.1, thr_b=0.1, **kwargs):
+    thr_v, thr_d = thr_a, thr_b
     img = resize_image(HWC3(img), res)
     global model_mlsd
     if model_mlsd is None:
@@ -73,7 +75,7 @@ def unload_mlsd():
 model_midas = None
 
 
-def midas(img, res=512, a=np.pi * 2.0):
+def midas(img, res=512, a=np.pi * 2.0, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_midas
     if model_midas is None:
@@ -82,7 +84,8 @@ def midas(img, res=512, a=np.pi * 2.0):
     results, _ = model_midas(img, a)
     return results
 
-def midas_normal(img, res=512, a=np.pi * 2.0, bg_th=0.4):
+def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs): # bg_th -> thr_a
+    bg_th = thr_a
     img = resize_image(HWC3(img), res)
     global model_midas
     if model_midas is None:
@@ -101,7 +104,7 @@ def unload_midas():
 model_openpose = None
 
 
-def openpose(img, res=512, has_hand=False):
+def openpose(img, res=512, has_hand=False, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_openpose
     if model_openpose is None:
@@ -110,7 +113,7 @@ def openpose(img, res=512, has_hand=False):
     result, _ = model_openpose(img, has_hand)
     return result
 
-def openpose_hand(img, res=512, has_hand=True):
+def openpose_hand(img, res=512, has_hand=True, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_openpose
     if model_openpose is None:
@@ -129,7 +132,7 @@ def unload_openpose():
 model_uniformer = None
 
 
-def uniformer(img, res=512):
+def uniformer(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_uniformer
     if model_uniformer is None:

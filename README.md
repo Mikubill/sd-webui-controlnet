@@ -18,8 +18,6 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 Some users may need to install the cv2 library before using it: `pip install opencv-python`
 
-Install prettytable if you want to use img2seg preprocessor: `pip install prettytable`
-
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
 3. Enter URL of this repo to "URL for extension's git repository".
@@ -48,6 +46,8 @@ Two methods can be used to reduce the model's filesize:
 All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
 
 Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
+
+Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
 
 ### Examples
 
