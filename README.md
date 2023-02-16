@@ -37,6 +37,18 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 
 Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
+### Extraction
+
+Two methods can be used to reduce the model's filesize:
+
+1. Directly extract controlnet from original .pth file using `extract_controlnet.py`.
+
+2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
+
+All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
+
+Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
+
 ### Examples
 
 | Source | Input | Output |
