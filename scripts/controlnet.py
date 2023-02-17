@@ -132,6 +132,7 @@ class Script(scripts.Script):
             "none": lambda x, *args, **kwargs: x,
             "canny": canny,
             "depth": midas,
+            "depth_leres": leres,
             "hed": hed,
             "mlsd": mlsd,
             "normal_map": midas_normal,
@@ -147,6 +148,7 @@ class Script(scripts.Script):
             "fake_scribble": unload_hed,
             "mlsd": unload_mlsd,
             "depth": unload_midas,
+            "depth_leres": unload_leres,
             "normal_map": unload_midas,
             "pidinet": unload_pidinet,
             "openpose": unload_openpose,
@@ -238,6 +240,12 @@ class Script(scripts.Script):
                     elif module == "depth":
                         return [
                             gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    elif module == "depth_leres":
+                        return [
+                            gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
