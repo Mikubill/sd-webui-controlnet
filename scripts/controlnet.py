@@ -15,6 +15,7 @@ from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compos
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from modules.ui_components import ToolButton
+from modules.processing import StableDiffusionProcessingImg2Img
 
 gradio_compat = True
 try:
@@ -33,6 +34,7 @@ os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
+active_img2img_tab = 'img2img_img2img_tab'
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -433,7 +435,9 @@ class Script(scripts.Script):
         self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):
-        if self.latest_network is None or shared.opts.data.get("control_net_no_detectmap", False):
+        is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if self.latest_network is None or no_detectmap_opt or (is_img2img and active_img2img_tab == 'img2img_batch_tab'):
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -478,3 +482,28 @@ def on_ui_settings():
 
 
 script_callbacks.on_ui_settings(on_ui_settings)
+
+
+def set_active_img2img_tab(tab):
+    global active_img2img_tab
+    active_img2img_tab = tab.elem_id
+
+
+def create_on_after_component():
+    img2img_tabs = set()
+
+    def inner(component, **_kwargs):
+        if type(component) is gr.State:
+            return
+
+        tab = component.parent
+        is_tab = type(tab) is gr.Tab and tab.elem_id is not None
+        is_img2img_tab = is_tab and tab.parent is not None and tab.parent.elem_id == 'mode_img2img'
+        if is_img2img_tab and tab.elem_id not in img2img_tabs:
+            tab.select(fn=set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            img2img_tabs.add(tab.elem_id)
+
+    return inner
+
+
+script_callbacks.on_after_component(create_on_after_component())
