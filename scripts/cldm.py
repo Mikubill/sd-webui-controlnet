@@ -3,7 +3,6 @@ import torch
 import torch as th
 import torch.nn as nn
 from modules import devices, lowvram, shared, scripts
-from modules.devices import cond_cast_unet
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
     linear,
@@ -14,7 +13,6 @@ from ldm.modules.diffusionmodules.util import (
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.util import exists
-
 
 def align(hint, size):
     b, c, h1, w1 = hint.shape
@@ -91,6 +89,9 @@ class PlugableControlModel(nn.Module):
             self.control_model.to(devices.get_device_for("controlnet"))
 
     def hook(self, model, parent_model):
+        if devices.get_device_for("controlnet").type == 'mps':
+            from modules.devices import cond_cast_unet
+            
         outer = self
         
         def guidance_schedule_handler(x):
@@ -418,6 +419,9 @@ class ControlNet(nn.Module):
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
+        if devices.get_device_for("controlnet").type == 'mps':
+            from modules.devices import cond_cast_unet
+        
         t_emb = cond_cast_unet(timestep_embedding(
             timesteps, self.model_channels, repeat_only=False))
         emb = self.time_embed(t_emb)
