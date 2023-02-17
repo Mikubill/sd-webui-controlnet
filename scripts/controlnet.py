@@ -39,7 +39,7 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
-default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v15.yaml")
+default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
@@ -206,7 +206,7 @@ class Script(scripts.Script):
                     # ctrls += (refresh_models, )
                 with gr.Row():
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
-                    guidance_stength =  gr.Slider(label="Guidance strength", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
+                    guidance_stength =  gr.Slider(label="Guidance strength (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
                     ctrls += (module, model, weight,)
                     # model_dropdowns.append(model)

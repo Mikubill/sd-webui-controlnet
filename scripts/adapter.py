@@ -61,7 +61,7 @@ class PlugableAdapter(nn.Module):
                     h = module(h, emb, context)
                     # same as openaimodel.py:744
                     if ((i+1)%3 == 0) and len(features_adapter) and not outer.guidance_stopped:
-                        h = h + features_adapter.pop(0)
+                        h = h + features_adapter.pop(0) * outer.weight
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
