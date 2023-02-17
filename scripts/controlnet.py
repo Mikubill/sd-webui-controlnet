@@ -23,6 +23,7 @@ cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
+switch_values_symbol = '\U000021C5' # ⇅
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -255,11 +256,15 @@ class Script(scripts.Script):
                 
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
-                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                with gr.Row():
-                    create_button = gr.Button(value="Create blank canvas")              
+                    with gr.Column():
+                        canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                        canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                    with gr.Column():
+                        with gr.Row():
+                            canvas_swap_res = ToolButton(value=switch_values_symbol)
+                            create_button = gr.Button(value="Create blank canvas")
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b)
