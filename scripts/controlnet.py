@@ -15,6 +15,14 @@ from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compos
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 
+# svgsupports
+from PIL import Image as _Image  # using _ to minimize namespace pollution
+from typing import Dict
+import io
+import base64
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
+
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
@@ -187,12 +195,27 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
+                def svgPreprocess(inputs) -> np.ndarray | _Image.Image | str | Dict | None:
+                    if ( inputs['image'].startswith("data:image/svg+xml;base64,")):
+                        svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
+                        drawing = svg2rlg(io.BytesIO(svg_data))
+                        png_data = renderPM.drawToString(drawing, fmt='PNG')
+                        encoded_string = base64.b64encode(png_data)
+                        base64_str = str(encoded_string, "utf-8")
+                        base64_str = "data:image/png;base64,"+ base64_str
+                        inputs['image']=base64_str
+                    return input_image.orgpreprocess(inputs)
+
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
                     canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                     canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
                 create_button = gr.Button(label="Start", value='Open drawing canvas!')
                 input_image = gr.Image(source='upload', type='numpy', tool='sketch')
+
+                input_image.orgpreprocess=input_image.preprocess
+                input_image.preprocess=svgPreprocess
+
                 gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
