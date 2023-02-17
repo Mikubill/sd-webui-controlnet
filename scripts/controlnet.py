@@ -14,6 +14,8 @@ from modules import sd_models
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
+from scripts.adapter import PlugableAdapter
+from scripts.utils import load_state_dict
 from modules.ui_components import ToolButton
 from modules.processing import StableDiffusionProcessingImg2Img
 
@@ -37,6 +39,7 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
+default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v15.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
@@ -135,6 +138,7 @@ class Script(scripts.Script):
             "normal_map": midas_normal,
             "openpose": openpose,
             "openpose_hand": openpose_hand,
+            "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
@@ -145,6 +149,7 @@ class Script(scripts.Script):
             "mlsd": unload_mlsd,
             "depth": unload_midas,
             "normal_map": unload_midas,
+            "pidinet": unload_pidinet,
             "openpose": unload_openpose,
             "openpose_hand": unload_openpose,
             "segmentation": unload_uniformer,
@@ -383,9 +388,17 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(
-                model_path=model_path, 
-                config_path=shared.opts.data.get("control_net_model_config", default_conf), 
+            state_dict = load_state_dict(model_path)
+            network_module = PlugableControlModel
+            network_config = shared.opts.data.get("control_net_model_config", default_conf)
+            if any([k.startswith("body.") for k, v in state_dict.items()]):
+                # adapter model     
+                network_module = PlugableAdapter
+                network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+
+            network = network_module(
+                state_dict=state_dict, 
+                config_path=network_config, 
                 weight=weight, 
                 lowvram=lowvram,
                 base_model=unet,
@@ -488,6 +501,8 @@ def on_ui_settings():
     section = ('control_net', "ControlNet")
     shared.opts.add_option("control_net_model_config", shared.OptionInfo(
         default_conf, "Config file for Control Net models", section=section))
+    shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
+        default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 

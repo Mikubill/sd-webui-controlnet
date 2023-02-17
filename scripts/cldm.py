@@ -18,23 +18,6 @@ from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSeq
 from ldm.util import exists
 
 
-def load_state_dict(ckpt_path, location='cpu'):
-    _, extension = os.path.splitext(ckpt_path)
-    if extension.lower() == ".safetensors":
-        import safetensors.torch
-        state_dict = safetensors.torch.load_file(ckpt_path, device=location)
-    else:
-        state_dict = get_state_dict(torch.load(
-            ckpt_path, map_location=torch.device(location)))
-    state_dict = get_state_dict(state_dict)
-    print(f'Loaded state_dict from [{ckpt_path}]')
-    return state_dict
-
-
-def get_state_dict(d):
-    return d.get('state_dict', d)
-
-
 def align(hint, size):
     b, c, h1, w1 = hint.shape
     h, w = size
@@ -53,13 +36,11 @@ def get_node_name(name, parent_name):
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, model_path, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
+    def __init__(self, state_dict, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
         super().__init__()
-        config = OmegaConf.load(config_path)
-        
+        config = OmegaConf.load(config_path)        
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
-        state_dict = load_state_dict(model_path)
-        
+            
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             
             is_diff_model = 'difference' in state_dict
