@@ -113,8 +113,10 @@ class PlugableControlModel(nn.Module):
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with torch.no_grad():
-                t_emb = cond_cast_unet(timestep_embedding(
-                    timesteps, self.model_channels, repeat_only=False))
+                t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+                if devices.get_device_for("controlnet").type == 'mps':
+                    t_emb = cond_cast_unet(t_emb)
+                    
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
                 for module in self.input_blocks:
@@ -424,11 +426,15 @@ class ControlNet(nn.Module):
         if devices.get_device_for("controlnet").type == 'mps':
             from modules.devices import cond_cast_unet
         
-        t_emb = cond_cast_unet(timestep_embedding(
-            timesteps, self.model_channels, repeat_only=False))
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        if devices.get_device_for("controlnet").type == 'mps':
+            t_emb = cond_cast_unet(t_emb)
+            
         emb = self.time_embed(t_emb)
-
-        guided_hint = self.input_hint_block(cond_cast_unet(hint), emb, context)
+        if devices.get_device_for("controlnet").type == 'mps':
+            hint = cond_cast_unet(hint)
+            
+        guided_hint = self.input_hint_block(hint, emb, context)
         outs = []
         
         h1, w1 = x.shape[-2:]
