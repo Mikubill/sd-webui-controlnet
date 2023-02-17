@@ -26,6 +26,14 @@ try:
 except ImportError:
     pass
 
+# svgsupports
+from PIL import Image as _Image  # using _ to minimize namespace pollution
+from typing import Dict
+import io
+import base64
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
+
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
@@ -266,6 +274,19 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
+                def svgPreprocess(inputs) -> np.ndarray | _Image.Image | str | Dict | None:
+                    if (inputs):
+                        if ( inputs['image'].startswith("data:image/svg+xml;base64,")):
+                            svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
+                            drawing = svg2rlg(io.BytesIO(svg_data))
+                            png_data = renderPM.drawToString(drawing, fmt='PNG')
+                            encoded_string = base64.b64encode(png_data)
+                            base64_str = str(encoded_string, "utf-8")
+                            base64_str = "data:image/png;base64,"+ base64_str
+                            inputs['image']=base64_str
+                        return input_image.orgpreprocess(inputs)
+                    return None
+
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
                     with gr.Column():
@@ -285,6 +306,9 @@ class Script(scripts.Script):
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b)
                 
+                input_image.orgpreprocess=input_image.preprocess
+                input_image.preprocess=svgPreprocess
+
         return ctrls
 
     def set_infotext_fields(self, p, params, weight):
