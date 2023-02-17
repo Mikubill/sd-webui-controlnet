@@ -436,7 +436,8 @@ class Script(scripts.Script):
         
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
-        if self.latest_network is None or (is_img2img and active_img2img_tab == 'img2img_batch_tab'):
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if self.latest_network is None or no_detectmap_opt or (is_img2img and active_img2img_tab == 'img2img_batch_tab'):
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -470,6 +471,8 @@ def on_ui_settings():
 
     shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
+        False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
         True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
