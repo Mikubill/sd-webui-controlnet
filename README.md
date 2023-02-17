@@ -26,7 +26,7 @@ Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 ### Usage
 
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `sd-webui-controlnet/models` folder.
+1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
 2. Open "txt2img" or "img2img" tab, write your prompts.
 3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
 4. Upload your image and select preprocessor, done.
