@@ -1,10 +1,8 @@
-import os
-import einops
 from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules import devices, lowvram, shared
+from modules import devices, lowvram, shared, scripts
 
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
@@ -94,6 +92,11 @@ class PlugableControlModel(nn.Module):
 
     def hook(self, model, parent_model):
         outer = self
+        
+        def guidance_schedule_handler(x):
+            if (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent:
+                # stop guidance
+                self.guidance_stopped = True
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
@@ -118,10 +121,11 @@ class PlugableControlModel(nn.Module):
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
-            h += control.pop()
+            if not outer.guidance_stopped:
+                h += control.pop()
 
             for i, module in enumerate(self.output_blocks):
-                if only_mid_control:
+                if only_mid_control or outer.guidance_stopped:
                     h = torch.cat([h, hs.pop()], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
@@ -146,13 +150,18 @@ class PlugableControlModel(nn.Module):
         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
+        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, cond_like, weight):
+    def notify(self, cond_like, weight, stop_guidance_percent):
+        self.stop_guidance_percent = stop_guidance_percent
+        self.guidance_stopped = False
+        
         self.hint_cond = cond_like
         self.weight = weight
         # print(self.hint_cond.shape)
 
     def restore(self, model):
+        scripts.script_callbacks.remove_current_script_callbacks()
         if not hasattr(model, "_original_forward"):
             # no such handle, ignore
             return

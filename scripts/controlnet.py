@@ -204,7 +204,9 @@ class Script(scripts.Script):
                     refresh_models = ToolButton(value=refresh_symbol)
                     refresh_models.click(refresh_all_models, model, model)
                     # ctrls += (refresh_models, )
+                with gr.Row():
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
+                    guidance_stength =  gr.Slider(label="Guidance strength", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
                     ctrls += (module, model, weight,)
                     # model_dropdowns.append(model)
@@ -307,7 +309,7 @@ class Script(scripts.Script):
                     
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
-                ctrls += (processor_res, threshold_a, threshold_b)
+                ctrls += (processor_res, threshold_a, threshold_b, guidance_stength)
                 
                 input_image.orgpreprocess=input_image.preprocess
                 input_image.preprocess=svgPreprocess
@@ -345,7 +347,7 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
     
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b = args
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_stength = args
         
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -466,7 +468,7 @@ class Script(scripts.Script):
         self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
-        self.latest_network.notify(control, weight)
+        self.latest_network.notify(control, weight, guidance_stength)
         self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):

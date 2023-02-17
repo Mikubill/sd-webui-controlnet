@@ -3,7 +3,7 @@ from einops import rearrange
 import torch
 import torch.nn as nn
 
-from modules import devices, lowvram, shared
+from modules import devices, lowvram, shared, scripts
 from omegaconf import OmegaConf
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
@@ -43,6 +43,11 @@ class PlugableAdapter(nn.Module):
 
     def hook(self, model, parent_model):
         outer = self
+        
+        def guidance_schedule_handler(x):
+            if (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent:
+                # stop guidance
+                self.guidance_stopped = True
 
         def forward(self, x, timesteps=None, context=None, **kwargs):            
             features_adapter = kwargs["features"]
@@ -55,7 +60,7 @@ class PlugableAdapter(nn.Module):
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
                     # same as openaimodel.py:744
-                    if ((i+1)%3 == 0) and len(features_adapter):
+                    if ((i+1)%3 == 0) and len(features_adapter) and not outer.guidance_stopped:
                         h = h + features_adapter.pop(0)
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
@@ -87,15 +92,20 @@ class PlugableAdapter(nn.Module):
         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
+        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, cond_like, weight):
+    def notify(self, cond_like, weight, stop_guidance_percent):
         if hasattr(self, "features"):
             del self.features
             
+        self.stop_guidance_percent = stop_guidance_percent
+        self.guidance_stopped = False
+        
         self.hint_cond = cond_like
         self.weight = weight
 
     def restore(self, model):
+        scripts.script_callbacks.remove_current_script_callbacks()
         if not hasattr(model, "_original_forward"):
             # no such handle, ignore
             return
