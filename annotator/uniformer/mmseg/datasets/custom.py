@@ -6,7 +6,6 @@ from functools import reduce
 import annotator.uniformer.mmcv as mmcv
 import numpy as np
 from annotator.uniformer.mmcv.utils import print_log
-from prettytable import PrettyTable
 from torch.utils.data import Dataset
 
 from annotator.uniformer.mmseg.core import eval_metrics
@@ -363,22 +362,26 @@ class CustomDataset(Dataset):
         ret_metrics_class.update({'Class': class_names})
         ret_metrics_class.move_to_end('Class', last=False)
 
-        # for logger
-        class_table_data = PrettyTable()
-        for key, val in ret_metrics_class.items():
-            class_table_data.add_column(key, val)
+        try:
+            from prettytable import PrettyTable
+            # for logger
+            class_table_data = PrettyTable()
+            for key, val in ret_metrics_class.items():
+                class_table_data.add_column(key, val)
 
-        summary_table_data = PrettyTable()
-        for key, val in ret_metrics_summary.items():
-            if key == 'aAcc':
-                summary_table_data.add_column(key, [val])
-            else:
-                summary_table_data.add_column('m' + key, [val])
+            summary_table_data = PrettyTable()
+            for key, val in ret_metrics_summary.items():
+                if key == 'aAcc':
+                    summary_table_data.add_column(key, [val])
+                else:
+                    summary_table_data.add_column('m' + key, [val])
 
-        print_log('per class results:', logger)
-        print_log('\n' + class_table_data.get_string(), logger=logger)
-        print_log('Summary:', logger)
-        print_log('\n' + summary_table_data.get_string(), logger=logger)
+            print_log('per class results:', logger)
+            print_log('\n' + class_table_data.get_string(), logger=logger)
+            print_log('Summary:', logger)
+            print_log('\n' + summary_table_data.get_string(), logger=logger)
+        except ImportError:  # prettytable is not installed
+            pass
 
         # each metric dict
         for key, value in ret_metrics_summary.items():

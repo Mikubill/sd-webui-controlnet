@@ -12,13 +12,11 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 * Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
 * Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
 * Processor thresholds are set in `scripts/processor.py`. Change it if needed.
-* Transfer control is disabled by default currently. This option is experimental and may change in the future.
+* Transfer control (for full model) is disabled by default. This option is experimental and may change in the future.
 
 ### Install
 
 Some users may need to install the cv2 library before using it: `pip install opencv-python`
-
-Install prettytable if you want to use img2seg preprocessor: `pip install prettytable`
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
@@ -36,6 +34,20 @@ Install prettytable if you want to use img2seg preprocessor: `pip install pretty
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
 Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+
+### Extraction
+
+Two methods can be used to reduce the model's filesize:
+
+1. Directly extract controlnet from original .pth file using `extract_controlnet.py`.
+
+2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
+
+All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
+
+Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
+
+Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
 
 ### Examples
 
