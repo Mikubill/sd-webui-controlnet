@@ -189,56 +189,56 @@ class Script(scripts.Script):
                 def build_sliders(module):
                     if module == "canny":
                         return [
-                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=1024, step=1, interactive=True),
+                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
                             gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
                             gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
                         ]
                     elif module == "mlsd": #Hough
                         return [
-                            gr.update(label="Hough Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                             gr.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
                             gr.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True)
                         ]
                     elif module in ["hed", "fake_scribble"]:
                         return [
-                            gr.update(label="HED Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module in ["openpose", "openpose_hand", "segmentation"]:
                         return [
-                            gr.update(label="Annotator Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module == "depth":
                         return [
-                            gr.update(label="Midas Resolution", minimum=128, maximum=1024, value=384, step=1, interactive=True),
+                            gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module == "normal_map":
                         return [
-                            gr.update(label="Normal Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
+                            gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                             gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module == "none":
                         return [
-                            gr.update(label="Normal Resolution", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     else:
                         return [
-                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=1024, step=1, interactive=True),
+                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     
                 # advanced options    
                 with gr.Column():
-                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=1024, interactive=False)
+                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
                     threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
                     threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
                     
