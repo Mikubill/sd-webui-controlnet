@@ -81,8 +81,11 @@ class PlugableAdapter(nn.Module):
                 if self.lowvram:
                     self.control_model.to(devices.get_device_for("controlnet"))
                     
-                if self.control_model.conv_in.in_channels == 64 and not hasattr(outer, "features"):
-                    outer.hint_cond = outer.hint_cond[0].unsqueeze(0).unsqueeze(0)
+                if not hasattr(outer, "features"):
+                    if self.control_model.conv_in.in_channels == 64:
+                        outer.hint_cond = outer.hint_cond[0].unsqueeze(0).unsqueeze(0)
+                    else:
+                        outer.hint_cond = outer.hint_cond.unsqueeze(0)
                 
                 outer.features = self.control_model(outer.hint_cond)
                 return forward(features=deepcopy(outer.features), *args, **kwargs)
