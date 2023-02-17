@@ -146,3 +146,22 @@ def unload_uniformer():
     if model_uniformer is not None:
         from annotator.uniformer import unload_uniformer_model
         unload_uniformer_model()
+        
+        
+model_pidinet = None
+
+
+def pidinet(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_pidinet
+    if model_pidinet is None:
+        from annotator.pidinet import apply_pidinet
+        model_pidinet = apply_pidinet
+    result = model_pidinet(img)
+    return result
+
+def unload_pidinet():
+    global model_pidinet
+    if model_pidinet is not None:
+        from annotator.pidinet import unload_pid_model
+        unload_pid_model()
