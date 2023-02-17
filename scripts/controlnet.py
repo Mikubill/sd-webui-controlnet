@@ -190,7 +190,7 @@ class Script(scripts.Script):
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
-                    txt2txt_processing = gr.Checkbox(label='txt2txt processing', value=False, visible=is_img2img)
+                    txt2img_processing = gr.Checkbox(label='txt2img processing', value=False, visible=is_img2img)
                     
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -310,7 +310,7 @@ class Script(scripts.Script):
                 if gradio_compat:
                     canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                     
-                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, txt2txt_processing)
+                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, txt2img_processing)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b)
                 input_image.orgpreprocess=input_image.preprocess
@@ -319,7 +319,7 @@ class Script(scripts.Script):
         def toggle_input_image(use_i2i_init_image):
             update = lambda: gr.update(visible=not use_i2i_init_image)
             return [update(), update(), update(), update(), update(), update()]
-        txt2txt_processing.change(fn=toggle_input_image, inputs=[txt2txt_processing], outputs=[input_image, resize_mode, canvas_width, canvas_height, create_button, canvas_swap_res])
+        txt2img_processing.change(fn=toggle_input_image, inputs=[txt2img_processing], outputs=[input_image, resize_mode, canvas_width, canvas_height, create_button, canvas_swap_res])
 
         return ctrls
 
@@ -354,7 +354,7 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
 
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, txt2txt_processing, lowvram, pres, pthr_a, pthr_b = args
+            resize_mode, rgbbgr_mode, txt2img_processing, lowvram, pres, pthr_a, pthr_b = args
 
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -470,7 +470,7 @@ class Script(scripts.Script):
         self.latest_network.notify(control, weight)
         self.set_infotext_fields(p, self.latest_params, weight)
 
-        if txt2txt_processing:
+        if txt2img_processing:
             swap_img2img_pipeline(p)
 
     def postprocess(self, p, processed, *args):
