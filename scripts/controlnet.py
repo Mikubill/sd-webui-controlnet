@@ -318,8 +318,8 @@ class Script(scripts.Script):
 
         def toggle_input_image(use_i2i_init_image):
             update = lambda: gr.update(visible=not use_i2i_init_image)
-            return [update()] * 5
-        txt2txt_processing.change(fn=toggle_input_image, inputs=[txt2txt_processing], outputs=[input_image, resize_mode, canvas_width, canvas_height, create_button])
+            return [update(), update(), update(), update(), update(), update()]
+        txt2txt_processing.change(fn=toggle_input_image, inputs=[txt2txt_processing], outputs=[input_image, resize_mode, canvas_width, canvas_height, create_button, canvas_swap_res])
 
         return ctrls
 
