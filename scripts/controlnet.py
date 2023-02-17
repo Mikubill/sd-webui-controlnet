@@ -16,6 +16,15 @@ from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from modules.ui_components import ToolButton
 
+gradio_compat = True
+try:
+    from distutils.version import LooseVersion
+    from importlib_metadata import version
+    if LooseVersion(version("gradio")) < LooseVersion("3.10"):
+        gradio_compat = False
+except ImportError:
+    pass
+
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
@@ -238,12 +247,13 @@ class Script(scripts.Script):
                         ]
                     
                 # advanced options    
-                with gr.Column():
+                with gr.Column(visible=gradio_compat):
                     processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
                     threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
                     threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
-                    
-                module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
+                
+                if gradio_compat:    
+                    module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
                     
                 self.infotext_fields.extend([
                     (module, f"ControlNet Preprocessor"),
@@ -259,10 +269,16 @@ class Script(scripts.Script):
                     with gr.Column():
                         canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                         canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        
+                    if gradio_compat:
+                        canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        
                 create_button = gr.Button(value="Create blank canvas")            
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                
+                if gradio_compat:
+                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                    
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b)
