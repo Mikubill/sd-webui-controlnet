@@ -16,6 +16,15 @@ from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from modules.ui_components import ToolButton
 
+gradio_compat = True
+try:
+    from distutils.version import LooseVersion
+    from importlib_metadata import version
+    if LooseVersion(version("gradio")) < LooseVersion("3.10"):
+        gradio_compat = False
+except ImportError:
+    pass
+
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
@@ -23,6 +32,7 @@ cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
+switch_values_symbol = '\U000021C5' # ⇅
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -199,54 +209,61 @@ class Script(scripts.Script):
                 def build_sliders(module):
                     if module == "canny":
                         return [
-                            gr.Slider.update(label="Annotator resolution", value=512, minimum=64, maximum=1024, step=1, interactive=True),
-                            gr.Slider.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
-                            gr.Slider.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
+                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                            gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
+                            gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
                         ]
                     elif module == "mlsd": #Hough
                         return [
-                            gr.Slider.update(label="Hough Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
-                            gr.Slider.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
-                            gr.Slider.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True)
+                            gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
+                            gr.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True)
                         ]
                     elif module in ["hed", "fake_scribble"]:
                         return [
-                            gr.Slider.update(label="HED Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
-                            gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module in ["openpose", "openpose_hand", "segmentation"]:
                         return [
-                            gr.Slider.update(label="Annotator Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
-                            gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module == "depth":
                         return [
-                            gr.Slider.update(label="Midas Resolution", minimum=128, maximum=1024, value=384, step=1, interactive=True),
-                            gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     elif module == "normal_map":
                         return [
-                            gr.Slider.update(label="Normal Resolution", minimum=128, maximum=1024, value=512, step=1, interactive=True),
-                            gr.Slider.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
-                            gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                        ]
+                    elif module == "none":
+                        return [
+                            gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     else:
                         return [
-                            gr.Slider.update(label="Annotator resolution", value=512, minimum=64, maximum=1024, step=1, interactive=True),
-                            gr.Slider.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.Slider.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                         ]
                     
                 # advanced options    
-                with gr.Column():
-                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=1024, interactive=False)
+                with gr.Column(visible=gradio_compat):
+                    processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
                     threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
                     threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
-                    
-                module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
+                
+                if gradio_compat:    
+                    module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
                     
                 self.infotext_fields.extend([
                     (module, f"ControlNet Preprocessor"),
@@ -259,11 +276,19 @@ class Script(scripts.Script):
                 
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
-                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                with gr.Row():
-                    create_button = gr.Button(value="Create blank canvas")              
+                    with gr.Column():
+                        canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                        canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                        
+                    if gradio_compat:
+                        canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        
+                create_button = gr.Button(value="Create blank canvas")            
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+                
+                if gradio_compat:
+                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                    
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, use_i2i_init_image)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b)
@@ -384,7 +409,10 @@ class Script(scripts.Script):
                 
         preprocessor = self.preprocessor[self.latest_params[0]]
         h, w, bsz = p.height, p.width, p.batch_size
-        detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+        if pres > 64:
+            detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+        else:
+            detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
         
         if module == "normal_map" or rgbbgr_mode:
