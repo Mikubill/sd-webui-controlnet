@@ -369,7 +369,10 @@ class Script(scripts.Script):
                 
         preprocessor = self.preprocessor[self.latest_params[0]]
         h, w, bsz = p.height, p.width, p.batch_size
-        detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+        if pres > 64:
+            detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+        else:
+            detected_map = preprocessor(input_image)
         detected_map = HWC3(detected_map)
         
         if module == "normal_map" or rgbbgr_mode:
