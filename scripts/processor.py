@@ -115,7 +115,7 @@ def unload_midas():
 def unload_leres():
     global model_leres
     if model_leres is not None:
-        from annotator.midas import unload_leres_model
+        from annotator.leres import unload_leres_model
         unload_leres_model()
 
 model_openpose = None
