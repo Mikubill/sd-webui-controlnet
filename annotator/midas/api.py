@@ -4,7 +4,6 @@ import cv2
 import torch
 import torch.nn as nn
 import os
-from modules import extensions
 
 from torchvision.transforms import Compose
 

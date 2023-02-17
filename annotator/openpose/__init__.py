@@ -6,7 +6,6 @@ import numpy as np
 from . import util
 from .body import Body
 from .hand import Hand
-from modules import extensions
 
 body_estimation = None 
 hand_estimation = None 

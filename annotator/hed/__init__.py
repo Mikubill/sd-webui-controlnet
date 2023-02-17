@@ -4,7 +4,7 @@ import torch
 from einops import rearrange
 
 import os 
-from modules import extensions, devices
+from modules import devices
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):

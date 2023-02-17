@@ -1,6 +1,5 @@
 from annotator.uniformer.mmseg.apis import init_segmentor, inference_segmentor, show_result_pyplot
 from annotator.uniformer.mmseg.core.evaluation import get_palette
-from modules.shared import extensions
 from modules import devices
 import os
 
