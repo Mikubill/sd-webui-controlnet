@@ -14,8 +14,26 @@ from modules import sd_models
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
+from scripts.adapter import PlugableAdapter
+from scripts.utils import load_state_dict
 from modules.ui_components import ToolButton
 from modules.paths import models_path
+from modules.processing import StableDiffusionProcessingImg2Img
+
+gradio_compat = True
+try:
+    from distutils.version import LooseVersion
+    from importlib_metadata import version
+    if LooseVersion(version("gradio")) < LooseVersion("3.10"):
+        gradio_compat = False
+except ImportError:
+    pass
+
+# svgsupports
+import io
+import base64
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
@@ -23,6 +41,7 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
+default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 
@@ -119,6 +138,7 @@ class Script(scripts.Script):
             "normal_map": midas_normal,
             "openpose": openpose,
             "openpose_hand": openpose_hand,
+            "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
@@ -129,6 +149,7 @@ class Script(scripts.Script):
             "mlsd": unload_mlsd,
             "depth": unload_midas,
             "normal_map": unload_midas,
+            "pidinet": unload_pidinet,
             "openpose": unload_openpose,
             "openpose_hand": unload_openpose,
             "segmentation": unload_uniformer,
@@ -183,7 +204,9 @@ class Script(scripts.Script):
                     refresh_models = ToolButton(value=refresh_symbol)
                     refresh_models.click(refresh_all_models, model, model)
                     # ctrls += (refresh_models, )
+                with gr.Row():
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
+                    guidance_stength =  gr.Slider(label="Guidance strength (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
                     ctrls += (module, model, weight,)
                     # model_dropdowns.append(model)
@@ -239,12 +262,13 @@ class Script(scripts.Script):
                         ]
                     
                 # advanced options    
-                with gr.Column():
+                with gr.Column(visible=gradio_compat):
                     processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
                     threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
                     threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
-                    
-                module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
+                
+                if gradio_compat:    
+                    module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b])
                     
                 self.infotext_fields.extend([
                     (module, f"ControlNet Preprocessor"),
@@ -255,19 +279,41 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
+                def svgPreprocess(inputs):
+                    if (inputs):
+                        if (inputs['image'].startswith("data:image/svg+xml;base64,")):
+                            svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
+                            drawing = svg2rlg(io.BytesIO(svg_data))
+                            png_data = renderPM.drawToString(drawing, fmt='PNG')
+                            encoded_string = base64.b64encode(png_data)
+                            base64_str = str(encoded_string, "utf-8")
+                            base64_str = "data:image/png;base64,"+ base64_str
+                            inputs['image'] = base64_str
+                        return input_image.orgpreprocess(inputs)
+                    return None
+
                 resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
                 with gr.Row():
                     with gr.Column():
                         canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                         canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        
+                    if gradio_compat:
+                        canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        
                 create_button = gr.Button(value="Create blank canvas")            
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                
+                if gradio_compat:
+                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                    
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
-                ctrls += (processor_res, threshold_a, threshold_b)
+                ctrls += (processor_res, threshold_a, threshold_b, guidance_stength)
                 
+                input_image.orgpreprocess=input_image.preprocess
+                input_image.preprocess=svgPreprocess
+
         return ctrls
 
     def set_infotext_fields(self, p, params, weight):
@@ -301,7 +347,7 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
     
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b = args
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_stength = args
         
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -314,6 +360,9 @@ class Script(scripts.Script):
             resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
             rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
             lowvram = getattr(p, 'control_net_lowvram', lowvram)
+            pres = getattr(p, 'control_net_pres', pres)
+            pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
+            pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
 
             input_image = getattr(p, 'control_net_input_image', None)
         else:
@@ -344,9 +393,17 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(
-                model_path=model_path, 
-                config_path=shared.opts.data.get("control_net_model_config", default_conf), 
+            state_dict = load_state_dict(model_path)
+            network_module = PlugableControlModel
+            network_config = shared.opts.data.get("control_net_model_config", default_conf)
+            if any([k.startswith("body.") for k, v in state_dict.items()]):
+                # adapter model     
+                network_module = PlugableAdapter
+                network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+
+            network = network_module(
+                state_dict=state_dict, 
+                config_path=network_config, 
                 weight=weight, 
                 lowvram=lowvram,
                 base_model=unet,
@@ -414,11 +471,14 @@ class Script(scripts.Script):
         self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
-        self.latest_network.notify(control, weight)
+        self.latest_network.notify(control, weight, guidance_stength)
         self.set_infotext_fields(p, self.latest_params, weight)
         
     def postprocess(self, p, processed, *args):
-        if self.latest_network is None or shared.opts.data.get("control_net_no_detectmap", False):
+        is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -447,6 +507,8 @@ def on_ui_settings():
     section = ('control_net', "ControlNet")
     shared.opts.add_option("control_net_model_config", shared.OptionInfo(
         default_conf, "Config file for Control Net models", section=section))
+    shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
+        default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
@@ -463,3 +525,36 @@ def on_ui_settings():
 
 
 script_callbacks.on_ui_settings(on_ui_settings)
+
+
+class Img2ImgTabTracker:
+    def __init__(self):
+        self.img2img_tabs = set()
+        self.active_img2img_tab = 'img2img_img2img_tab'
+        self.submit_img2img_tab = None
+
+    def save_submit_img2img_tab(self):
+        self.submit_img2img_tab = self.active_img2img_tab
+
+    def set_active_img2img_tab(self, tab):
+        self.active_img2img_tab = tab.elem_id
+
+    def on_after_component_callback(self, component, **_kwargs):
+        if type(component) is gr.State:
+            return
+
+        if type(component) is gr.Button and component.elem_id == 'img2img_generate':
+            component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
+            return
+
+        tab = component.parent
+        is_tab = type(tab) is gr.Tab and tab.elem_id is not None
+        is_img2img_tab = is_tab and tab.parent is not None and tab.parent.elem_id == 'mode_img2img'
+        if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
+            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            self.img2img_tabs.add(tab.elem_id)
+            return
+
+
+img2img_tab_tracker = Img2ImgTabTracker()
+script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
