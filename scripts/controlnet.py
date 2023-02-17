@@ -43,7 +43,6 @@ default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
-active_img2img_tab = 'img2img_img2img_tab'
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -476,8 +475,9 @@ class Script(scripts.Script):
         
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if self.latest_network is None or no_detectmap_opt or (is_img2img and active_img2img_tab == 'img2img_batch_tab'):
+        if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -526,26 +526,34 @@ def on_ui_settings():
 script_callbacks.on_ui_settings(on_ui_settings)
 
 
-def set_active_img2img_tab(tab):
-    global active_img2img_tab
-    active_img2img_tab = tab.elem_id
+class Img2ImgTabTracker:
+    def __init__(self):
+        self.img2img_tabs = set()
+        self.active_img2img_tab = 'img2img_img2img_tab'
+        self.submit_img2img_tab = None
 
+    def save_submit_img2img_tab(self):
+        self.submit_img2img_tab = self.active_img2img_tab
 
-def create_on_after_component():
-    img2img_tabs = set()
+    def set_active_img2img_tab(self, tab):
+        self.active_img2img_tab = tab.elem_id
 
-    def inner(component, **_kwargs):
+    def on_after_component_callback(self, component, **_kwargs):
         if type(component) is gr.State:
+            return
+
+        if type(component) is gr.Button and component.elem_id == 'img2img_generate':
+            component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
             return
 
         tab = component.parent
         is_tab = type(tab) is gr.Tab and tab.elem_id is not None
         is_img2img_tab = is_tab and tab.parent is not None and tab.parent.elem_id == 'mode_img2img'
-        if is_img2img_tab and tab.elem_id not in img2img_tabs:
-            tab.select(fn=set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
-            img2img_tabs.add(tab.elem_id)
+        if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
+            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            self.img2img_tabs.add(tab.elem_id)
+            return
 
-    return inner
 
-
-script_callbacks.on_after_component(create_on_after_component())
+img2img_tab_tracker = Img2ImgTabTracker()
+script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
