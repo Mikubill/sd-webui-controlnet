@@ -259,10 +259,8 @@ class Script(scripts.Script):
                     with gr.Column():
                         canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                         canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    with gr.Column():
-                        with gr.Row():
-                            canvas_swap_res = ToolButton(value=switch_values_symbol)
-                            create_button = gr.Button(value="Create blank canvas")
+                    canvas_swap_res = ToolButton(value=switch_values_symbol)
+                create_button = gr.Button(value="Create blank canvas")            
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                 canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
