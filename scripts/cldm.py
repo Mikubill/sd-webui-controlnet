@@ -203,7 +203,9 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
-        use_fp16 = devices.dtype_unet == torch.float16
+        if devices.get_device_for("controlnet").type == 'mps':
+            use_fp16 = devices.dtype_unet == torch.float16
+            
         super().__init__()
         if use_spatial_transformer:
             assert context_dim is not None, 'Fool!! You forgot to include the dimension of your cross-attention conditioning...'
