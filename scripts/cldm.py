@@ -2,8 +2,8 @@ from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules import devices, lowvram, shared, scripts
-
+from modules import devices, lowvram, shared
+from modules.devices import cond_cast_unet
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
     linear,
@@ -112,8 +112,8 @@ class PlugableControlModel(nn.Module):
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with torch.no_grad():
-                t_emb = timestep_embedding(
-                    timesteps, self.model_channels, repeat_only=False)
+                t_emb = cond_cast_unet(timestep_embedding(
+                    timesteps, self.model_channels, repeat_only=False))
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
                 for module in self.input_blocks:
@@ -202,6 +202,7 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
+        use_fp16 = devices.dtype_unet == torch.float16
         super().__init__()
         if use_spatial_transformer:
             assert context_dim is not None, 'Fool!! You forgot to include the dimension of your cross-attention conditioning...'
@@ -417,11 +418,11 @@ class ControlNet(nn.Module):
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
-        t_emb = timestep_embedding(
-            timesteps, self.model_channels, repeat_only=False)
+        t_emb = cond_cast_unet(timestep_embedding(
+            timesteps, self.model_channels, repeat_only=False))
         emb = self.time_embed(t_emb)
 
-        guided_hint = self.input_hint_block(hint, emb, context)
+        guided_hint = self.input_hint_block(cond_cast_unet(hint), emb, context)
         outs = []
         
         h1, w1 = x.shape[-2:]
