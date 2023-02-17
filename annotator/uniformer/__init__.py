@@ -1,10 +1,11 @@
 from annotator.uniformer.mmseg.apis import init_segmentor, inference_segmentor, show_result_pyplot
 from annotator.uniformer.mmseg.core.evaluation import get_palette
 from modules.shared import extensions
+from modules.paths import models_path
 from modules import devices
 import os
 
-modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer")
+modeldir = os.path.join(models_path, "ControlNet-Annotator")
 checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
 config_file = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer", "exp", "upernet_global_small", "config.py")
 model = None

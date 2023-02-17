@@ -3,12 +3,13 @@ import torch
 import numpy as np
 from einops import rearrange
 from annotator.pidinet.model import pidinet
-from modules import extensions, devices
+from modules import devices
+from modules.paths import models_path
 from scripts.utils import load_state_dict
 
 netNetwork = None
 remote_model_path = "https://github.com/TencentARC/T2I-Adapter/raw/main/models/table5_pidinet.pth"
-modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "pidinet")
+modeldir = os.path.join(models_path, "ControlNet-Annotator")
 
 def apply_pidinet(input_image):
     global netNetwork

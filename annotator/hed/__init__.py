@@ -4,7 +4,8 @@ import torch
 from einops import rearrange
 
 import os 
-from modules import extensions, devices
+from modules import devices
+from modules.paths import models_path
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):
@@ -97,7 +98,7 @@ class Network(torch.nn.Module):
 
 netNetwork = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/network-bsds500.pth"
-modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "hed")
+modeldir = os.path.join(models_path, "ControlNet-Annotator")
 
 def apply_hed(input_image):
     global netNetwork
