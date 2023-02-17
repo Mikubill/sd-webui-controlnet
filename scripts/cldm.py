@@ -2,7 +2,7 @@ from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules import devices, lowvram, shared
+from modules import devices, lowvram, shared, scripts
 from modules.devices import cond_cast_unet
 from ldm.modules.diffusionmodules.util import (
     conv_nd,

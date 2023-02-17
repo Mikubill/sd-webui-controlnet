@@ -51,17 +51,17 @@ Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-
 
 ### T2I-Adapter Support (Experimental)
 
-Currently support both sketch Adapter and image Adapter. Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for some result
+Currently support both sketch Adapter and image Adapter. Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for reference.
 
-To use such models:
-1. download files from https://huggingface.co/TencentARC/T2I-Adapter
-2. setup correct config in settings panel - `sketch_adapter_v14.yaml` for sketch model and `image_adapter_v14.yaml` for keypose and segmentation model.
-3. It's better to use a slightly low strength (t) when generating image with sketch models like 0.6-0.8. (ref: [T2I-Adapter/ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
+To use these models:
+1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
+2. Setup correct config in settings panel - `sketch_adapter_v14.yaml` for sketch model and `image_adapter_v14.yaml` for keypose and segmentation model.
+3. It's better to use a slightly lower strength (t) when generating images with sketch model, such as 0.6-0.8. (ref: [ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
 
 ### Tips 
 
 * Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
-* About canvas height/width: they are designed for canvas generation. If you want to upload image directly, you can safely ignore them.
+* Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
 
