@@ -27,8 +27,6 @@ except ImportError:
     pass
 
 # svgsupports
-from PIL import Image as _Image  # using _ to minimize namespace pollution
-from typing import Dict
 import io
 import base64
 from svglib.svglib import svg2rlg
@@ -274,16 +272,16 @@ class Script(scripts.Script):
                 def create_canvas(h, w): 
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
-                def svgPreprocess(inputs) -> np.ndarray | _Image.Image | str | Dict | None:
+                def svgPreprocess(inputs):
                     if (inputs):
-                        if ( inputs['image'].startswith("data:image/svg+xml;base64,")):
+                        if (inputs['image'].startswith("data:image/svg+xml;base64,")):
                             svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                             drawing = svg2rlg(io.BytesIO(svg_data))
                             png_data = renderPM.drawToString(drawing, fmt='PNG')
                             encoded_string = base64.b64encode(png_data)
                             base64_str = str(encoded_string, "utf-8")
                             base64_str = "data:image/png;base64,"+ base64_str
-                            inputs['image']=base64_str
+                            inputs['image'] = base64_str
                         return input_image.orgpreprocess(inputs)
                     return None
 
