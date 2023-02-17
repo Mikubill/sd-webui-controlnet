@@ -15,13 +15,14 @@ from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compos
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from modules.ui_components import ToolButton
+from modules.paths import models_path
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
-cn_models_dir = os.path.join(scripts.basedir(), "models")
+cn_models_dir = os.path.join(models_path, "ControlNet")
 os.makedirs(cn_models_dir, exist_ok=True)
-default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
+default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 
