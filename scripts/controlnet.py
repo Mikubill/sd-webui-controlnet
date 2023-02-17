@@ -353,6 +353,9 @@ class Script(scripts.Script):
             resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
             rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
             lowvram = getattr(p, 'control_net_lowvram', lowvram)
+            pres = getattr(p, 'control_net_pres', pres)
+            pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
+            pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
 
             input_image = getattr(p, 'control_net_input_image', None)
         else:
