@@ -107,7 +107,7 @@ class PlugableControlModel(nn.Module):
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram            
         self.weight = weight
-        self.only_mid_control = False
+        self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
         self.control = None
         self.hint_cond = None
         
@@ -118,9 +118,7 @@ class PlugableControlModel(nn.Module):
         outer = self
         
         def guidance_schedule_handler(x):
-            if (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent:
-                # stop guidance
-                self.guidance_stopped = True
+            self.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
@@ -146,7 +144,7 @@ class PlugableControlModel(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             if not outer.guidance_stopped:
-                h += control.pop()
+                h += control.pop() * outer.weight
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:

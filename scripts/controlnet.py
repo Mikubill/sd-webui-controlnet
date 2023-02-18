@@ -28,10 +28,15 @@ except ImportError:
     pass
 
 # svgsupports
-import io
-import base64
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
+svgsupport = False
+try:
+    import io
+    import base64
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPM
+    svgsupport = True
+except ImportError:
+    pass
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
@@ -317,7 +322,7 @@ class Script(scripts.Script):
                 
                 def svgPreprocess(inputs):
                     if (inputs):
-                        if (inputs['image'].startswith("data:image/svg+xml;base64,")):
+                        if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                             svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                             drawing = svg2rlg(io.BytesIO(svg_data))
                             png_data = renderPM.drawToString(drawing, fmt='PNG')
@@ -557,11 +562,14 @@ def on_ui_settings():
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
-        True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
+        True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
         False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_only_mid_control", shared.OptionInfo(
+        False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
+    
 
     # control_net_skip_hires
 
@@ -587,6 +595,9 @@ class Img2ImgTabTracker:
 
         if type(component) is gr.Button and component.elem_id == 'img2img_generate':
             component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
+            return
+        
+        if not hasattr(component, "parent"):
             return
 
         tab = component.parent
