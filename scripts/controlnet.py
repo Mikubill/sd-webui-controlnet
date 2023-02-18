@@ -3,9 +3,11 @@ import stat
 from collections import OrderedDict
 
 import torch
+
+import modules.scripts as scripts
+from modules import shared, devices, script_callbacks, processing
 import gradio as gr
 import numpy as np
-import modules.scripts as scripts
 
 from einops import rearrange
 from scripts.cldm import PlugableControlModel
@@ -13,7 +15,6 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from modules import sd_models
-from modules import shared, devices, script_callbacks
 from modules.processing import StableDiffusionProcessingImg2Img
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
@@ -103,6 +104,15 @@ def find_closest_lora_model_name(search: str):
         return None
     applicable = sorted(applicable, key=lambda name: len(name))
     return cn_models_names[applicable[0]]
+
+
+def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
+    p.__class__ = processing.StableDiffusionProcessingTxt2Img
+    dummy = processing.StableDiffusionProcessingTxt2Img()
+    for k,v in dummy.__dict__.items():
+        if hasattr(p, k):
+            continue
+        setattr(p, k, v)
 
 
 def update_cn_models():
@@ -284,7 +294,7 @@ class Script(scripts.Script):
                     (weight, f"ControlNet Weight"),
                 ])
 
-                def create_canvas(h, w): 
+                def create_canvas(h, w):
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
                 def svgPreprocess(inputs):
@@ -349,11 +359,11 @@ class Script(scripts.Script):
                 self.input_image = None
                 self.latest_network.restore(unet)
                 self.latest_network = None
-            
+
             last_module = self.latest_params[0]
             if last_module is not None:
                 self.unloadable.get(last_module, lambda:None)()
-    
+
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength = args
         
@@ -482,7 +492,10 @@ class Script(scripts.Script):
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight, guidance_strength)
         self.set_infotext_fields(p, self.latest_params, weight)
-        
+
+        if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
+            swap_img2img_pipeline(p)
+
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
@@ -529,6 +542,8 @@ def on_ui_settings():
         True, "Use mid-layer control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
+        False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
 
     # control_net_skip_hires
 
