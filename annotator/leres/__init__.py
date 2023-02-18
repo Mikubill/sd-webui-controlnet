@@ -2,11 +2,8 @@ import cv2
 import numpy as np
 import torch
 import os
-from modules import extensions
-
-from einops import rearrange
-from modules import devices
-from torchvision.transforms import Compose, transforms
+from modules import extensions, devices
+from torchvision.transforms import transforms
 
 # AdelaiDepth/LeReS imports
 from .leres.multi_depth_model_woauxi import RelDepthModel
@@ -55,7 +52,7 @@ def estimateleres(img, model, w, h):
 
 	return prediction
 
-def apply_leres(input_image, a):
+def apply_leres(input_image, thr_a, thr_b):
     global model
     if model is None:
         model_path = os.path.join(base_model_path, "res101.pth")
@@ -63,21 +60,25 @@ def apply_leres(input_image, a):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=base_model_path)
             os.rename(os.path.join(base_model_path, 'download'), model_path)
-        checkpoint = torch.load(model_path)
+
+        if torch.cuda.is_available():
+            checkpoint = torch.load(model_path)
+        else:
+            checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
+
         model = RelDepthModel(backbone='resnext101')
-        # CPU support? add condition here
-        # checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
         model.load_state_dict(strip_prefix_if_present(checkpoint['depth_model'], "module."), strict=True)
         del checkpoint
     
     if devices.get_device_for("controlnet").type != 'mps':
         model = model.to(devices.get_device_for("controlnet"))
-    
+
     assert input_image.ndim == 3
-    image_depth = input_image
+    height, width, dim = input_image.shape
+
     with torch.no_grad():
 
-        depth = estimateleres(image_depth, model, 512, 512) # add support for resizing/cropping
+        depth = estimateleres(input_image, model, width, height)
 
         numbytes=2
         depth_min = depth.min()
@@ -92,9 +93,21 @@ def apply_leres(input_image, a):
         
         # single channel, 16 bit image
         depth_image = out.astype("uint16")
-        depth_image = cv2.bitwise_not(depth_image)
 
         # convert to uint8
         depth_image = cv2.convertScaleAbs(depth_image, alpha=(255.0/65535.0))
 
-        return depth_image, None
+        # remove near
+        if thr_a != 0:
+            thr_a = ((thr_a/100)*255) 
+            depth_image = cv2.threshold(depth_image, thr_a, 255, cv2.THRESH_TOZERO)[1]
+
+        # invert image
+        depth_image = cv2.bitwise_not(depth_image)
+
+        # remove bg
+        if thr_b != 0:
+            thr_b = ((thr_b/100)*255)
+            depth_image = cv2.threshold(depth_image, thr_b, 255, cv2.THRESH_TOZERO)[1]
+
+        return depth_image

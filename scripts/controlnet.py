@@ -269,9 +269,9 @@ class Script(scripts.Script):
                         ]
                     elif module == "depth_leres":
                         return [
-                            gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
-                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
+                            gr.update(label="Remove Background %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
                             gr.update(visible=True)
                         ]
                     elif module == "normal_map":
