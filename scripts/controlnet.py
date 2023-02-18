@@ -39,7 +39,7 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
+default_conf_adapter = os.path.join(scripts.basedir(), "models", "sketch_adapter_v14.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 
