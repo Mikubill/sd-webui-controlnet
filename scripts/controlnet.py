@@ -3,21 +3,19 @@ import stat
 from collections import OrderedDict
 
 import torch
-
-import modules.scripts as scripts
-from modules import shared, devices, script_callbacks
 import gradio as gr
-
 import numpy as np
+import modules.scripts as scripts
+
 from einops import rearrange
-from modules import sd_models
-from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
-from modules.ui_components import ToolButton
+from modules import sd_models
+from modules import shared, devices, script_callbacks
 from modules.processing import StableDiffusionProcessingImg2Img
+from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
 try:
@@ -43,6 +41,17 @@ default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
+
+
+class ToolButton(gr.Button, gr.components.FormComponent):
+    """Small button with single emoji as text, fits inside gradio forms"""
+
+    def __init__(self, **kwargs):
+        super().__init__(variant="tool", **kwargs)
+
+    def get_block_name(self):
+        return "button"
+    
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
