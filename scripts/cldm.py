@@ -107,7 +107,7 @@ class PlugableControlModel(nn.Module):
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram            
         self.weight = weight
-        self.only_mid_control = False
+        self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
         self.control = None
         self.hint_cond = None
         
