@@ -124,6 +124,7 @@ class PlugableControlModel(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
+            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
             
             # hires stuffs
             # note that this method may not works if hr_scale < 1.1

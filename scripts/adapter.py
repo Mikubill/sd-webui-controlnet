@@ -104,6 +104,8 @@ class PlugableAdapter(nn.Module):
 
         def forward2(*args, **kwargs):
             # webui will handle other compoments 
+            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
+            
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
