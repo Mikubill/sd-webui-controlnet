@@ -37,6 +37,7 @@ CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
+cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
 default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join(scripts.basedir(), "models", "sketch_adapter_v14.yaml")
@@ -112,7 +113,7 @@ def update_cn_models():
     ext_dirs = (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
     extra_lora_paths = (extra_lora_path for extra_lora_path in ext_dirs
                 if extra_lora_path is not None and os.path.exists(extra_lora_path))
-    paths = [cn_models_dir, *extra_lora_paths]
+    paths = [cn_models_dir, cn_models_dir_old, *extra_lora_paths]
 
     for path in paths:
         sort_by = shared.opts.data.get(
