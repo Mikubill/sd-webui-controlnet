@@ -3,6 +3,8 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 from modules import devices, lowvram, shared, scripts
 
+cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
+
 from ldm.util import exists
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
@@ -113,9 +115,6 @@ class PlugableControlModel(nn.Module):
             self.control_model.to(devices.get_device_for("controlnet"))
 
     def hook(self, model, parent_model):
-        if devices.get_device_for("controlnet").type == 'mps':
-            from modules.devices import cond_cast_unet
-            
         outer = self
         
         def guidance_schedule_handler(x):
@@ -137,10 +136,7 @@ class PlugableControlModel(nn.Module):
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():
-                t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-                if devices.get_device_for("controlnet").type == 'mps':
-                    t_emb = cond_cast_unet(t_emb)
-                    
+                t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
                 for module in self.input_blocks:
@@ -229,8 +225,7 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
-        if devices.get_device_for("controlnet").type == 'mps':
-            use_fp16 = devices.dtype_unet == th.float16
+        use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not shared.cmd_opts.no_half_controlnet
             
         super().__init__()
         if use_spatial_transformer:
@@ -447,18 +442,10 @@ class ControlNet(nn.Module):
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
-        if devices.get_device_for("controlnet").type == 'mps':
-            from modules.devices import cond_cast_unet
-        
-        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-        if devices.get_device_for("controlnet").type == 'mps':
-            t_emb = cond_cast_unet(t_emb)
-            
+        t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
         emb = self.time_embed(t_emb)
-        if devices.get_device_for("controlnet").type == 'mps':
-            hint = cond_cast_unet(hint)
             
-        guided_hint = self.input_hint_block(hint, emb, context)
+        guided_hint = self.input_hint_block(cond_cast_unet(hint), emb, context)
         outs = []
         
         h1, w1 = x.shape[-2:]
