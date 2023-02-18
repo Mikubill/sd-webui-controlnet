@@ -144,7 +144,7 @@ class PlugableControlModel(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             if not outer.guidance_stopped:
-                h += control.pop()
+                h += control.pop() * outer.weight
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:
