@@ -1,19 +1,49 @@
-from copy import deepcopy
-from einops import rearrange
+
+
 import torch
 import torch.nn as nn
 
-from modules import devices, lowvram, shared, scripts
 from omegaconf import OmegaConf
+from copy import deepcopy
+from modules import devices, lowvram, shared, scripts
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
+
+
+class TorchHijackForUnet:
+    """
+    This is torch, but with cat that resizes tensors to appropriate dimensions if they do not match;
+    this makes it possible to create pictures with dimensions that are multiples of 8 rather than 64
+    """
+
+    def __getattr__(self, item):
+        if item == 'cat':
+            return self.cat
+
+        if hasattr(torch, item):
+            return getattr(torch, item)
+
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
+
+    def cat(self, tensors, *args, **kwargs):
+        if len(tensors) == 2:
+            a, b = tensors
+            if a.shape[-2:] != b.shape[-2:]:
+                a = torch.nn.functional.interpolate(a, b.shape[-2:], mode="nearest")
+
+            tensors = (a, b)
+
+        return torch.cat(tensors, *args, **kwargs)
+
+
+th = TorchHijackForUnet()
 
 
 def align(hint, size):
     b, c, h1, w1 = hint.shape
     h, w = size
     if h != h1 or w != w1:
-         hint = torch.nn.functional.interpolate(hint, size=size, mode="nearest")
+         hint = th.nn.functional.interpolate(hint, size=size, mode="nearest")
     return hint
 
 
@@ -53,7 +83,7 @@ class PlugableAdapter(nn.Module):
             features_adapter = kwargs["features"]
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
-            with torch.no_grad():
+            with th.no_grad():
                 t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
@@ -66,7 +96,7 @@ class PlugableAdapter(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             for i, module in enumerate(self.output_blocks):
-                h = torch.cat([h, hs.pop()], dim=1)
+                h = th.cat([h, hs.pop()], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -74,6 +104,8 @@ class PlugableAdapter(nn.Module):
 
         def forward2(*args, **kwargs):
             # webui will handle other compoments 
+            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
+            
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()

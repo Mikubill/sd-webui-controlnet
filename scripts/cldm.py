@@ -1,24 +1,50 @@
-from omegaconf import OmegaConf
 import torch
-import torch as th
 import torch.nn as nn
+from omegaconf import OmegaConf
 from modules import devices, lowvram, shared, scripts
-from ldm.modules.diffusionmodules.util import (
-    conv_nd,
-    linear,
-    zero_module,
-    timestep_embedding,
-)
 
-from ldm.modules.attention import SpatialTransformer
-from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
+cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
+
 from ldm.util import exists
+from ldm.modules.attention import SpatialTransformer
+from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
+from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
+
+
+class TorchHijackForUnet:
+    """
+    This is torch, but with cat that resizes tensors to appropriate dimensions if they do not match;
+    this makes it possible to create pictures with dimensions that are multiples of 8 rather than 64
+    """
+
+    def __getattr__(self, item):
+        if item == 'cat':
+            return self.cat
+
+        if hasattr(torch, item):
+            return getattr(torch, item)
+
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
+
+    def cat(self, tensors, *args, **kwargs):
+        if len(tensors) == 2:
+            a, b = tensors
+            if a.shape[-2:] != b.shape[-2:]:
+                a = torch.nn.functional.interpolate(a, b.shape[-2:], mode="nearest")
+
+            tensors = (a, b)
+
+        return torch.cat(tensors, *args, **kwargs)
+
+
+th = TorchHijackForUnet()
+
 
 def align(hint, size):
     b, c, h1, w1 = hint.shape
     h, w = size
     if h != h1 or w != w1:
-         hint = torch.nn.functional.interpolate(hint, size=size, mode="nearest")
+         hint = th.nn.functional.interpolate(hint, size=size, mode="nearest")
     return hint
 
 
@@ -89,9 +115,6 @@ class PlugableControlModel(nn.Module):
             self.control_model.to(devices.get_device_for("controlnet"))
 
     def hook(self, model, parent_model):
-        if devices.get_device_for("controlnet").type == 'mps':
-            from modules.devices import cond_cast_unet
-            
         outer = self
         
         def guidance_schedule_handler(x):
@@ -101,6 +124,7 @@ class PlugableControlModel(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
+            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
             
             # hires stuffs
             # note that this method may not works if hr_scale < 1.1
@@ -112,11 +136,8 @@ class PlugableControlModel(nn.Module):
             control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
-            with torch.no_grad():
-                t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-                if devices.get_device_for("controlnet").type == 'mps':
-                    t_emb = cond_cast_unet(t_emb)
-                    
+            with th.no_grad():
+                t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
                 for module in self.input_blocks:
@@ -129,11 +150,11 @@ class PlugableControlModel(nn.Module):
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:
-                    h = torch.cat([h, hs.pop()], dim=1)
+                    hs_input = hs.pop()
+                    h = th.cat([h, hs_input], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
-                    h = align(h, hs_input.shape[-2:])
-                    h = torch.cat([h, hs_input + control_input * outer.weight], dim=1)
+                    h = th.cat([h, hs_input + control_input * outer.weight], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -205,8 +226,7 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
-        if devices.get_device_for("controlnet").type == 'mps':
-            use_fp16 = devices.dtype_unet == torch.float16
+        use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not shared.cmd_opts.no_half_controlnet
             
         super().__init__()
         if use_spatial_transformer:
@@ -423,18 +443,10 @@ class ControlNet(nn.Module):
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
-        if devices.get_device_for("controlnet").type == 'mps':
-            from modules.devices import cond_cast_unet
-        
-        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-        if devices.get_device_for("controlnet").type == 'mps':
-            t_emb = cond_cast_unet(t_emb)
-            
+        t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
         emb = self.time_embed(t_emb)
-        if devices.get_device_for("controlnet").type == 'mps':
-            hint = cond_cast_unet(hint)
             
-        guided_hint = self.input_hint_block(hint, emb, context)
+        guided_hint = self.input_hint_block(cond_cast_unet(hint), emb, context)
         outs = []
         
         h1, w1 = x.shape[-2:]
