@@ -272,6 +272,7 @@ class Script(scripts.Script):
                             gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
                             gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(visible=True)
                         ]
                     elif module == "normal_map":
                         return [
@@ -599,3 +600,4 @@ class Img2ImgTabTracker:
 
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
+
