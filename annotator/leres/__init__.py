@@ -7,12 +7,13 @@ from modules import extensions
 from einops import rearrange
 from modules import devices
 from torchvision.transforms import Compose, transforms
+from modules.paths import models_path
 
 # AdelaiDepth/LeReS imports
 from .leres.multi_depth_model_woauxi import RelDepthModel
 from .leres.net_tools import strip_prefix_if_present
 
-base_model_path = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "leres")
+base_model_path = modeldir = os.path.join(models_path, "ControlNet-Annotator")
 remote_model_path = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
 
 model = None
