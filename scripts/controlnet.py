@@ -14,6 +14,8 @@ from modules import sd_models
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
+from scripts.adapter import PlugableAdapter
+from scripts.utils import load_state_dict
 from modules.ui_components import ToolButton
 from modules.processing import StableDiffusionProcessingImg2Img
 
@@ -37,10 +39,10 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
+default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
-active_img2img_tab = 'img2img_img2img_tab'
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())
@@ -144,6 +146,7 @@ class Script(scripts.Script):
             "normal_map": midas_normal,
             "openpose": openpose,
             "openpose_hand": openpose_hand,
+            "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
@@ -154,6 +157,7 @@ class Script(scripts.Script):
             "mlsd": unload_mlsd,
             "depth": unload_midas,
             "normal_map": unload_midas,
+            "pidinet": unload_pidinet,
             "openpose": unload_openpose,
             "openpose_hand": unload_openpose,
             "segmentation": unload_uniformer,
@@ -209,7 +213,9 @@ class Script(scripts.Script):
                     refresh_models = ToolButton(value=refresh_symbol)
                     refresh_models.click(refresh_all_models, model, model)
                     # ctrls += (refresh_models, )
+                with gr.Row():
                     weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
+                    guidance_stength =  gr.Slider(label="Guidance strength (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
                     ctrls += (module, model, weight,)
                     # model_dropdowns.append(model)
@@ -312,7 +318,8 @@ class Script(scripts.Script):
                     
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, txt2img_processing)
                 ctrls += (lowvram,)
-                ctrls += (processor_res, threshold_a, threshold_b)
+                ctrls += (processor_res, threshold_a, threshold_b, guidance_stength)
+                
                 input_image.orgpreprocess=input_image.preprocess
                 input_image.preprocess=svgPreprocess
 
@@ -354,8 +361,8 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
 
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, txt2img_processing, lowvram, pres, pthr_a, pthr_b = args
-
+            resize_mode, rgbbgr_mode, txt2img_processing, lowvram, pres, pthr_a, pthr_b, guidance_stength = args
+        
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
@@ -367,6 +374,9 @@ class Script(scripts.Script):
             resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
             rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
             lowvram = getattr(p, 'control_net_lowvram', lowvram)
+            pres = getattr(p, 'control_net_pres', pres)
+            pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
+            pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
 
             input_image = getattr(p, 'control_net_input_image', None)
         else:
@@ -397,9 +407,17 @@ class Script(scripts.Script):
                 raise ValueError(f"file not found: {model_path}")
 
             print(f"Loading preprocessor: {module}, model: {model}")
-            network = PlugableControlModel(
-                model_path=model_path, 
-                config_path=shared.opts.data.get("control_net_model_config", default_conf), 
+            state_dict = load_state_dict(model_path)
+            network_module = PlugableControlModel
+            network_config = shared.opts.data.get("control_net_model_config", default_conf)
+            if any([k.startswith("body.") for k, v in state_dict.items()]):
+                # adapter model     
+                network_module = PlugableAdapter
+                network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+
+            network = network_module(
+                state_dict=state_dict, 
+                config_path=network_config, 
                 weight=weight, 
                 lowvram=lowvram,
                 base_model=unet,
@@ -467,7 +485,7 @@ class Script(scripts.Script):
         self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
-        self.latest_network.notify(control, weight)
+        self.latest_network.notify(control, weight, guidance_stength)
         self.set_infotext_fields(p, self.latest_params, weight)
 
         if txt2img_processing:
@@ -475,8 +493,9 @@ class Script(scripts.Script):
 
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if self.latest_network is None or no_detectmap_opt or (is_img2img and active_img2img_tab == 'img2img_batch_tab'):
+        if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
             result =  self.detected_map
@@ -505,6 +524,8 @@ def on_ui_settings():
     section = ('control_net', "ControlNet")
     shared.opts.add_option("control_net_model_config", shared.OptionInfo(
         default_conf, "Config file for Control Net models", section=section))
+    shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
+        default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
@@ -523,26 +544,34 @@ def on_ui_settings():
 script_callbacks.on_ui_settings(on_ui_settings)
 
 
-def set_active_img2img_tab(tab):
-    global active_img2img_tab
-    active_img2img_tab = tab.elem_id
+class Img2ImgTabTracker:
+    def __init__(self):
+        self.img2img_tabs = set()
+        self.active_img2img_tab = 'img2img_img2img_tab'
+        self.submit_img2img_tab = None
 
+    def save_submit_img2img_tab(self):
+        self.submit_img2img_tab = self.active_img2img_tab
 
-def create_on_after_component():
-    img2img_tabs = set()
+    def set_active_img2img_tab(self, tab):
+        self.active_img2img_tab = tab.elem_id
 
-    def inner(component, **_kwargs):
+    def on_after_component_callback(self, component, **_kwargs):
         if type(component) is gr.State:
+            return
+
+        if type(component) is gr.Button and component.elem_id == 'img2img_generate':
+            component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
             return
 
         tab = component.parent
         is_tab = type(tab) is gr.Tab and tab.elem_id is not None
         is_img2img_tab = is_tab and tab.parent is not None and tab.parent.elem_id == 'mode_img2img'
-        if is_img2img_tab and tab.elem_id not in img2img_tabs:
-            tab.select(fn=set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
-            img2img_tabs.add(tab.elem_id)
+        if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
+            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            self.img2img_tabs.add(tab.elem_id)
+            return
 
-    return inner
 
-
-script_callbacks.on_after_component(create_on_after_component())
+img2img_tab_tracker = Img2ImgTabTracker()
+script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)

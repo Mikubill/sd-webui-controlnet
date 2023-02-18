@@ -1,11 +1,8 @@
-import os
-import einops
 from omegaconf import OmegaConf
 import torch
 import torch as th
 import torch.nn as nn
-from modules import devices, lowvram, shared
-
+from modules import devices, lowvram, shared, scripts
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
     linear,
@@ -16,24 +13,6 @@ from ldm.modules.diffusionmodules.util import (
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.util import exists
-
-
-def load_state_dict(ckpt_path, location='cpu'):
-    _, extension = os.path.splitext(ckpt_path)
-    if extension.lower() == ".safetensors":
-        import safetensors.torch
-        state_dict = safetensors.torch.load_file(ckpt_path, device=location)
-    else:
-        state_dict = get_state_dict(torch.load(
-            ckpt_path, map_location=torch.device(location)))
-    state_dict = get_state_dict(state_dict)
-    print(f'Loaded state_dict from [{ckpt_path}]')
-    return state_dict
-
-
-def get_state_dict(d):
-    return d.get('state_dict', d)
-
 
 def align(hint, size):
     b, c, h1, w1 = hint.shape
@@ -53,13 +32,11 @@ def get_node_name(name, parent_name):
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, model_path, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
+    def __init__(self, state_dict, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
         super().__init__()
-        config = OmegaConf.load(config_path)
-        
+        config = OmegaConf.load(config_path)        
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
-        state_dict = load_state_dict(model_path)
-        
+            
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             
             is_diff_model = 'difference' in state_dict
@@ -112,7 +89,15 @@ class PlugableControlModel(nn.Module):
             self.control_model.to(devices.get_device_for("controlnet"))
 
     def hook(self, model, parent_model):
+        if devices.get_device_for("controlnet").type == 'mps':
+            from modules.devices import cond_cast_unet
+            
         outer = self
+        
+        def guidance_schedule_handler(x):
+            if (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent:
+                # stop guidance
+                self.guidance_stopped = True
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
@@ -128,8 +113,10 @@ class PlugableControlModel(nn.Module):
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with torch.no_grad():
-                t_emb = timestep_embedding(
-                    timesteps, self.model_channels, repeat_only=False)
+                t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+                if devices.get_device_for("controlnet").type == 'mps':
+                    t_emb = cond_cast_unet(t_emb)
+                    
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
                 for module in self.input_blocks:
@@ -137,10 +124,11 @@ class PlugableControlModel(nn.Module):
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
-            h += control.pop()
+            if not outer.guidance_stopped:
+                h += control.pop()
 
             for i, module in enumerate(self.output_blocks):
-                if only_mid_control:
+                if only_mid_control or outer.guidance_stopped:
                     h = torch.cat([h, hs.pop()], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
@@ -165,13 +153,18 @@ class PlugableControlModel(nn.Module):
         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
+        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, cond_like, weight):
+    def notify(self, cond_like, weight, stop_guidance_percent):
+        self.stop_guidance_percent = stop_guidance_percent
+        self.guidance_stopped = False
+        
         self.hint_cond = cond_like
         self.weight = weight
         # print(self.hint_cond.shape)
 
     def restore(self, model):
+        scripts.script_callbacks.remove_current_script_callbacks()
         if not hasattr(model, "_original_forward"):
             # no such handle, ignore
             return
@@ -212,6 +205,9 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
+        if devices.get_device_for("controlnet").type == 'mps':
+            use_fp16 = devices.dtype_unet == torch.float16
+            
         super().__init__()
         if use_spatial_transformer:
             assert context_dim is not None, 'Fool!! You forgot to include the dimension of your cross-attention conditioning...'
@@ -427,10 +423,17 @@ class ControlNet(nn.Module):
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):
-        t_emb = timestep_embedding(
-            timesteps, self.model_channels, repeat_only=False)
+        if devices.get_device_for("controlnet").type == 'mps':
+            from modules.devices import cond_cast_unet
+        
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        if devices.get_device_for("controlnet").type == 'mps':
+            t_emb = cond_cast_unet(t_emb)
+            
         emb = self.time_embed(t_emb)
-
+        if devices.get_device_for("controlnet").type == 'mps':
+            hint = cond_cast_unet(hint)
+            
         guided_hint = self.input_hint_block(hint, emb, context)
         outs = []
         
