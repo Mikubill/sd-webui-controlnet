@@ -28,10 +28,15 @@ except ImportError:
     pass
 
 # svgsupports
-import io
-import base64
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
+svgsupport = False
+try:
+    import io
+    import base64
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPM
+    svgsupport = True
+except ImportError:
+    pass
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
@@ -317,7 +322,7 @@ class Script(scripts.Script):
                 
                 def svgPreprocess(inputs):
                     if (inputs):
-                        if (inputs['image'].startswith("data:image/svg+xml;base64,")):
+                        if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                             svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                             drawing = svg2rlg(io.BytesIO(svg_data))
                             png_data = renderPM.drawToString(drawing, fmt='PNG')
