@@ -1,8 +1,7 @@
-from omegaconf import OmegaConf
-import torch
-import torch as th
 import torch.nn as nn
+from omegaconf import OmegaConf
 from modules import devices, lowvram, shared, scripts
+from modules.sd_hijack_unet import TorchHijackForUnet
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
     linear,
@@ -14,11 +13,15 @@ from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.util import exists
 
+
+th = TorchHijackForUnet()
+
+
 def align(hint, size):
     b, c, h1, w1 = hint.shape
     h, w = size
     if h != h1 or w != w1:
-         hint = torch.nn.functional.interpolate(hint, size=size, mode="nearest")
+         hint = th.nn.functional.interpolate(hint, size=size, mode="nearest")
     return hint
 
 
@@ -112,7 +115,7 @@ class PlugableControlModel(nn.Module):
             control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
-            with torch.no_grad():
+            with th.no_grad():
                 t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
                 if devices.get_device_for("controlnet").type == 'mps':
                     t_emb = cond_cast_unet(t_emb)
@@ -129,11 +132,11 @@ class PlugableControlModel(nn.Module):
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:
-                    h = torch.cat([h, hs.pop()], dim=1)
+                    hs_input = hs.pop()
+                    h = th.cat([h, hs_input], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
-                    h = align(h, hs_input.shape[-2:])
-                    h = torch.cat([h, hs_input + control_input * outer.weight], dim=1)
+                    h = th.cat([h, hs_input + control_input * outer.weight], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -206,7 +209,7 @@ class ControlNet(nn.Module):
         use_linear_in_transformer=False,
     ):
         if devices.get_device_for("controlnet").type == 'mps':
-            use_fp16 = devices.dtype_unet == torch.float16
+            use_fp16 = devices.dtype_unet == th.float16
             
         super().__init__()
         if use_spatial_transformer:

@@ -4,7 +4,7 @@ from scripts import controlnet
 
 def find_xyz_grid():
     for data in scripts.scripts_data:
-        if data.script_class.__module__ in ["xyz_grid.py", "xy_grid.py"]:
+        if data.script_class.__module__ in ["xyz_grid.py", "xy_grid.py"] and hasattr(data, "module"):
             return data.module
 
     return None

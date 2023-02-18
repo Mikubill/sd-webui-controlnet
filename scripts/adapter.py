@@ -1,19 +1,23 @@
-from copy import deepcopy
-from einops import rearrange
-import torch
+
+
 import torch.nn as nn
 
-from modules import devices, lowvram, shared, scripts
 from omegaconf import OmegaConf
+from copy import deepcopy
+from modules import devices, lowvram, shared, scripts
+from modules.sd_hijack_unet import TorchHijackForUnet
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
+
+
+th = TorchHijackForUnet()
 
 
 def align(hint, size):
     b, c, h1, w1 = hint.shape
     h, w = size
     if h != h1 or w != w1:
-         hint = torch.nn.functional.interpolate(hint, size=size, mode="nearest")
+         hint = th.nn.functional.interpolate(hint, size=size, mode="nearest")
     return hint
 
 
@@ -53,7 +57,7 @@ class PlugableAdapter(nn.Module):
             features_adapter = kwargs["features"]
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
-            with torch.no_grad():
+            with th.no_grad():
                 t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
@@ -66,7 +70,7 @@ class PlugableAdapter(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             for i, module in enumerate(self.output_blocks):
-                h = torch.cat([h, hs.pop()], dim=1)
+                h = th.cat([h, hs.pop()], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
