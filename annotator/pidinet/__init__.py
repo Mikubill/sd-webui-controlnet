@@ -9,7 +9,7 @@ from scripts.utils import load_state_dict
 
 netNetwork = None
 remote_model_path = "https://github.com/TencentARC/T2I-Adapter/raw/main/models/table5_pidinet.pth"
-modeldir = os.path.join(models_path, "ControlNet-Annotator")
+modeldir = os.path.join(models_path, "pidinet")
 
 def apply_pidinet(input_image):
     global netNetwork

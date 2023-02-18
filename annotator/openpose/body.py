@@ -210,7 +210,7 @@ class Body(object):
         return candidate, subset
 
 if __name__ == "__main__":
-    body_estimation = Body(os.path.join(models_path, "ControlNet-Annotator", "body_pose_model.pth"))
+    body_estimation = Body(os.path.join(models_path, "openpose", "body_pose_model.pth"))
 
     test_image = '../images/ski.jpg'
     oriImg = cv2.imread(test_image)  # B,G,R order

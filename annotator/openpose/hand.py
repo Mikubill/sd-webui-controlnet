@@ -76,7 +76,7 @@ class Hand(object):
         return np.array(all_peaks)
 
 if __name__ == "__main__":
-    hand_estimation = Hand(os.path.join(models_path, "ControlNet-Annotator", "hand_pose_model.pth"))
+    hand_estimation = Hand(os.path.join(models_path, "openpose", "hand_pose_model.pth"))
 
     # test_image = '../images/hand.jpg'
     test_image = '../images/hand.jpg'

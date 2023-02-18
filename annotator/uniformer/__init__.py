@@ -5,7 +5,7 @@ from modules.paths import models_path
 from modules import devices
 import os
 
-modeldir = os.path.join(models_path, "ControlNet-Annotator")
+modeldir = os.path.join(models_path, "uniformer")
 checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
 config_file = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "uniformer", "exp", "upernet_global_small", "config.py")
 model = None

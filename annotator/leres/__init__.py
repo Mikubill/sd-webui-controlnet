@@ -13,7 +13,7 @@ from modules.paths import models_path
 from .leres.multi_depth_model_woauxi import RelDepthModel
 from .leres.net_tools import strip_prefix_if_present
 
-base_model_path = modeldir = os.path.join(models_path, "ControlNet-Annotator")
+base_model_path = modeldir = os.path.join(models_path, "leres")
 remote_model_path = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
 
 model = None

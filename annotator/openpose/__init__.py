@@ -13,7 +13,7 @@ hand_estimation = None
 
 body_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/hand_pose_model.pth"
-modeldir = os.path.join(models_path, "ControlNet-Annotator")
+modeldir = os.path.join(models_path, "openpose")
 
 def unload_openpose_model():
     global body_estimation, hand_estimation

@@ -98,7 +98,7 @@ class Network(torch.nn.Module):
 
 netNetwork = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/network-bsds500.pth"
-modeldir = os.path.join(models_path, "ControlNet-Annotator")
+modeldir = os.path.join(models_path, "hed")
 
 def apply_hed(input_image):
     global netNetwork
