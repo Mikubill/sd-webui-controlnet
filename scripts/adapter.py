@@ -75,9 +75,7 @@ class PlugableAdapter(nn.Module):
         outer = self
         
         def guidance_schedule_handler(x):
-            if (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent:
-                # stop guidance
-                self.guidance_stopped = True
+            self.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent
 
         def forward(self, x, timesteps=None, context=None, **kwargs):            
             features_adapter = kwargs["features"]
@@ -104,6 +102,8 @@ class PlugableAdapter(nn.Module):
 
         def forward2(*args, **kwargs):
             # webui will handle other compoments 
+            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
+            
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
