@@ -588,6 +588,9 @@ class Img2ImgTabTracker:
         if type(component) is gr.Button and component.elem_id == 'img2img_generate':
             component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
             return
+        
+        if not hasattr(component, "parent"):
+            return
 
         tab = component.parent
         is_tab = type(tab) is gr.Tab and tab.elem_id is not None
