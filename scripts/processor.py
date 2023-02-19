@@ -87,13 +87,13 @@ def midas(img, res=512, a=np.pi * 2.0, **kwargs):
 model_leres = None
 
 
-def leres(img, res=512, a=np.pi * 2.0, **kwargs):
+def leres(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_leres
     if model_leres is None:
         from annotator.leres import apply_leres
         model_leres = apply_leres
-    results, _ = model_leres(img, a)
+    results = model_leres(img, thr_a, thr_b)
     return results
 
 def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs): # bg_th -> thr_a
