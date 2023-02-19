@@ -161,7 +161,7 @@ class Script(scripts.Script):
             "mlsd": mlsd,
             "normal_map": midas_normal,
             "openpose": openpose,
-            "openpose_hand": openpose_hand,
+            # "openpose_hand": openpose_hand,
             "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
