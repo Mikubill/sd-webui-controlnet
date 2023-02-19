@@ -50,8 +50,13 @@ os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
 default_detectedmap_dir = cn_detectedmap_dir
-refresh_symbol = '\U0001f504'  # 🔄
+refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
+camera_symbol = '\U0001F4F7'        # 📷
+reverse_symbol = '\U000021C4'       # ⇄
+
+webcam_enabled = False
+webcam_mirrored = False
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -209,20 +214,36 @@ class Script(scripts.Script):
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
                 input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+
+                with gr.Row():
+                    gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                    webcam_enable = ToolButton(value=camera_symbol)
+                    webcam_mirror = ToolButton(value=reverse_symbol)
 
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
-                    webcam = gr.Checkbox(label='Webcam', value=False)
-                    webcam_mirror = gr.Checkbox(label='Mirror Webcam', value=False)
 
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
-                webcam.change(lambda checked: {"value": None, "source": "webcam" if checked else "upload", "__type__": "update"}, inputs=webcam, outputs=input_image)
-                webcam_mirror.change(lambda checked: {"mirror_webcam": checked, "__type__": "update"}, inputs=webcam_mirror, outputs=input_image)
+                
+                
+                def webcam_toggle():
+                    global webcam_enabled
+                    webcam_enabled = not webcam_enabled
+                    return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
+                    
+                    
+                def webcam_mirror_toggle():
+                    global webcam_mirrored
+                    webcam_mirrored = not webcam_mirrored
+                    return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
+                
+                
+                webcam_enable.click(fn=webcam_toggle, outputs=input_image)
+                webcam_mirror.click(fn=webcam_mirror_toggle, outputs=input_image)
 
 
                 def refresh_all_models(*inputs):
