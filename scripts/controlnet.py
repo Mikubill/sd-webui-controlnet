@@ -203,7 +203,7 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
-                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
+                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
                 gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
 
                 with gr.Row():
@@ -211,10 +211,15 @@ class Script(scripts.Script):
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
-                    
+                    webcam = gr.Checkbox(label='Webcam', value=False)
+                    webcam_mirror = gr.Checkbox(label='Mirror Webcam', value=False)
+
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
-                
+                webcam.change(lambda i: {"value": None, "source": "webcam", "__type__": "update"} if i else {"value": None, "source": "upload", "__type__": "update"}, inputs=webcam, outputs=input_image)
+                webcam_mirror.change(lambda i: {"mirror_webcam": True, "__type__": "update"} if i else {"mirror_webcam": False, "__type__": "update"}, inputs=webcam_mirror, outputs=input_image)
+
+
                 def refresh_all_models(*inputs):
                     update_cn_models()
                     
@@ -341,13 +346,11 @@ class Script(scripts.Script):
                         
                     if gradio_compat:
                         canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                         
-                create_button = gr.Button(value="Create blank canvas")            
+                create_button = gr.Button(value="Create blank canvas")
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                
-                if gradio_compat:
-                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-                    
+                                                    
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b, guidance_strength)
@@ -611,4 +614,3 @@ class Img2ImgTabTracker:
 
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
-
