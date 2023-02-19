@@ -529,7 +529,8 @@ class Script(scripts.Script):
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if shared.opts.data.get("control_net_detectmap_autosaving", False):
-            detectmap_dir = shared.opts.data.get("control_net_detectedmap_dir", False)
+            detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), self.latest_params[0])
+            os.makedirs(detectmap_dir, exist_ok=True)
             #detectedmap_filename = os.path.join(detectmap_dir, "detected_maps.png")
             img = Image.fromarray(self.detected_map)
             save_image(img, detectmap_dir, self.latest_params[0])
