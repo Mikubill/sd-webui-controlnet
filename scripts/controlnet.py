@@ -16,6 +16,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from modules import sd_models
 from modules.processing import StableDiffusionProcessingImg2Img
+from modules.images import save_image
+from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
@@ -43,8 +45,11 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
+cn_detectedmap_dir = os.path.join(scripts.basedir(), "detected_maps")
+os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
+default_detectedmap_dir = cn_detectedmap_dir
 refresh_symbol = '\U0001f504'  # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 
@@ -161,7 +166,7 @@ class Script(scripts.Script):
             "mlsd": mlsd,
             "normal_map": midas_normal,
             "openpose": openpose,
-            "openpose_hand": openpose_hand,
+            # "openpose_hand": openpose_hand,
             "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
@@ -526,6 +531,12 @@ class Script(scripts.Script):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if shared.opts.data.get("control_net_detectmap_autosaving", False):
+            detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), self.latest_params[0])
+            os.makedirs(detectmap_dir, exist_ok=True)
+            #detectedmap_filename = os.path.join(detectmap_dir, "detected_maps.png")
+            img = Image.fromarray(self.detected_map)
+            save_image(img, detectmap_dir, self.latest_params[0])
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
@@ -557,6 +568,8 @@ def on_ui_settings():
         default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
         default_conf_adapter, "Config file for Adapter models", section=section))
+    shared.opts.add_option("control_net_detectedmap_dir", shared.OptionInfo(
+        default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
@@ -564,6 +577,8 @@ def on_ui_settings():
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
+        False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
         True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
