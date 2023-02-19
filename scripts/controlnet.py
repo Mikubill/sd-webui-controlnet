@@ -221,8 +221,8 @@ class Script(scripts.Script):
 
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
-                webcam.change(lambda i: {"value": None, "source": "webcam", "__type__": "update"} if i else {"value": None, "source": "upload", "__type__": "update"}, inputs=webcam, outputs=input_image)
-                webcam_mirror.change(lambda i: {"mirror_webcam": True, "__type__": "update"} if i else {"mirror_webcam": False, "__type__": "update"}, inputs=webcam_mirror, outputs=input_image)
+                webcam.change(lambda checked: {"value": None, "source": "webcam" if checked else "upload", "__type__": "update"}, inputs=webcam, outputs=input_image)
+                webcam_mirror.change(lambda checked: {"mirror_webcam": checked, "__type__": "update"}, inputs=webcam_mirror, outputs=input_image)
 
 
                 def refresh_all_models(*inputs):
