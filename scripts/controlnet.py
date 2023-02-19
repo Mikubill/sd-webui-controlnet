@@ -203,9 +203,11 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
-                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-
+                with gr.Row():
+                    input_image = gr.Image(source='upload', type='numpy', tool='sketch')
+                    gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                    input_video = gr.Video(format='mp4', source='upload')
+                
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
