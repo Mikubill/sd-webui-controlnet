@@ -98,6 +98,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
         controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
+        controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
+        guess_mode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
         subseed_strength: int = Body(-1, title="Subseed Strength"),
@@ -169,6 +171,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
+            "guidance":controlnet_guidance,
         }
 
         p.scripts = scripts.scripts_txt2img
@@ -186,6 +189,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["processor_res"],
             cn_args["threshold_a"],
             cn_args["threshold_b"],
+            cn_args["guidance"],
+            False,
             0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # todo: extend to include wither alwaysvisible scripts
         )
 
@@ -240,6 +245,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
         controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
+        controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
+        guess_mode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
         subseed_strength: int = Body(-1, title="Subseed Strength"),
@@ -317,6 +324,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
+            "guidance":controlnet_guidance,
         }
 
         p.scripts = scripts.scripts_txt2img
@@ -334,6 +342,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["processor_res"],
             cn_args["threshold_a"],
             cn_args["threshold_b"],
+            cn_args["guidance"],
+            False,
             0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # default args
         )
 

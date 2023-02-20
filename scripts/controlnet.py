@@ -616,7 +616,7 @@ def on_ui_settings():
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 
-if (__name__ == '__main__'):
+if __name__ == '__main__':
     script_callbacks.on_ui_settings(on_ui_settings)
 
 
@@ -651,6 +651,6 @@ class Img2ImgTabTracker:
             self.img2img_tabs.add(tab.elem_id)
             return
 
-if (__name__ == '__main__'):
-    img2img_tab_tracker = Img2ImgTabTracker()
+img2img_tab_tracker = Img2ImgTabTracker()
+if __name__ == '__main__':
     script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
