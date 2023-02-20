@@ -19,7 +19,7 @@ See our template model class 'template_model.py' for more details.
 """
 
 import importlib
-from pix2pix.models.base_model import BaseModel
+from .base_model import BaseModel
 
 
 def find_model_using_name(model_name):
@@ -29,7 +29,7 @@ def find_model_using_name(model_name):
     be instantiated. It has to be a subclass of BaseModel,
     and it is case-insensitive.
     """
-    model_filename = "pix2pix.models." + model_name + "_model"
+    model_filename = "annotator.leres.pix2pix.models." + model_name + "_model"
     modellib = importlib.import_module(model_filename)
     model = None
     target_model_name = model_name.replace('_', '') + 'model'
