@@ -16,6 +16,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from modules import sd_models
 from modules.processing import StableDiffusionProcessingImg2Img
+from modules.images import save_image
+from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
@@ -43,10 +45,18 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
+cn_detectedmap_dir = os.path.join(scripts.basedir(), "detected_maps")
+os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_conf_adapter = os.path.join(cn_models_dir, "sketch_adapter_v14.yaml")
 default_conf = os.path.join(cn_models_dir, "cldm_v15.yaml")
-refresh_symbol = '\U0001f504'  # 🔄
+default_detectedmap_dir = cn_detectedmap_dir
+refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
+camera_symbol = '\U0001F4F7'        # 📷
+reverse_symbol = '\U000021C4'       # ⇄
+
+webcam_enabled = False
+webcam_mirrored = False
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -161,7 +171,7 @@ class Script(scripts.Script):
             "mlsd": mlsd,
             "normal_map": midas_normal,
             "openpose": openpose,
-            "openpose_hand": openpose_hand,
+            # "openpose_hand": openpose_hand,
             "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
@@ -203,18 +213,39 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
-                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+
+                with gr.Row():
+                    gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                    webcam_enable = ToolButton(value=camera_symbol)
+                    webcam_mirror = ToolButton(value=reverse_symbol)
 
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
-                    
+
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
                 
+                
+                def webcam_toggle():
+                    global webcam_enabled
+                    webcam_enabled = not webcam_enabled
+                    return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
+                    
+                    
+                def webcam_mirror_toggle():
+                    global webcam_mirrored
+                    webcam_mirrored = not webcam_mirrored
+                    return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
+                
+                
+                webcam_enable.click(fn=webcam_toggle, outputs=input_image)
+                webcam_mirror.click(fn=webcam_mirror_toggle, outputs=input_image)
+
+
                 def refresh_all_models(*inputs):
                     update_cn_models()
                     
@@ -274,9 +305,9 @@ class Script(scripts.Script):
                         ]
                     elif module == "depth_leres":
                         return [
-                            gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
-                            gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                            gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                            gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                            gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
+                            gr.update(label="Remove Background %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
                             gr.update(visible=True)
                         ]
                     elif module == "normal_map":
@@ -341,13 +372,11 @@ class Script(scripts.Script):
                         
                     if gradio_compat:
                         canvas_swap_res = ToolButton(value=switch_values_symbol)
+                        canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                         
-                create_button = gr.Button(value="Create blank canvas")            
+                create_button = gr.Button(value="Create blank canvas")
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-                
-                if gradio_compat:
-                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-                    
+                                                    
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b, guidance_strength)
@@ -357,7 +386,7 @@ class Script(scripts.Script):
 
         return ctrls
 
-    def set_infotext_fields(self, p, params, weight):
+    def set_infotext_fields(self, p, params, weight, guidance):
         module, model = params
         if model == "None" or model == "none":
             return
@@ -366,6 +395,7 @@ class Script(scripts.Script):
             f"ControlNet Module": module,
             f"ControlNet Model": model,
             f"ControlNet Weight": weight,
+            f"ControlNet Guidance Strength": guidance,
         })
 
     def process(self, p, *args):
@@ -514,7 +544,7 @@ class Script(scripts.Script):
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight, guidance_strength)
-        self.set_infotext_fields(p, self.latest_params, weight)
+        self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
@@ -523,6 +553,13 @@ class Script(scripts.Script):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
+            detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), self.latest_params[0])
+            os.makedirs(detectmap_dir, exist_ok=True)
+            #detectedmap_filename = os.path.join(detectmap_dir, "detected_maps.png")
+            img = Image.fromarray(self.detected_map)
+            save_image(img, detectmap_dir, self.latest_params[0])
+
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
@@ -554,6 +591,8 @@ def on_ui_settings():
         default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
         default_conf_adapter, "Config file for Adapter models", section=section))
+    shared.opts.add_option("control_net_detectedmap_dir", shared.OptionInfo(
+        default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
@@ -561,6 +600,8 @@ def on_ui_settings():
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
+        False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
         True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
@@ -611,5 +652,3 @@ class Img2ImgTabTracker:
 
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
-
-
