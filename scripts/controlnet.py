@@ -386,7 +386,7 @@ class Script(scripts.Script):
 
         return ctrls
 
-    def set_infotext_fields(self, p, params, weight):
+    def set_infotext_fields(self, p, params, weight, guidance):
         module, model = params
         if model == "None" or model == "none":
             return
@@ -395,6 +395,7 @@ class Script(scripts.Script):
             f"ControlNet Module": module,
             f"ControlNet Model": model,
             f"ControlNet Weight": weight,
+            f"ControlNet Guidance Strength": guidance,
         })
 
     def process(self, p, *args):
@@ -543,7 +544,7 @@ class Script(scripts.Script):
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight, guidance_strength)
-        self.set_infotext_fields(p, self.latest_params, weight)
+        self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
@@ -552,12 +553,13 @@ class Script(scripts.Script):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if shared.opts.data.get("control_net_detectmap_autosaving", False):
+        if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), self.latest_params[0])
             os.makedirs(detectmap_dir, exist_ok=True)
             #detectedmap_filename = os.path.join(detectmap_dir, "detected_maps.png")
             img = Image.fromarray(self.detected_map)
             save_image(img, detectmap_dir, self.latest_params[0])
+
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         if hasattr(self, "detected_map") and self.detected_map is not None:
