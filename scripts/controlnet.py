@@ -225,6 +225,7 @@ class Script(scripts.Script):
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
+                    guess_mode = gr.Checkbox(label='Guess Mode', value=False)
 
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -379,7 +380,7 @@ class Script(scripts.Script):
                                                     
                 ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
                 ctrls += (lowvram,)
-                ctrls += (processor_res, threshold_a, threshold_b, guidance_strength)
+                ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
                 
                 input_image.orgpreprocess=input_image.preprocess
                 input_image.preprocess=svgPreprocess
@@ -418,7 +419,7 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
 
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength = args
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = args
         
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -543,7 +544,7 @@ class Script(scripts.Script):
         self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
             
         # control = torch.stack([control for _ in range(bsz)], dim=0)
-        self.latest_network.notify(control, weight, guidance_strength)
+        self.latest_network.notify(control, weight, guidance_strength, guess_mode)
         self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
@@ -610,9 +611,10 @@ def on_ui_settings():
         False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_mid_control", shared.OptionInfo(
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
-    
-
-    # control_net_skip_hires
+    shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(
+        False, "Enable CFG-Based guidance", gr.Checkbox, {"interactive": True}, section=section))
+    # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
+    #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 
 
 script_callbacks.on_ui_settings(on_ui_settings)

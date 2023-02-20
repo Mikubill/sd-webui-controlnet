@@ -127,7 +127,7 @@ class PlugableAdapter(nn.Module):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, cond_like, weight, stop_guidance_percent):
+    def notify(self, cond_like, weight, stop_guidance_percent, guess_mode, weighting=None):
         if hasattr(self, "features"):
             del self.features
             

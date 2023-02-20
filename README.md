@@ -88,4 +88,26 @@ To use these models:
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
 
+### CFG Based ControlNet (Experimental)
 
+The original ControlNet applies control to both conditional (cond) and unconditional (uncond) parts. Enabling this option will make the control only apply to the cond part. Some experiments indicate that this approach improves image quality.
+
+To enable this option, tick `Enable CFG-Based guidance for ControlNet` in the settings.
+
+Note that you need to use a low cfg scale/guidance scale (such as 3-5) and proper weight tuning to get good result.
+
+### Guess Mode (Non-Prompt Mode, Experimental)
+
+Guess Mode is CFG Based ControlNet + Exponential decay in weighting. 
+
+See issue https://github.com/Mikubill/sd-webui-controlnet/issues/236 for more details.
+
+Original introduction from controlnet:
+
+The "guess mode" (or called non-prompt mode) will completely unleash all the power of the very powerful ControlNet encoder.
+
+In this mode, you can just remove all prompts, and then the ControlNet encoder will recognize the content of the input control map, like depth map, edge map, scribbles, etc.
+
+This mode is very suitable for comparing different methods to control stable diffusion because the non-prompted generating task is significantly more difficult than prompted task. In this mode, different methods' performance will be very salient.
+
+For this mode, we recommend to **use 50 steps and guidance scale between 3 and 5.**
