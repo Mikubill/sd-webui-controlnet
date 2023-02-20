@@ -614,8 +614,8 @@ def on_ui_settings():
 
     # control_net_skip_hires
 
-
-script_callbacks.on_ui_settings(on_ui_settings)
+if (__name__ == '__main__'):
+    script_callbacks.on_ui_settings(on_ui_settings)
 
 
 class Img2ImgTabTracker:
@@ -649,6 +649,6 @@ class Img2ImgTabTracker:
             self.img2img_tabs.add(tab.elem_id)
             return
 
-
-img2img_tab_tracker = Img2ImgTabTracker()
-script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
+if (__name__ == '__main__'):
+    img2img_tab_tracker = Img2ImgTabTracker()
+    script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
