@@ -1,7 +1,10 @@
 import launch
+import os
 
-if not launch.is_installed("opencv-python"):
-    launch.run_pip("install opencv-python", "requirement for sd-webui-controlnet")
+req_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")
 
-if not launch.is_installed("svglib"):
-    launch.run_pip("install svglib reportlab", "requirement for sd-webui-controlnet (svg_input)")
+with open(req_file) as file:
+    for lib in file:
+        lib = lib.strip()
+        if not launch.is_installed(lib):
+            launch.run_pip(f"install {lib}", f"sd-webui-controlnet requirement: {lib}")
