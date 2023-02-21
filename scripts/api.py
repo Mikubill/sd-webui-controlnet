@@ -98,7 +98,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
         controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
-        guidance_strength:float = Body(1.0, title='Guidance Strength'),
+        controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
         #hiresfix
         enable_hr: bool = Body(False, title="hiresfix"),
         denoising_strength: float = Body(0.5, title="Denoising Strength"),
@@ -176,7 +176,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
-            "guidance_strength": guidance_strength,
+            "guidance_strength": controlnet_guidance,
             "enable_hr": enable_hr,
             "denoising_strength": denoising_strength,
             "hr_scale": hr_scale,
@@ -258,7 +258,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
         controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
-        guidance_strength:float = Body(1.0, title='Guidance Strength'),
+        controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
         guess_mode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
@@ -337,7 +337,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
-            "guidance_strength": guidance_strength,
+            "guidance_strength": controlnet_guidance,
         }
 
         p.scripts = scripts.scripts_txt2img
