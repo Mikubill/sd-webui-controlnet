@@ -168,7 +168,7 @@ class PlugableControlModel(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             if not outer.guidance_stopped:
-                control_in = control.pop() * outer.weight
+                control_in = control.pop()
                 if require_inpaint_hijack:
                     zeros = torch.zeros_like(control_in)
                     zeros[:, :control_in.shape[1], ...] = control_in
@@ -185,7 +185,7 @@ class PlugableControlModel(nn.Module):
                         zeros = torch.zeros_like(control_input)
                         zeros[:, :control_input.shape[1], ...] = control_input
                         control_input = zeros
-                    h = th.cat([h, cfg_based_adder(hs_input, control_input * outer.weight)], dim=1)
+                    h = th.cat([h, cfg_based_adder(hs_input, control_input)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
