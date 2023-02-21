@@ -213,7 +213,6 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
-<<<<<<< HEAD
                 input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
 
                 with gr.Row():
@@ -221,11 +220,6 @@ class Script(scripts.Script):
                     webcam_enable = ToolButton(value=camera_symbol)
                     webcam_mirror = ToolButton(value=reverse_symbol)
 
-=======
-                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-                
->>>>>>> d58f657043a5f2e05eceed6a580f919492ce6d25
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
                     scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
@@ -413,8 +407,6 @@ class Script(scripts.Script):
         """
         unet = p.sd_model.model.diffusion_model
 
-
-
         def restore_networks():
             if self.latest_network is not None:
                 print("restoring last networks")
@@ -431,7 +423,7 @@ class Script(scripts.Script):
         
         if "input_image" in p.__dict__.keys():
             image["image"] = p.input_image
-
+        
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
@@ -676,4 +668,3 @@ class Img2ImgTabTracker:
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
-
