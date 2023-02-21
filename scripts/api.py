@@ -19,10 +19,6 @@ import modules.shared as shared
 import modules.scripts as scripts
 
 
-
-
-
-
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
     if config is None:

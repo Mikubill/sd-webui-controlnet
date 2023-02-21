@@ -139,8 +139,15 @@ class PlugableControlModel(nn.Module):
                 only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
                 # If you want to completely disable control net, uncomment this.
                 # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
+                
+            # inpaint model workaround
+            x_in = x
+            require_inpaint_hijack = x.shape[1] != outer.control_model.input_blocks[0][0].in_channels and x.shape[1] == 9
+            if require_inpaint_hijack: 
+                # inpaint_model: 4 data + 4 downscaled image + 1 mask
+                x_in = x[:, :4, ...]
             
-            control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
+            control = outer.control_model(x=x_in, hint=outer.hint_cond, timesteps=timesteps, context=context)
             control_scales = ([outer.weight] * 13)
             
             if outer.guess_mode:
@@ -161,7 +168,12 @@ class PlugableControlModel(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             if not outer.guidance_stopped:
-                h = cfg_based_adder(h, control.pop() * outer.weight)
+                control_in = control.pop() * outer.weight
+                if require_inpaint_hijack:
+                    zeros = torch.zeros_like(control_in)
+                    zeros[:, :control_in.shape[1], ...] = control_in
+                    control_in = zeros
+                h = cfg_based_adder(h, control_in)
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:
@@ -169,6 +181,10 @@ class PlugableControlModel(nn.Module):
                     h = th.cat([h, hs_input], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
+                    if require_inpaint_hijack:
+                        zeros = torch.zeros_like(control_input)
+                        zeros[:, :control_input.shape[1], ...] = control_input
+                        control_input = zeros
                     h = th.cat([h, cfg_based_adder(hs_input, control_input * outer.weight)], dim=1)
                 h = module(h, emb, context)
 
