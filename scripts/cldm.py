@@ -108,6 +108,12 @@ class PlugableControlModel(nn.Module):
         if not lowvram:
             self.control_model.to(devices.get_device_for("controlnet"))
             
+    def reset(self):
+        pass
+            
+    def forward(self, *args, **kwargs):
+        return self.control_model(*args, **kwargs)
+            
 
 class ControlNet(nn.Module):
     def __init__(

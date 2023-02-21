@@ -38,6 +38,28 @@ class TorchHijackForUnet:
 th = TorchHijackForUnet()
 
 
+class ControlParams:
+    def __init__(
+        self, 
+        control_model, 
+        hint_cond, 
+        guess_mode, 
+        weight, 
+        guidance_stopped, 
+        stop_guidance_percent, 
+        advanced_weighting, 
+        is_adapter
+    ):
+        self.control_model = control_model
+        self.hint_cond = hint_cond
+        self.guess_mode = guess_mode
+        self.weight = weight
+        self.guidance_stopped = guidance_stopped
+        self.stop_guidance_percent = stop_guidance_percent
+        self.advanced_weighting = advanced_weighting
+        self.is_adapter = is_adapter
+
+
 class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
@@ -48,15 +70,21 @@ class UnetHook(nn.Module):
         outer = self
         
         def guidance_schedule_handler(x):
-            for idx, param in enumerate(self.control_params):
-                control_model, hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting, is_adapter = param
-                guidance_stopped = (x.sampling_step / x.total_sampling_steps) > stop_guidance_percent
-                self.control_params[idx] = (control_model, hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting, is_adapter)
+            for param in self.control_params:
+                param.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > param.stop_guidance_percent
+   
+        def cfg_based_adder(base, x, require_autocast):
+            if isinstance(x, float):
+                return base + x
             
-        def cfg_based_adder(base, x):
+            if require_autocast:
+                zeros = torch.zeros_like(base)
+                zeros[:, :x.shape[1], ...] = control_in
+                control_in = zeros
+                
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            if x.shape[0] % 2 == 0 and (outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
+            if x.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
                 cond, uncond = base.chunk(2)
                 x_cond, _ = x.chunk(2)
                 return torch.cat([cond + x_cond, uncond], dim=0)
@@ -64,44 +92,48 @@ class UnetHook(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_control = [0.0] * 13
+            total_adapter = [0.0] * 8
             only_mid_control = outer.only_mid_control
+            require_inpaint_hijack = False
 
             for param in outer.control_params:
-                control_model, hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting, _ = param
-                if guidance_stopped:
+                if param.guidance_stopped:
                     continue
                 if outer.lowvram:
-                    control_model.to(devices.get_device_for("controlnet"))
+                    param.control_model.to(devices.get_device_for("controlnet"))
                     
                 # hires stuffs
                 # note that this method may not works if hr_scale < 1.1
-                if abs(x.shape[-1] - hint_cond.shape[-1] // 8) > 8:
+                if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
                     only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
                     # If you want to completely disable control net, uncomment this.
                     # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
                     
                 # inpaint model workaround
                 x_in = x
-                control_model = control_model.control_model
-                require_inpaint_hijack = x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9
-                if require_inpaint_hijack: 
+                control_model = param.control_model.control_model
+                if not param.is_adapter and x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9: 
                     # inpaint_model: 4 data + 4 downscaled image + 1 mask
                     x_in = x[:, :4, ...]
+                    require_inpaint_hijack = True
                     
-                assert hint_cond is not None, f"Controlnet is enabled but no input image is given"  
-                control = control_model(x=x_in, hint=hint_cond, timesteps=timesteps, context=context)
-                control_scales = ([weight] * 13)
+                assert param.hint_cond is not None, f"Controlnet is enabled but no input image is given"  
+                control = param.control_model(x=x_in, hint=param.hint_cond, timesteps=timesteps, context=context)
+                control_scales = ([param.weight] * 13)
                 
                 if outer.lowvram:
-                    control_model.to("cpu")
-                if guess_mode:
-                    control_scales = [weight * (0.825 ** float(12 - i)) for i in range(13)]
-                if advanced_weighting is not None:
-                    control_scales = advanced_weighting
+                    param.control_model.to("cpu")
+                if param.guess_mode:
+                    control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
+                if param.advanced_weighting is not None:
+                    control_scales = param.advanced_weighting
                     
                 control = [c * scale for c, scale in zip(control, control_scales)]
                 for idx, item in enumerate(control):
-                    total_control[idx] += item
+                    if param.is_adapter:
+                        total_adapter[idx] += item
+                    else:
+                        total_control[idx] += item
                         
             control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
@@ -110,17 +142,18 @@ class UnetHook(nn.Module):
                 t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
                 emb = self.time_embed(t_emb)
                 h = x.type(self.dtype)
-                for module in self.input_blocks:
+                for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
+                    
+                    # t2i-adatper, same as openaimodel.py:744
+                    if ((i+1)%3 == 0) and len(total_adapter):
+                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
+                        
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
             control_in = control.pop()
-            if require_inpaint_hijack:
-                zeros = torch.zeros_like(control_in)
-                zeros[:, :control_in.shape[1], ...] = control_in
-                control_in = zeros
-            h = cfg_based_adder(h, control_in)
+            h = cfg_based_adder(h, control_in, require_inpaint_hijack)
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control:
@@ -128,11 +161,7 @@ class UnetHook(nn.Module):
                     h = th.cat([h, hs_input], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
-                    if require_inpaint_hijack:
-                        zeros = torch.zeros_like(control_input)
-                        zeros[:, :control_input.shape[1], ...] = control_input
-                        control_input = zeros
-                    h = th.cat([h, cfg_based_adder(hs_input, control_input)], dim=1)
+                    h = th.cat([h, cfg_based_adder(hs_input, control_input, require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -153,13 +182,9 @@ class UnetHook(nn.Module):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, params):
+    def notify(self, params: list[ControlParams]):
         self.control_params = params
-        self.guess_mode = False
-        for param in params:
-            control_model, hint_cond, guess_mode, = param[:3]
-            if guess_mode:
-                self.guess_mode = True
+        self.guess_mode = any([param.guess_mode for param in params])
 
     def restore(self, model):
         scripts.script_callbacks.remove_current_script_callbacks()

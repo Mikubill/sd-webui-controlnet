@@ -14,7 +14,7 @@ from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
-from scripts.hook import UnetHook
+from scripts.hook import ControlParams, UnetHook
 from modules import sd_models
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
@@ -161,7 +161,7 @@ update_cn_models()
 class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
-        self.latest_params = (None, None)
+        self.model_cache = {}
         self.latest_network = None
         self.preprocessor = {
             "none": lambda x, *args, **kwargs: x,
@@ -191,7 +191,6 @@ class Script(scripts.Script):
             "segmentation": unload_uniformer,
         }
         self.input_image = None
-        self.hooker = None
         self.latest_model_hash = ""
 
     def title(self):
@@ -389,10 +388,7 @@ class Script(scripts.Script):
 
         return ctrls_group
         
-    def build_control_model(self, p, unet, params):
-        
-        enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
+    def build_control_model(self, p, unet, model, lowvram):
 
         model_path = cn_models.get(model, None)
         if model_path is None:
@@ -423,13 +419,27 @@ class Script(scripts.Script):
         network.to(p.sd_model.device, dtype=p.sd_model.dtype)
         print(f"ControlNet model {model} loaded.")
         return network
-            
-    def restore_networks(self, unet, module, model):
-        if model is not None:
-            model.restore(unet)
+    
+    # def remote_call(self, p):
+    #     # Other scripts can control this extension now
+    #     if shared.opts.data.get("control_net_allow_script_control", False):
+    #         enabled = getattr(p, 'control_net_enabled', enabled)
+    #         module = getattr(p, 'control_net_module', module)
+    #         model = getattr(p, 'control_net_model', model)
+    #         weight = getattr(p, 'control_net_weight', weight)
+    #         image = getattr(p, 'control_net_image', image)
+    #         scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
+    #         resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
+    #         rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
+    #         lowvram = getattr(p, 'control_net_lowvram', lowvram)
+    #         pres = getattr(p, 'control_net_pres', pres)
+    #         pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
+    #         pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
+    #         guidance_strength = getattr(p, 'control_net_guidance_strength', guidance_strength)
 
-        if module is not None:
-            self.unloadable.get(module, lambda:None)()
+    #         input_image = getattr(p, 'control_net_input_image', None)
+    #     else:
+    #         input_image = None
 
     def process(self, p, *args):
         """
@@ -438,20 +448,19 @@ class Script(scripts.Script):
         args contains all values returned by components from ui()
         """
         unet = p.sd_model.model.diffusion_model
-        if self.hooker is not None:
-            self.hooker.restore(unet)
+        if self.latest_network is not None:
+            # always restore (~0.05s)
+            self.latest_network.restore(unet)
 
-        net_groups = []
+        control_groups = []
         params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
             guidance_strength = params[13]
             if not enabled:
                 continue
-            net_groups.append((module, model, params))
-            prefix = "ControlNet"
-            if idx > 1:
-                prefix = f"ControlNet-{idx}"
+            control_groups.append((module, model, params))
+            prefix = f"ControlNet-{idx}" if idx > 1 else "ControlNet"
             p.extra_generation_params.update({
                 f"{prefix} Enabled": True,
                 f"{prefix} Module": module,
@@ -459,16 +468,42 @@ class Script(scripts.Script):
                 f"{prefix} Weight": weight,
                 f"{prefix} Guidance Strength": guidance_strength,
             })
+            
+        if len(params_group) == 0:
+           self.latest_network = None
+           return 
         
         networks = []
         detected_maps = []
         forward_params = []
-        for module, model, params in net_groups:
+        hook_lowvram = False
+        
+        # cache stuff
+        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
+        if models_changed or len(self.model_cache) > 3:
+            del self.model_cache
+            self.model_cache = {}
+            
+        # unload unused preproc
+        module_list = [mod[0] for mod in control_groups]
+        for key in self.unloadable:
+            if key not in module_list:
+                self.unloadable.get(module, lambda:None)()
+            
+        self.latest_model_hash = p.sd_model.sd_model_hash
+        for module, model, params in control_groups:
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
                 
-            model_net = self.build_control_model(p, unet, params) 
+            if lowvram:
+                hook_lowvram = True
+                
+            model_net = self.model_cache[model] if model in self.model_cache \
+                else self.build_control_model(p, unet, model, lowvram) 
+ 
+            model_net.reset()
             networks.append(model_net)
+            self.model_cache[model] = model_net
             
             input_image = None
             if input_image is not None:
@@ -509,8 +544,8 @@ class Script(scripts.Script):
                 detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
             else:
                 detected_map = preprocessor(input_image)
+                
             detected_map = HWC3(detected_map)
-            
             if module == "normal_map" or rgbbgr_mode:
                 control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
             else:
@@ -538,17 +573,16 @@ class Script(scripts.Script):
             
             # for log use
             detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
-            detected_maps.append(detected_map)
+            detected_maps.append((detected_map, module))
             
             # hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting
-            forward_param = (model_net, control, guess_mode, weight, False, guidance_strength, None, isinstance(model_net, PlugableAdapter))
+            forward_param = ControlParams(model_net, control, guess_mode, weight, False, guidance_strength, None, isinstance(model_net, PlugableAdapter))
             forward_params.append(forward_param)
             
-        if self.hooker is None:
-            self.hooker = UnetHook()
-            
-        self.hooker.hook(unet)
-        self.hooker.notify(forward_params)
+        self.latest_network = UnetHook(lowvram=hook_lowvram)    
+        self.latest_network.hook(unet)
+        self.latest_network.notify(forward_params)
+        self.detected_map = detected_maps
             
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
@@ -557,20 +591,23 @@ class Script(scripts.Script):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
-            detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), self.latest_params[0])
-            os.makedirs(detectmap_dir, exist_ok=True)
-            #detectedmap_filename = os.path.join(detectmap_dir, "detected_maps.png")
-            img = Image.fromarray(self.detected_map)
-            save_image(img, detectmap_dir, self.latest_params[0])
+            for detect_map, module in self.detected_map:
+                detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
+                os.makedirs(detectmap_dir, exist_ok=True)
+                img = Image.fromarray(detect_map)
+                save_image(img, detectmap_dir, module)
 
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
+        
         if hasattr(self, "detected_map") and self.detected_map is not None:
-            result =  self.detected_map
-            if self.latest_params[0] in ["canny", "mlsd", "scribble", "fake_scribble"]:
-                result = 255-result
-            processed.images.extend([result])
+            for detect_map, module in self.detected_map:
+                if module in ["canny", "mlsd", "scribble", "fake_scribble"]:
+                    detect_map = 255-detect_map
+                processed.images.extend([detect_map])
+
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
@@ -580,14 +617,7 @@ def update_script_args(p, value, arg_idx):
             args[s.args_from + arg_idx] = value
             p.script_args = tuple(args)
             break
-
-
-# def confirm_models(p, xs):
-#     for x in xs:
-#         if x in ["", "None"]:
-#             continue
-#         if not find_closest_lora_model_name(x):
-#             raise RuntimeError(f"Unknown ControlNet model: {x}")
+        
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
