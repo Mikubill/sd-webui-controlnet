@@ -227,7 +227,7 @@ class Script(scripts.Script):
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
                     guess_mode = gr.Checkbox(label='Guess Mode', value=False)
-                    automatic = gr.Checkbox(label="Automatic Mode', value=False)
+                    automatic = gr.Checkbox(label="Automatic Mode", value=False)
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
                 
