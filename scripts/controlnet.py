@@ -502,7 +502,7 @@ class Script(scripts.Script):
                 raise ValueError('controlnet is enabled but no input image is given')
             input_image = HWC3(np.asarray(input_image))
             
-        if p.inpaint_full_res == True:
+        if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True:
             input_image = Image.fromarray(input_image)
             mask = p.image_mask.convert('L')
             crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
