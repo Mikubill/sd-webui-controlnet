@@ -377,6 +377,8 @@ class ImageandPatchs:
 
 
 def estimateboost(img, model, model_type, pix2pixmodel, max_res=512):
+    global whole_size_threshold
+    
     # get settings
     if hasattr(opts, 'depthmap_script_boost_rmax'):
         whole_size_threshold = opts.depthmap_script_boost_rmax

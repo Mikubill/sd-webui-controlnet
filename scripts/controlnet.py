@@ -167,7 +167,6 @@ class Script(scripts.Script):
             "canny": canny,
             "depth": midas,
             "depth_leres": leres,
-            "depth_leres_boost": leres_boost,
             "hed": hed,
             "mlsd": mlsd,
             "normal_map": midas_normal,
@@ -184,7 +183,6 @@ class Script(scripts.Script):
             "mlsd": unload_mlsd,
             "depth": unload_midas,
             "depth_leres": unload_leres,
-            "depth_leres_boost": unload_leres,
             "normal_map": unload_midas,
             "pidinet": unload_pidinet,
             "openpose": unload_openpose,
@@ -618,6 +616,8 @@ def on_ui_settings():
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
         False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_monocular_depth_optim", shared.OptionInfo(
+        False, "Enable optimised monocular depth estimation", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_mid_control", shared.OptionInfo(
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(

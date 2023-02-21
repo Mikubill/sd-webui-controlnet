@@ -111,15 +111,6 @@ def leres(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, **kwargs):
     results = model_leres(img, thr_a, thr_b)
     return results
 
-def leres_boost(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_leres
-    if model_leres is None:
-        from annotator.leres import apply_leres
-        model_leres = apply_leres
-    results = model_leres(img, thr_a, thr_b, boost=True)
-    return results
-
 def unload_leres():
     global model_leres
     if model_leres is not None:
