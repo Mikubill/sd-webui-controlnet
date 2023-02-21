@@ -99,6 +99,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
         controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
+        #hiresfix
+        enable_hr: bool = Body(False, title="hiresfix"),
+        denoising_strength: float = Body(0.5, title="Denoising Strength"),
+        hr_scale: float = Body(1.5, title="HR Scale"),
+        hr_upscale: str = Body("Latent", title="HR Upscale"),
         guess_mode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
@@ -137,10 +142,10 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             height=height,
             restore_faces=restore_faces,
             tiling=False,
-            enable_hr=False,
-            denoising_strength=None,
-            hr_scale=2,
-            hr_upscaler=None,
+            enable_hr=enable_hr,
+            denoising_strength=denoising_strength,
+            hr_scale=hr_scale,
+            hr_upscaler=hr_upscale,
             hr_second_pass_steps=0,
             hr_resize_x=0,
             hr_resize_y=0,
@@ -171,7 +176,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
-            "guidance":controlnet_guidance,
+            "guidance_strength": controlnet_guidance,
+            "enable_hr": enable_hr,
+            "denoising_strength": denoising_strength,
+            "hr_scale": hr_scale,
+            "hr_upscale": hr_upscale,
         }
 
         p.scripts = scripts.scripts_txt2img
@@ -189,7 +198,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["processor_res"],
             cn_args["threshold_a"],
             cn_args["threshold_b"],
-            cn_args["guidance"],
+            cn_args["guidance_strength"],#If the value is 0, it will cause ControlNet to have no effect under Eluer a.
+            cn_args["enable_hr"],
+            cn_args["denoising_strength"],
+            cn_args["hr_scale"],
+            cn_args["hr_upscale"],
             False,
             0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # todo: extend to include wither alwaysvisible scripts
         )
@@ -324,7 +337,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "processor_res": controlnet_processor_res,
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
-            "guidance":controlnet_guidance,
+            "guidance_strength": controlnet_guidance,
         }
 
         p.scripts = scripts.scripts_txt2img
@@ -342,7 +355,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["processor_res"],
             cn_args["threshold_a"],
             cn_args["threshold_b"],
-            cn_args["guidance"],
+            cn_args["guidance_strength"],
             False,
             0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # default args
         )
