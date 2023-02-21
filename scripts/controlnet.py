@@ -9,6 +9,7 @@ from modules import shared, devices, script_callbacks, processing, masking, imag
 import gradio as gr
 import numpy as np
 
+from BLIP import automatic_prompt
 from einops import rearrange
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
@@ -550,17 +551,19 @@ class Script(scripts.Script):
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
+        
         # for log use
         self.detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
-            
+        
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight, guidance_strength, guess_mode)
         self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
+        if p.prompt is "":
+            p.prompt=automatic_prompt(input_image,h,w)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
-
+        
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
