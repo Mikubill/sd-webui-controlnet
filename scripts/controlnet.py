@@ -497,16 +497,20 @@ class Script(scripts.Script):
                 scribble_mode = True
         else:
             # use img2img init_image as default
-            input_image = getattr(p, "init_images", [None])[0]
-            if p.inpaint_full_res == True:
-                mask = p.image_mask.convert('L')
-                crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
-                crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
-                x1, y1, x2, y2 = crop_region
-                input_image = input_image.crop(crop_region)
-                input_image = images.resize_image(2, input_image, p.width, p.height)
+            input_image = getattr(p, "init_images", [None])[0] 
             if input_image is None:
                 raise ValueError('controlnet is enabled but no input image is given')
+            input_image = HWC3(np.asarray(input_image))
+            
+        if p.inpaint_full_res == True:
+            input_image = Image.fromarray(input_image)
+            mask = p.image_mask.convert('L')
+            crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
+            crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
+
+            input_image = input_image.crop(crop_region)
+            input_image = images.resize_image(2, input_image, p.width, p.height)
+            # save_image(input_image, "/root/workspace/stable-diffusion-webui/extensions", "bpgbd")
             input_image = HWC3(np.asarray(input_image))
                 
         if scribble_mode:
