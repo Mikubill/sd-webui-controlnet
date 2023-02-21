@@ -193,7 +193,6 @@ class Script(scripts.Script):
         }
         self.input_image = None
         self.latest_model_hash = ""
-        self.automatic=False
 
     def title(self):
         return "ControlNet for generating"
