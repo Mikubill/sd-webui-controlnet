@@ -119,6 +119,15 @@ class PlugableControlModel(nn.Module):
         
         def guidance_schedule_handler(x):
             self.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent
+            
+        def cfg_based_adder(base, x):
+            # assume the input format is [cond, uncond] and they have same shape
+            # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
+            if x.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
+                cond, uncond = base.chunk(2)
+                x_cond, _ = x.chunk(2)
+                return torch.cat([cond + x_cond, uncond], dim=0)
+            return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             only_mid_control = outer.only_mid_control
@@ -132,6 +141,14 @@ class PlugableControlModel(nn.Module):
                 # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
             
             control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
+            control_scales = ([outer.weight] * 13)
+            
+            if outer.guess_mode:
+                control_scales = [outer.weight * (0.825 ** float(12 - i)) for i in range(13)]
+            if outer.advanced_weighting is not None:
+                control_scales = outer.advanced_weighting
+                
+            control = [c * scale for c, scale in zip(control, control_scales)]
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():
@@ -144,7 +161,7 @@ class PlugableControlModel(nn.Module):
                 h = self.middle_block(h, emb, context)
 
             if not outer.guidance_stopped:
-                h += control.pop() * outer.weight
+                h = cfg_based_adder(h, control.pop() * outer.weight)
 
             for i, module in enumerate(self.output_blocks):
                 if only_mid_control or outer.guidance_stopped:
@@ -152,7 +169,7 @@ class PlugableControlModel(nn.Module):
                     h = th.cat([h, hs_input], dim=1)
                 else:
                     hs_input, control_input = hs.pop(), control.pop()
-                    h = th.cat([h, hs_input + control_input * outer.weight], dim=1)
+                    h = th.cat([h, cfg_based_adder(hs_input, control_input * outer.weight)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -174,9 +191,11 @@ class PlugableControlModel(nn.Module):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, cond_like, weight, stop_guidance_percent):
+    def notify(self, cond_like, weight, stop_guidance_percent, guess_mode, advanced_weighting=None):
         self.stop_guidance_percent = stop_guidance_percent
         self.guidance_stopped = False
+        self.advanced_weighting = advanced_weighting
+        self.guess_mode = guess_mode
         
         self.hint_cond = cond_like
         self.weight = weight
