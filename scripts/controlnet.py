@@ -617,7 +617,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
         False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_monocular_depth_optim", shared.OptionInfo(
-        False, "Enable optimised monocular depth estimation", gr.Checkbox, {"interactive": True}, section=section))
+        False, "Enable optimized monocular depth estimation", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_only_mid_control", shared.OptionInfo(
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(
