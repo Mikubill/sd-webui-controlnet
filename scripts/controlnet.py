@@ -5,7 +5,7 @@ from collections import OrderedDict
 import torch
 
 import modules.scripts as scripts
-from modules import shared, devices, script_callbacks, processing
+from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
 import numpy as np
 
@@ -498,6 +498,13 @@ class Script(scripts.Script):
         else:
             # use img2img init_image as default
             input_image = getattr(p, "init_images", [None])[0]
+            if p.inpaint_full_res == True:
+                mask = p.image_mask.convert('L')
+                crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
+                crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
+                x1, y1, x2, y2 = crop_region
+                input_image = input_image.crop(crop_region)
+                input_image = images.resize_image(2, input_image, p.width, p.height)
             if input_image is None:
                 raise ValueError('controlnet is enabled but no input image is given')
             input_image = HWC3(np.asarray(input_image))
