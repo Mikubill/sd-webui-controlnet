@@ -203,10 +203,8 @@ class Script(scripts.Script):
         self.infotext_fields = []
         with gr.Group():
             with gr.Accordion('ControlNet', open=False):
-                with gr.Row():
-                    input_image = gr.Image(source='upload', type='numpy', tool='sketch')
-                    gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-                    input_video = gr.Video(format='mp4', source='upload')
+                input_image = gr.Image(source='upload', type='numpy', tool='sketch')
+                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 
                 with gr.Row():
                     enabled = gr.Checkbox(label='Enable', value=False)
@@ -378,6 +376,8 @@ class Script(scripts.Script):
         """
         unet = p.sd_model.model.diffusion_model
 
+
+
         def restore_networks():
             if self.latest_network is not None:
                 print("restoring last networks")
@@ -392,6 +392,9 @@ class Script(scripts.Script):
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength = args
         
+        if "input_image" in p.__dict__.keys():
+            image["image"] = p.input_image
+
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
             enabled = getattr(p, 'control_net_enabled', enabled)
