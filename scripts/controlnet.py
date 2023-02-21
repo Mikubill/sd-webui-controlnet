@@ -178,6 +178,7 @@ class Script(scripts.Script):
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
         }
+        self.auotomatic=False
         self.unloadable = {
             "hed": unload_hed,
             "fake_scribble": unload_hed,
@@ -192,6 +193,7 @@ class Script(scripts.Script):
         }
         self.input_image = None
         self.latest_model_hash = ""
+        self.automatic=False
 
     def title(self):
         return "ControlNet for generating"
@@ -227,7 +229,7 @@ class Script(scripts.Script):
                     rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                     lowvram = gr.Checkbox(label='Low VRAM', value=False)
                     guess_mode = gr.Checkbox(label='Guess Mode', value=False)
-
+                    automatic = gr.Checkbox(label="Automatic Mode', value=False)
                 ctrls += (enabled,)
                 self.infotext_fields.append((enabled, "ControlNet Enabled"))
                 
@@ -379,7 +381,7 @@ class Script(scripts.Script):
                 create_button = gr.Button(value="Create blank canvas")
                 create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
                                                     
-                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
+                ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode, automatic)
                 ctrls += (lowvram,)
                 ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
                 
@@ -420,7 +422,7 @@ class Script(scripts.Script):
                 self.unloadable.get(last_module, lambda:None)()
 
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = args
+            resize_mode, rgbbgr_mode, automatic, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = args
         
         # Other scripts can control this extension now
         if shared.opts.data.get("control_net_allow_script_control", False):
@@ -558,7 +560,7 @@ class Script(scripts.Script):
         # control = torch.stack([control for _ in range(bsz)], dim=0)
         self.latest_network.notify(control, weight, guidance_strength, guess_mode)
         self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
-        if p.prompt is "":
+        if automatic:
             p.prompt=automatic_prompt(input_image,h,w)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):

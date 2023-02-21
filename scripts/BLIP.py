@@ -2,9 +2,8 @@ import torch
 
 from models.blip import blip_decoder
 from torchvision import transforms
-from PIL import Image
 
-def automatic_prompt(image,h,w):
+def automatic_prompt(image):
     image_size = 512
         
     model = blip_decoder(pretrained=model_url, image_size=image_size, vit='base')
@@ -21,4 +20,4 @@ def automatic_prompt(image,h,w):
         caption = model.generate(image, sample=False, num_beams=3, max_length=20, min_length=5) 
         # nucleus sampling
         # caption = model.generate(image, sample=True, top_p=0.9, max_length=20, min_length=5) 
-        return caption[0]
+    return caption[0]
