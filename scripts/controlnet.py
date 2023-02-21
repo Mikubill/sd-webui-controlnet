@@ -178,7 +178,6 @@ class Script(scripts.Script):
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
         }
-        self.auotomatic=False
         self.unloadable = {
             "hed": unload_hed,
             "fake_scribble": unload_hed,
