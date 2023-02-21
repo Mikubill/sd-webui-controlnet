@@ -167,6 +167,7 @@ class Script(scripts.Script):
             "canny": canny,
             "depth": midas,
             "depth_leres": leres,
+            "depth_leres_boost": leres_boost,
             "hed": hed,
             "mlsd": mlsd,
             "normal_map": midas_normal,
@@ -183,6 +184,7 @@ class Script(scripts.Script):
             "mlsd": unload_mlsd,
             "depth": unload_midas,
             "depth_leres": unload_leres,
+            "depth_leres_boost": unload_leres,
             "normal_map": unload_midas,
             "pidinet": unload_pidinet,
             "openpose": unload_openpose,
@@ -304,7 +306,7 @@ class Script(scripts.Script):
                             gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                             gr.update(visible=True)
                         ]
-                    elif module == "depth_leres":
+                    elif module in ["depth_leres", "depth_leres_boost"]:
                         return [
                             gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                             gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
