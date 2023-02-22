@@ -559,7 +559,7 @@ class Script(scripts.Script):
         self.latest_network.notify(control, weight, guidance_strength, guess_mode)
         self.set_infotext_fields(p, self.latest_params, weight, guidance_strength)
         if automatic:
-            p.prompt=automatic_prompt(input_image,h,w)
+            p.prompt=automatic_prompt(input_image,p.sd_model.device)
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
