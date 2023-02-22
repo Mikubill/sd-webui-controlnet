@@ -1,6 +1,7 @@
 import gc
 import os
 import stat
+import hashlib
 from collections import OrderedDict
 
 import torch
@@ -458,6 +459,14 @@ class Script(scripts.Script):
 
         control_groups = []
         params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
+
+        if args[4] is not None:
+            image_to_hash = args[4]["image"]
+            img_bytes = image_to_hash.tobytes()
+            hash = hashlib.md5(img_bytes).hexdigest()[0:10]
+        else:
+            hash = ''
+
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
             guidance_strength = params[13]
@@ -471,6 +480,7 @@ class Script(scripts.Script):
                 f"{prefix} Model": model,
                 f"{prefix} Weight": weight,
                 f"{prefix} Guidance Strength": guidance_strength,
+                f"{prefix} Image Hash": hash,
             })
             
         if len(params_group) == 0:
