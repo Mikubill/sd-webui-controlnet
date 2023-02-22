@@ -74,7 +74,8 @@ class Script(scripts.Script):
 
             for input_image in input_list:
                 copy_p = copy.copy(p)
-                copy_p.input_image = input_image
+                copy_p.control_net_allow_script_control = True
+                copy_p.control_net_input_image = input_image
                 proc = process_images(copy_p)
                 output_list.append(proc.images[0])
             save_gif(p.outpath_samples, output_list)

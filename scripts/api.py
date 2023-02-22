@@ -18,6 +18,7 @@ from modules.shared import opts, cmd_opts
 import modules.shared as shared
 import modules.scripts as scripts
 
+from scripts.controlnet import update_cn_models, cn_models_names
 
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
@@ -92,15 +93,15 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
         controlnet_lowvram: bool = Body(True, title='Controlnet Low VRAM'),
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
-        controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
-        controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
+        controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
+        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
         controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
+        controlnet_guessmode: bool = Body(True, title="Guess Mode"),
         #hiresfix
         enable_hr: bool = Body(False, title="hiresfix"),
         denoising_strength: float = Body(0.5, title="Denoising Strength"),
         hr_scale: float = Body(1.5, title="HR Scale"),
         hr_upscale: str = Body("Latent", title="HR Upscale"),
-        guess_mode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
         subseed_strength: int = Body(-1, title="Subseed Strength"),
@@ -173,10 +174,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
             "guidance_strength": controlnet_guidance,
-            "enable_hr": enable_hr,
-            "denoising_strength": denoising_strength,
-            "hr_scale": hr_scale,
-            "hr_upscale": hr_upscale,
+            "guess_mode": controlnet_guessmode,
         }
 
         p.scripts = scripts.scripts_txt2img
@@ -195,12 +193,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["threshold_a"],
             cn_args["threshold_b"],
             cn_args["guidance_strength"],#If the value is 0, it will cause ControlNet to have no effect under Eluer a.
-            cn_args["enable_hr"],
-            cn_args["denoising_strength"],
-            cn_args["hr_scale"],
-            cn_args["hr_upscale"],
-            False,
-            0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # todo: extend to include wither alwaysvisible scripts
+            cn_args["guess_mode"],
+            # 0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # todo: extend to include wither alwaysvisible scripts
         )
 
         print(p.script_args)
@@ -208,16 +202,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if cmd_opts.enable_console_prompts:
             print(f"\ntxt2img: {prompt}", file=shared.progress_print_out)
 
-        shared.state.begin()
-
         processed = scripts.scripts_txt2img.run(p, *(p.script_args))
         
         if processed is None: # fall back
            processed = process_images(p)            
 
         p.close()
-
-        shared.state.end()
 
         generation_info_js = processed.js()
         if opts.samples_log_stdout:
@@ -252,10 +242,10 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
         controlnet_lowvram: bool = Body(True, title='Controlnet Low VRAM'),
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
-        controlnet_threshold_a: int = Body(64, title='Controlnet Threshold a'),
-        controlnet_threshold_b: int = Body(64, title='Controlnet Threshold b'),
+        controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
+        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
         controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
-        guess_mode: bool = Body(True, title="Guess Mode"),
+        controlnet_guessmode: bool = Body(True, title="Guess Mode"),
         seed: int = Body(-1, title="Seed"),
         subseed: int = Body(-1, title="Subseed"),
         subseed_strength: int = Body(-1, title="Subseed Strength"),
@@ -334,9 +324,10 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "threshold_a": controlnet_threshold_a,
             "threshold_b": controlnet_threshold_b,
             "guidance_strength": controlnet_guidance,
+            "guess_mode": controlnet_guessmode,
         }
 
-        p.scripts = scripts.scripts_txt2img
+        p.scripts = scripts.scripts_img2img
         p.script_args = (
             0, # todo: why
             cn_args["enabled"],
@@ -352,8 +343,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             cn_args["threshold_a"],
             cn_args["threshold_b"],
             cn_args["guidance_strength"],
-            False,
-            0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # default args
+            cn_args["guess_mode"],
+            # 0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # default args
         )
 
         if shared.cmd_opts.enable_console_prompts:
@@ -361,16 +352,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         p.extra_generation_params["Mask blur"] = mask_blur
 
-        shared.state.begin()
-
         processed = scripts.scripts_img2img.run(p, *(p.script_args)) # todo: extend to include wither alwaysvisible scripts
         
         if processed is None: # fall back
            processed = process_images(p)            
 
         p.close()
-
-        shared.state.end()
 
         generation_info_js = processed.js()
         if opts.samples_log_stdout:
@@ -382,6 +369,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         b64images = list(map(encode_to_base64, processed.images))
         
         return {"images": b64images, "info": processed.js()}
+    
+    @app.get("/controlnet/model_list")
+    async def model_list():
+        update_cn_models()
+        print(list(cn_models_names.values()))
+        return {"model_list": list(cn_models_names.values())}
 
 
 try:
