@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import math
@@ -11,6 +12,7 @@ from torchvision import transforms
 from . import util
 from .model import bodypose_model
 from modules import devices
+from modules.paths import models_path
 
 class Body(object):
     def __init__(self, model_path):
@@ -209,7 +211,7 @@ class Body(object):
         return candidate, subset
 
 if __name__ == "__main__":
-    body_estimation = Body('../model/body_pose_model.pth')
+    body_estimation = Body(os.path.join(models_path, "openpose", "body_pose_model.pth"))
 
     test_image = '../images/ski.jpg'
     oriImg = cv2.imread(test_image)  # B,G,R order

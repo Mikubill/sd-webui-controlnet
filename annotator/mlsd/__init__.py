@@ -7,11 +7,13 @@ from einops import rearrange
 from .models.mbv2_mlsd_tiny import  MobileV2_MLSD_Tiny
 from .models.mbv2_mlsd_large import  MobileV2_MLSD_Large
 from .utils import  pred_lines
-from modules import extensions, devices
+from modules import devices
+from modules.paths import models_path
 
 mlsdmodel = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/mlsd_large_512_fp32.pth"
-modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "mlsd")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
+modeldir = os.path.join(models_path, "mlsd")
 
 def unload_mlsd_model():
     global mlsdmodel
@@ -22,7 +24,10 @@ def apply_mlsd(input_image, thr_v, thr_d):
     global modelpath, mlsdmodel
     if mlsdmodel is None:
         modelpath = os.path.join(modeldir, "mlsd_large_512_fp32.pth")
-        if not os.path.exists(modelpath):
+        old_modelpath = os.path.join(old_modeldir, "mlsd_large_512_fp32.pth")
+        if os.path.exists(old_modelpath):
+            modelpath = old_modelpath
+        elif not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)
         mlsdmodel = MobileV2_MLSD_Large()

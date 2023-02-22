@@ -1,10 +1,12 @@
+from distutils import extension
 import numpy as np
 import cv2
 import torch
 from einops import rearrange
 
 import os 
-from modules import extensions, devices
+from modules import devices
+from modules.paths import models_path
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):
@@ -97,13 +99,17 @@ class Network(torch.nn.Module):
 
 netNetwork = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/network-bsds500.pth"
-modeldir = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "hed")
+modeldir = os.path.join(models_path, "hed")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
 def apply_hed(input_image):
     global netNetwork
     if netNetwork is None:
         modelpath = os.path.join(modeldir, "network-bsds500.pth")
-        if not os.path.exists(modelpath):
+        old_modelpath = os.path.join(old_modeldir, "network-bsds500.pth")
+        if os.path.exists(old_modelpath):
+            modelpath = old_modelpath
+        elif not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)
         netNetwork = Network(modelpath)

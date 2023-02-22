@@ -57,94 +57,36 @@ def get_node_name(name, parent_name):
 
 
 class PlugableAdapter(nn.Module):
-    def __init__(self, state_dict, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
+    def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
         
         self.control_model = Adapter(**config.model.params)           
         self.control_model.load_state_dict(state_dict)
-        self.lowvram = lowvram            
-        self.weight = weight
+        self.lowvram = lowvram 
         self.control = None
         self.hint_cond = None
         
         if not self.lowvram:
             self.control_model.to(devices.get_device_for("controlnet"))
-
-    def hook(self, model, parent_model):
-        outer = self
-        
-        def guidance_schedule_handler(x):
-            self.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent
-
-        def forward(self, x, timesteps=None, context=None, **kwargs):            
-            features_adapter = kwargs["features"]
-            assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
-            hs = []
-            with th.no_grad():
-                t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-                emb = self.time_embed(t_emb)
-                h = x.type(self.dtype)
-                for i, module in enumerate(self.input_blocks):
-                    h = module(h, emb, context)
-                    # same as openaimodel.py:744
-                    if ((i+1)%3 == 0) and len(features_adapter) and not outer.guidance_stopped:
-                        h = h + features_adapter.pop(0) * outer.weight
-                    hs.append(h)
-                h = self.middle_block(h, emb, context)
-
-            for i, module in enumerate(self.output_blocks):
-                h = th.cat([h, hs.pop()], dim=1)
-                h = module(h, emb, context)
-
-            h = h.type(x.dtype)
-            return self.out(h)
-
-        def forward2(*args, **kwargs):
-            # webui will handle other compoments 
-            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
             
-            try:
-                if shared.cmd_opts.lowvram:
-                    lowvram.send_everything_to_cpu()
-                    
-                if self.lowvram:
-                    self.control_model.to(devices.get_device_for("controlnet"))
-                    
-                if not hasattr(outer, "features"):
-                    if self.control_model.conv_in.in_channels == 64:
-                        outer.hint_cond = outer.hint_cond[0].unsqueeze(0).unsqueeze(0)
-                    else:
-                        outer.hint_cond = outer.hint_cond.unsqueeze(0)
-                
-                outer.features = self.control_model(outer.hint_cond)
-                return forward(features=deepcopy(outer.features), *args, **kwargs)
-            finally:
-                if self.lowvram:
-                    self.control_model.cpu()
-        
-        model._original_forward = model.forward
-        model.forward = forward2.__get__(model, UNetModel)
-        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
-    
-    def notify(self, cond_like, weight, stop_guidance_percent):
-        if hasattr(self, "features"):
-            del self.features
+    def reset(self):
+        self.control = None
+        self.hint_cond = None
             
-        self.stop_guidance_percent = stop_guidance_percent
-        self.guidance_stopped = False
+    def forward(self, hint=None, *args, **kwargs):
+        if self.control is not None:
+            return deepcopy(self.control)
         
-        self.hint_cond = cond_like
-        self.weight = weight
-
-    def restore(self, model):
-        scripts.script_callbacks.remove_current_script_callbacks()
-        if not hasattr(model, "_original_forward"):
-            # no such handle, ignore
-            return
-        
-        model.forward = model._original_forward
-        del model._original_forward
+        self.hint_cond = hint
+        hint_in = hint
+        if self.control_model.conv_in.in_channels == 64:
+            hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
+        else:
+            hint_in = hint_in.unsqueeze(0)
+                        
+        self.control = self.control_model(hint_in)
+        return deepcopy(self.control)
 
 
 def conv_nd(dims, *args, **kwargs):

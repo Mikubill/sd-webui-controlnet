@@ -58,7 +58,7 @@ def get_node_name(name, parent_name):
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, state_dict, config_path, weight=1.0, lowvram=False, base_model=None) -> None:
+    def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)        
         self.control_model = ControlNet(**config.model.params.control_stage_config.params)
@@ -105,92 +105,15 @@ class PlugableControlModel(nn.Module):
             pass
             
         self.control_model.load_state_dict(state_dict)
-        self.lowvram = lowvram            
-        self.weight = weight
-        self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
-        self.control = None
-        self.hint_cond = None
-        
-        if not self.lowvram:
+        if not lowvram:
             self.control_model.to(devices.get_device_for("controlnet"))
-
-    def hook(self, model, parent_model):
-        outer = self
-        
-        def guidance_schedule_handler(x):
-            self.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > self.stop_guidance_percent
-
-        def forward(self, x, timesteps=None, context=None, **kwargs):
-            only_mid_control = outer.only_mid_control
-            assert outer.hint_cond is not None, f"Controlnet is enabled but no input image is given"
             
-            # hires stuffs
-            # note that this method may not works if hr_scale < 1.1
-            if abs(x.shape[-1] - outer.hint_cond.shape[-1] // 8) > 8:
-                only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
-                # If you want to completely disable control net, uncomment this.
-                # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
+    def reset(self):
+        pass
             
-            control = outer.control_model(x=x, hint=outer.hint_cond, timesteps=timesteps, context=context)
-            assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
-            hs = []
-            with th.no_grad():
-                t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
-                emb = self.time_embed(t_emb)
-                h = x.type(self.dtype)
-                for module in self.input_blocks:
-                    h = module(h, emb, context)
-                    hs.append(h)
-                h = self.middle_block(h, emb, context)
-
-            if not outer.guidance_stopped:
-                h += control.pop() * outer.weight
-
-            for i, module in enumerate(self.output_blocks):
-                if only_mid_control or outer.guidance_stopped:
-                    hs_input = hs.pop()
-                    h = th.cat([h, hs_input], dim=1)
-                else:
-                    hs_input, control_input = hs.pop(), control.pop()
-                    h = th.cat([h, hs_input + control_input * outer.weight], dim=1)
-                h = module(h, emb, context)
-
-            h = h.type(x.dtype)
-            return self.out(h)
-
-        def forward2(*args, **kwargs):
-            # webui will handle other compoments 
-            try:
-                if shared.cmd_opts.lowvram:
-                    lowvram.send_everything_to_cpu()
-                if self.lowvram:
-                    self.control_model.to(devices.get_device_for("controlnet"))
-                return forward(*args, **kwargs)
-            finally:
-                if self.lowvram:
-                    self.control_model.cpu()
-        
-        model._original_forward = model.forward
-        model.forward = forward2.__get__(model, UNetModel)
-        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
-    
-    def notify(self, cond_like, weight, stop_guidance_percent):
-        self.stop_guidance_percent = stop_guidance_percent
-        self.guidance_stopped = False
-        
-        self.hint_cond = cond_like
-        self.weight = weight
-        # print(self.hint_cond.shape)
-
-    def restore(self, model):
-        scripts.script_callbacks.remove_current_script_callbacks()
-        if not hasattr(model, "_original_forward"):
-            # no such handle, ignore
-            return
-        
-        model.forward = model._original_forward
-        del model._original_forward
-
+    def forward(self, *args, **kwargs):
+        return self.control_model(*args, **kwargs)
+            
 
 class ControlNet(nn.Module):
     def __init__(

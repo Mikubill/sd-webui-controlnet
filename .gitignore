@@ -163,3 +163,4 @@ cython_debug/
 *.ckpt
 *.safetensors
 models/control_sd15_scribble.pth
+detected_maps/

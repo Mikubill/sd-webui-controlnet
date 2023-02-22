@@ -2,82 +2,85 @@ import cv2
 import numpy as np
 import torch
 import os
-from modules import extensions
-
-from einops import rearrange
-from modules import devices
-from torchvision.transforms import Compose, transforms
+from modules import devices, shared
+from modules.paths import models_path
+from torchvision.transforms import transforms
 
 # AdelaiDepth/LeReS imports
+from .leres.depthmap import estimateleres, estimateboost
 from .leres.multi_depth_model_woauxi import RelDepthModel
 from .leres.net_tools import strip_prefix_if_present
 
-base_model_path = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "leres")
-remote_model_path = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
+# pix2pix/merge net imports
+from .pix2pix.options.test_options import TestOptions
+from .pix2pix.models.pix2pix4depth_model import Pix2Pix4DepthModel
+
+base_model_path = os.path.join(models_path, "leres")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
+
+remote_model_path_leres = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
+remote_model_path_pix2pix = "https://sfu.ca/~yagiz/CVPR21/latest_net_G.pth"
 
 model = None
+pix2pixmodel = None
 
 def unload_leres_model():
-    global model
+    global model, pix2pixmodel
     if model is not None:
         model = model.cpu()
+    if pix2pixmodel is not None:
+        pix2pixmodel = pix2pixmodel.unload_network('G')
 
-def scale_torch(img):
-	"""
-	Scale the image and output it in torch.tensor.
-	:param img: input rgb is in shape [H, W, C], input depth/disp is in shape [H, W]
-	:param scale: the scale factor. float
-	:return: img. [C, H, W]
-	"""
-	if len(img.shape) == 2:
-		img = img[np.newaxis, :, :]
-	if img.shape[2] == 3:
-		transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.485, 0.456, 0.406) , (0.229, 0.224, 0.225) )])
-		img = transform(img.astype(np.float32))
-	else:
-		img = img.astype(np.float32)
-		img = torch.from_numpy(img)
-	return img
+def apply_leres(input_image, thr_a, thr_b):
+    global model, pix2pixmodel
+    boost = shared.opts.data.get("control_net_monocular_depth_optim", False)
 
-def estimateleres(img, model, w, h):
-	# leres transform input
-	rgb_c = img[:, :, ::-1].copy()
-	A_resize = cv2.resize(rgb_c, (w, h))
-	img_torch = scale_torch(A_resize)[None, :, :, :] 
-	
-	# compute
-	with torch.no_grad():
-		img_torch = img_torch.cuda()
-		prediction = model.depth_model(img_torch)
-
-	prediction = prediction.squeeze().cpu().numpy()
-	prediction = cv2.resize(prediction, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
-
-	return prediction
-
-def apply_leres(input_image, a):
-    global model
     if model is None:
         model_path = os.path.join(base_model_path, "res101.pth")
-        if not os.path.exists(model_path):
+        old_model_path = os.path.join(old_modeldir, "res101.pth")
+        
+        if os.path.exists(old_model_path):
+            model_path = old_model_path
+        elif not os.path.exists(model_path):
             from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=base_model_path)
+            load_file_from_url(remote_model_path_leres, model_dir=base_model_path)
             os.rename(os.path.join(base_model_path, 'download'), model_path)
-        checkpoint = torch.load(model_path)
+
+        if torch.cuda.is_available():
+            checkpoint = torch.load(model_path)
+        else:
+            checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
+
         model = RelDepthModel(backbone='resnext101')
-        # CPU support? add condition here
-        # checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
         model.load_state_dict(strip_prefix_if_present(checkpoint['depth_model'], "module."), strict=True)
         del checkpoint
+
+    if boost and pix2pixmodel is None:
+        pix2pixmodel_path = os.path.join(base_model_path, "latest_net_G.pth")
+        if not os.path.exists(pix2pixmodel_path):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(remote_model_path_pix2pix, model_dir=base_model_path)
+
+        opt = TestOptions().parse()
+        if not torch.cuda.is_available():
+            opt.gpu_ids = [] # cpu mode
+        pix2pixmodel = Pix2Pix4DepthModel(opt)
+        pix2pixmodel.save_dir = base_model_path
+        pix2pixmodel.load_networks('latest')
+        pix2pixmodel.eval()
     
     if devices.get_device_for("controlnet").type != 'mps':
         model = model.to(devices.get_device_for("controlnet"))
-    
+
     assert input_image.ndim == 3
-    image_depth = input_image
+    height, width, dim = input_image.shape
+
     with torch.no_grad():
 
-        depth = estimateleres(image_depth, model, 512, 512) # add support for resizing/cropping
+        if boost:
+            depth = estimateboost(input_image, model, 0, pix2pixmodel, max(width, height))
+        else:
+            depth = estimateleres(input_image, model, width, height)
 
         numbytes=2
         depth_min = depth.min()
@@ -92,9 +95,21 @@ def apply_leres(input_image, a):
         
         # single channel, 16 bit image
         depth_image = out.astype("uint16")
-        depth_image = cv2.bitwise_not(depth_image)
 
         # convert to uint8
         depth_image = cv2.convertScaleAbs(depth_image, alpha=(255.0/65535.0))
 
-        return depth_image, None
+        # remove near
+        if thr_a != 0:
+            thr_a = ((thr_a/100)*255) 
+            depth_image = cv2.threshold(depth_image, thr_a, 255, cv2.THRESH_TOZERO)[1]
+
+        # invert image
+        depth_image = cv2.bitwise_not(depth_image)
+
+        # remove bg
+        if thr_b != 0:
+            thr_b = ((thr_b/100)*255)
+            depth_image = cv2.threshold(depth_image, thr_b, 255, cv2.THRESH_TOZERO)[1]
+
+        return depth_image
