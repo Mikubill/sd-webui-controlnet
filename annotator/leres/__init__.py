@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 import torch
 import os
-from modules import extensions, devices, shared
+from modules import devices, shared
+from modules.paths import models_path
 from torchvision.transforms import transforms
 
 # AdelaiDepth/LeReS imports
@@ -14,7 +15,9 @@ from .leres.net_tools import strip_prefix_if_present
 from .pix2pix.options.test_options import TestOptions
 from .pix2pix.models.pix2pix4depth_model import Pix2Pix4DepthModel
 
-base_model_path = os.path.join(extensions.extensions_dir, "sd-webui-controlnet", "annotator", "leres")
+base_model_path = os.path.join(models_path, "leres")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
+
 remote_model_path_leres = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
 remote_model_path_pix2pix = "https://sfu.ca/~yagiz/CVPR21/latest_net_G.pth"
 
@@ -34,7 +37,11 @@ def apply_leres(input_image, thr_a, thr_b):
 
     if model is None:
         model_path = os.path.join(base_model_path, "res101.pth")
-        if not os.path.exists(model_path):
+        old_model_path = os.path.join(old_modeldir, "res101.pth")
+        
+        if os.path.exists(old_model_path):
+            model_path = old_model_path
+        elif not os.path.exists(model_path):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path_leres, model_dir=base_model_path)
             os.rename(os.path.join(base_model_path, 'download'), model_path)
