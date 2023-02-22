@@ -402,7 +402,7 @@ class Script(scripts.Script):
         The return value should be an array of all components that are used in processing.
         Values of those returned components will be passed to run() and process() functions.
         """
-        ctrls_group = ()
+        ctrls_group = (gr.State(is_img2img),)
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             if max_models > 1:
@@ -445,7 +445,7 @@ class Script(scripts.Script):
         print(f"ControlNet model {model} loaded.")
         return network
     
-    def process(self, p, *args):
+    def process(self, p, is_img2img, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -613,11 +613,7 @@ class Script(scripts.Script):
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, *args):
-        is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
-        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        
+    def postprocess(self, p, processed, is_img2img, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -625,6 +621,8 @@ class Script(scripts.Script):
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
 
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
         
