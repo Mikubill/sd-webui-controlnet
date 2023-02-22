@@ -29,8 +29,11 @@ def apply_openpose(oriImg, hand=False):
         
         if not os.path.exists(hand_modelpath):
             from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(body_model_path, model_dir=modeldir)
             load_file_from_url(hand_model_path, model_dir=modeldir)
+
+        if not os.path.exists(body_model_path):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(body_model_path, model_dir=modeldir)
             
         body_estimation = Body(body_modelpath)
         hand_estimation = Hand(hand_modelpath)
