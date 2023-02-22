@@ -610,6 +610,10 @@ class Script(scripts.Script):
                 if module in ["canny", "mlsd", "scribble", "fake_scribble"]:
                     detect_map = 255-detect_map
                 processed.images.extend([detect_map])
+        
+        self.input_image = None
+        self.latest_network.restore(p.sd_model.model.diffusion_model)
+        self.latest_network = None
 
 
 def update_script_args(p, value, arg_idx):
