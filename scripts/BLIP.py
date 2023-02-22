@@ -1,6 +1,4 @@
 import torch
-
-from BLIP.models.blip import blip_decoder
 from torchvision import transforms
 
 
@@ -9,9 +7,12 @@ def automatic_prompt(image,device):
     If the user wants to use automatic_prompt, necessary load the model. 
     Therefore, it is needed to clone BLIP model.
 
-    In the colab :
-    !git clone https://github.com/salesforce/BLIP
+    !pip install gitpython
     """
+    import git
+    git.Git("/").clone("https://github.com/salesforce/BLIP.git")
+    from BLIP.models.blip import blip_decoder
+
     image_size = 512
     model_url = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth'
 
