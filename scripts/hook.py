@@ -73,7 +73,7 @@ class UnetHook(nn.Module):
             for param in self.control_params:
                 param.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > param.stop_guidance_percent
    
-        def cfg_based_adder(base, x, require_autocast):
+        def cfg_based_adder(base, x, require_autocast, is_adapter=False):
             if isinstance(x, float):
                 return base + x
             
@@ -84,10 +84,14 @@ class UnetHook(nn.Module):
                 
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            if x.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
+            if self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
                 cond, uncond = base.chunk(2)
-                x_cond, _ = x.chunk(2)
-                return torch.cat([cond + x_cond, uncond], dim=0)
+                if x.shape[0] % 2 == 0:
+                    x_cond, _ = x.chunk(2)
+                    return torch.cat([cond + x_cond, uncond], dim=0)
+                if is_adapter:
+                    return torch.cat([cond + x, uncond], dim=0)
+            
             return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
@@ -149,7 +153,7 @@ class UnetHook(nn.Module):
                     
                     # t2i-adatper, same as openaimodel.py:744
                     if ((i+1)%3 == 0) and len(total_adapter):
-                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
+                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack, is_adapter=True)
                         
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
