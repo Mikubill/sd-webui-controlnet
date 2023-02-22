@@ -548,7 +548,7 @@ class Script(scripts.Script):
                     raise ValueError('controlnet is enabled but no input image is given')
                 input_image = HWC3(np.asarray(input_image))
                 
-            if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True:
+            if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
                 input_image = Image.fromarray(input_image)
                 mask = p.image_mask.convert('L')
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
@@ -556,7 +556,6 @@ class Script(scripts.Script):
 
                 input_image = input_image.crop(crop_region)
                 input_image = images.resize_image(2, input_image, p.width, p.height)
-                # save_image(input_image, "/root/workspace/stable-diffusion-webui/extensions", "bpgbd")
                 input_image = HWC3(np.asarray(input_image))
                     
             if scribble_mode:
