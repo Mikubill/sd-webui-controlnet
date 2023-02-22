@@ -460,7 +460,7 @@ class Script(scripts.Script):
         params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
-            guidance_strength = params[13]
+            guidance_strength = params[12]
             if not enabled:
                 continue
             control_groups.append((module, model, params))
