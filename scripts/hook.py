@@ -85,12 +85,20 @@ class UnetHook(nn.Module):
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
             if self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
-                cond, uncond = base.chunk(2)
-                if x.shape[0] % 2 == 0:
-                    x_cond, _ = x.chunk(2)
-                    return torch.cat([cond + x_cond, uncond], dim=0)
-                if is_adapter:
-                    return torch.cat([cond + x, uncond], dim=0)
+                if self.is_vanilla_samplers:  
+                    uncond, cond = base.chunk(2)
+                    if x.shape[0] % 2 == 0:
+                        _, x_cond = x.chunk(2)
+                        return torch.cat([uncond, cond + x_cond], dim=0)
+                    if is_adapter:
+                        return torch.cat([uncond, cond + x], dim=0)
+                else:
+                    cond, uncond = base.chunk(2)
+                    if x.shape[0] % 2 == 0:
+                        x_cond, _ = x.chunk(2)
+                        return torch.cat([cond + x_cond, uncond], dim=0)
+                    if is_adapter:
+                        return torch.cat([cond + x, uncond], dim=0)
             
             return base + x
 
@@ -188,7 +196,8 @@ class UnetHook(nn.Module):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, params): # lint: list[ControlParams]
+    def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
+        self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
         self.guess_mode = any([param.guess_mode for param in params])
 
