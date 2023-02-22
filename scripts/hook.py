@@ -79,8 +79,8 @@ class UnetHook(nn.Module):
             
             if require_autocast:
                 zeros = torch.zeros_like(base)
-                zeros[:, :x.shape[1], ...] = control_in
-                control_in = zeros
+                zeros[:, :x.shape[1], ...] = x
+                x = zeros
                 
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
@@ -184,7 +184,7 @@ class UnetHook(nn.Module):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
     
-    def notify(self, params: list[ControlParams]):
+    def notify(self, params): # lint: list[ControlParams]
         self.control_params = params
         self.guess_mode = any([param.guess_mode for param in params])
 

@@ -503,8 +503,7 @@ class Script(scripts.Script):
             model_net.reset()
             networks.append(model_net)
             self.model_cache[model] = model_net
-            
-            input_image = None
+
             if input_image is not None:
                 input_image = HWC3(np.asarray(input_image))
             elif image is not None:
@@ -630,7 +629,7 @@ def on_ui_settings():
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
 
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
-        1, "Multi ControlNet: Max models amount", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
+        1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(

@@ -230,7 +230,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         
         return {"images": b64images, "info": processed.js()}
 
-
     @app.post("/controlnet/img2img")
     async def img2img(
         init_images: List[str] = Body([], title='Init Images'),
@@ -310,7 +309,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             do_not_save_samples=True,
             do_not_save_grid=True,
         )
-
+        
         cn_image = Image.open(io.BytesIO(base64.b64decode(controlnet_input_image[0])))        
         cn_image_np = np.array(cn_image).astype('uint8')
 
