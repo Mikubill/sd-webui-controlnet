@@ -63,7 +63,7 @@ class ControlParams:
 class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
-        self.lowvram = False
+        self.lowvram = lowvram
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
         
     def hook(self, model):
@@ -92,7 +92,7 @@ class UnetHook(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_control = [0.0] * 13
-            total_adapter = [0.0] * 8
+            total_adapter = [0.0] * 4
             only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
 
@@ -124,16 +124,18 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to("cpu")
                 if param.guess_mode:
-                    control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
+                    if param.is_adapter:
+                        # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
+                        control_scales = param.weight * [0.25, 0.62, 0.825, 1.0]
+                    else:    
+                        control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting
                     
                 control = [c * scale for c, scale in zip(control, control_scales)]
                 for idx, item in enumerate(control):
-                    if param.is_adapter:
-                        total_adapter[idx] += item
-                    else:
-                        total_control[idx] += item
+                    target = total_adapter if param.is_adapter else total_control
+                    target[idx] += item
                         
             control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
