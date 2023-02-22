@@ -18,6 +18,7 @@ from modules.shared import opts, cmd_opts
 import modules.shared as shared
 import modules.scripts as scripts
 
+from scripts.controlnet import update_cn_models, cn_models_names
 
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
@@ -368,6 +369,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         b64images = list(map(encode_to_base64, processed.images))
         
         return {"images": b64images, "info": processed.js()}
+    
+    @app.get("/controlnet/model_list")
+    async def model_list():
+        update_cn_models()
+        print(list(cn_models_names.values()))
+        return {"model_list": list(cn_models_names.values())}
 
 
 try:
