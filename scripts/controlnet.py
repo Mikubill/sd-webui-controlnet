@@ -320,12 +320,18 @@ class Script(scripts.Script):
                 def create_canvas(h, w):
                     return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
                 
+                def onInputChange(x):
+                    ##infoHTMLSize = "<p>SVG-size: " + str(drawing.width) + " x " + str(drawing.height)
+                    #infoHtml += "size: "#+ str(input_image['image'].shape[0]) + " x " + str(input_image['image'].shape[1])
+                    print ("yooooo")
+                    return 
+
                 def svgPreprocess(inputs):
                     if (inputs):
                         if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                             svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                             drawing = svg2rlg(io.BytesIO(svg_data))
-                            png_data = renderPM.drawToString(drawing, fmt='PNG')
+                            png_data = renderPM.drawToString(drawing, fmt='PNG', dpi=72)
                             encoded_string = base64.b64encode(png_data)
                             base64_str = str(encoded_string, "utf-8")
                             base64_str = "data:image/png;base64,"+ base64_str
@@ -354,6 +360,7 @@ class Script(scripts.Script):
                 
                 input_image.orgpreprocess=input_image.preprocess
                 input_image.preprocess=svgPreprocess
+#                input_image.change (onInputChange, inputs=input_image, outputs=None)
 
         return ctrls
 
