@@ -39,8 +39,7 @@ def estimateleres(img, model, w, h):
     
     # compute
     with torch.no_grad():
-        if torch.cuda.is_available():
-            img_torch = img_torch.cuda()
+        img_torch = img_torch.to(devices.get_device_for("controlnet"))
         prediction = model.depth_model(img_torch)
 
     prediction = prediction.squeeze().cpu().numpy()
