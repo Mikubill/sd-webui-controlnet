@@ -14,6 +14,7 @@ hand_estimation = None
 body_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/hand_pose_model.pth"
 modeldir = os.path.join(models_path, "openpose")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
 def unload_openpose_model():
     global body_estimation, hand_estimation
@@ -26,12 +27,18 @@ def apply_openpose(oriImg, hand=False):
     if body_estimation is None:
         body_modelpath = os.path.join(modeldir, "body_pose_model.pth")
         hand_modelpath = os.path.join(modeldir, "hand_pose_model.pth")
+        old_body_modelpath = os.path.join(old_modeldir, "body_pose_model.pth")
+        old_hand_modelpath = os.path.join(old_modeldir, "hand_pose_model.pth")
         
-        if not os.path.exists(hand_modelpath):
+        if os.path.exists(old_body_modelpath):
+            body_modelpath = old_body_modelpath
+        elif not os.path.exists(hand_modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(hand_model_path, model_dir=modeldir)
 
-        if not os.path.exists(body_model_path):
+        if os.path.exists(old_hand_modelpath):
+            hand_modelpath = old_hand_modelpath
+        elif not os.path.exists(body_model_path):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(body_model_path, model_dir=modeldir)
             

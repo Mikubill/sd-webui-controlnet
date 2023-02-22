@@ -10,12 +10,16 @@ from scripts.utils import load_state_dict
 netNetwork = None
 remote_model_path = "https://github.com/TencentARC/T2I-Adapter/raw/main/models/table5_pidinet.pth"
 modeldir = os.path.join(models_path, "pidinet")
+old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
 def apply_pidinet(input_image):
     global netNetwork
     if netNetwork is None:
         modelpath = os.path.join(modeldir, "table5_pidinet.pth")
-        if not os.path.exists(modelpath):
+        old_modelpath = os.path.join(old_modeldir, "table5_pidinet.pth")
+        if os.path.exists(old_modelpath):
+            modelpath = old_modelpath
+        elif not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=modeldir)
         netNetwork = pidinet()
