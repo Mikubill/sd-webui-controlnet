@@ -6,13 +6,13 @@ def automatic_prompt(image,device):
     """
     If the user wants to use automatic_prompt, necessary load the model. 
     Therefore, it is needed to clone BLIP model.
-
-    !pip install gitpython
-    """
-    import git
-    git.Git("/").clone("https://github.com/salesforce/BLIP.git")
+    
+    Need to clone the BLIP repositry:
     from BLIP.models.blip import blip_decoder
-
+    !pip install pytorch_pretrained_bert --upgrade
+    !git clone https://github.com/salesforce/BLIP
+    """
+    
     image_size = 512
     model_url = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth'
 
