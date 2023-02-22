@@ -209,7 +209,9 @@ class Script(scripts.Script):
         ctrls = ()
         infotext_fields = []
         with gr.Accordion(name, open=False):
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+            with gr.Column():
+                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+                generated_image = gr.Image(label="Annotator result", visible=False)
 
             with gr.Row():
                 gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -218,7 +220,7 @@ class Script(scripts.Script):
 
             with gr.Row():
                 enabled = gr.Checkbox(label='Enable', value=False)
-                scribble_mode = gr.Checkbox(label='Scribble Mode (Invert colors)', value=False)
+                scribble_mode = gr.Checkbox(label='Scribble Mode', value=False)
                 rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                 lowvram = gr.Checkbox(label='Low VRAM', value=False)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
@@ -363,6 +365,25 @@ class Script(scripts.Script):
                         
             create_button = gr.Button(value="Create blank canvas")
             create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+            
+            def run_annotator(image, module, pres, pthr_a, pthr_b):
+                img = HWC3(image['image'])
+                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                    img = HWC3(image['mask'][:, :, 0])
+                preprocessor = self.preprocessor[module]
+                result = None
+                if pres > 64:
+                    result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                else:
+                    result = preprocessor(img)
+                return gr.update(value=result, visible=True, interactive=False)
+            
+            with gr.Row():
+                annotator_button = gr.Button(value="Preview annotator result")
+                annotator_button_hide = gr.Button(value="Hide annotator result")
+            
+            annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
+            annotator_button_hide.click(fn=lambda: gr.update(visible=False), outputs=[generated_image])
                                                     
             ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
             ctrls += (lowvram,)
@@ -372,6 +393,7 @@ class Script(scripts.Script):
             input_image.preprocess=svgPreprocess
         
         return ctrls
+        
 
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
