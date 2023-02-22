@@ -1,3 +1,4 @@
+import gc
 import os
 import stat
 from collections import OrderedDict
@@ -459,8 +460,12 @@ class Script(scripts.Script):
         
         # cache stuff
         models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
-        if models_changed or len(self.model_cache) > 3:
+        if models_changed or len(self.model_cache) > shared.opts.data.get("control_net_model_cache_size", 2):
+            for key, model in self.model_cache.items():
+                model.to("cpu")
             del self.model_cache
+            gc.collect()
+            devices.torch_gc()
             self.model_cache = {}
             
         # unload unused preproc
@@ -630,6 +635,8 @@ def on_ui_settings():
 
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
+    shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
+        2, "Model cache size (requires restart)", gr.Slider, {"minimum": 0, "maximum": 5, "step": 1}, section=section))
     shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(

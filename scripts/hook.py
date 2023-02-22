@@ -178,7 +178,7 @@ class UnetHook(nn.Module):
                 return forward(*args, **kwargs)
             finally:
                 if self.lowvram:
-                    [param[0].to("cpu") for param in self.control_params]
+                    [param.control_model.to("cpu") for param in self.control_params]
                         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
