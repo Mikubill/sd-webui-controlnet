@@ -584,7 +584,7 @@ class Script(scripts.Script):
             
         self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
+        self.latest_network.notify(forward_params)
         self.detected_map = detected_maps
             
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
