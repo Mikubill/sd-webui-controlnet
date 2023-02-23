@@ -464,7 +464,10 @@ class Script(scripts.Script):
             if not enabled:
                 continue
             control_groups.append((module, model, params))
-            prefix = f"ControlNet-{idx}" if idx > 1 else "ControlNet"
+            if len(params_group) != 1:
+                prefix = f"ControlNet-{idx}"
+            else:
+                prefix = "ControlNet"
             p.extra_generation_params.update({
                 f"{prefix} Enabled": True,
                 f"{prefix} Module": module,
