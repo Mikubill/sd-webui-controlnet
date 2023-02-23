@@ -240,8 +240,8 @@ class Script(scripts.Script):
                 webcam_mirrored = not webcam_mirrored
                 return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
                 
-            webcam_enable.click(fn=webcam_toggle, outputs=input_image)
-            webcam_mirror.click(fn=webcam_mirror_toggle, outputs=input_image)
+            webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
+            webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
             def refresh_all_models(*inputs):
                 update_cn_models()
@@ -385,7 +385,7 @@ class Script(scripts.Script):
                 annotator_button_hide = gr.Button(value="Hide annotator result")
             
             annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-            annotator_button_hide.click(fn=lambda: gr.update(visible=False), outputs=[generated_image])
+            annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
                                                     
             ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
             ctrls += (lowvram,)
