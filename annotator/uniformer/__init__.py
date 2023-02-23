@@ -27,7 +27,7 @@ def apply_uniformer(img):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(checkpoint_file, model_dir=modeldir)
             
-        model = init_segmentor(config_file, checkpoint_file)
+        model = init_segmentor(config_file, modelpath)
     model = model.to(devices.get_device_for("controlnet"))
     
     if devices.get_device_for("controlnet").type == 'mps':
