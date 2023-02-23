@@ -477,40 +477,6 @@ class Script(scripts.Script):
            self.latest_network = None
            return 
         
-<<<<<<< HEAD
-        if "input_image" in p.__dict__.keys():
-            image["image"] = p.input_image
-        
-        # Other scripts can control this extension now
-        if shared.opts.data.get("control_net_allow_script_control", False):
-            enabled = getattr(p, 'control_net_enabled', enabled)
-            module = getattr(p, 'control_net_module', module)
-            model = getattr(p, 'control_net_model', model)
-            weight = getattr(p, 'control_net_weight', weight)
-            image = getattr(p, 'control_net_image', image)
-            scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
-            resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
-            rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
-            lowvram = getattr(p, 'control_net_lowvram', lowvram)
-            pres = getattr(p, 'control_net_pres', pres)
-            pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
-            pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
-            guidance_strength = getattr(p, 'control_net_guidance_strength', guidance_strength)
-
-            input_image = getattr(p, 'control_net_input_image', None)
-        else:
-            input_image = None
-
-        if not enabled:
-            restore_networks()
-            return
-
-        models_changed = self.latest_params[1] != model \
-            or self.latest_model_hash != p.sd_model.sd_model_hash or self.latest_network == None \
-            or (self.latest_network is not None and self.latest_network.lowvram != lowvram)
-
-        self.latest_params = (module, model)
-=======
         networks = []
         detected_maps = []
         forward_params = []
@@ -532,9 +498,9 @@ class Script(scripts.Script):
             if key not in module_list:
                 self.unloadable.get(module, lambda:None)()
             
->>>>>>> 9831aa3006d30b9d94085b2f653b8a3554de0dce
         self.latest_model_hash = p.sd_model.sd_model_hash
-        for module, model, params in control_groups:
+        for idx,  contents in enumerate(control_groups):
+            module, model, params = contents
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
                 
@@ -553,8 +519,9 @@ class Script(scripts.Script):
                 pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
                 pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
                 guidance_strength = getattr(p, 'control_net_guidance_strength', guidance_strength)
-
                 input_image = getattr(p, 'control_net_input_image', None)
+                if input_image is not None:
+                    input_image = input_image[idx]
             else:
                 input_image = None
                 
