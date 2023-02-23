@@ -211,7 +211,7 @@ class Script(scripts.Script):
         ctrls = ()
         infotext_fields = []
         with gr.Accordion(name, open=False):
-            with gr.Column():
+            with gr.Row():
                 input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
                 generated_image = gr.Image(label="Annotator result", visible=False)
 
