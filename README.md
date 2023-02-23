@@ -26,7 +26,7 @@ Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 ### Usage
 
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `sd-webui-controlnet/models` folder.
+1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
 2. Open "txt2img" or "img2img" tab, write your prompts.
 3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
 4. Upload your image and select preprocessor, done.
@@ -111,3 +111,16 @@ In this mode, you can just remove all prompts, and then the ControlNet encoder w
 This mode is very suitable for comparing different methods to control stable diffusion because the non-prompted generating task is significantly more difficult than prompted task. In this mode, different methods' performance will be very salient.
 
 For this mode, we recommend to **use 50 steps and guidance scale between 3 and 5.**
+
+### Multi-ControlNet / Joint Conditioning (Experimental)
+
+This option allows multiple ControlNet inputs for a single generation. To enable this option, change `Multi ControlNet: Max models amount (requires restart)` in the settings. Note that you will need to restart the WebUI for changes to take effect.
+
+* Guess Mode will apply to all ControlNet if any of them are enabled.
+
+| Source A | Source B | Output |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448620-cd3ede92-8d3f-43d5-b771-32dd8417618f.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448619-beed9bdb-f6bb-41c2-a7df-aa3ef1f653c5.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448613-c99a9e04-0450-40fd-bc73-a9122cefaa2c.png"> |
+
+<!-- ### Advanced weight tuning -->
+

@@ -229,6 +229,7 @@ class Script(scripts.Script):
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
                 automatic = gr.Checkbox(label="Automatic Mode", value=False)
 
+
             ctrls += (enabled,)
             # infotext_fields.append((enabled, "ControlNet Enabled"))
                 
@@ -454,13 +455,11 @@ class Script(scripts.Script):
         args contains all values returned by components from ui()
         """
         unet = p.sd_model.model.diffusion_model
-
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
 
         control_groups = []
-        params_group = [args[i:i + 14] for i in range(0, len(args)-1, 14)]
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
             guidance_strength = params[12]
@@ -568,7 +567,6 @@ class Script(scripts.Script):
                 detected_map = np.zeros_like(input_image, dtype=np.uint8)
                 detected_map[np.min(input_image, axis=2) < 127] = 255
                 input_image = detected_map
-            
             print(f"Loading preprocessor: {module}")
             preprocessor = self.preprocessor[module]
             h, w, bsz = p.height, p.width, p.batch_size
@@ -618,6 +616,7 @@ class Script(scripts.Script):
         
         if args[-1]:
             p.prompt=automatic_prompt(input_image,p.sd_model.device)            
+
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
         
