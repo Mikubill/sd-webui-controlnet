@@ -216,13 +216,13 @@ class Script(scripts.Script):
                 generated_image = gr.Image(label="Annotator result", visible=False)
 
             with gr.Row():
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 webcam_enable = ToolButton(value=camera_symbol)
                 webcam_mirror = ToolButton(value=reverse_symbol)
 
             with gr.Row():
                 enabled = gr.Checkbox(label='Enable', value=False)
-                scribble_mode = gr.Checkbox(label='Scribble Mode', value=False)
+                scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
                 rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                 lowvram = gr.Checkbox(label='Low VRAM', value=False)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
@@ -630,7 +630,7 @@ class Script(scripts.Script):
         
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
-                if module in ["canny", "mlsd", "scribble", "fake_scribble"]:
+                if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet"]:
                     detect_map = 255-detect_map
                 processed.images.extend([detect_map])
         
