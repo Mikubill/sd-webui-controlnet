@@ -212,18 +212,18 @@ class Script(scripts.Script):
         ctrls = ()
         infotext_fields = []
         with gr.Accordion(name, open=False):
-            with gr.Column():
+            with gr.Row():
                 input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
                 generated_image = gr.Image(label="Annotator result", visible=False)
 
             with gr.Row():
-                gr.HTML(value='<p>Enable scribble mode if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+                gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
                 webcam_enable = ToolButton(value=camera_symbol)
                 webcam_mirror = ToolButton(value=reverse_symbol)
 
             with gr.Row():
                 enabled = gr.Checkbox(label='Enable', value=False)
-                scribble_mode = gr.Checkbox(label='Scribble Mode', value=False)
+                scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
                 rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                 lowvram = gr.Checkbox(label='Low VRAM', value=False)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
@@ -241,8 +241,8 @@ class Script(scripts.Script):
                 webcam_mirrored = not webcam_mirrored
                 return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
                 
-            webcam_enable.click(fn=webcam_toggle, outputs=input_image)
-            webcam_mirror.click(fn=webcam_mirror_toggle, outputs=input_image)
+            webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
+            webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
             def refresh_all_models(*inputs):
                 update_cn_models()
@@ -402,7 +402,7 @@ class Script(scripts.Script):
                 annotator_button_hide = gr.Button(value="Hide annotator result")
             
             annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-            annotator_button_hide.click(fn=lambda: gr.update(visible=False), outputs=[generated_image])
+            annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
                                                     
             ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
             ctrls += (lowvram,)
@@ -481,11 +481,14 @@ class Script(scripts.Script):
         params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
-            guidance_strength = params[13]
+            guidance_strength = params[12]
             if not enabled:
                 continue
             control_groups.append((module, model, params))
-            prefix = f"ControlNet-{idx}" if idx > 1 else "ControlNet"
+            if len(params_group) != 1:
+                prefix = f"ControlNet-{idx}"
+            else:
+                prefix = "ControlNet"
             p.extra_generation_params.update({
                 f"{prefix} Enabled": True,
                 f"{prefix} Module": module,
@@ -651,7 +654,7 @@ class Script(scripts.Script):
         
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
-                if module in ["canny", "mlsd", "scribble", "fake_scribble"]:
+                if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet"]:
                     detect_map = 255-detect_map
                 processed.images.extend([detect_map])
         
