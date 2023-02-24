@@ -10,6 +10,7 @@ from modules import shared, devices, script_callbacks, processing, masking, imag
 import gradio as gr
 import numpy as np
 
+from BLIP import automatic_prompt
 from einops import rearrange
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
@@ -226,6 +227,8 @@ class Script(scripts.Script):
                 rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
                 lowvram = gr.Checkbox(label='Low VRAM', value=False)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
+                automatic = gr.Checkbox(label="Automatic Mode", value=False)
+
 
             ctrls += (enabled,)
             # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -389,7 +392,7 @@ class Script(scripts.Script):
                                                     
             ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
             ctrls += (lowvram,)
-            ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
+            ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode,automatic)
                 
             input_image.orgpreprocess=input_image.preprocess
             input_image.preprocess=svgPreprocess
@@ -462,7 +465,6 @@ class Script(scripts.Script):
             self.latest_network.restore(unet)
 
         control_groups = []
-        params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
             guidance_strength = params[12]
@@ -570,7 +572,6 @@ class Script(scripts.Script):
                 detected_map = np.zeros_like(input_image, dtype=np.uint8)
                 detected_map[np.min(input_image, axis=2) < 127] = 255
                 input_image = detected_map
-            
             print(f"Loading preprocessor: {module}")
             preprocessor = self.preprocessor[module]
             h, w, bsz = p.height, p.width, p.batch_size
@@ -617,10 +618,13 @@ class Script(scripts.Script):
         self.latest_network.hook(unet)
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
         self.detected_map = detected_maps
-            
+        
+        if args[-1]:
+            p.prompt=automatic_prompt(input_image,p.sd_model.device)            
+
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
-
+        
     def postprocess(self, p, processed, *args):
         is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
