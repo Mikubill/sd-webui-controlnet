@@ -350,7 +350,7 @@ class Script(scripts.Script):
 
                     if (isSVG and svgsupport):
                         drawing = svg2rlg(io.BytesIO(data))
-                        data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi"))
+                        data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
                         isSVG = False
 
                     if (not isSVG):
@@ -363,7 +363,7 @@ class Script(scripts.Script):
                     if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                         svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                         drawing = svg2rlg(io.BytesIO(svg_data))
-                        png_data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi"))
+                        png_data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
                         encoded_string = base64.b64encode(png_data)
                         base64_str = str(encoded_string, "utf-8")
                         base64_str = "data:image/png;base64,"+ base64_str
@@ -710,7 +710,7 @@ def on_ui_settings():
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 
     shared.opts.add_option("control_net_cfg_svg_dpi", shared.OptionInfo(
-        72, "SVG Input rendering DPI", gr.Slider, {"minimum": 72, "maximum": 1000, "step": 1}, section=section))
+        72, "SVG Input rendering DPI", gr.Slider, {"minimum": 1, "maximum": 1000, "step": 1}, section=section))
     
     
 class Img2ImgTabTracker:
