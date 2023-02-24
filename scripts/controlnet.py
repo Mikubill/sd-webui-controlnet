@@ -207,193 +207,192 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
     
-    def accordion(self, name, is_img2img):
+    def uigroup(self, is_img2img):
         ctrls = ()
         infotext_fields = []
-        with gr.Accordion(name, open=False):
-            with gr.Row():
-                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-                generated_image = gr.Image(label="Annotator result", visible=False)
+        with gr.Row():
+            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+            generated_image = gr.Image(label="Annotator result", visible=False)
 
-            with gr.Row():
-                gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-                webcam_enable = ToolButton(value=camera_symbol)
-                webcam_mirror = ToolButton(value=reverse_symbol)
+        with gr.Row():
+            gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+            webcam_enable = ToolButton(value=camera_symbol)
+            webcam_mirror = ToolButton(value=reverse_symbol)
 
-            with gr.Row():
-                enabled = gr.Checkbox(label='Enable', value=False)
-                scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
-                rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
-                lowvram = gr.Checkbox(label='Low VRAM', value=False)
-                guess_mode = gr.Checkbox(label='Guess Mode', value=False)
+        with gr.Row():
+            enabled = gr.Checkbox(label='Enable', value=False)
+            scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
+            rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
+            lowvram = gr.Checkbox(label='Low VRAM', value=False)
+            guess_mode = gr.Checkbox(label='Guess Mode', value=False)
 
-            ctrls += (enabled,)
-            # infotext_fields.append((enabled, "ControlNet Enabled"))
-                
-            def webcam_toggle():
-                global webcam_enabled
-                webcam_enabled = not webcam_enabled
-                return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
-                    
-            def webcam_mirror_toggle():
-                global webcam_mirrored
-                webcam_mirrored = not webcam_mirrored
-                return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
-                
-            webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
-            webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
-
-            def refresh_all_models(*inputs):
-                update_cn_models()
-                    
-                dd = inputs[0]
-                selected = dd if dd in cn_models else "None"
-                return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
-
-            with gr.Row():
-                module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value="none")
-                model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
-                refresh_models = ToolButton(value=refresh_symbol)
-                refresh_models.click(refresh_all_models, model, model)
-                    # ctrls += (refresh_models, )
-            with gr.Row():
-                weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
-                guidance_strength =  gr.Slider(label="Guidance strength (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
-
-                ctrls += (module, model, weight,)
-                    # model_dropdowns.append(model)
-            def build_sliders(module):
-                if module == "canny":
-                    return [
-                        gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                        gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
-                        gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
-                        gr.update(visible=True)
-                    ]
-                elif module == "mlsd": #Hough
-                    return [
-                        gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
-                        gr.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
-                        gr.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True),
-                        gr.update(visible=True)
-                    ]
-                elif module in ["hed", "fake_scribble"]:
-                    return [
-                        gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
-                        gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=True)
-                    ]
-                elif module in ["openpose", "openpose_hand", "segmentation"]:
-                    return [
-                        gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
-                        gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=True)
-                    ]
-                elif module == "depth":
-                    return [
-                        gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
-                        gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=True)
-                    ]
-                elif module in ["depth_leres", "depth_leres_boost"]:
-                    return [
-                        gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
-                        gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
-                        gr.update(label="Remove Background %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
-                        gr.update(visible=True)
-                    ]
-                elif module == "normal_map":
-                    return [
-                        gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
-                        gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=True)
-                    ]
-                elif module == "none":
-                    return [
-                        gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
-                        gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=False)
-                    ]
-                else:
-                    return [
-                        gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                        gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
-                        gr.update(visible=True)
-                    ]
-                    
-            # advanced options    
-            advanced = gr.Column(visible=False)
-            with advanced:
-                processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
-                threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
-                threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
-                
-            if gradio_compat:    
-                module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
-                    
-            # infotext_fields.extend((module, model, weight))
-
-            def create_canvas(h, w):
-                return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-                
-            def svgPreprocess(inputs):
-                if (inputs):
-                    if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
-                        svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
-                        drawing = svg2rlg(io.BytesIO(svg_data))
-                        png_data = renderPM.drawToString(drawing, fmt='PNG')
-                        encoded_string = base64.b64encode(png_data)
-                        base64_str = str(encoded_string, "utf-8")
-                        base64_str = "data:image/png;base64,"+ base64_str
-                        inputs['image'] = base64_str
-                    return input_image.orgpreprocess(inputs)
-                return None
-
-            resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
-            with gr.Row():
-                with gr.Column():
-                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                        
-                if gradio_compat:
-                    canvas_swap_res = ToolButton(value=switch_values_symbol)
-                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-                        
-            create_button = gr.Button(value="Create blank canvas")
-            create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+        ctrls += (enabled,)
+        # infotext_fields.append((enabled, "ControlNet Enabled"))
             
-            def run_annotator(image, module, pres, pthr_a, pthr_b):
-                img = HWC3(image['image'])
-                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                    img = HWC3(image['mask'][:, :, 0])
-                preprocessor = self.preprocessor[module]
-                result = None
-                if pres > 64:
-                    result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
-                else:
-                    result = preprocessor(img)
-                return gr.update(value=result, visible=True, interactive=False)
-            
-            with gr.Row():
-                annotator_button = gr.Button(value="Preview annotator result")
-                annotator_button_hide = gr.Button(value="Hide annotator result")
-            
-            annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-            annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
-                                                    
-            ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
-            ctrls += (lowvram,)
-            ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
+        def webcam_toggle():
+            global webcam_enabled
+            webcam_enabled = not webcam_enabled
+            return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
                 
-            input_image.orgpreprocess=input_image.preprocess
-            input_image.preprocess=svgPreprocess
+        def webcam_mirror_toggle():
+            global webcam_mirrored
+            webcam_mirrored = not webcam_mirrored
+            return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
+            
+        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
+        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
+
+        def refresh_all_models(*inputs):
+            update_cn_models()
+                
+            dd = inputs[0]
+            selected = dd if dd in cn_models else "None"
+            return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
+
+        with gr.Row():
+            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value="none")
+            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
+            refresh_models = ToolButton(value=refresh_symbol)
+            refresh_models.click(refresh_all_models, model, model)
+                # ctrls += (refresh_models, )
+        with gr.Row():
+            weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
+            guidance_strength =  gr.Slider(label="Guidance strength (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
+
+            ctrls += (module, model, weight,)
+                # model_dropdowns.append(model)
+        def build_sliders(module):
+            if module == "canny":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
+                    gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
+                    gr.update(visible=True)
+                ]
+            elif module == "mlsd": #Hough
+                return [
+                    gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
+                    gr.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True),
+                    gr.update(visible=True)
+                ]
+            elif module in ["hed", "fake_scribble"]:
+                return [
+                    gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module in ["openpose", "openpose_hand", "segmentation"]:
+                return [
+                    gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "depth":
+                return [
+                    gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module in ["depth_leres", "depth_leres_boost"]:
+                return [
+                    gr.update(label="LeReS Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
+                    gr.update(label="Remove Background %", value=0, minimum=0, maximum=100, step=0.1, interactive=True),
+                    gr.update(visible=True)
+                ]
+            elif module == "normal_map":
+                return [
+                    gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "none":
+                return [
+                    gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=False)
+                ]
+            else:
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+                
+        # advanced options    
+        advanced = gr.Column(visible=False)
+        with advanced:
+            processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
+            threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
+            threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
+            
+        if gradio_compat:    
+            module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
+                
+        # infotext_fields.extend((module, model, weight))
+
+        def create_canvas(h, w):
+            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
+            
+        def svgPreprocess(inputs):
+            if (inputs):
+                if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
+                    svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
+                    drawing = svg2rlg(io.BytesIO(svg_data))
+                    png_data = renderPM.drawToString(drawing, fmt='PNG')
+                    encoded_string = base64.b64encode(png_data)
+                    base64_str = str(encoded_string, "utf-8")
+                    base64_str = "data:image/png;base64,"+ base64_str
+                    inputs['image'] = base64_str
+                return input_image.orgpreprocess(inputs)
+            return None
+
+        resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
+        with gr.Row():
+            with gr.Column():
+                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                    
+            if gradio_compat:
+                canvas_swap_res = ToolButton(value=switch_values_symbol)
+                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+                    
+        create_button = gr.Button(value="Create blank canvas")
+        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
+        def run_annotator(image, module, pres, pthr_a, pthr_b):
+            img = HWC3(image['image'])
+            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                img = HWC3(image['mask'][:, :, 0])
+            preprocessor = self.preprocessor[module]
+            result = None
+            if pres > 64:
+                result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+            else:
+                result = preprocessor(img)
+            return gr.update(value=result, visible=True, interactive=False)
+        
+        with gr.Row():
+            annotator_button = gr.Button(value="Preview annotator result")
+            annotator_button_hide = gr.Button(value="Hide annotator result")
+        
+        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
+        annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
+                                                
+        ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
+        ctrls += (lowvram,)
+        ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
+            
+        input_image.orgpreprocess=input_image.preprocess
+        input_image.preprocess=svgPreprocess
+    
         return ctrls
         
 
@@ -405,13 +404,17 @@ class Script(scripts.Script):
         ctrls_group = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
-            if max_models > 1:
-                for i in range(max_models):
-                    ctrls_group += self.accordion(f"ControlNet - {i}", is_img2img) 
-            else:
-                ctrls_group += self.accordion(f"ControlNet", is_img2img)
+            with gr.Accordion("ControlNet", open = False):
+                if max_models > 1:
+                    with gr.Tabs():
+                            for i in range(max_models):
+                                with gr.Tab(f"Control Model - {i}"):
+                                    ctrls_group += self.uigroup(is_img2img)
+                else:
+                    with gr.Column():
+                        ctrls_group += self.uigroup(is_img2img)
 
-        return ctrls_group
+                return ctrls_group
         
     def build_control_model(self, p, unet, model, lowvram):
 
