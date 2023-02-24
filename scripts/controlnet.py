@@ -529,7 +529,7 @@ class Script(scripts.Script):
         
         # cache stuff
         models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
-        if models_changed or len(self.model_cache) > shared.opts.data.get("control_net_model_cache_size", 2):
+        if models_changed or len(self.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
             for key, model in self.model_cache.items():
                 model.to("cpu")
             del self.model_cache
