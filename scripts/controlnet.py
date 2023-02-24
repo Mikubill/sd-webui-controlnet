@@ -450,6 +450,37 @@ class Script(scripts.Script):
         print(f"ControlNet model {model} loaded.")
         return network
     
+    def parse_remote_call(self, p, params, idx):
+        if params is None:
+            params = [None] * 14
+        
+        enabled, module, model, weight, image, scribble_mode, \
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
+            
+        selector = lambda x, idx: x[idx] if isinstance(x, list) else x
+        if shared.opts.data.get("control_net_allow_script_control", False):
+            enabled = selector(getattr(p, 'control_net_enabled', enabled), idx)
+            module = selector(getattr(p, 'control_net_module', module), idx)
+            model = selector(getattr(p, 'control_net_model', model), idx)
+            weight = selector(getattr(p, 'control_net_weight', weight), idx)
+            image = selector(getattr(p, 'control_net_image', image), idx)
+            scribble_mode = selector(getattr(p, 'control_net_scribble_mode', scribble_mode), idx)
+            resize_mode = selector(getattr(p, 'control_net_resize_mode', resize_mode), idx)
+            rgbbgr_mode = selector(getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode), idx)
+            lowvram = selector(getattr(p, 'control_net_lowvram', lowvram), idx)
+            pres = selector(getattr(p, 'control_net_pres', pres), idx)
+            pthr_a = selector(getattr(p, 'control_net_pthr_a', pthr_a), idx)
+            pthr_b = selector(getattr(p, 'control_net_pthr_b', pthr_b), idx)
+            guidance_strength = selector(getattr(p, 'control_net_guidance_strength', guidance_strength), idx)
+            guess_mode = selector(getattr(p, 'control_net_guess_mode', guess_mode), idx)
+
+            input_image = selector(getattr(p, 'control_net_input_image', None), idx)
+        else:
+            input_image = None
+        
+        return (enabled, module, model, weight, image, scribble_mode, \
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode), input_image
+    
     def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
@@ -463,6 +494,12 @@ class Script(scripts.Script):
 
         control_groups = []
         params_group = [args[i:i + 14] for i in range(0, len(args), 14)]
+        if getattr(p, 'control_net_api_access', False) and len(params_group) == 0:
+            # fill a null group
+            params, _ = self.parse_remote_call(p, None, 0)
+            if params[0]: # enabled
+                params_group.append(params)
+            
         for idx, params in enumerate(params_group):
             enabled, module, model, weight = params[:4]
             guidance_strength = params[12]
@@ -507,29 +544,11 @@ class Script(scripts.Script):
                 self.unloadable.get(module, lambda:None)()
             
         self.latest_model_hash = p.sd_model.sd_model_hash
-        for module, model, params in control_groups:
+        for idx,  contents in enumerate(control_groups):
+            module, model, params = contents
+            params, input_image = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
-                
-            # note that remote call only works with no-joint-controlnet
-            if shared.opts.data.get("control_net_allow_script_control", False):
-                enabled = getattr(p, 'control_net_enabled', enabled)
-                module = getattr(p, 'control_net_module', module)
-                model = getattr(p, 'control_net_model', model)
-                weight = getattr(p, 'control_net_weight', weight)
-                image = getattr(p, 'control_net_image', image)
-                scribble_mode = getattr(p, 'control_net_scribble_mode', scribble_mode)
-                resize_mode = getattr(p, 'control_net_resize_mode', resize_mode)
-                rgbbgr_mode = getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode)
-                lowvram = getattr(p, 'control_net_lowvram', lowvram)
-                pres = getattr(p, 'control_net_pres', pres)
-                pthr_a = getattr(p, 'control_net_pthr_a', pthr_a)
-                pthr_b = getattr(p, 'control_net_pthr_b', pthr_b)
-                guidance_strength = getattr(p, 'control_net_guidance_strength', guidance_strength)
-
-                input_image = getattr(p, 'control_net_input_image', None)
-            else:
-                input_image = None
                 
             if lowvram:
                 hook_lowvram = True
