@@ -186,11 +186,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if cmd_opts.enable_console_prompts:
             print(f"\ntxt2img: {prompt}", file=shared.progress_print_out)
 
-        processed = scripts.scripts_txt2img.run(p, *(p.script_args)) 
-        
-        if processed is None: # fall back
-           processed = process_images(p)            
-
+        processed = process_images(p)            
         p.close()
 
         generation_info_js = processed.js()
@@ -322,11 +318,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         p.extra_generation_params["Mask blur"] = mask_blur
 
-        processed = scripts.scripts_img2img.run(p, *(p.script_args)) 
-                
-        if processed is None: # fall back
-           processed = process_images(p)            
-
+        processed = process_images(p)            
         p.close()
 
         generation_info_js = processed.js()
@@ -337,7 +329,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             processed.images = []
 
         b64images = list(map(encode_to_base64, processed.images))
-        
         return {"images": b64images, "info": processed.js()}
     
     @app.get("/controlnet/model_list")
