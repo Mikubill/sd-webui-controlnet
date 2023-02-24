@@ -459,25 +459,36 @@ class Script(scripts.Script):
         
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
-            
-        selector = lambda x, idx: x[idx] if isinstance(x, list) else x
-        if shared.opts.data.get("control_net_allow_script_control", False):
-            enabled = selector(getattr(p, 'control_net_enabled', enabled), idx)
-            module = selector(getattr(p, 'control_net_module', module), idx)
-            model = selector(getattr(p, 'control_net_model', model), idx)
-            weight = selector(getattr(p, 'control_net_weight', weight), idx)
-            image = selector(getattr(p, 'control_net_image', image), idx)
-            scribble_mode = selector(getattr(p, 'control_net_scribble_mode', scribble_mode), idx)
-            resize_mode = selector(getattr(p, 'control_net_resize_mode', resize_mode), idx)
-            rgbbgr_mode = selector(getattr(p, 'control_net_rgbbgr_mode', rgbbgr_mode), idx)
-            lowvram = selector(getattr(p, 'control_net_lowvram', lowvram), idx)
-            pres = selector(getattr(p, 'control_net_pres', pres), idx)
-            pthr_a = selector(getattr(p, 'control_net_pthr_a', pthr_a), idx)
-            pthr_b = selector(getattr(p, 'control_net_pthr_b', pthr_b), idx)
-            guidance_strength = selector(getattr(p, 'control_net_guidance_strength', guidance_strength), idx)
-            guess_mode = selector(getattr(p, 'control_net_guess_mode', guess_mode), idx)
 
-            input_image = selector(getattr(p, 'control_net_input_image', None), idx)
+        def selector(p, attribute, default=None, idx=0):
+            def get_element(obj, idx):
+                if not isinstance(obj, list):
+                    return obj
+                if idx < len(obj):
+                    return obj[idx]
+                else:
+                    return None
+            attribute_value = get_element(getattr(p, attribute, None), idx)
+            default_value = get_element(default, idx)
+            return attribute_value if attribute_value is not None else default_value
+
+        if shared.opts.data.get("control_net_allow_script_control", False):
+            enabled = selector(p, "control_net_enabled", enabled, idx)
+            module = selector(p, "control_net_module", module, idx)
+            model = selector(p, "control_net_model", model, idx)
+            weight = selector(p, "control_net_weight", weight, idx)
+            image = selector(p, "control_net_image", image, idx)
+            scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
+            resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
+            rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
+            lowvram = selector(p, "control_net_lowvram", lowvram, idx)
+            pres = selector(p, "control_net_pres", pres, idx)
+            pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
+            pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
+            guidance_strength = selector(p, "control_net_guidance_strength", guidance_strength, idx)
+            guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
+
+            input_image = selector(p, "control_net_input_image", None, idx)
         else:
             input_image = None
         
