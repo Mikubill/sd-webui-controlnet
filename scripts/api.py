@@ -19,6 +19,7 @@ import modules.shared as shared
 import modules.scripts as scripts
 
 from scripts.controlnet import update_cn_models, cn_models_names
+from scripts.processor import *
 
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
@@ -337,6 +338,64 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         print(list(cn_models_names.values()))
         return {"model_list": list(cn_models_names.values())}
 
+    @app.post("/controlnet/detect")
+    async def detect(
+        controlnet_module: str = Body("None", title='Controlnet Module'),
+        controlnet_input_images: List[str] = Body([], title='Controlnet Input Images'),
+        controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
+        controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
+        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
+        ):
+
+        available_modules = ["canny", "hed", "depth", "depth_leres", "mlsd", 
+                             "normal_map", "openpose", "fake_scribble", "segmentation"]
+
+        if controlnet_module not in available_modules:
+            return {"images": [], "info": "Module not available"}
+        if len(controlnet_input_images) == 0:
+            return {"images": [], "info": "No image selected"}
+        
+        print(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
+
+        results = []
+
+        for input_image in controlnet_input_images:
+            img = np.array(Image.open(io.BytesIO(base64.b64decode(input_image)))).astype('uint8')
+
+            if controlnet_module == "canny":
+                results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
+            elif controlnet_module == "hed":
+                results.append(hed(img, controlnet_processor_res))
+            elif controlnet_module == "mlsd":
+                results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
+            elif controlnet_module == "depth":
+                results.append(midas(img, controlnet_processor_res, np.pi * 2))
+            elif controlnet_module == "normal_map":
+                results.append(midas_normal(img, controlnet_processor_res, np.pi, controlnet_threshold_a))
+            elif controlnet_module == "depth_leres":
+                results.append(leres(img, controlnet_processor_res, np.pi * 2, controlnet_threshold_a, controlnet_threshold_b))
+            elif controlnet_module == "openpose":
+                results.append(openpose(img, controlnet_processor_res, False))
+            elif controlnet_module == "fake_scribble":
+                results.append(fake_scribble(img, controlnet_processor_res))
+            elif controlnet_module == "segmentation":
+                results.append(uniformer(img, controlnet_processor_res))
+
+        if controlnet_module == "hed":
+            unload_hed()
+        elif controlnet_module == "mlsd":
+            unload_mlsd()
+        elif controlnet_module == "depth" or controlnet_module == "normal_map":
+            unload_midas()
+        elif controlnet_module == "depth_leres":
+            unload_leres()
+        elif controlnet_module == "openpose":
+            unload_openpose()
+        elif controlnet_module == "segmentation":
+            unload_uniformer()
+
+        results64 = list(map(encode_to_base64, results))
+        return {"images": results64, "info": "Success"}
 
 try:
     import modules.script_callbacks as script_callbacks
