@@ -401,7 +401,7 @@ class Script(scripts.Script):
         The return value should be an array of all components that are used in processing.
         Values of those returned components will be passed to run() and process() functions.
         """
-        ctrls_group = ()
+        ctrls_group = (gr.State(is_img2img),)
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             with gr.Accordion("ControlNet", open = False):
@@ -495,7 +495,7 @@ class Script(scripts.Script):
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode), input_image
     
-    def process(self, p, *args):
+    def process(self, p, is_img2img=False, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -654,11 +654,7 @@ class Script(scripts.Script):
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, *args):
-        is_img2img = issubclass(type(p), StableDiffusionProcessingImg2Img)
-        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        
+    def postprocess(self, p, processed, is_img2img=False, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -666,9 +662,12 @@ class Script(scripts.Script):
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
 
+        is_api = getattr(p, 'control_net_api_access', False)
+        is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
-        
+
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
                 if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet"]:
@@ -746,13 +745,10 @@ class Img2ImgTabTracker:
         if type(component) is gr.Button and component.elem_id == 'img2img_generate':
             component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
             return
-        
-        if not hasattr(component, "parent"):
-            return
 
-        tab = component.parent
-        is_tab = type(tab) is gr.Tab and tab.elem_id is not None
-        is_img2img_tab = is_tab and tab.parent is not None and tab.parent.elem_id == 'mode_img2img'
+        tab = getattr(component, 'parent', None)
+        is_tab = type(tab) is gr.Tab and getattr(tab, 'elem_id', None) is not None
+        is_img2img_tab = is_tab and getattr(tab, 'parent', None) is not None and getattr(tab.parent, 'elem_id', None) == 'mode_img2img'
         if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
             tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
             self.img2img_tabs.add(tab.elem_id)
