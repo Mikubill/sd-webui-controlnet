@@ -91,8 +91,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_model: str = Body("", title='Controlnet Model'),
         controlnet_weight: float = Body(1.0, title='Controlnet Weight'),
         controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
-        controlnet_lowvram: bool = Body(True, title='Controlnet Low VRAM'),
-        controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
+        controlnet_lowvram: bool = Body(False, title='Controlnet Low VRAM'),
+        controlnet_processor_res: int = Body(64, title='Controlnet Processor Res'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
         controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
@@ -154,59 +154,39 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         cn_image = Image.open(io.BytesIO(base64.b64decode(controlnet_input_image[0])))        
         cn_image_np = np.array(cn_image).astype('uint8')
 
-        if(controlnet_mask == []):
+        if controlnet_mask == []:
             cn_mask_np = np.zeros(shape=(512, 512, 3)).astype('uint8')
         else:
             cn_mask = Image.open(io.BytesIO(base64.b64decode(controlnet_mask[0])))        
             cn_mask_np = np.array(cn_mask).astype('uint8')
      
         cn_args = {
-            "enabled": True,
-            "module": controlnet_module,
-            "model": controlnet_model,
-            "weight": controlnet_weight,
-            "input_image": {'image': cn_image_np, 'mask': cn_mask_np},
-            "scribble_mode": False,
-            "resize_mode": controlnet_resize_mode,
-            "rgbbgr_mode": False,
-            "lowvram": controlnet_lowvram,
-            "processor_res": controlnet_processor_res,
-            "threshold_a": controlnet_threshold_a,
-            "threshold_b": controlnet_threshold_b,
-            "guidance_strength": controlnet_guidance,
-            "guess_mode": controlnet_guessmode,
+            "control_net_enabled": True,
+            "control_net_module": controlnet_module,
+            "control_net_model": controlnet_model,
+            "control_net_weight": controlnet_weight,
+            "control_net_image": {'image': cn_image_np, 'mask': cn_mask_np},
+            "control_net_scribble_mode": False,
+            "control_net_resize_mode": controlnet_resize_mode,
+            "control_net_rgbbgr_mode": False,
+            "control_net_lowvram": controlnet_lowvram,
+            "control_net_pres": controlnet_processor_res,
+            "control_net_pthr_a": controlnet_threshold_a,
+            "control_net_pthr_b": controlnet_threshold_b,
+            "control_net_guidance_strength": controlnet_guidance,
+            "control_net_guess_mode": controlnet_guessmode,
+            "control_net_api_access": True,
         }
 
         p.scripts = scripts.scripts_txt2img
-        p.script_args = (
-            0, # todo: why
-            cn_args["enabled"],
-            cn_args["module"],
-            cn_args["model"],
-            cn_args["weight"],
-            cn_args["input_image"],
-            cn_args["scribble_mode"],
-            cn_args["resize_mode"],
-            cn_args["rgbbgr_mode"],
-            cn_args["lowvram"],
-            cn_args["processor_res"],
-            cn_args["threshold_a"],
-            cn_args["threshold_b"],
-            cn_args["guidance_strength"],#If the value is 0, it will cause ControlNet to have no effect under Eluer a.
-            cn_args["guess_mode"],
-            # 0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # todo: extend to include wither alwaysvisible scripts
-        )
-
-        print(p.script_args)
+        p.script_args = [0, ]
+        for k, v in cn_args.items():
+            setattr(p, k, v)
 
         if cmd_opts.enable_console_prompts:
             print(f"\ntxt2img: {prompt}", file=shared.progress_print_out)
 
-        processed = scripts.scripts_txt2img.run(p, *(p.script_args))
-        
-        if processed is None: # fall back
-           processed = process_images(p)            
-
+        processed = process_images(p)            
         p.close()
 
         generation_info_js = processed.js()
@@ -240,8 +220,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_model: str = Body("", title='Controlnet Model'),
         controlnet_weight: float = Body(1.0, title='Controlnet Weight'),
         controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
-        controlnet_lowvram: bool = Body(True, title='Controlnet Low VRAM'),
-        controlnet_processor_res: int = Body(512, title='Controlnet Processor Res'),
+        controlnet_lowvram: bool = Body(False, title='Controlnet Low VRAM'),
+        controlnet_processor_res: int = Body(64, title='Controlnet Processor Res'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
         controlnet_guidance: float = Body(1.0, title='ControlNet Guidance Strength'),
@@ -304,59 +284,41 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         cn_image = Image.open(io.BytesIO(base64.b64decode(controlnet_input_image[0])))        
         cn_image_np = np.array(cn_image).astype('uint8')
 
-        if(controlnet_mask == []):
+        if controlnet_mask == [] :
             cn_mask_np = np.zeros(shape=(512, 512, 3)).astype('uint8')
         else:
             cn_mask = Image.open(io.BytesIO(base64.b64decode(controlnet_mask[0])))        
             cn_mask_np = np.array(cn_mask).astype('uint8')
      
         cn_args = {
-            "enabled": True,
-            "module": controlnet_module,
-            "model": controlnet_model,
-            "weight": controlnet_weight,
-            "input_image": {'image': cn_image_np, 'mask': cn_mask_np},
-            "scribble_mode": False,
-            "resize_mode": controlnet_resize_mode,
-            "rgbbgr_mode": False,
-            "lowvram": controlnet_lowvram,
-            "processor_res": controlnet_processor_res,
-            "threshold_a": controlnet_threshold_a,
-            "threshold_b": controlnet_threshold_b,
-            "guidance_strength": controlnet_guidance,
-            "guess_mode": controlnet_guessmode,
+            "control_net_enabled": True,
+            "control_net_module": controlnet_module,
+            "control_net_model": controlnet_model,
+            "control_net_weight": controlnet_weight,
+            "control_net_image": {'image': cn_image_np, 'mask': cn_mask_np},
+            "control_net_scribble_mode": False,
+            "control_net_resize_mode": controlnet_resize_mode,
+            "control_net_rgbbgr_mode": False,
+            "control_net_lowvram": controlnet_lowvram,
+            "control_net_pres": controlnet_processor_res,
+            "control_net_pthr_a": controlnet_threshold_a,
+            "control_net_pthr_b": controlnet_threshold_b,
+            "control_net_guidance_strength": controlnet_guidance,
+            "control_net_guess_mode": controlnet_guessmode,
+            "control_net_api_access": True,
         }
 
         p.scripts = scripts.scripts_img2img
-        p.script_args = (
-            0, # todo: why
-            cn_args["enabled"],
-            cn_args["module"],
-            cn_args["model"],
-            cn_args["weight"],
-            cn_args["input_image"],
-            cn_args["scribble_mode"],
-            cn_args["resize_mode"],
-            cn_args["rgbbgr_mode"],
-            cn_args["lowvram"],
-            cn_args["processor_res"],
-            cn_args["threshold_a"],
-            cn_args["threshold_b"],
-            cn_args["guidance_strength"],
-            cn_args["guess_mode"],
-            # 0, False, False, False, False, '', 1, '', 0, '', 0, '', True, False, False, False # default args
-        )
+        p.script_args = [0, ]
+        for k, v in cn_args.items():
+            setattr(p, k, v)
 
         if shared.cmd_opts.enable_console_prompts:
             print(f"\nimg2img: {prompt}", file=shared.progress_print_out)
 
         p.extra_generation_params["Mask blur"] = mask_blur
 
-        processed = scripts.scripts_img2img.run(p, *(p.script_args)) # todo: extend to include wither alwaysvisible scripts
-        
-        if processed is None: # fall back
-           processed = process_images(p)            
-
+        processed = process_images(p)            
         p.close()
 
         generation_info_js = processed.js()
@@ -367,7 +329,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             processed.images = []
 
         b64images = list(map(encode_to_base64, processed.images))
-        
         return {"images": b64images, "info": processed.js()}
     
     @app.get("/controlnet/model_list")
