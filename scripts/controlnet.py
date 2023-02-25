@@ -49,9 +49,9 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 os.makedirs(cn_models_dir, exist_ok=True)
-default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join(scripts.basedir(), "models", "sketch_adapter_v14.yaml")
-cn_detectedmap_dir = os.path.join(scripts.basedir(), "detected_maps")
+default_conf = os.path.join("models", "cldm_v15.yaml")
+default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
+cn_detectedmap_dir = os.path.join("detected_maps")
 os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_detectedmap_dir = cn_detectedmap_dir
 refresh_symbol = '\U0001f504'       # 🔄
@@ -404,7 +404,7 @@ class Script(scripts.Script):
         ctrls_group = (gr.State(is_img2img),)
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
-            with gr.Accordion("ControlNet", open = False):
+            with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
                 if max_models > 1:
                     with gr.Tabs():
                             for i in range(max_models):
@@ -432,12 +432,19 @@ class Script(scripts.Script):
         print(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
         network_module = PlugableControlModel
-        network_config = shared.opts.data.get("control_net_model_config", default_conf)
+        basedir = os.path.join(os.path.dirname(__file__), os.pardir) # scripts.basedir() returns automatic base path here as its called from main ui
+        if os.path.isabs(shared.opts.data.get("control_net_model_config", default_conf)):
+            network_config = shared.opts.data.get("control_net_model_config", default_conf)
+        else:
+            network_config = os.path.join(basedir, shared.opts.data.get("control_net_model_config", default_conf))
 
         if any([k.startswith("body.") for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
-            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+            if os.path.isabs(shared.opts.data.get("control_net_model_adapter_config", default_conf)):
+                network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
+            else:
+                network_config = os.path.join(basedir, shared.opts.data.get("control_net_model_adapter_config", default_conf))
             
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
@@ -658,6 +665,8 @@ class Script(scripts.Script):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
+                if not os.path.isabs(detectmap_dir):
+                    detectmap_dir = os.path.join(p.outpath_samples, detectmap_dir)
                 os.makedirs(detectmap_dir, exist_ok=True)
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
@@ -699,7 +708,6 @@ def on_ui_settings():
         default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
-
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
@@ -758,4 +766,3 @@ class Img2ImgTabTracker:
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
-
