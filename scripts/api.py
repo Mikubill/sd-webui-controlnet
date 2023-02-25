@@ -369,11 +369,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             elif controlnet_module == "mlsd":
                 results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
             elif controlnet_module == "depth":
-                results.append(midas(img, controlnet_processor_res, np.pi * 2))
+                results.append(midas(img, controlnet_processor_res, np.pi * 2.0))
             elif controlnet_module == "normal_map":
-                results.append(midas_normal(img, controlnet_processor_res, np.pi, controlnet_threshold_a))
+                results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a))
             elif controlnet_module == "depth_leres":
-                results.append(leres(img, controlnet_processor_res, np.pi * 2, controlnet_threshold_a, controlnet_threshold_b))
+                results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b))
             elif controlnet_module == "openpose":
                 results.append(openpose(img, controlnet_processor_res, False))
             elif controlnet_module == "fake_scribble":
