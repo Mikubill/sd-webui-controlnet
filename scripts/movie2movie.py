@@ -155,6 +155,8 @@ class Script(scripts.Script):
                 copy_p.control_net_allow_script_control = True
                 copy_p.control_net_input_image = []
                 for video in video_list:
+                    if video is None:
+                        continue
                     copy_p.control_net_input_image.append(video[frame])
                 proc = process_images(copy_p)
 
