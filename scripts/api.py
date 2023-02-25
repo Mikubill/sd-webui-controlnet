@@ -347,8 +347,15 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
         ):
 
-        available_modules = ["canny", "hed", "depth", "depth_leres", "mlsd", 
-                             "normal_map", "openpose", "fake_scribble", "segmentation"]
+        available_modules = ["canny", 
+                             "depth", 
+                             "depth_leres", 
+                             "fake_scribble", 
+                             "hed", 
+                             "mlsd", 
+                             "normal_map", 
+                             "openpose", 
+                             "segmentation"]
 
         if controlnet_module not in available_modules:
             return {"images": [], "info": "Module not available"}
