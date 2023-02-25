@@ -651,7 +651,7 @@ class Script(scripts.Script):
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
         self.detected_map = detected_maps
             
-        if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
+        if enabled and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
     def postprocess(self, p, processed, *args):
