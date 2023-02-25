@@ -339,38 +339,9 @@ class Script(scripts.Script):
                 
         # infotext_fields.extend((module, model, weight))
 
-            def create_canvas(h, w):
-                return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-                
-            def onInputUpload(x):
-                if x:
-                    isSVG = x['image'].startswith("data:image/svg+xml;base64,")
-                    data = base64.b64decode(re.sub("^.*?,", "", x['image']))
-
-                    if (isSVG and svgsupport):
-                        drawing = svg2rlg(io.BytesIO(data))
-                        data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
-                        isSVG = False
-
-                    if (not isSVG):
-                        buf = io.BytesIO(data)
-                        img = Image.open(buf)
-                        return [img.width,img.height]            
-
-            def svgPreprocess(inputs):
-                if (inputs):
-                    if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
-                        svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
-                        drawing = svg2rlg(io.BytesIO(svg_data))
-                        png_data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
-                        encoded_string = base64.b64encode(png_data)
-                        base64_str = str(encoded_string, "utf-8")
-                        base64_str = "data:image/png;base64,"+ base64_str
-                        inputs['image'] = base64_str
-
-                    return input_image.orgpreprocess(inputs)
-                return None
-
+        def create_canvas(h, w):
+            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
+          
         resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
         with gr.Row():
             with gr.Column():
@@ -406,8 +377,37 @@ class Script(scripts.Script):
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
-            
-            # set canvas slider to the size of input image    
+
+        def onInputUpload(x):
+            if x:
+                isSVG = x['image'].startswith("data:image/svg+xml;base64,")
+                data = base64.b64decode(re.sub("^.*?,", "", x['image']))
+
+                if (isSVG and svgsupport):
+                    drawing = svg2rlg(io.BytesIO(data))
+                    data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
+                    isSVG = False
+
+                if (not isSVG):
+                    buf = io.BytesIO(data)
+                    img = Image.open(buf)
+                    return [img.width,img.height]            
+
+        def svgPreprocess(inputs):
+            if (inputs):
+                if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
+                    svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
+                    drawing = svg2rlg(io.BytesIO(svg_data))
+                    png_data = renderPM.drawToString(drawing, fmt='PNG', dpi=shared.opts.data.get("control_net_cfg_svg_dpi",72))
+                    encoded_string = base64.b64encode(png_data)
+                    base64_str = str(encoded_string, "utf-8")
+                    base64_str = "data:image/png;base64,"+ base64_str
+                    inputs['image'] = base64_str
+
+                return input_image.orgpreprocess(inputs)
+            return None
+    
+        # set canvas slider to the size of input image    
         input_image.upload(onInputUpload, inputs=[input_image], outputs=[canvas_width, canvas_height], preprocess=False, postprocess=False)
 
         if (svgsupport):
