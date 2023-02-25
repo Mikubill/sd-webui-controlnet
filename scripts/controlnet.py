@@ -574,7 +574,11 @@ class Script(scripts.Script):
             networks.append(model_net)
             self.model_cache[model] = model_net
 
-            if input_image is not None:
+            is_api = getattr(p, 'control_net_api_access', False)
+            is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+            if is_img2img_batch_tab and p.image_control is not None:
+                input_image = p.image_control 
+            elif input_image is not None:
                 input_image = HWC3(np.asarray(input_image))
             elif image is not None:
                 input_image = HWC3(image['image'])
