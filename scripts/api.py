@@ -1,13 +1,11 @@
-import copy
-
 import numpy as np
 from fastapi import FastAPI, Body, HTTPException
 import base64
 import io
-from io import BytesIO
 from PIL import PngImagePlugin, Image
 import piexif
 import piexif.helper
+import copy
 
 import gradio as gr
 
@@ -15,9 +13,8 @@ from modules.api.models import *
 from modules.api import api
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
 
-from modules import sd_samplers
+from modules import sd_samplers, shared
 from modules.shared import opts, cmd_opts
-import modules.shared as shared
 import modules.scripts as scripts
 
 from scripts.controlnet import update_cn_models, cn_models_names
@@ -30,11 +27,14 @@ def validate_sampler_name(name):
 
     return name
 
+def to_base64_nparray(encoding: str):
+    return np.array(decode_base64_to_image(encoding)).astype('uint8')
+
 def decode_base64_to_image(encoding):
     if encoding.startswith("data:image/"):
         encoding = encoding.split(";")[1].split(",")[1]
     try:
-        image = Image.open(BytesIO(base64.b64decode(encoding)))
+        image = Image.open(io.BytesIO(base64.b64decode(encoding)))
         return image
     except Exception as err:
         raise HTTPException(status_code=500, detail="Invalid encoded image")
@@ -113,52 +113,6 @@ StableDiffusionControlNetTxt2ImgProcessingAPI = PydanticModelGenerator(
 OriginalApi = type('OriginalApi', api.Api.__bases__, dict(api.Api.__dict__))
 
 
-def to_base64_nparray(image):
-    return np.array(decode_base64_to_image(image)).astype('uint8')
-
-
-def create_processing_unit_args(unit_request: ControlNetUnitRequest):
-    return (
-        True,  # enabled
-        unit_request.module,
-        unit_request.model,
-        unit_request.weight,
-        {
-            "image": to_base64_nparray(unit_request.input_image) if unit_request.input_image else None,
-            "mask": to_base64_nparray(unit_request.mask) if unit_request.mask else np.array(0).reshape((1, 1, 1))
-        },  # input_image
-        False,  # scribble_mode
-        unit_request.resize_mode,
-        False,  # rgbbgr_mode
-        unit_request.lowvram,
-        unit_request.processor_res,
-        unit_request.threshold_a,
-        unit_request.threshold_b,
-        unit_request.guidance,
-        unit_request.guessmode
-    )
-
-
-def create_cn_script_runner(script_runner, controlnet_units):
-    try:
-        cn_script_runner = copy.copy(script_runner)
-
-        cn_punit_args = [False]  # is_img2img
-        for unit_request in controlnet_units:
-            cn_punit_args += create_processing_unit_args(unit_request)
-
-        cn_script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
-        cn_script_id = cn_script_titles.index('controlnet')
-        cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
-        cn_script.args_from = 0
-        cn_script.args_to = len(cn_punit_args)
-
-        cn_script_runner.alwayson_scripts = [cn_script]
-        return cn_script_runner, cn_punit_args
-    except ValueError:
-        return [], []
-
-
 def hijack_text2imgapi(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
     script, script_idx = OriginalApi.get_script(self, txt2imgreq.script_name, scripts.scripts_txt2img)
 
@@ -195,6 +149,48 @@ def hijack_text2imgapi(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcess
 
 
 api.Api.text2imgapi = hijack_text2imgapi
+
+
+def create_cn_script_runner(script_runner, control_unit_requests):
+    try:
+        cn_script_runner = copy.copy(script_runner)
+
+        cn_punit_args = [False]  # is_img2img
+        for control_unit_request in control_unit_requests:
+            cn_punit_args += create_processing_unit_args(control_unit_request)
+
+        script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
+        cn_script_id = script_titles.index('controlnet')
+        cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
+        cn_script.args_from = 0
+        cn_script.args_to = len(cn_punit_args)
+
+        cn_script_runner.alwayson_scripts = [cn_script]
+        return cn_script_runner, cn_punit_args
+    except ValueError:
+        return None, []
+
+
+def create_processing_unit_args(unit_request: ControlNetUnitRequest):
+    return (
+        True,  # enabled
+        unit_request.module,
+        unit_request.model,
+        unit_request.weight,
+        {
+            "image": to_base64_nparray(unit_request.input_image) if unit_request.input_image else None,
+            "mask": to_base64_nparray(unit_request.mask) if unit_request.mask else np.array(0).reshape((1, 1, 1))
+        },  # input_image
+        False,  # scribble_mode
+        unit_request.resize_mode,
+        False,  # rgbbgr_mode
+        unit_request.lowvram,
+        unit_request.processor_res,
+        unit_request.threshold_a,
+        unit_request.threshold_b,
+        unit_request.guidance,
+        unit_request.guessmode
+    )
 
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
