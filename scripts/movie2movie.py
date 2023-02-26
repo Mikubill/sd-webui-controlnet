@@ -103,7 +103,7 @@ def remove_background(proc):
     img = Image.fromarray(nimg).convert("RGB") 
     return img
 
-def save_gif(path, image_list, name):
+def save_gif(path, image_list, name, duration):
     tmp_dir = path + "/tmp/" 
     if os.path.isdir(tmp_dir):
         shutil.rmtree(tmp_dir)
@@ -117,7 +117,7 @@ def save_gif(path, image_list, name):
         img = Image.open(path_list[i])
         imgs.append(img)
 
-    imgs[0].save(path + f"/{name}.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=50, loop=0)
+    imgs[0].save(path + f"/{name}.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=duration, loop=0)
     
 
 
@@ -138,6 +138,10 @@ class Script(scripts.Script):
 # Most UI components can return a value, such as a boolean for a checkbox.
 # The returned values are passed to the run method as parameters.
     def ui(self, is_img2img):
+        def build_sliders(duration):
+            return [
+                gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+            ]
         ctrls_group = ()
         max_models = opts.data.get("control_net_max_models_num", 1)
 
@@ -147,6 +151,11 @@ class Script(scripts.Script):
                     for i in range(max_models):
                         with gr.Tab(f"ControlNet-{i}", open=False):
                             ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
+
+                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True) 
+        ctrls_group += (duration,)
+
+        print(ctrls_group)
 
         return ctrls_group
   
@@ -158,8 +167,13 @@ class Script(scripts.Script):
 # to be used in processing. The return value should be a Processed object, which is
 # what is returned by the process_images method.
     def run(self, p, *args):
+        print(args)
         video_num = opts.data.get("control_net_max_models_num", 1)
         video_list = [get_all_frames(video) for video in args[:video_num]]
+        duration, = args[video_num:]
+        print(duration)
+        print("end")
+
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
             output_image_list = []
@@ -175,7 +189,7 @@ class Script(scripts.Script):
                 img = proc.images[0]
                 output_image_list.append(img)
                 copy_p.close()
-            save_gif(p.outpath_samples, output_image_list, "animation")
+            save_gif(p.outpath_samples, output_image_list, "animation", duration)
             proc.images = [p.outpath_samples + "/animation.gif"]
 
         else:
