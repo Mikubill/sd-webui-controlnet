@@ -506,7 +506,7 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for module, model, params in control_groups:
             enabled, module, model, weight, image, scribble_mode, \
-                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode = params
+                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_strength, guess_mode,automatic = params
                 
             # note that remote call only works with no-joint-controlnet
             if shared.opts.data.get("control_net_allow_script_control", False):
@@ -614,7 +614,7 @@ class Script(scripts.Script):
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
         self.detected_map = detected_maps
         
-        if args[-1]:
+        if automatic:
             p.prompt=automatic_prompt(input_image,p.sd_model.device)            
 
         if shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
