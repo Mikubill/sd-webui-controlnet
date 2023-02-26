@@ -21,7 +21,6 @@ import modules.scripts as scripts
 from scripts.controlnet import update_cn_models, cn_models_names
 from scripts.processor import *
 
-
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
     if config is None:
@@ -84,7 +83,6 @@ def encode_pil_to_base64(image):
 
     return base64.b64encode(bytes_data)
 
-
 cn_fields = {
     "input_image": Field(default="", title='ControlNet Input Image'),
     "mask": Field(default="", title='ControlNet Input Mask'),
@@ -100,7 +98,6 @@ cn_fields = {
     "guessmode": Field(default=True, title="Guess Mode"),
 }
 
-
 def get_deprecated_cn_field(field_name: str):
     field = copy.copy(cn_fields[field_name])
     field.default = None
@@ -109,12 +106,10 @@ def get_deprecated_cn_field(field_name: str):
         field.max_length = 1
     return field
 
-
 def get_deprecated_field_default(field_name: str):
     if field_name in ('input_image', 'mask'):
         return []
     return cn_fields[field_name].default
-
 
 class ControlNetUnitRequest(BaseModel):
     input_image: str = cn_fields['input_image']
@@ -130,8 +125,7 @@ class ControlNetUnitRequest(BaseModel):
     guidance: float = cn_fields['guidance']
     guessmode: bool = cn_fields['guessmode']
 
-
-class StableDiffusionTxt2ImgControlNetProcessingAPI(StableDiffusionTxt2ImgProcessingAPI):
+class ControlNetTxt2ImgRequest(StableDiffusionTxt2ImgProcessingAPI):
     class Config(StableDiffusionTxt2ImgProcessingAPI.__config__):
         @staticmethod
         def schema_extra(schema: dict, _):
@@ -158,7 +152,6 @@ class StableDiffusionTxt2ImgControlNetProcessingAPI(StableDiffusionTxt2ImgProces
     controlnet_guidance: Optional[float] = get_deprecated_cn_field('guidance')
     controlnet_guessmode: Optional[bool] = get_deprecated_cn_field('guessmode')
 
-
 OriginalApi = api.Api
 
 class Api(OriginalApi):
@@ -166,20 +159,18 @@ class Api(OriginalApi):
         super().__init__(*args, **kwargs)
         self.add_api_route("/controlnet/txt2img", self.api_txt2img, methods=["POST"], response_model=TextToImageResponse)
 
-    def api_txt2img(self, txt2imgreq: StableDiffusionTxt2ImgControlNetProcessingAPI):
-        txt2imgreq = nest_deprecated_cn_fields(txt2imgreq)
-        script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
-        txt2imgreq.script_args += script_runner_args
-        delattr(txt2imgreq, 'controlnet_units')
+    def api_txt2img(self, txt2img_request: ControlNetTxt2ImgRequest):
+        txt2img_request = nest_deprecated_cn_fields(txt2img_request)
+        script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2img_request.controlnet_units)
+        txt2img_request.script_args += script_runner_args
+        delattr(txt2img_request, 'controlnet_units')
         with self.queue_lock:
             self_copy = copy.copy(self)
             self_copy.queue_lock = contextlib.nullcontext()
             with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
-                return self_copy.text2imgapi(txt2imgreq)
-
+                return self_copy.text2imgapi(txt2img_request)
 
 api.Api = Api
-
 
 class OverrideInit:
     def __init__(self, cls, **kwargs):
@@ -199,14 +190,16 @@ class OverrideInit:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cls.__init__ = self.original_init
 
-
-def nest_deprecated_cn_fields(txt2imgreq):
-    deprecated_cn_fields = {k: v for k, v in vars(txt2imgreq).items()
+def nest_deprecated_cn_fields(txt2img_request: ControlNetTxt2ImgRequest):
+    deprecated_cn_fields = {k: v for k, v in vars(txt2img_request).items()
                             if k.startswith('controlnet_') and k != 'controlnet_units'}
 
-    txt2imgreq = txt2imgreq.copy(exclude=deprecated_cn_fields.keys())
-    if all(map(lambda v: v is None, deprecated_cn_fields.values())):
-        return txt2imgreq
+    txt2img_request = copy.copy(txt2img_request)
+    for k in deprecated_cn_fields.keys():
+        delattr(txt2img_request, k)
+
+    if all(v is None for v in deprecated_cn_fields.values()):
+        return txt2img_request
 
     deprecated_cn_fields = {k[len('controlnet_'):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
@@ -214,13 +207,12 @@ def nest_deprecated_cn_fields(txt2imgreq):
             deprecated_cn_fields[k] = get_deprecated_field_default(k)
 
     for k in ('input_image', 'mask'):
-        deprecated_cn_fields[k] = deprecated_cn_fields[k][0] if get_deprecated_field_default(k) else ""
+        deprecated_cn_fields[k] = deprecated_cn_fields[k][0] if deprecated_cn_fields[k] else ""
 
-    txt2imgreq.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
-    return txt2imgreq
+    txt2img_request.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
+    return txt2img_request
 
-
-def create_cn_script_runner(script_runner, control_unit_requests):
+def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNetUnitRequest]):
     try:
         cn_script_runner = copy.copy(script_runner)
 
@@ -238,7 +230,6 @@ def create_cn_script_runner(script_runner, control_unit_requests):
         return cn_script_runner, cn_punit_args
     except ValueError:
         return None, []
-
 
 def create_processing_unit_args(unit_request: ControlNetUnitRequest):
     return (
@@ -260,7 +251,6 @@ def create_processing_unit_args(unit_request: ControlNetUnitRequest):
         unit_request.guidance,
         unit_request.guessmode
     )
-
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.post("/controlnet/img2img")
