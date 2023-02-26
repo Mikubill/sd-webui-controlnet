@@ -1,16 +1,16 @@
-import shutil
-import os
 import copy
+import os
+import shutil
 
-
+import cv2
+import gradio as gr
 import modules.scripts as scripts
+
 from modules import images
 from modules.processing import process_images
 from modules.shared import opts
-
-import gradio as gr
-import cv2
 from PIL import Image
+
 
 def get_all_frames(video_path):
     if video_path is None:
@@ -57,28 +57,20 @@ def save_gif(path, image_list, name, duration):
     imgs[0].save(path + f"/{name}.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=duration, loop=0)
     
 
-
 class Script(scripts.Script):  
-# The title of the script. This is what will be displayed in the dropdown menu.
+    
     def title(self):
         return "controlnet m2m"
 
-# Determines when the script should be shown in the dropdown menu via the 
-# returned value. As an example:
-# is_img2img is True if the current tab is img2img, and False if it is txt2img.
-# Thus, return is_img2img to only show the script on the img2img tab.
     def show(self, is_img2img):
         return True
 
-# How the script's is displayed in the UI. See https://gradio.app/docs/#components
-# for the different UI components you can use and how to create them.
-# Most UI components can return a value, such as a boolean for a checkbox.
-# The returned values are passed to the run method as parameters.
     def ui(self, is_img2img):
-        def build_sliders(duration):
-            return [
-                gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-            ]
+        # How the script's is displayed in the UI. See https://gradio.app/docs/#components
+        # for the different UI components you can use and how to create them.
+        # Most UI components can return a value, such as a boolean for a checkbox.
+        # The returned values are passed to the run method as parameters.
+        
         ctrls_group = ()
         max_models = opts.data.get("control_net_max_models_num", 1)
 
@@ -92,18 +84,16 @@ class Script(scripts.Script):
                 duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True) 
         ctrls_group += (duration,)
 
-        print(ctrls_group)
-
         return ctrls_group
-  
 
-# This is where the additional processing is implemented. The parameters include
-# self, the model object "p" (a StableDiffusionProcessing class, see
-# processing.py), and the parameters returned by the ui method.
-# Custom functions can be defined here, and additional libraries can be imported 
-# to be used in processing. The return value should be a Processed object, which is
-# what is returned by the process_images method.
     def run(self, p, *args):
+        # This is where the additional processing is implemented. The parameters include
+        # self, the model object "p" (a StableDiffusionProcessing class, see
+        # processing.py), and the parameters returned by the ui method.
+        # Custom functions can be defined here, and additional libraries can be imported 
+        # to be used in processing. The return value should be a Processed object, which is
+        # what is returned by the process_images method.
+
         video_num = opts.data.get("control_net_max_models_num", 1)
         video_list = [get_all_frames(video) for video in args[:video_num]]
         duration, = args[video_num:]
