@@ -121,10 +121,13 @@ def text2imgapi_hijack(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcess
     delattr(txt2imgreq, 'controlnet_units')
     with self.queue_lock:
         tmp_queue_lock, self.queue_lock = self.queue_lock, contextlib.nullcontext()
-        with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
-            res = OriginalApi.text2imgapi(self, txt2imgreq)
+        try:
+            with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
+                res = OriginalApi.text2imgapi(self, txt2imgreq)
 
-        self.queue_lock = tmp_queue_lock
+        finally:
+            self.queue_lock = tmp_queue_lock
+
         return res
 
 
@@ -138,13 +141,13 @@ class OverrideInit:
         self.original_init = None
 
     def __enter__(self):
-        def script_init(p, *args, **kwargs):
+        def override_init(p, *args, **kwargs):
             self.original_init(p, *args, **kwargs)
             for k, v in self.kwargs.items():
                 setattr(p, k, v)
 
         self.original_init = self.cls.__init__
-        self.cls.__init__ = script_init
+        self.cls.__init__ = override_init
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cls.__init__ = self.original_init
