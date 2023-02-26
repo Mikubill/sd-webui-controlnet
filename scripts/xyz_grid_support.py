@@ -101,7 +101,8 @@ def add_axis_options(xyz_grid):
     extra_axis_options = [
         AxisOption("[ControlNet] Model", str, apply_field("control_net_model"), choices=choices_model, confirm=confirm_model, cost=0.9),
         AxisOption("[ControlNet] Weight", float, apply_field("control_net_weight")),
-        AxisOption("[ControlNet] Guidance Strength", float, apply_field("control_net_guidance_strength")),
+        AxisOption("[ControlNet] Guidance Start", float, apply_field("control_net_guidance_start")),
+        AxisOption("[ControlNet] Guidance End", float, apply_field("control_net_guidance_end")),
         AxisOption("[ControlNet] Resize Mode", str, apply_field("control_net_resize_mode"), choices=choices_resize_mode, confirm=confirm_resize_mode),
         AxisOption("[ControlNet] Preprocessor", str, apply_field("control_net_module"), choices=choices_preprocessor, confirm=confirm_preprocessor),
         AxisOption("[ControlNet] Pre Resolution", int, apply_field("control_net_pres")),
