@@ -13,7 +13,7 @@ from modules.api.models import *
 from modules.api import api
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
 
-from modules import sd_samplers, shared
+from modules import sd_samplers, shared, processing
 from modules.shared import opts, cmd_opts
 import modules.scripts as scripts
 
@@ -113,42 +113,34 @@ StableDiffusionControlNetTxt2ImgProcessingAPI = PydanticModelGenerator(
 OriginalApi = type('OriginalApi', api.Api.__bases__, dict(api.Api.__dict__))
 
 
-def hijack_text2imgapi(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
-    script, script_idx = OriginalApi.get_script(self, txt2imgreq.script_name, scripts.scripts_txt2img)
-
-    populate = txt2imgreq.copy(update={  # Override __init__ params
-        "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
-        "do_not_save_samples": True,
-        "do_not_save_grid": True
-        }
-    )
-    if populate.sampler_name:
-        populate.sampler_index = None  # prevent a warning later on
-
-    args = vars(populate)
-    args.pop('script_name', None)
-    args.pop('controlnet_units')
-
-    with self.queue_lock:
-        p = StableDiffusionProcessingTxt2Img(sd_model=shared.sd_model, **args)
-        p.scripts, p.script_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
-
-        shared.state.begin()
-        if script is not None:
-            p.outpath_grids = opts.outdir_txt2img_grids
-            p.outpath_samples = opts.outdir_txt2img_samples
-            p.script_args = [script_idx + 1] + [None] * (script.args_from - 1) + p.script_args
-            processed = scripts.scripts_txt2img.run(p, *p.script_args)
-        else:
-            processed = process_images(p)
-        shared.state.end()
-
-    b64images = list(map(encode_to_base64, processed.images))
-
-    return TextToImageResponse(images=b64images, parameters=vars(txt2imgreq), info=processed.js())
+def text2imgapi_hijack(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
+    script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
+    txt2imgreq.script_args += script_runner_args
+    delattr(txt2imgreq, 'controlnet_units')
+    with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
+        return OriginalApi.text2imgapi(self, txt2imgreq)
 
 
-api.Api.text2imgapi = hijack_text2imgapi
+api.Api.text2imgapi = text2imgapi_hijack
+
+
+class OverrideInit:
+    def __init__(self, cls, **kwargs):
+        self.cls = cls
+        self.kwargs = kwargs
+        self.original_init = None
+
+    def __enter__(self):
+        def script_init(p, *args, **kwargs):
+            self.original_init(p, *args, **kwargs)
+            for k, v in self.kwargs.items():
+                setattr(p, k, v)
+
+        self.original_init = self.cls.__init__
+        self.cls.__init__ = script_init
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cls.__init__ = self.original_init
 
 
 def create_cn_script_runner(script_runner, control_unit_requests):
