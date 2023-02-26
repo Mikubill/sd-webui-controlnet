@@ -115,23 +115,29 @@ StableDiffusionControlNetTxt2ImgProcessingAPI = PydanticModelGenerator(
 OriginalApi = type('OriginalApi', api.Api.__bases__, dict(api.Api.__dict__))
 
 
-def text2imgapi_hijack(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
-    script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
-    txt2imgreq.script_args += script_runner_args
-    delattr(txt2imgreq, 'controlnet_units')
-    with self.queue_lock:
-        tmp_queue_lock, self.queue_lock = self.queue_lock, contextlib.nullcontext()
-        try:
+def hijack_api():
+    def api_init_hijack(self, *args, **kwargs):
+        OriginalApi.__init__(self, *args, **kwargs)
+        self.add_api_route("/controlnet/txt2img", self.controlnet_txt2img_api, methods=["POST"])
+
+    api.Api.__init__ = api_init_hijack
+
+    def api_txt2img(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
+        script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
+        txt2imgreq.script_args += script_runner_args
+        delattr(txt2imgreq, 'controlnet_units')
+        with self.queue_lock:
+            self_copy = copy.copy(self)
+            self_copy.queue_lock = contextlib.nullcontext()
             with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
-                res = OriginalApi.text2imgapi(self, txt2imgreq)
+                res = OriginalApi.text2imgapi(self_copy, txt2imgreq)
 
-        finally:
-            self.queue_lock = tmp_queue_lock
+            return res
 
-        return res
+    api.Api.controlnet_txt2img_api = api_txt2img
 
 
-api.Api.text2imgapi = text2imgapi_hijack
+hijack_api()
 
 
 class OverrideInit:
@@ -197,7 +203,6 @@ def create_processing_unit_args(unit_request: ControlNetUnitRequest):
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
 
-    @app.post("/controlnet/txt2img")
     async def txt2img(
         prompt: str = Body("", title='Prompt'),
         negative_prompt: str = Body("", title='Negative Prompt'),
@@ -231,7 +236,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         restore_faces: bool = Body(True, title="Restore Faces"),
         override_settings: Dict[str, Any] = Body(None, title="Override Settings"),
         override_settings_restore_afterwards: bool = Body(True, title="Restore Override Settings Afterwards"),    
-        ):
+    ):
 
         p = StableDiffusionProcessingTxt2Img(
             sd_model=shared.sd_model,
