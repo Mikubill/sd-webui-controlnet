@@ -1,22 +1,15 @@
-import modules.scripts as scripts
-import gradio as gr
-import cv2
 import shutil
 import os
 import copy
 
-from modules import images
-from modules.processing import process_images, Processed
+
 import modules.scripts as scripts
+from modules import images
+from modules.processing import process_images
+from modules.shared import opts
+
 import gradio as gr
 import cv2
-import shutil
-import os
-import copy
-
-from modules import images
-from modules.processing import process_images, Processed
-from modules.shared import opts, cmd_opts, state
 from PIL import Image
 import huggingface_hub
 import onnxruntime as rt
@@ -31,7 +24,6 @@ model_path = huggingface_hub.hf_hub_download(
 rmbg_model = rt.InferenceSession(model_path, providers=providers)
 
 # Function to get mask
-
 def get_mask(img, s=1024):
     #Resize the img to a square shape with dimension s
     #Convert img pixel values from integers 0-255 to float 0-1
@@ -63,7 +55,6 @@ def get_mask(img, s=1024):
     return mask
 
 # Function to remove background
-
 def rmbg_fn(img):
     #Call get_mask() to get the mask
     mask = get_mask(img)
@@ -77,20 +68,40 @@ def rmbg_fn(img):
     mask = mask.repeat(3, axis=2)
     return mask, img
     
-
 def get_all_frames(video_path):
-            cap = cv2.VideoCapture(video_path)
-            frame_list = []
-            if not cap.isOpened():
-                return
-            digit = len(str(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))))
-            n = 0
-            while True:
-                ret, frame = cap.read()
-                if ret:
-                    frame_list.append(frame)
-                else:
-                    return frame_list
+    if video_path is None:
+        return None
+    cap = cv2.VideoCapture(video_path)
+    frame_list = []
+    if not cap.isOpened():
+        return
+    while True:
+        ret, frame = cap.read()
+        if ret:
+            frame_list.append(frame)
+        else:
+            return frame_list
+
+def get_min_frame_num(video_list):
+    min_frame_num = -1
+    for video in video_list:
+        if video is None:
+            continue
+        else:
+            frame_num = len(video)
+            print(frame_num)
+            if min_frame_num < 0:
+                min_frame_num = frame_num
+            elif frame_num < min_frame_num:
+                min_frame_num = frame_num
+    return min_frame_num
+
+def remove_background(proc):
+    # Seperate the Background from the foreground
+    nmask, nimg = rmbg_fn(np.array(proc.images[0]))
+    # Change the image back to an image format
+    img = Image.fromarray(nimg).convert("RGB") 
+    return img
 
 def save_gif(path, image_list, name):
     tmp_dir = path + "/tmp/" 
@@ -129,11 +140,14 @@ class Script(scripts.Script):
     def ui(self, is_img2img):
         ctrls_group = ()
         max_models = opts.data.get("control_net_max_models_num", 1)
-        video_list = []
-        for i in range(max_models):
-            with gr.Accordion(f"ControlNet-{i}", open=False):
-                input_video = gr.Video(format='mp4', source='upload', elem_id = f"video_{i}")
-            ctrls_group += (input_video, )
+
+        with gr.Group():
+            with gr.Accordion("ControlNet-M2M", open = False):
+                with gr.Tabs():
+                    for i in range(max_models):
+                        with gr.Tab(f"ControlNet-{i}", open=False):
+                            ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
+
         return ctrls_group
   
 
@@ -144,24 +158,20 @@ class Script(scripts.Script):
 # to be used in processing. The return value should be a Processed object, which is
 # what is returned by the process_images method.
     def run(self, p, *args):
-        video_list = args
-        if video_list[0] is not None:
+        video_num = opts.data.get("control_net_max_models_num", 1)
+        video_list = [get_all_frames(video) for video in args[:video_num]]
+        frame_num = get_min_frame_num(video_list)
+        if frame_num > 0:
             output_image_list = []
-            video_list = [get_all_frames(video) for video in video_list]
-            frame_num = len(video_list[0])
-            print(f"frame: {frame_num}")
             for frame in range(frame_num):
                 copy_p = copy.copy(p)
-                copy_p.control_net_allow_script_control = True
                 copy_p.control_net_input_image = []
                 for video in video_list:
+                    if video is None:
+                        continue
                     copy_p.control_net_input_image.append(video[frame])
                 proc = process_images(copy_p)
 
-                # Seperate the Background from the foreground
-                #nmask, nimg = rmbg_fn(np.array(proc.images[0]))
-                # Change the image back to an image format
-                #img = Image.fromarray(nimg).convert("RGB") 
                 img = proc.images[0]
                 output_image_list.append(img)
                 copy_p.close()
