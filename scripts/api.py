@@ -1,3 +1,5 @@
+import contextlib
+
 import numpy as np
 from fastapi import FastAPI, Body, HTTPException
 import base64
@@ -13,7 +15,7 @@ from modules.api.models import *
 from modules.api import api
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
 
-from modules import sd_samplers, shared, processing
+from modules import sd_samplers, shared
 from modules.shared import opts, cmd_opts
 import modules.scripts as scripts
 
@@ -117,8 +119,13 @@ def text2imgapi_hijack(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcess
     script_runner, script_runner_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
     txt2imgreq.script_args += script_runner_args
     delattr(txt2imgreq, 'controlnet_units')
-    with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
-        return OriginalApi.text2imgapi(self, txt2imgreq)
+    with self.queue_lock:
+        tmp_queue_lock, self.queue_lock = self.queue_lock, contextlib.nullcontext()
+        with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
+            res = OriginalApi.text2imgapi(self, txt2imgreq)
+
+        self.queue_lock = tmp_queue_lock
+        return res
 
 
 api.Api.text2imgapi = text2imgapi_hijack
