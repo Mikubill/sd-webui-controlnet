@@ -22,10 +22,6 @@ from scripts.controlnet import update_cn_models, cn_models_names
 from scripts.processor import *
 
 
-def shallow_copy_type(cls: type) -> type:
-    return type(f'{cls.__name__}Copy', cls.__bases__, dict(cls.__dict__))
-
-
 def validate_sampler_name(name):
     config = sd_samplers.all_samplers_map.get(name, None)
     if config is None:
@@ -89,72 +85,86 @@ def encode_pil_to_base64(image):
     return base64.b64encode(bytes_data)
 
 
+cn_fields = {
+    "input_image": Field(default="", title='ControlNet Input Image'),
+    "mask": Field(default="", title='ControlNet Input Mask'),
+    "module": Field(default="none", title='Controlnet Module'),
+    "model": Field(default="None", title='Controlnet Model'),
+    "weight": Field(default=1.0, title='Controlnet Weight'),
+    "resize_mode": Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
+    "lowvram": Field(default=False, title='Controlnet Low VRAM'),
+    "processor_res": Field(default=64, title='Controlnet Processor Res'),
+    "threshold_a": Field(default=64, title='Controlnet Threshold a'),
+    "threshold_b": Field(default=64, title='Controlnet Threshold b'),
+    "guidance": Field(default=1.0, title='ControlNet Guidance Strength'),
+    "guessmode": Field(default=True, title="Guess Mode"),
+}
+
+
+def get_deprecated_cn_field(field_name: str):
+    field = copy.copy(cn_fields[field_name])
+    field.default = None
+    field.extra['deprecated'] = True
+    if field_name in ('input_image', 'mask'):
+        field.max_length = 1
+    return field
+
+
+def get_deprecated_field_default(field_name: str):
+    if field_name in ('input_image', 'mask'):
+        return []
+    return cn_fields[field_name].default
+
+
 class ControlNetUnitRequest(BaseModel):
-    input_image: str = Field(default="", title='ControlNet Input Image')
-    mask: str = Field(default="", title='ControlNet Input Mask')
-    module: str = Field(default="none", title='Controlnet Module')
-    model: str = Field(default="None", title='Controlnet Model')
-    weight: float = Field(default=1.0, title='Controlnet Weight')
-    resize_mode: str = Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')
-    lowvram: bool = Field(default=False, title='Controlnet Low VRAM')
-    processor_res: int = Field(default=64, title='Controlnet Processor Res')
-    threshold_a: float = Field(default=64, title='Controlnet Threshold a')
-    threshold_b: float = Field(default=64, title='Controlnet Threshold b')
-    guidance: float = Field(default=1.0, title='ControlNet Guidance Strength')
-    guessmode: bool = Field(default=True, title="Guess Mode")
+    input_image: str = cn_fields['input_image']
+    mask: str = cn_fields['mask']
+    module: str = cn_fields['module']
+    model: str = cn_fields['model']
+    weight: float = cn_fields['weight']
+    resize_mode: str = cn_fields['resize_mode']
+    lowvram: bool = cn_fields['lowvram']
+    processor_res: int = cn_fields['processor_res']
+    threshold_a: float = cn_fields['threshold_a']
+    threshold_b: float = cn_fields['threshold_b']
+    guidance: float = cn_fields['guidance']
+    guessmode: bool = cn_fields['guessmode']
 
 
 class StableDiffusionTxt2ImgControlNetProcessingAPI(StableDiffusionTxt2ImgProcessingAPI):
     class Config(StableDiffusionTxt2ImgProcessingAPI.__config__):
-        underscore_attrs_are_private = True
-
         @staticmethod
         def schema_extra(schema: dict, _):
-            schema['properties'] = {k: v for k, v in schema.get('properties', {}).items()
-                                    if not v.get('hidden', False)}
+            props = {}
+            for k, v in schema.get('properties', {}).items():
+                if not v.get('deprecated', False):
+                    props[k] = v
+                if v.get('docs_default', None) is not None:
+                    v['default'] = v['docs_default']
+            if props:
+                schema['properties'] = props
 
-    controlnet_units: List[ControlNetUnitRequest] = Field(default=[], description="ControlNet Processing Units")
-
-    # deprecated
-    controlnet_input_image: Optional[List[str]] = Body(default=None, description='ControlNet Input Image', hidden=True, max_length=1)
-    controlnet_mask: Optional[List[str]] = Field(default=None, description='ControlNet Input Mask', hidden=True, max_length=1)
-    controlnet_module: Optional[str] = Field(default=None, description='Controlnet Module', hidden=True)
-    controlnet_model: Optional[str] = Field(default=None, description='Controlnet Model', hidden=True)
-    controlnet_weight: Optional[float] = Field(default=None, description='Controlnet Weight', hidden=True)
-    controlnet_resize_mode: Optional[str] = Field(default=None, description='Controlnet Resize Mode', hidden=True)
-    controlnet_lowvram: Optional[bool] = Field(default=None, description='Controlnet Low VRAM', hidden=True)
-    controlnet_processor_res: Optional[int] = Field(default=None, description='Controlnet Processor Res', hidden=True)
-    controlnet_threshold_a: Optional[float] = Field(default=None, description='Controlnet Threshold a', hidden=True)
-    controlnet_threshold_b: Optional[float] = Field(default=None, description='Controlnet Threshold b', hidden=True)
-    controlnet_guidance: Optional[float] = Field(default=None, description='ControlNet Guidance Strength', hidden=True)
-    controlnet_guessmode: Optional[bool] = Field(default=None, description="Guess Mode", hidden=True)
-
-
-deprecated_default_values = {
-    "controlnet_input_image": [],
-    "controlnet_mask": [],
-    "controlnet_module": "none",
-    "controlnet_model": "None",
-    "controlnet_weight": 1.0,
-    "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-    "controlnet_lowvram": False,
-    "controlnet_processor_res": 64,
-    "controlnet_threshold_a": 64,
-    "controlnet_threshold_b": 64,
-    "controlnet_guidance": 1.0,
-    "controlnet_guessmode": True,
-}
+    controlnet_units: List[ControlNetUnitRequest] = Field(default=[], docs_default=[ControlNetUnitRequest()], description="ControlNet Processing Units")
+    controlnet_input_image: Optional[List[str]] = get_deprecated_cn_field('input_image')
+    controlnet_mask: Optional[List[str]] = get_deprecated_cn_field('mask')
+    controlnet_module: Optional[str] = get_deprecated_cn_field('module')
+    controlnet_model: Optional[str] = get_deprecated_cn_field('model')
+    controlnet_weight: Optional[float] = get_deprecated_cn_field('weight')
+    controlnet_resize_mode: Optional[str] = get_deprecated_cn_field('resize_mode')
+    controlnet_lowvram: Optional[bool] = get_deprecated_cn_field('lowvram')
+    controlnet_processor_res: Optional[int] = get_deprecated_cn_field('processor_res')
+    controlnet_threshold_a: Optional[float] = get_deprecated_cn_field('threshold_a')
+    controlnet_threshold_b: Optional[float] = get_deprecated_cn_field('threshold_b')
+    controlnet_guidance: Optional[float] = get_deprecated_cn_field('guidance')
+    controlnet_guessmode: Optional[bool] = get_deprecated_cn_field('guessmode')
 
 
-OriginalApi = type('OriginalApi', api.Api.__bases__, dict(api.Api.__dict__))
+OriginalApi = api.Api
 
-
-def hijack_api():
-    def api_init_hijack(self, *args, **kwargs):
-        OriginalApi.__init__(self, *args, **kwargs)
-        self.add_api_route("/controlnet/txt2img", self.controlnet_txt2img_api, methods=["POST"], response_model=TextToImageResponse)
-
-    api.Api.__init__ = api_init_hijack
+class Api(OriginalApi):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_api_route("/controlnet/txt2img", self.api_txt2img, methods=["POST"], response_model=TextToImageResponse)
 
     def api_txt2img(self, txt2imgreq: StableDiffusionTxt2ImgControlNetProcessingAPI):
         txt2imgreq = nest_deprecated_cn_fields(txt2imgreq)
@@ -165,14 +175,10 @@ def hijack_api():
             self_copy = copy.copy(self)
             self_copy.queue_lock = contextlib.nullcontext()
             with OverrideInit(StableDiffusionProcessingTxt2Img, scripts=script_runner):
-                res = OriginalApi.text2imgapi(self_copy, txt2imgreq)
-
-            return res
-
-    api.Api.controlnet_txt2img_api = api_txt2img
+                return self_copy.text2imgapi(txt2imgreq)
 
 
-hijack_api()
+api.Api = Api
 
 
 class OverrideInit:
@@ -195,24 +201,21 @@ class OverrideInit:
 
 
 def nest_deprecated_cn_fields(txt2imgreq):
-    deprecated_cn_fields = dict((k, v) for k, v in vars(txt2imgreq).items()
-                             if k.startswith('controlnet_') and k != 'controlnet_units')
+    deprecated_cn_fields = {k: v for k, v in vars(txt2imgreq).items()
+                            if k.startswith('controlnet_') and k != 'controlnet_units'}
 
-    txt2imgreq = copy.copy(txt2imgreq)
-    for k in deprecated_cn_fields.keys():
-        delattr(txt2imgreq, k)
-
+    txt2imgreq = txt2imgreq.copy(exclude=deprecated_cn_fields.keys())
     if all(map(lambda v: v is None, deprecated_cn_fields.values())):
         return txt2imgreq
 
+    deprecated_cn_fields = {k[len('controlnet_'):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
         if v is None:
-            deprecated_cn_fields[k] = deprecated_default_values[k]
+            deprecated_cn_fields[k] = get_deprecated_field_default(k)
 
-    for k in ('controlnet_input_image', 'controlnet_mask'):
-        deprecated_cn_fields[k] = deprecated_cn_fields[k][0] if deprecated_cn_fields[k] else ""
+    for k in ('input_image', 'mask'):
+        deprecated_cn_fields[k] = deprecated_cn_fields[k][0] if get_deprecated_field_default(k) else ""
 
-    deprecated_cn_fields = {k[len('controlnet_'):]: v for k, v in deprecated_cn_fields.items()}
     txt2imgreq.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
     return txt2imgreq
 
