@@ -225,7 +225,8 @@ class Script(scripts.Script):
             scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
             rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
             lowvram = gr.Checkbox(label='Low VRAM', value=False)
-            guess_mode = gr.Checkbox(label='Guess Mode', value=False)
+            guess_mode = gr.Checkbox(label='for test', value=False)
+            automatic = gr.Checkbox(label="Automatic Mode", value=False)
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -383,8 +384,6 @@ class Script(scripts.Script):
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
             annotator_button_hide = gr.Button(value="Hide annotator result")
-        with gr.Row():
-            automatic = gr.Checkbox(label="Automatic Mode", value=False)
 
         annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
         annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
@@ -508,7 +507,7 @@ class Script(scripts.Script):
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
-
+        
         control_groups = []
         params_group = [args[i:i + 15] for i in range(0, len(args), 15)]
         if getattr(p, 'control_net_api_access', False) and len(params_group) == 0:
