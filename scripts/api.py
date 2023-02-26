@@ -1,6 +1,7 @@
+import copy
+
 import numpy as np
-from typing import Any, List, Dict, Set, Union
-from fastapi import FastAPI, Body, HTTPException, Request, Response
+from fastapi import FastAPI, Body, HTTPException
 import base64
 import io
 from io import BytesIO
@@ -11,6 +12,7 @@ import piexif.helper
 import gradio as gr
 
 from modules.api.models import *
+from modules.api import api
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
 
 from modules import sd_samplers
@@ -76,9 +78,120 @@ def encode_pil_to_base64(image):
 
     return base64.b64encode(bytes_data)
 
-def encode_np_to_base64(image):
-    pil = Image.fromarray(image)
-    return encode_pil_to_base64(pil)
+
+class ControlNetUnitRequest(BaseModel):
+    input_image: str = Field(default="", title='ControlNet Input Image')
+    mask: str = Field(default="", title='ControlNet Input Mask')
+    module: str = Field(default="", title='Controlnet Module')
+    model: str = Field(default="", title='Controlnet Model')
+    weight: float = Field(default=1.0, title='Controlnet Weight')
+    resize_mode: str = Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')
+    lowvram: bool = Field(default=False, title='Controlnet Low VRAM')
+    processor_res: int = Field(default=64, title='Controlnet Processor Res')
+    threshold_a: float = Field(default=64, title='Controlnet Threshold a')
+    threshold_b: float = Field(default=64, title='Controlnet Threshold b')
+    guidance: float = Field(default=1.0, title='ControlNet Guidance Strength')
+    guessmode: bool = Field(default=True, title="Guess Mode")
+
+
+StableDiffusionControlNetTxt2ImgProcessingAPI = PydanticModelGenerator(
+    "StableDiffusionControlNetProcessingTxt2Img",
+    StableDiffusionProcessingTxt2Img,
+    [
+        {"key": "sampler_index", "type": str, "default": "Euler"},
+        {"key": "script_name", "type": str, "default": None},
+        {"key": "script_args", "type": list, "default": []},
+        {"key": "controlnet_units", "type": List[ControlNetUnitRequest], "default": []},
+    ]
+).generate_model()
+
+
+OriginalApi = type('OriginalApi', api.Api.__bases__, dict(api.Api.__dict__))
+
+
+def to_base64_nparray(image):
+    return np.array(decode_base64_to_image(image)).astype('uint8')
+
+
+def create_processing_unit_args(unit_request: ControlNetUnitRequest):
+    return (
+        True,  # enabled
+        unit_request.module,
+        unit_request.model,
+        unit_request.weight,
+        {
+            "image": to_base64_nparray(unit_request.input_image) if unit_request.input_image else None,
+            "mask": to_base64_nparray(unit_request.mask) if unit_request.mask else np.array(0).reshape((1, 1, 1))
+        },  # input_image
+        False,  # scribble_mode
+        unit_request.resize_mode,
+        False,  # rgbbgr_mode
+        unit_request.lowvram,
+        unit_request.processor_res,
+        unit_request.threshold_a,
+        unit_request.threshold_b,
+        unit_request.guidance,
+        unit_request.guessmode
+    )
+
+
+def create_cn_script_runner(script_runner, controlnet_units):
+    try:
+        cn_script_runner = copy.copy(script_runner)
+
+        cn_punit_args = [False]  # is_img2img
+        for unit_request in controlnet_units:
+            cn_punit_args += create_processing_unit_args(unit_request)
+
+        cn_script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
+        cn_script_id = cn_script_titles.index('controlnet')
+        cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
+        cn_script.args_from = 0
+        cn_script.args_to = len(cn_punit_args)
+
+        cn_script_runner.alwayson_scripts = [cn_script]
+        return cn_script_runner, cn_punit_args
+    except ValueError:
+        return [], []
+
+
+def hijack_text2imgapi(self, txt2imgreq: StableDiffusionControlNetTxt2ImgProcessingAPI):
+    script, script_idx = OriginalApi.get_script(self, txt2imgreq.script_name, scripts.scripts_txt2img)
+
+    populate = txt2imgreq.copy(update={  # Override __init__ params
+        "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
+        "do_not_save_samples": True,
+        "do_not_save_grid": True
+        }
+    )
+    if populate.sampler_name:
+        populate.sampler_index = None  # prevent a warning later on
+
+    args = vars(populate)
+    args.pop('script_name', None)
+    args.pop('controlnet_units')
+
+    with self.queue_lock:
+        p = StableDiffusionProcessingTxt2Img(sd_model=shared.sd_model, **args)
+        p.scripts, p.script_args = create_cn_script_runner(scripts.scripts_txt2img, txt2imgreq.controlnet_units)
+
+        shared.state.begin()
+        if script is not None:
+            p.outpath_grids = opts.outdir_txt2img_grids
+            p.outpath_samples = opts.outdir_txt2img_samples
+            p.script_args = [script_idx + 1] + [None] * (script.args_from - 1) + p.script_args
+            processed = scripts.scripts_txt2img.run(p, *p.script_args)
+        else:
+            processed = process_images(p)
+        shared.state.end()
+
+    b64images = list(map(encode_to_base64, processed.images))
+
+    return TextToImageResponse(images=b64images, parameters=vars(txt2imgreq), info=processed.js())
+
+
+api.Api.text2imgapi = hijack_text2imgapi
+
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
 
@@ -160,7 +273,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         else:
             cn_mask = Image.open(io.BytesIO(base64.b64decode(controlnet_mask[0])))        
             cn_mask_np = np.array(cn_mask).astype('uint8')
-     
+
         cn_args = {
             "control_net_enabled": True,
             "control_net_module": controlnet_module,

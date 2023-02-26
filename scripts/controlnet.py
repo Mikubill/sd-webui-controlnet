@@ -197,7 +197,7 @@ class Script(scripts.Script):
         self.latest_model_hash = ""
 
     def title(self):
-        return "ControlNet for generating"
+        return "ControlNet"
 
     def show(self, is_img2img):
         # if is_img2img:
