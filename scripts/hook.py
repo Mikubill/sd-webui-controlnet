@@ -45,7 +45,8 @@ class ControlParams:
         hint_cond, 
         guess_mode, 
         weight, 
-        guidance_stopped, 
+        guidance_stopped,
+        start_guidance_percent,
         stop_guidance_percent, 
         advanced_weighting, 
         is_adapter
@@ -55,6 +56,7 @@ class ControlParams:
         self.guess_mode = guess_mode
         self.weight = weight
         self.guidance_stopped = guidance_stopped
+        self.start_guidance_percent = start_guidance_percent
         self.stop_guidance_percent = stop_guidance_percent
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
@@ -71,7 +73,8 @@ class UnetHook(nn.Module):
         
         def guidance_schedule_handler(x):
             for param in self.control_params:
-                param.guidance_stopped = (x.sampling_step / x.total_sampling_steps) > param.stop_guidance_percent
+                current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
+                param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
    
         def cfg_based_adder(base, x, require_autocast, is_adapter=False):
             if isinstance(x, float):
