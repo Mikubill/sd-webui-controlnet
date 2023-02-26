@@ -11,63 +11,7 @@ from modules.shared import opts
 import gradio as gr
 import cv2
 from PIL import Image
-import huggingface_hub
-import onnxruntime as rt
-import numpy as np
 
-# Declare Execution Providers
-providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-
-# Download and host the model
-model_path = huggingface_hub.hf_hub_download(
-    "skytnt/anime-seg", "isnetis.onnx")
-rmbg_model = rt.InferenceSession(model_path, providers=providers)
-
-# Function to get mask
-def get_mask(img, s=1024):
-    #Resize the img to a square shape with dimension s
-    #Convert img pixel values from integers 0-255 to float 0-1
-    img = (img / 255).astype(np.float32)
-    #Get height and width of the image 
-    h, w = h0, w0 = img.shape[:-1]
-    #IF height is greater than width, set h as s and w as s*width/height
-    #ELSE, set w as s and h as s*height/width
-    h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
-    #Calculate padding for height and width
-    ph, pw = s - h, s - w
-    #Create a 1024x1024x3 array of 0's   
-    img_input = np.zeros([s, s, 3], dtype=np.float32)
-    #Resize the original image to (w,h) and then pad with the calculated ph,pw
-    img_input[ph // 2:ph // 2 + h, pw //
-              2:pw // 2 + w] = cv2.resize(img, (w, h))
-    #Change the axes
-    img_input = np.transpose(img_input, (2, 0, 1))
-    #Add an extra axis (1,0) 
-    img_input = img_input[np.newaxis, :]
-    #Run the model to get the mask
-    mask = rmbg_model.run(None, {'img': img_input})[0][0]
-    #Transpose axis
-    mask = np.transpose(mask, (1, 2, 0))
-    #Crop it to the images original dimensions (h0,w0)
-    mask = mask[ph // 2:ph // 2 + h, pw // 2:pw // 2 + w]
-    #Resize the mask to original image size (h0,w0) 
-    mask = cv2.resize(mask, (w0, h0))[:, :, np.newaxis]
-    return mask
-
-# Function to remove background
-def rmbg_fn(img):
-    #Call get_mask() to get the mask
-    mask = get_mask(img)
-    #Multiply the image and the mask together to get the output image
-    img = (mask * img + 255 * (1 - mask)).astype(np.uint8)
-    #Convert mask value back to int 0-255
-    mask = (mask * 255).astype(np.uint8)
-    #Concatenate the output image and mask
-    img = np.concatenate([img, mask], axis=2, dtype=np.uint8)
-    #Stacking 3 identical copies of the mask for displaying
-    mask = mask.repeat(3, axis=2)
-    return mask, img
-    
 def get_all_frames(video_path):
     if video_path is None:
         return None
@@ -95,13 +39,6 @@ def get_min_frame_num(video_list):
             elif frame_num < min_frame_num:
                 min_frame_num = frame_num
     return min_frame_num
-
-def remove_background(proc):
-    # Seperate the Background from the foreground
-    nmask, nimg = rmbg_fn(np.array(proc.images[0]))
-    # Change the image back to an image format
-    img = Image.fromarray(nimg).convert("RGB") 
-    return img
 
 def save_gif(path, image_list, name, duration):
     tmp_dir = path + "/tmp/" 
@@ -167,12 +104,9 @@ class Script(scripts.Script):
 # to be used in processing. The return value should be a Processed object, which is
 # what is returned by the process_images method.
     def run(self, p, *args):
-        print(args)
         video_num = opts.data.get("control_net_max_models_num", 1)
         video_list = [get_all_frames(video) for video in args[:video_num]]
         duration, = args[video_num:]
-        print(duration)
-        print("end")
 
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
@@ -185,7 +119,6 @@ class Script(scripts.Script):
                         continue
                     copy_p.control_net_input_image.append(video[frame])
                 proc = process_images(copy_p)
-
                 img = proc.images[0]
                 output_image_list.append(img)
                 copy_p.close()
