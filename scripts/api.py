@@ -38,7 +38,7 @@ def decode_base64_to_image(encoding):
         return image
     except Exception as err:
         raise HTTPException(status_code=500, detail="Invalid encoded image")
-    
+
 def encode_to_base64(image):
     if type(image) is str:
         return image
@@ -48,7 +48,11 @@ def encode_to_base64(image):
         return encode_np_to_base64(image)
     else:
         return ""
-    
+
+def encode_np_to_base64(image):
+    pil = Image.fromarray(image)
+    return encode_pil_to_base64(pil)
+
 def encode_pil_to_base64(image):
     with io.BytesIO() as output_bytes:
 
