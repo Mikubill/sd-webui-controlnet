@@ -4,6 +4,7 @@ from PIL import Image
 import copy
 import contextlib
 import pydantic
+import sys
 
 import gradio as gr
 
@@ -158,6 +159,7 @@ def nest_deprecated_cn_fields(any2img_request):
     if all(v is None for v in deprecated_cn_fields.values()):
         return any2img_request
 
+    warn_deprecated_cn_params()
     deprecated_cn_fields = {k[len('controlnet_'):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
         if v is None:
@@ -210,6 +212,11 @@ def create_cn_unit_args(unit_request: ControlNetUnitRequest):
         unit_request.guidance,
         unit_request.guessmode
     )
+
+def warn_deprecated_cn_params():
+    warning_prefix = '[ControlNet] warning: '
+    print(f"{warning_prefix}using deprecated 'control_*' request params", file=sys.stderr)
+    print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
