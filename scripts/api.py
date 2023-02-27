@@ -209,10 +209,19 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
 
 def create_cn_unit_args(unit_request: ControlNetUnitRequest):
     input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
-    mask = to_base64_nparray(unit_request.mask) if unit_request.mask else input_image * 0 if input_image is not None else None
+    mask = None
+    if input_image is not None:
+        if unit_request.mask:
+            mask = to_base64_nparray(unit_request.mask)
+        else:
+            mask = input_image * 0
+
+        if len(mask.shape) == 2:
+            mask = mask[..., np.newaxis]
+
     if unit_request.guidance < 1.0:
         unit_request.guidance_end = unit_request.guidance
-    
+
     return (
         True,  # enabled
         unit_request.module,
