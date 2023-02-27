@@ -404,6 +404,7 @@ class Script(scripts.Script):
         The return value should be an array of all components that are used in processing.
         Values of those returned components will be passed to run() and process() functions.
         """
+        self.infotext_fields = []
         ctrls_group = (gr.State(is_img2img),)
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
@@ -412,12 +413,29 @@ class Script(scripts.Script):
                     with gr.Tabs():
                             for i in range(max_models):
                                 with gr.Tab(f"Control Model - {i}"):
-                                    ctrls_group += self.uigroup(is_img2img)
+                                    ctrls = self.uigroup(is_img2img)
+                                    self.register_modules(f"ControlNet-{i}", ctrls)
+                                    ctrls_group += ctrls
                 else:
                     with gr.Column():
-                        ctrls_group += self.uigroup(is_img2img)
+                        ctrls = self.uigroup(is_img2img)
+                        self.register_modules(f"ControlNet", ctrls)
+                        ctrls_group += ctrls
 
                 return ctrls_group
+            
+    def register_modules(self, tabname, params):
+        enabled, module, model, weight = params[:4]
+        guidance_start, guidance_end, guess_mode = params[-3:]
+        
+        self.infotext_fields.extend([
+            (enabled, f"{tabname} Enabled"),
+            (module, f"{tabname} Preprocessor"),
+            (model, f"{tabname} Model"),
+            (weight, f"{tabname} Weight"),
+            (guidance_start, f"{tabname} Guidance Start"),
+            (guidance_end, f"{tabname} Guidance End"),
+        ])
         
     def build_control_model(self, p, unet, model, lowvram):
 
