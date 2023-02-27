@@ -526,6 +526,15 @@ class Script(scripts.Script):
             enabled, module, model, weight = params[:4]
             guidance_start = params[12]
             guidance_end = params[13]
+
+            if shared.opts.data.get("control_net_allow_script_control", False):
+                p_enabled = getattr(p, "control_net_enabled", None)
+                if isinstance(p_enabled, list):
+                    if idx < len(p_enabled) and p_enabled[idx] is not None:
+                        enabled = p_enabled[idx]
+                elif idx == 0 and p_enabled is not None:
+                        enabled = p_enabled
+
             if not enabled:
                 continue
             control_groups.append((module, model, params))
