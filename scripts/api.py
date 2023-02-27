@@ -117,13 +117,16 @@ class ApiHijack(api.Api):
     def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
         script_runner, script_args = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
-        any2img_request.script_args += script_args
+        original_script_args, any2img_request.script_args = any2img_request.script_args, any2img_request.script_args + script_args
         delattr(any2img_request, 'controlnet_units')
         with self.queue_lock:
             self_copy = copy.copy(self)
             self_copy.queue_lock = contextlib.nullcontext()
             with OverrideInit(p_class, scripts=script_runner):
-                return original_callback(self_copy, any2img_request)
+                res = original_callback(self_copy, any2img_request)
+
+            res.parameters['script_args'] = original_script_args
+            return res
 
 api.Api = ApiHijack
 
