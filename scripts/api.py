@@ -55,7 +55,6 @@ def get_deprecated_cn_field(field_name: str, field):
     field.extra['deprecated'] = True
     if field_name in ('input_image', 'mask'):
         field_type = List[field_type]
-        field.max_length = 1
     return f'controlnet_{field_name}', (field_type, field)
 
 def get_deprecated_field_default(field_name: str):
