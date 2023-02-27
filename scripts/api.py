@@ -1,10 +1,6 @@
 import numpy as np
-from fastapi import FastAPI, Body, HTTPException
-import base64
-import io
-from PIL import PngImagePlugin, Image
-import piexif
-import piexif.helper
+from fastapi import FastAPI, Body
+from PIL import Image
 import copy
 import contextlib
 import pydantic
@@ -13,39 +9,21 @@ import gradio as gr
 
 from modules.api.models import *
 from modules.api import api
-from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
+from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
 
-from modules import sd_samplers, shared
-from modules.shared import opts
 import modules.scripts as scripts
 
 from scripts.controlnet import update_cn_models, cn_models_names
 from scripts.processor import *
 
-def validate_sampler_name(name):
-    config = sd_samplers.all_samplers_map.get(name, None)
-    if config is None:
-        raise HTTPException(status_code=404, detail="Sampler not found")
-
-    return name
-
 def to_base64_nparray(encoding: str):
-    return np.array(decode_base64_to_image(encoding)).astype('uint8')
-
-def decode_base64_to_image(encoding):
-    if encoding.startswith("data:image/"):
-        encoding = encoding.split(";")[1].split(",")[1]
-    try:
-        image = Image.open(io.BytesIO(base64.b64decode(encoding)))
-        return image
-    except Exception as err:
-        raise HTTPException(status_code=500, detail="Invalid encoded image")
+    return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
 def encode_to_base64(image):
     if type(image) is str:
         return image
     elif type(image) is Image.Image:
-        return encode_pil_to_base64(image)
+        return api.encode_pil_to_base64(image)
     elif type(image) is np.ndarray:
         return encode_np_to_base64(image)
     else:
@@ -53,36 +31,7 @@ def encode_to_base64(image):
 
 def encode_np_to_base64(image):
     pil = Image.fromarray(image)
-    return encode_pil_to_base64(pil)
-
-def encode_pil_to_base64(image):
-    with io.BytesIO() as output_bytes:
-
-        if opts.samples_format.lower() == 'png':
-            use_metadata = False
-            metadata = PngImagePlugin.PngInfo()
-            for key, value in image.info.items():
-                if isinstance(key, str) and isinstance(value, str):
-                    metadata.add_text(key, value)
-                    use_metadata = True
-            image.save(output_bytes, format="PNG", pnginfo=(metadata if use_metadata else None), quality=opts.jpeg_quality)
-
-        elif opts.samples_format.lower() in ("jpg", "jpeg", "webp"):
-            parameters = image.info.get('parameters', None)
-            exif_bytes = piexif.dump({
-                "Exif": { piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(parameters or "", encoding="unicode") }
-            })
-            if opts.samples_format.lower() in ("jpg", "jpeg"):
-                image.save(output_bytes, format="JPEG", exif = exif_bytes, quality=opts.jpeg_quality)
-            else:
-                image.save(output_bytes, format="WEBP", exif = exif_bytes, quality=opts.jpeg_quality)
-
-        else:
-            raise HTTPException(status_code=500, detail="Invalid image format")
-
-        bytes_data = output_bytes.getvalue()
-
-    return base64.b64encode(bytes_data)
+    return api.encode_pil_to_base64(pil)
 
 cn_fields = {
     "input_image": (str, Field(default="", title='ControlNet Input Image')),
@@ -130,37 +79,45 @@ def create_controlnet_request_model(p_api_class):
                 if props:
                     schema['properties'] = props
 
-    model_additional_fields = {
-        'controlnet_units': (List[ControlNetUnitRequest], Field(default=[], docs_default=[ControlNetUnitRequest()], description="ControlNet Processing Units"))
+    additional_fields = {
+        'controlnet_units': (List[ControlNetUnitRequest], Field(default=[], docs_default=[ControlNetUnitRequest()], description="ControlNet Processing Units")),
+        **(get_deprecated_cn_field(k) for k in cn_fields.keys())
     }
 
-    model_additional_fields.update(dict(get_deprecated_cn_field(k) for k in cn_fields.keys()))
     return pydantic.create_model(
         f'ControlNet{p_api_class.__name__}',
         __base__=RequestModel,
-        **model_additional_fields)
+        **additional_fields)
 
 ControlNetTxt2ImgRequest = create_controlnet_request_model(StableDiffusionTxt2ImgProcessingAPI)
 ControlNetImg2ImgRequest = create_controlnet_request_model(StableDiffusionImg2ImgProcessingAPI)
 
-OriginalApi = api.Api
-
-class Api(OriginalApi):
+class ApiHijack(api.Api):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_api_route("/controlnet/txt2img", self.controlnet_txt2img, methods=["POST"], response_model=TextToImageResponse)
         self.add_api_route("/controlnet/img2img", self.controlnet_img2img, methods=["POST"], response_model=ImageToImageResponse)
 
     def controlnet_txt2img(self, txt2img_request: ControlNetTxt2ImgRequest):
-        return self.controlnet_any2img(txt2img_request, scripts.scripts_txt2img, StableDiffusionProcessingTxt2Img, Api.text2imgapi)
+        return self.controlnet_any2img(
+            any2img_request=txt2img_request,
+            original_callback=ApiHijack.text2imgapi,
+            p_class=StableDiffusionProcessingTxt2Img,
+            script_runner=scripts.scripts_txt2img,
+        )
 
     def controlnet_img2img(self, img2img_request: ControlNetImg2ImgRequest):
-        return self.controlnet_any2img(img2img_request, scripts.scripts_img2img, StableDiffusionProcessingImg2Img, Api.img2imgapi)
+        return self.controlnet_any2img(
+            any2img_request=img2img_request,
+            original_callback=ApiHijack.img2imgapi,
+            p_class=StableDiffusionProcessingImg2Img,
+            script_runner=scripts.scripts_img2img,
+        )
 
-    def controlnet_any2img(self, any2img_request, script_runner, p_class, original_callback):
+    def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
-        script_runner, script_runner_args = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
-        any2img_request.script_args += script_runner_args
+        script_runner, script_args = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
+        any2img_request.script_args += script_args
         delattr(any2img_request, 'controlnet_units')
         with self.queue_lock:
             self_copy = copy.copy(self)
@@ -168,7 +125,7 @@ class Api(OriginalApi):
             with OverrideInit(p_class, scripts=script_runner):
                 return original_callback(self_copy, any2img_request)
 
-api.Api = Api
+api.Api = ApiHijack
 
 class OverrideInit:
     def __init__(self, cls, **kwargs):
@@ -214,30 +171,32 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
     try:
         cn_script_runner = copy.copy(script_runner)
 
-        cn_punit_args = [False]  # is_img2img
+        cn_script_args = [False]  # is_img2img
         for control_unit_request in control_unit_requests:
-            cn_punit_args += create_processing_unit_args(control_unit_request)
+            cn_script_args += create_cn_unit_args(control_unit_request)
 
         script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
         cn_script_id = script_titles.index('controlnet')
         cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
         cn_script.args_from = 0
-        cn_script.args_to = len(cn_punit_args)
+        cn_script.args_to = len(cn_script_args)
 
         cn_script_runner.alwayson_scripts = [cn_script]
-        return cn_script_runner, cn_punit_args
+        return cn_script_runner, cn_script_args
     except ValueError:
         return None, []
 
-def create_processing_unit_args(unit_request: ControlNetUnitRequest):
+def create_cn_unit_args(unit_request: ControlNetUnitRequest):
+    input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
+    mask = to_base64_nparray(unit_request.mask) if unit_request.mask else input_image * 0 if input_image is not None else None
     return (
         True,  # enabled
         unit_request.module,
         unit_request.model,
         unit_request.weight,
         {
-            "image": to_base64_nparray(unit_request.input_image) if unit_request.input_image else None,
-            "mask": to_base64_nparray(unit_request.mask) if unit_request.mask else np.array(0).reshape((1, 1, 1))
+            "image": input_image,
+            "mask": mask,
         },  # input_image
         False,  # scribble_mode
         unit_request.resize_mode,
@@ -286,7 +245,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         results = []
 
         for input_image in controlnet_input_images:
-            img = np.array(Image.open(io.BytesIO(base64.b64decode(input_image)))).astype('uint8')
+            img = to_base64_nparray(input_image)
 
             if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
