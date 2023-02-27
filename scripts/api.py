@@ -8,6 +8,7 @@ import sys
 
 import gradio as gr
 
+from modules import ui
 from modules.api.models import *
 from modules.api import api
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
@@ -116,17 +117,13 @@ class ApiHijack(api.Api):
 
     def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
-        script_runner, script_args = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
-        original_script_args, any2img_request.script_args = any2img_request.script_args, any2img_request.script_args + script_args
+        script_runner = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
         delattr(any2img_request, 'controlnet_units')
         with self.queue_lock:
             self_copy = copy.copy(self)
             self_copy.queue_lock = contextlib.nullcontext()
             with OverrideInit(p_class, scripts=script_runner):
-                res = original_callback(self_copy, any2img_request)
-
-            res.parameters['script_args'] = original_script_args
-            return res
+                return original_callback(self_copy, any2img_request)
 
 api.Api = ApiHijack
 
@@ -172,23 +169,41 @@ def nest_deprecated_cn_fields(any2img_request):
     return any2img_request
 
 def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNetUnitRequest]):
-    try:
-        cn_script_runner = copy.copy(script_runner)
+    if not script_runner.scripts:
+        script_runner.initialize_scripts(False)
+        ui.create_ui()
 
-        cn_script_args = [False]  # is_img2img
-        for control_unit_request in control_unit_requests:
-            cn_script_args += create_cn_unit_args(control_unit_request)
+    cn_script_runner = copy.copy(script_runner)
 
-        script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
-        cn_script_id = script_titles.index('controlnet')
-        cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
-        cn_script.args_from = 0
-        cn_script.args_to = len(cn_script_args)
+    cn_script_args = [False]  # is_img2img
+    for control_unit_request in control_unit_requests:
+        cn_script_args += create_cn_unit_args(control_unit_request)
 
-        cn_script_runner.alwayson_scripts = [cn_script]
-        return cn_script_runner, cn_script_args
-    except ValueError:
-        return None, []
+    script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
+    cn_script_id = script_titles.index('controlnet')
+    cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
+    cn_script.args_from = 0
+    cn_script.args_to = len(cn_script_args)
+
+    def make_script_runner_f_hijack(fixed_original_f):
+        def script_runner_f_hijack(p, *args, **kwargs):
+            original_script_args = p.script_args
+            p.script_args = cn_script_args
+            fixed_original_f(p, *args, **kwargs)
+            p.script_args = original_script_args
+
+        return script_runner_f_hijack
+
+    for k in ('process', 'process_batch', 'postprocess', 'postprocess_batch', 'postprocess_image'):
+        original_f = getattr(cn_script_runner, k, None)
+        if original_f is None:
+            continue
+
+        setattr(cn_script_runner, k, make_script_runner_f_hijack(original_f))
+
+    cn_script_runner.alwayson_scripts = [cn_script]
+
+    return cn_script_runner
 
 def create_cn_unit_args(unit_request: ControlNetUnitRequest):
     input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
