@@ -130,13 +130,11 @@ Guidance Start/End is the percentage of total steps the controlnet applies (guid
 
 ### API/Script Access
 
-This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external extension calls.
+This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
 
-To use the API: start WebUI with argument `--api` and go to http://webui-address/docs for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
+To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
 
-To use external extension call: pass your config to p(pipeline) and we will read them on
-
-https://github.com/Mikubill/sd-webui-controlnet/blob/8ca06ba8eb2989cbd434063c9a7c0e7a3bdfabea/scripts/controlnet.py#L459-L462
+To use external extension call: Pass your config to p(pipeline). For more details see [scripts/controlnet.py](https://github.com/Mikubill/sd-webui-controlnet/blob/8ca06ba8eb2989cbd434063c9a7c0e7a3bdfabea/scripts/controlnet.py#L459-L462)
 
 ### MacOS Support
 
