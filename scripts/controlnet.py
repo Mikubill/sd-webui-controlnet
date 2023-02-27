@@ -488,9 +488,13 @@ class Script(scripts.Script):
             pres = selector(p, "control_net_pres", pres, idx)
             pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
             pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
+            guidance_strength = selector(p, "control_net_guidance_strength", 1.0, idx)
             guidance_start = selector(p, "control_net_guidance_start", guidance_start, idx)
             guidance_end = selector(p, "control_net_guidance_end", guidance_end, idx)
             guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
+            if guidance_strength < 1.0:
+                # for backward compatible
+                guidance_end = guidance_strength
 
             input_image = selector(p, "control_net_input_image", None, idx)
         else:
