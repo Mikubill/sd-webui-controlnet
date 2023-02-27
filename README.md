@@ -14,8 +14,6 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
-Some users may need to install the cv2 library before using it: `pip install opencv-python`
-
 Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 1. Open "Extensions" tab.
@@ -122,5 +120,22 @@ This option allows multiple ControlNet inputs for a single generation. To enable
 |:-------------------------:|:-------------------------:|:-------------------------:|
 | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448620-cd3ede92-8d3f-43d5-b771-32dd8417618f.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448619-beed9bdb-f6bb-41c2-a7df-aa3ef1f653c5.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448613-c99a9e04-0450-40fd-bc73-a9122cefaa2c.png"> |
 
-<!-- ### Advanced weight tuning -->
+### Weight and Guidance Strength/Start/End
 
+Weight is the weight of the controlnet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
+
+Guidance Start/End is the percentage of total steps the controlnet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
+
+### API/Script Access
+
+This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
+
+To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
+
+To use external extension call: Pass your config to p(pipeline). For more details see [scripts/controlnet.py](https://github.com/Mikubill/sd-webui-controlnet/blob/8ca06ba8eb2989cbd434063c9a7c0e7a3bdfabea/scripts/controlnet.py#L459-L462)
+
+### MacOS Support
+
+Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
+
+To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
