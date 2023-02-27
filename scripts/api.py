@@ -35,6 +35,7 @@ def encode_np_to_base64(image):
     pil = Image.fromarray(image)
     return api.encode_pil_to_base64(pil)
 
+cn_root_field_prefix = 'controlnet_'
 cn_fields = {
     "input_image": (str, Field(default="", title='ControlNet Input Image')),
     "mask": (str, Field(default="", title='ControlNet Input Mask')),
@@ -57,7 +58,7 @@ def get_deprecated_cn_field(field_name: str, field):
     field.extra['deprecated'] = True
     if field_name in ('input_image', 'mask'):
         field_type = List[field_type]
-    return f'controlnet_{field_name}', (field_type, field)
+    return f'{cn_root_field_prefix}{field_name}', (field_type, field)
 
 def get_deprecated_field_default(field_name: str):
     if field_name in ('input_image', 'mask'):
@@ -134,20 +135,20 @@ class OverrideInit:
         self.original_init = None
 
     def __enter__(self):
-        def override_init(p, *args, **kwargs):
+        def init_hijack(p, *args, **kwargs):
             self.original_init(p, *args, **kwargs)
             for k, v in self.kwargs.items():
                 setattr(p, k, v)
 
         self.original_init = self.cls.__init__
-        self.cls.__init__ = override_init
+        self.cls.__init__ = init_hijack
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cls.__init__ = self.original_init
 
 def nest_deprecated_cn_fields(any2img_request):
     deprecated_cn_fields = {k: v for k, v in vars(any2img_request).items()
-                            if k.startswith('controlnet_') and k != 'controlnet_units'}
+                            if k.startswith(cn_root_field_prefix) and k != 'controlnet_units'}
 
     any2img_request = copy.copy(any2img_request)
     for k in deprecated_cn_fields.keys():
@@ -157,7 +158,7 @@ def nest_deprecated_cn_fields(any2img_request):
         return any2img_request
 
     warn_deprecated_cn_params()
-    deprecated_cn_fields = {k[len('controlnet_'):]: v for k, v in deprecated_cn_fields.items()}
+    deprecated_cn_fields = {k[len(cn_root_field_prefix):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
         if v is None:
             deprecated_cn_fields[k] = get_deprecated_field_default(k)
@@ -202,7 +203,6 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
         setattr(cn_script_runner, k, make_script_runner_f_hijack(original_f))
 
     cn_script_runner.alwayson_scripts = [cn_script]
-
     return cn_script_runner
 
 def create_cn_unit_args(unit_request: ControlNetUnitRequest):
@@ -230,7 +230,7 @@ def create_cn_unit_args(unit_request: ControlNetUnitRequest):
 
 def warn_deprecated_cn_params():
     warning_prefix = '[ControlNet] warning: '
-    print(f"{warning_prefix}using deprecated 'control_*' request params", file=sys.stderr)
+    print(f"{warning_prefix}using deprecated '{cn_root_field_prefix}*' request params", file=sys.stderr)
     print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
