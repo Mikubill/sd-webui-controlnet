@@ -48,8 +48,8 @@ cn_fields = {
     "guessmode": (bool, Field(default=True, title="Guess Mode")),
 }
 
-def get_deprecated_cn_field(field_name: str):
-    field_type, field = cn_fields[field_name]
+def get_deprecated_cn_field(field_name: str, field):
+    field_type, field = field
     field = copy.copy(field)
     field.default = None
     field.extra['deprecated'] = True
@@ -81,7 +81,7 @@ def create_controlnet_request_model(p_api_class):
 
     additional_fields = {
         'controlnet_units': (List[ControlNetUnitRequest], Field(default=[], docs_default=[ControlNetUnitRequest()], description="ControlNet Processing Units")),
-        **(get_deprecated_cn_field(k) for k in cn_fields.keys())
+        **dict(get_deprecated_cn_field(k, v) for k, v in cn_fields.items())
     }
 
     return pydantic.create_model(

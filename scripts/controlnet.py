@@ -672,8 +672,8 @@ class Script(scripts.Script):
             for detect_map, module in self.detected_map:
                 if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet"]:
                     detect_map = 255-detect_map
-                processed.images.extend([detect_map])
-        
+                processed.images.extend([Image.fromarray(detect_map)])
+
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)
         self.latest_network = None
