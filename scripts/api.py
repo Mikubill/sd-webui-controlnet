@@ -63,7 +63,7 @@ def get_deprecated_cn_field(field_name: str, field):
 def get_deprecated_field_default(field_name: str):
     if field_name in ('input_image', 'mask'):
         return []
-    return cn_fields[field_name].default
+    return cn_fields[field_name][-1].default
 
 ControlNetUnitRequest = pydantic.create_model('ControlNetUnitRequest', **cn_fields)
 
@@ -247,17 +247,19 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
-        ):
+    ):
 
-        available_modules = ["canny", 
-                             "depth", 
-                             "depth_leres", 
-                             "fake_scribble", 
-                             "hed", 
-                             "mlsd", 
-                             "normal_map", 
-                             "openpose", 
-                             "segmentation"]
+        available_modules = [
+            "canny", 
+            "depth", 
+            "depth_leres", 
+            "fake_scribble", 
+            "hed", 
+            "mlsd", 
+            "normal_map", 
+            "openpose", 
+            "segmentation"
+        ]
 
         if controlnet_module not in available_modules:
             return {"images": [], "info": "Module not available"}
