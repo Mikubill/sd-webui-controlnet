@@ -458,7 +458,7 @@ class Script(scripts.Script):
     
     def parse_remote_call(self, p, params, idx):
         if params is None:
-            params = [None] * 14
+            params = [None] * PARAM_COUNT
         
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
