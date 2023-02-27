@@ -169,7 +169,7 @@ def add_axis_options(xyz_grid):
     def identity(x):
         return x
 
-    # The confirm_foo function defined in this module
+    # The confirm function defined in this module
     # enables list notation and performs type conversion.
     #
     # Example:
@@ -206,8 +206,9 @@ def add_axis_options(xyz_grid):
 
                 normalize_list(xs, valid_data["type"])
 
+                confirm_list = valid_data["element"]()
                 for x in flatten_list(xs):
-                    if x is not None and x not in valid_data["element"]():
+                    if x is not None and x not in confirm_list:
                         raise RuntimeError(f"Unknown {valid_data['label']}: {x}")
                 return
 
