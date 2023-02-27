@@ -221,7 +221,7 @@ def create_cn_unit_args(unit_request: ControlNetUnitRequest):
         {
             "image": input_image,
             "mask": mask,
-        },  # input_image
+        } if input_image is not None else None,  # input_image
         False,  # scribble_mode
         unit_request.resize_mode,
         False,  # rgbbgr_mode
