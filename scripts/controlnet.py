@@ -379,7 +379,7 @@ class Script(scripts.Script):
                                                 
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
-        ctrls += (processor_res, threshold_a, threshold_b, guidance_strength, guess_mode)
+        ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
 
         def onInputUpload(x):
             if x:
