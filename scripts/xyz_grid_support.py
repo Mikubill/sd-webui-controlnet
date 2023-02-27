@@ -150,6 +150,17 @@ def add_axis_options(xyz_grid):
     ################################################
     ################################################
 
+    def enable_script_control():
+        shared.opts.data["control_net_allow_script_control"] = True
+
+    def apply_field(field):
+        @debug_info
+        def apply_field_(p, x, xs, *, field=field, enclosure=apply_field):
+            enable_script_control()
+            setattr(p, field, x)
+
+        return apply_field_
+
     # Set this function as the type attribute of the AxisOption class.
     # To skip the following processing of xyz_grid module.
     #   -> valslist = [opt.type(x) for x in valslist]
@@ -171,17 +182,6 @@ def add_axis_options(xyz_grid):
     #     Enabled Only:
     #         any = [any] = [any, None, None, ...]
     #         (any and [any] are considered equivalent)
-    def bool_(string):
-        string = str(string)
-        if string in ["None", ""]:
-            return None
-        elif string.lower() in ["true", "1"]:
-            return True
-        elif string.lower() in ["false", "0"]:
-            return False
-        else:
-            raise ValueError(f"invalid literal for to_bool(): {string}")
-
     def confirm(func_or_str):
         def find_dict(dict_name):
             return next((d for d in validation_data if d["name"] == dict_name), None)
@@ -206,9 +206,8 @@ def add_axis_options(xyz_grid):
 
                 normalize_list(xs, valid_data["type"])
 
-                valslist_flat = list(flatten_list(xs))
-                for x in valslist_flat:
-                    if x is not None and x not in valid_data["element"]:
+                for x in flatten_list(xs):
+                    if x is not None and x not in valid_data["element"]():
                         raise RuntimeError(f"Unknown {valid_data['label']}: {x}")
                 return
 
@@ -217,16 +216,16 @@ def add_axis_options(xyz_grid):
 
         return confirm_
 
-    def enable_script_control():
-        shared.opts.data["control_net_allow_script_control"] = True
-
-    def apply_field(field):
-        @debug_info
-        def apply_field_(p, x, xs, *, field=field, enclosure=apply_field):
-            enable_script_control()
-            setattr(p, field, x)
-
-        return apply_field_
+    def bool_(string):
+        string = str(string)
+        if string in ["None", ""]:
+            return None
+        elif string.lower() in ["true", "1"]:
+            return True
+        elif string.lower() in ["false", "0"]:
+            return False
+        else:
+            raise ValueError(f"invalid literal for to_bool(): {string}")
 
     def choices_bool():
         return ["False", "True"]
@@ -242,9 +241,9 @@ def add_axis_options(xyz_grid):
         return ["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"]
 
     validation_data = [
-        {"name": "model", "type": str, "element": choices_model(), "label": "ControlNet Model"},
-        {"name": "preprocessor", "type": str, "element": choices_preprocessor(), "label": "Preprocessor"},
-        {"name": "resize_mode", "type": str, "element": choices_resize_mode(), "label": "Resize Mode"},
+        {"name": "model", "type": str, "element": choices_model, "label": "ControlNet Model"},
+        {"name": "resize_mode", "type": str, "element": choices_resize_mode, "label": "Resize Mode"},
+        {"name": "preprocessor", "type": str, "element": choices_preprocessor, "label": "Preprocessor"},
     ]
 
     extra_axis_options = [
