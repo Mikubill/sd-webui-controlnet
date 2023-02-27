@@ -135,7 +135,7 @@ def add_axis_options(xyz_grid):
                     valslist[i] = sub_list + [None] * (max_length-len(sub_list))
 
         if not any(search_bracket(s) for s in valslist):  # There is no list inside
-            type_convert(valslist, type_func)  # Type conv
+            type_convert(valslist, type_func, allow_blank=True)  # Type conv
             return
         else:                            # There is a list inside
             fix(valslist, type_func)  # Fix & Type conv
