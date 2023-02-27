@@ -14,8 +14,6 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
-Some users may need to install the cv2 library before using it: `pip install opencv-python`
-
 Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 1. Open "Extensions" tab.
