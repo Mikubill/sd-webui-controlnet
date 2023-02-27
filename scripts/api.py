@@ -48,6 +48,8 @@ cn_fields = {
     "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),
     "threshold_b": (float, Field(default=64, title='Controlnet Threshold b')),
     "guidance": (float, Field(default=1.0, title='ControlNet Guidance Strength')),
+    "guidance_start": (float, Field(0.0, title='ControlNet Guidance Start')),
+    "guidance_end": (float, Field(1.0, title='ControlNet Guidance End')),
     "guessmode": (bool, Field(default=True, title="Guess Mode")),
 }
 
@@ -208,6 +210,9 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
 def create_cn_unit_args(unit_request: ControlNetUnitRequest):
     input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
     mask = to_base64_nparray(unit_request.mask) if unit_request.mask else input_image * 0 if input_image is not None else None
+    if unit_request.guidance < 1.0:
+        unit_request.guidance_end = unit_request.guidance
+    
     return (
         True,  # enabled
         unit_request.module,
@@ -224,7 +229,8 @@ def create_cn_unit_args(unit_request: ControlNetUnitRequest):
         unit_request.processor_res,
         unit_request.threshold_a,
         unit_request.threshold_b,
-        unit_request.guidance,
+        unit_request.guidance_start,
+        unit_request.guidance_end,
         unit_request.guessmode
     )
 
