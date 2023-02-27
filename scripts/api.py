@@ -1,341 +1,240 @@
 import numpy as np
-from typing import Any, List, Dict, Set, Union
-from fastapi import FastAPI, Body, HTTPException, Request, Response
-import base64
-import io
-from io import BytesIO
-from PIL import PngImagePlugin, Image
-import piexif
-import piexif.helper
+from fastapi import FastAPI, Body
+from PIL import Image
+import copy
+import contextlib
+import pydantic
+import sys
 
 import gradio as gr
 
+from modules import ui
 from modules.api.models import *
-from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
+from modules.api import api
+from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
 
-from modules import sd_samplers
-from modules.shared import opts, cmd_opts
-import modules.shared as shared
 import modules.scripts as scripts
 
 from scripts.controlnet import update_cn_models, cn_models_names
 from scripts.processor import *
 
-def validate_sampler_name(name):
-    config = sd_samplers.all_samplers_map.get(name, None)
-    if config is None:
-        raise HTTPException(status_code=404, detail="Sampler not found")
+def to_base64_nparray(encoding: str):
+    return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
-    return name
-
-def decode_base64_to_image(encoding):
-    if encoding.startswith("data:image/"):
-        encoding = encoding.split(";")[1].split(",")[1]
-    try:
-        image = Image.open(BytesIO(base64.b64decode(encoding)))
-        return image
-    except Exception as err:
-        raise HTTPException(status_code=500, detail="Invalid encoded image")
-    
 def encode_to_base64(image):
     if type(image) is str:
         return image
     elif type(image) is Image.Image:
-        return encode_pil_to_base64(image)
+        return api.encode_pil_to_base64(image)
     elif type(image) is np.ndarray:
         return encode_np_to_base64(image)
     else:
         return ""
-    
-def encode_pil_to_base64(image):
-    with io.BytesIO() as output_bytes:
-
-        if opts.samples_format.lower() == 'png':
-            use_metadata = False
-            metadata = PngImagePlugin.PngInfo()
-            for key, value in image.info.items():
-                if isinstance(key, str) and isinstance(value, str):
-                    metadata.add_text(key, value)
-                    use_metadata = True
-            image.save(output_bytes, format="PNG", pnginfo=(metadata if use_metadata else None), quality=opts.jpeg_quality)
-
-        elif opts.samples_format.lower() in ("jpg", "jpeg", "webp"):
-            parameters = image.info.get('parameters', None)
-            exif_bytes = piexif.dump({
-                "Exif": { piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(parameters or "", encoding="unicode") }
-            })
-            if opts.samples_format.lower() in ("jpg", "jpeg"):
-                image.save(output_bytes, format="JPEG", exif = exif_bytes, quality=opts.jpeg_quality)
-            else:
-                image.save(output_bytes, format="WEBP", exif = exif_bytes, quality=opts.jpeg_quality)
-
-        else:
-            raise HTTPException(status_code=500, detail="Invalid image format")
-
-        bytes_data = output_bytes.getvalue()
-
-    return base64.b64encode(bytes_data)
 
 def encode_np_to_base64(image):
     pil = Image.fromarray(image)
-    return encode_pil_to_base64(pil)
+    return api.encode_pil_to_base64(pil)
+
+cn_root_field_prefix = 'controlnet_'
+cn_fields = {
+    "input_image": (str, Field(default="", title='ControlNet Input Image')),
+    "mask": (str, Field(default="", title='ControlNet Input Mask')),
+    "module": (str, Field(default="none", title='Controlnet Module')),
+    "model": (str, Field(default="None", title='Controlnet Model')),
+    "weight": (float, Field(default=1.0, title='Controlnet Weight')),
+    "resize_mode": (str, Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')),
+    "lowvram": (bool, Field(default=False, title='Controlnet Low VRAM')),
+    "processor_res": (int, Field(default=64, title='Controlnet Processor Res')),
+    "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),
+    "threshold_b": (float, Field(default=64, title='Controlnet Threshold b')),
+    "guidance_start": (float, Field(default=0.0, title='ControlNet Guidance Start')),
+    "guidance_end": (float, Field(default=1.0, title='ControlNet Guidance End')),
+    "guessmode": (bool, Field(default=True, title="Guess Mode")),
+}
+
+def get_deprecated_cn_field(field_name: str, field):
+    field_type, field = field
+    field = copy.copy(field)
+    field.default = None
+    field.extra['deprecated'] = True
+    if field_name in ('input_image', 'mask'):
+        field_type = List[field_type]
+    return f'{cn_root_field_prefix}{field_name}', (field_type, field)
+
+def get_deprecated_field_default(field_name: str):
+    if field_name in ('input_image', 'mask'):
+        return []
+    return cn_fields[field_name][-1].default
+
+ControlNetUnitRequest = pydantic.create_model('ControlNetUnitRequest', **cn_fields)
+
+def create_controlnet_request_model(p_api_class):
+    class RequestModel(p_api_class):
+        class Config(p_api_class.__config__):
+            @staticmethod
+            def schema_extra(schema: dict, _):
+                props = {}
+                for k, v in schema.get('properties', {}).items():
+                    if not v.get('deprecated', False):
+                        props[k] = v
+                    if v.get('docs_default', None) is not None:
+                        v['default'] = v['docs_default']
+                if props:
+                    schema['properties'] = props
+
+    additional_fields = {
+        'controlnet_units': (List[ControlNetUnitRequest], Field(default=[], docs_default=[ControlNetUnitRequest()], description="ControlNet Processing Units")),
+        **dict(get_deprecated_cn_field(k, v) for k, v in cn_fields.items())
+    }
+
+    return pydantic.create_model(
+        f'ControlNet{p_api_class.__name__}',
+        __base__=RequestModel,
+        **additional_fields)
+
+ControlNetTxt2ImgRequest = create_controlnet_request_model(StableDiffusionTxt2ImgProcessingAPI)
+ControlNetImg2ImgRequest = create_controlnet_request_model(StableDiffusionImg2ImgProcessingAPI)
+
+class ApiHijack(api.Api):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_api_route("/controlnet/txt2img", self.controlnet_txt2img, methods=["POST"], response_model=TextToImageResponse)
+        self.add_api_route("/controlnet/img2img", self.controlnet_img2img, methods=["POST"], response_model=ImageToImageResponse)
+
+    def controlnet_txt2img(self, txt2img_request: ControlNetTxt2ImgRequest):
+        return self.controlnet_any2img(
+            any2img_request=txt2img_request,
+            original_callback=ApiHijack.text2imgapi,
+            p_class=StableDiffusionProcessingTxt2Img,
+            script_runner=scripts.scripts_txt2img,
+        )
+
+    def controlnet_img2img(self, img2img_request: ControlNetImg2ImgRequest):
+        return self.controlnet_any2img(
+            any2img_request=img2img_request,
+            original_callback=ApiHijack.img2imgapi,
+            p_class=StableDiffusionProcessingImg2Img,
+            script_runner=scripts.scripts_img2img,
+        )
+
+    def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner):
+        any2img_request = nest_deprecated_cn_fields(any2img_request)
+        script_runner = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
+        delattr(any2img_request, 'controlnet_units')
+        with self.queue_lock:
+            self_copy = copy.copy(self)
+            self_copy.queue_lock = contextlib.nullcontext()
+            with OverrideInit(p_class, scripts=script_runner):
+                return original_callback(self_copy, any2img_request)
+
+api.Api = ApiHijack
+
+class OverrideInit:
+    def __init__(self, cls, **kwargs):
+        self.cls = cls
+        self.kwargs = kwargs
+        self.original_init = None
+
+    def __enter__(self):
+        def init_hijack(p, *args, **kwargs):
+            self.original_init(p, *args, **kwargs)
+            for k, v in self.kwargs.items():
+                setattr(p, k, v)
+
+        self.original_init = self.cls.__init__
+        self.cls.__init__ = init_hijack
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cls.__init__ = self.original_init
+
+def nest_deprecated_cn_fields(any2img_request):
+    deprecated_cn_fields = {k: v for k, v in vars(any2img_request).items()
+                            if k.startswith(cn_root_field_prefix) and k != 'controlnet_units'}
+
+    any2img_request = copy.copy(any2img_request)
+    for k in deprecated_cn_fields.keys():
+        delattr(any2img_request, k)
+
+    if all(v is None for v in deprecated_cn_fields.values()):
+        return any2img_request
+
+    warn_deprecated_cn_params()
+    deprecated_cn_fields = {k[len(cn_root_field_prefix):]: v for k, v in deprecated_cn_fields.items()}
+    for k, v in deprecated_cn_fields.items():
+        if v is None:
+            deprecated_cn_fields[k] = get_deprecated_field_default(k)
+
+    for k in ('input_image', 'mask'):
+        deprecated_cn_fields[k] = deprecated_cn_fields[k][0] if deprecated_cn_fields[k] else ""
+
+    any2img_request.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
+    return any2img_request
+
+def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNetUnitRequest]):
+    if not script_runner.scripts:
+        script_runner.initialize_scripts(False)
+        ui.create_ui()
+
+    cn_script_runner = copy.copy(script_runner)
+
+    cn_script_args = [False]  # is_img2img
+    for control_unit_request in control_unit_requests:
+        cn_script_args += create_cn_unit_args(control_unit_request)
+
+    script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
+    cn_script_id = script_titles.index('controlnet')
+    cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
+    cn_script.args_from = 0
+    cn_script.args_to = len(cn_script_args)
+
+    def make_script_runner_f_hijack(fixed_original_f):
+        def script_runner_f_hijack(p, *args, **kwargs):
+            original_script_args = p.script_args
+            p.script_args = cn_script_args
+            fixed_original_f(p, *args, **kwargs)
+            p.script_args = original_script_args
+
+        return script_runner_f_hijack
+
+    for k in ('process', 'process_batch', 'postprocess', 'postprocess_batch', 'postprocess_image'):
+        original_f = getattr(cn_script_runner, k, None)
+        if original_f is None:
+            continue
+
+        setattr(cn_script_runner, k, make_script_runner_f_hijack(original_f))
+
+    cn_script_runner.alwayson_scripts = [cn_script]
+    return cn_script_runner
+
+def create_cn_unit_args(unit_request: ControlNetUnitRequest):
+    input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
+    mask = to_base64_nparray(unit_request.mask) if unit_request.mask else input_image * 0 if input_image is not None else None
+    return (
+        True,  # enabled
+        unit_request.module,
+        unit_request.model,
+        unit_request.weight,
+        {
+            "image": input_image,
+            "mask": mask,
+        },  # input_image
+        False,  # scribble_mode
+        unit_request.resize_mode,
+        False,  # rgbbgr_mode
+        unit_request.lowvram,
+        unit_request.processor_res,
+        unit_request.threshold_a,
+        unit_request.threshold_b,
+        unit_request.guidance,
+        unit_request.guessmode
+    )
+
+def warn_deprecated_cn_params():
+    warning_prefix = '[ControlNet] warning: '
+    print(f"{warning_prefix}using deprecated '{cn_root_field_prefix}*' request params", file=sys.stderr)
+    print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
-
-    @app.post("/controlnet/txt2img")
-    async def txt2img(
-        prompt: str = Body("", title='Prompt'),
-        negative_prompt: str = Body("", title='Negative Prompt'),
-        controlnet_input_image: List[str] = Body([], title='ControlNet Input Image'),
-        controlnet_mask: List[str] = Body([], title='ControlNet Input Mask'),
-        controlnet_module: str = Body("", title='Controlnet Module'),
-        controlnet_model: str = Body("", title='Controlnet Model'),
-        controlnet_weight: float = Body(1.0, title='Controlnet Weight'),
-        controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
-        controlnet_lowvram: bool = Body(False, title='Controlnet Low VRAM'),
-        controlnet_processor_res: int = Body(64, title='Controlnet Processor Res'),
-        controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
-        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
-        controlnet_guidance_start: float = Body(0.0, title='ControlNet Guidance Start'),
-        controlnet_guidance_end: float = Body(1.0, title='ControlNet Guidance End'),
-        controlnet_guessmode: bool = Body(True, title="Guess Mode"),
-        #hiresfix
-        enable_hr: bool = Body(False, title="hiresfix"),
-        denoising_strength: float = Body(0.5, title="Denoising Strength"),
-        hr_scale: float = Body(1.5, title="HR Scale"),
-        hr_upscale: str = Body("Latent", title="HR Upscale"),
-        seed: int = Body(-1, title="Seed"),
-        subseed: int = Body(-1, title="Subseed"),
-        subseed_strength: int = Body(-1, title="Subseed Strength"),
-        sampler_index: str = Body("", title='Sampler Name'),
-        batch_size: int = Body(1, title="Batch Size"),
-        n_iter: int = Body(1, title="Iteration"),
-        steps: int = Body(20, title="Steps"),
-        cfg_scale: float = Body(7, title="CFG"),
-        width: int = Body(512, title="width"),
-        height: int = Body(512, title="height"),
-        restore_faces: bool = Body(True, title="Restore Faces"),
-        override_settings: Dict[str, Any] = Body(None, title="Override Settings"),
-        override_settings_restore_afterwards: bool = Body(True, title="Restore Override Settings Afterwards"),    
-        ):
-
-        p = StableDiffusionProcessingTxt2Img(
-            sd_model=shared.sd_model,
-            outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
-            outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
-            prompt=prompt,
-            styles=[],
-            negative_prompt=negative_prompt,
-            seed=seed,
-            subseed=subseed,
-            subseed_strength=subseed_strength,
-            seed_resize_from_h=-1,
-            seed_resize_from_w=-1,
-            seed_enable_extras=False,
-            sampler_name=sampler_index,
-            batch_size=batch_size,
-            n_iter=n_iter,
-            steps=steps,
-            cfg_scale=cfg_scale,
-            width=width,
-            height=height,
-            restore_faces=restore_faces,
-            tiling=False,
-            enable_hr=enable_hr,
-            denoising_strength=denoising_strength,
-            hr_scale=hr_scale,
-            hr_upscaler=hr_upscale,
-            hr_second_pass_steps=0,
-            hr_resize_x=0,
-            hr_resize_y=0,
-            override_settings=override_settings,
-            do_not_save_samples=True,
-            do_not_save_grid=True,
-        )
-
-        cn_image = Image.open(io.BytesIO(base64.b64decode(controlnet_input_image[0])))        
-        cn_image_np = np.array(cn_image).astype('uint8')
-
-        if controlnet_mask == []:
-            cn_mask_np = np.zeros(shape=(512, 512, 3)).astype('uint8')
-        else:
-            cn_mask = Image.open(io.BytesIO(base64.b64decode(controlnet_mask[0])))        
-            cn_mask_np = np.array(cn_mask).astype('uint8')
-     
-        cn_args = {
-            "control_net_enabled": True,
-            "control_net_module": controlnet_module,
-            "control_net_model": controlnet_model,
-            "control_net_weight": controlnet_weight,
-            "control_net_image": {'image': cn_image_np, 'mask': cn_mask_np},
-            "control_net_scribble_mode": False,
-            "control_net_resize_mode": controlnet_resize_mode,
-            "control_net_rgbbgr_mode": False,
-            "control_net_lowvram": controlnet_lowvram,
-            "control_net_pres": controlnet_processor_res,
-            "control_net_pthr_a": controlnet_threshold_a,
-            "control_net_pthr_b": controlnet_threshold_b,
-            "control_net_guidance_start": controlnet_guidance_start,
-            "control_net_guidance_end": controlnet_guidance_end,
-            "control_net_guess_mode": controlnet_guessmode,
-            "control_net_api_access": True,
-        }
-
-        p.scripts = scripts.scripts_txt2img
-        p.script_args = [0, ]
-        for k, v in cn_args.items():
-            setattr(p, k, v)
-
-        if cmd_opts.enable_console_prompts:
-            print(f"\ntxt2img: {prompt}", file=shared.progress_print_out)
-
-        processed = process_images(p)            
-        p.close()
-
-        generation_info_js = processed.js()
-        if opts.samples_log_stdout:
-            print(generation_info_js)
-
-        if opts.do_not_show_images:
-            processed.images = []
-
-        b64images = list(map(encode_to_base64, processed.images))
-        
-        return {"images": b64images, "info": processed.js()}
-
-
-    @app.post("/controlnet/img2img")
-    async def img2img(
-        init_images: List[str] = Body([], title='Init Images'),
-        mask: str = Body(None, title='Mask'),
-        mask_blur: int = Body(30, title='Mask Blur'),
-        inpainting_fill: int = Body(0, title='Inpainting Fill'),
-        inpaint_full_res: bool = Body(True, title='Inpainting Full Resolution'),
-        inpaint_full_res_padding: int = Body(1, title='Inpainting Full Resolution Padding'),
-        inpainting_mask_invert: int = Body(1, title='Mask Invert'),
-        resize_mode: int = Body(0, title='Resize Mode'),
-        denoising_strength: float = Body(0.7, title='Denoising Strength'),
-        prompt: str = Body("", title='Prompt'),
-        negative_prompt: str = Body("", title='Negative Prompt'),
-        controlnet_input_image: List[str] = Body([], title='ControlNet Input Image'),
-        controlnet_mask: List[str] = Body([], title='ControlNet Input Mask'),
-        controlnet_module: str = Body("", title='Controlnet Module'),
-        controlnet_model: str = Body("", title='Controlnet Model'),
-        controlnet_weight: float = Body(1.0, title='Controlnet Weight'),
-        controlnet_resize_mode: str = Body("Scale to Fit (Inner Fit)", title='Controlnet Resize Mode'),
-        controlnet_lowvram: bool = Body(False, title='Controlnet Low VRAM'),
-        controlnet_processor_res: int = Body(64, title='Controlnet Processor Res'),
-        controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
-        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
-        controlnet_guidance_start: float = Body(0.0, title='ControlNet Guidance Start'),
-        controlnet_guidance_end: float = Body(1.0, title='ControlNet Guidance End'),
-        controlnet_guessmode: bool = Body(True, title="Guess Mode"),
-        seed: int = Body(-1, title="Seed"),
-        subseed: int = Body(-1, title="Subseed"),
-        subseed_strength: int = Body(-1, title="Subseed Strength"),
-        sampler_index: str = Body("", title='Sampler Name'),
-        batch_size: int = Body(1, title="Batch Size"),
-        n_iter: int = Body(1, title="Iteration"),
-        steps: int = Body(20, title="Steps"),
-        cfg_scale: float = Body(7, title="CFG"),
-        width: int = Body(512, title="width"),
-        height: int = Body(512, title="height"),
-        restore_faces: bool = Body(True, title="Restore Faces"),
-        include_init_images: bool = Body(True, title="Include Init Images"),
-        override_settings: Dict[str, Any] = Body(None, title="Override Settings"),
-        override_settings_restore_afterwards: bool = Body(True, title="Restore Override Settings Afterwards"),    
-        ):
-
-        if mask:
-            mask = decode_base64_to_image(mask)
-
-        p = StableDiffusionProcessingImg2Img(
-            sd_model=shared.sd_model,
-            outpath_samples=opts.outdir_samples or opts.outdir_img2img_samples,
-            outpath_grids=opts.outdir_grids or opts.outdir_img2img_grids,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            init_images=[decode_base64_to_image(x) for x in init_images],
-            styles=[],
-            seed=seed,
-            subseed=subseed,
-            subseed_strength=subseed_strength,
-            seed_resize_from_h=-1,
-            seed_resize_from_w=-1,
-            seed_enable_extras=False,
-            sampler_name=sampler_index,
-            batch_size=batch_size,
-            n_iter=n_iter,
-            steps=steps,
-            cfg_scale=cfg_scale,
-            width=width,
-            height=height,
-            restore_faces=restore_faces,
-            tiling=False,
-            mask=mask,
-            mask_blur=mask_blur,
-            inpainting_fill=inpainting_fill,
-            resize_mode=resize_mode,
-            denoising_strength=denoising_strength,
-            inpaint_full_res=inpaint_full_res,
-            inpaint_full_res_padding=inpaint_full_res_padding,
-            inpainting_mask_invert=inpainting_mask_invert,
-            override_settings=override_settings,
-            do_not_save_samples=True,
-            do_not_save_grid=True,
-        )
-
-        cn_image = Image.open(io.BytesIO(base64.b64decode(controlnet_input_image[0])))        
-        cn_image_np = np.array(cn_image).astype('uint8')
-
-        if controlnet_mask == [] :
-            cn_mask_np = np.zeros(shape=(512, 512, 3)).astype('uint8')
-        else:
-            cn_mask = Image.open(io.BytesIO(base64.b64decode(controlnet_mask[0])))        
-            cn_mask_np = np.array(cn_mask).astype('uint8')
-     
-        cn_args = {
-            "control_net_enabled": True,
-            "control_net_module": controlnet_module,
-            "control_net_model": controlnet_model,
-            "control_net_weight": controlnet_weight,
-            "control_net_image": {'image': cn_image_np, 'mask': cn_mask_np},
-            "control_net_scribble_mode": False,
-            "control_net_resize_mode": controlnet_resize_mode,
-            "control_net_rgbbgr_mode": False,
-            "control_net_lowvram": controlnet_lowvram,
-            "control_net_pres": controlnet_processor_res,
-            "control_net_pthr_a": controlnet_threshold_a,
-            "control_net_pthr_b": controlnet_threshold_b,
-            "control_net_guidance_start": controlnet_guidance_start,
-            "control_net_guidance_end": controlnet_guidance_end,
-            "control_net_guess_mode": controlnet_guessmode,
-            "control_net_api_access": True,
-        }
-
-        p.scripts = scripts.scripts_img2img
-        p.script_args = [0, ]
-        for k, v in cn_args.items():
-            setattr(p, k, v)
-
-        if shared.cmd_opts.enable_console_prompts:
-            print(f"\nimg2img: {prompt}", file=shared.progress_print_out)
-
-        p.extra_generation_params["Mask blur"] = mask_blur
-
-        processed = process_images(p)            
-        p.close()
-
-        generation_info_js = processed.js()
-        if opts.samples_log_stdout:
-            print(generation_info_js)
-
-        if opts.do_not_show_images:
-            processed.images = []
-
-        b64images = list(map(encode_to_base64, processed.images))
-        return {"images": b64images, "info": processed.js()}
-    
     @app.get("/controlnet/model_list")
     async def model_list():
         update_cn_models()
@@ -349,17 +248,19 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
-        ):
+    ):
 
-        available_modules = ["canny", 
-                             "depth", 
-                             "depth_leres", 
-                             "fake_scribble", 
-                             "hed", 
-                             "mlsd", 
-                             "normal_map", 
-                             "openpose", 
-                             "segmentation"]
+        available_modules = [
+            "canny", 
+            "depth", 
+            "depth_leres", 
+            "fake_scribble", 
+            "hed", 
+            "mlsd", 
+            "normal_map", 
+            "openpose", 
+            "segmentation"
+        ]
 
         if controlnet_module not in available_modules:
             return {"images": [], "info": "Module not available"}
@@ -371,7 +272,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         results = []
 
         for input_image in controlnet_input_images:
-            img = np.array(Image.open(io.BytesIO(base64.b64decode(input_image)))).astype('uint8')
+            img = to_base64_nparray(input_image)
 
             if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
