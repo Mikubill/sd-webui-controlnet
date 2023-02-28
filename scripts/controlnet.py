@@ -252,9 +252,15 @@ class Script(scripts.Script):
         # infotext_fields.append((enabled, "ControlNet Enabled"))
         
         def send_dimensions(image):
+            def closesteight(num):
+                rem = num % 8
+                if rem <= 4:
+                    return round(num - rem)
+                else:
+                    return round(num + (8 - rem))
             if(image):
                 interm = np.asarray(image.get('image'))
-                return gr.Slider.update(value=interm.shape[1]), gr.Slider.update(value=interm.shape[0])
+                return gr.Slider.update(value=closesteight(interm.shape[1])), gr.Slider.update(value=closesteight(interm.shape[0]))
             else:
                 return gr.Slider.update(), gr.Slider.update()
                         
