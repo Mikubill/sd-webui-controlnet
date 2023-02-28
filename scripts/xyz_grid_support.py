@@ -20,14 +20,30 @@ def debug_info(func):
     return debug_info_
 
 
-def find_xyz_grid():
+def find_dict(dict_list, keyword, search_key="name"):
+    return next((d for d in dict_list if d[search_key] == keyword), None)
+
+
+def flatten_list(lst):
+    for element in lst:
+        if isinstance(element, list):
+            yield from flatten_list(element)
+        else:
+            yield element
+
+
+def find_module(module_names):
+    if isinstance(module_names, str):
+        module_names = [s.strip() for s in module_names.split(",")]
+
     for data in scripts.scripts_data:
-        if data.script_class.__module__ in ["xyz_grid.py", "xy_grid.py"] and hasattr(data, "module"):
+        if data.script_class.__module__ in module_names and hasattr(data, "module"):
             return data.module
 
     return None
 
 
+# This function performs the main process of the module.
 def add_axis_options(xyz_grid):
     # This class is currently meaningless.
     class AxisOption(xyz_grid.AxisOption):
@@ -90,38 +106,32 @@ def add_axis_options(xyz_grid):
                 return re.sub(pattern, replace, string)
 
         def type_convert(valslist, type_func, allow_blank=False):
-            valslist_copy = valslist.copy()
-            valslist.clear()
-            for s in valslist_copy:
-                if allow_blank and (s is None or s in ["None", ""]):
-                    valslist.append(None)
+            for i, s in enumerate(valslist):
+                if allow_blank and (str(s) in ["None", ""]):
+                    valslist[i] = None
                 elif type_func:
-                    valslist.append(type_func(s))
+                    valslist[i] = type_func(s)
                 else:
-                    valslist.append(s)
+                    valslist[i] = s
 
         def fix_to_type_convert(valslist, type_func, allow_blank=True):
             def is_same_length(list1, list2):
                 return len(list1) == len(list2)
 
-            fixing_list = []
             start_indices = []
             end_indices = []
             for i, s in enumerate(valslist):
                 if is_same_length(start_indices, end_indices):
-                    if search_bracket(s, "["):
-                        s = search_bracket(s, "[", replace="")
+                    if s != (s := search_bracket(s, "[", replace="")):
                         start_indices.append(i)
                 if not is_same_length(start_indices, end_indices):
-                    if search_bracket(s, "]"):
-                        s = search_bracket(s, "]", replace="")
+                    if s != (s := search_bracket(s, "]", replace="")):
                         end_indices.append(i + 1)
-                fixing_list.append(s)
+                valslist[i] = s
 
             if not is_same_length(start_indices, end_indices):
                 raise ValueError(f"Lengths of {start_indices} and {end_indices} are different.")
 
-            valslist[:] = fixing_list
             type_convert(valslist, type_func, allow_blank=True)
 
             # Restore the structure of a list.
@@ -137,9 +147,9 @@ def add_axis_options(xyz_grid):
         if not any(search_bracket(s) for s in valslist):  # There is no list inside
             type_convert(valslist, type_func, allow_blank=True)  # Type conv
             return
-        else:                            # There is a list inside
+        else:                                              # There is a list inside
             fix_to_type_convert(valslist, type_func, allow_blank=True)  # Fix & Type conv
-            pad_to_longest(valslist)  # Fill sublist with None
+            pad_to_longest(valslist)                       # Fill sublist with None
             return
 
     ################################################
@@ -183,16 +193,6 @@ def add_axis_options(xyz_grid):
     #         any = [any] = [any, None, None, ...]
     #         (any and [any] are considered equivalent)
     def confirm(func_or_str):
-        def find_dict(dict_list, keyword, search_key="name"):
-            return next((d for d in dict_list if d[search_key] == keyword), None)
-
-        def flatten_list(lst):
-            for element in lst:
-                if isinstance(element, list):
-                    yield from flatten_list(element)
-                else:
-                    yield element
-
         @debug_info
         def confirm_(p, xs):
             if callable(func_or_str):  # func_or_str is type_func
@@ -200,15 +200,14 @@ def add_axis_options(xyz_grid):
                 return
 
             elif isinstance(func_or_str, str):  # func_or_str is search keyword
-                valid_data = find_dict(validation_data, func_or_str)
-                if valid_data is None:
+                if (valid_data := find_dict(validation_data, func_or_str)) is None:
                     raise KeyError(f"{func_or_str} dictionary not found")
 
                 normalize_list(xs, valid_data["type"])
 
-                confirm_list = valid_data["element"]()
+                check_list = valid_data["element"]()
                 for x in flatten_list(xs):
-                    if x is not None and x not in confirm_list:
+                    if x is not None and x not in check_list:
                         raise RuntimeError(f"Unknown {valid_data['label']}: {x}")
                 return
 
@@ -264,7 +263,7 @@ def add_axis_options(xyz_grid):
 
 
 def run():
-    xyz_grid = find_xyz_grid()
+    xyz_grid = find_module("xyz_grid.py, xy_grid.py")
 
     if xyz_grid:
         add_axis_options(xyz_grid)
