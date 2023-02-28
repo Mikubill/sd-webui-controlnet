@@ -35,11 +35,9 @@ def flatten_list(lst):
 def find_module(module_names):
     if isinstance(module_names, str):
         module_names = [s.strip() for s in module_names.split(",")]
-
     for data in scripts.scripts_data:
         if data.script_class.__module__ in module_names and hasattr(data, "module"):
             return data.module
-
     return None
 
 
@@ -263,9 +261,7 @@ def add_axis_options(xyz_grid):
 
 
 def run():
-    xyz_grid = find_module("xyz_grid.py, xy_grid.py")
-
-    if xyz_grid:
+    if xyz_grid := find_module("xyz_grid.py, xy_grid.py"):
         add_axis_options(xyz_grid)
 
 
