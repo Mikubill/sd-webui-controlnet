@@ -661,11 +661,19 @@ class Script(scripts.Script):
             
             control = rearrange(control, 'h w c -> c h w')
             detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
+
+            _, old_h, old_w = detected_map.shape
+
             if resize_mode == "Scale to Fit (Inner Fit)":
+                if old_h / old_w > h / w:
+                    scale = h / old_h
+                else:
+                    scale = w / old_w
+
                 transform = Compose([
-                    Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
+                    Resize(int(old_h*scale) if old_h < old_w else int(old_w *scale), interpolation=InterpolationMode.BICUBIC),
                     CenterCrop(size=(h, w))
-                ]) 
+                ])
                 control = transform(control)
                 detected_map = transform(detected_map)
             elif resize_mode == "Envelope (Outer Fit)":
