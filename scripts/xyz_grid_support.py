@@ -100,7 +100,7 @@ def add_axis_options(xyz_grid):
                 else:
                     valslist.append(s)
 
-        def fix(valslist, type_func):
+        def fix_to_type_convert(valslist, type_func, allow_blank=True):
             def is_same_length(list1, list2):
                 return len(list1) == len(list2)
 
@@ -128,7 +128,7 @@ def add_axis_options(xyz_grid):
             for i, j in zip(reversed(start_indices), reversed(end_indices)):
                 valslist[i:j] = [valslist[i:j]]
 
-        def padding(valslist):
+        def pad_to_longest(valslist):
             max_length = max(len(sub_list) for sub_list in valslist if isinstance(sub_list, list))
             for i, sub_list in enumerate(valslist):
                 if isinstance(sub_list, list):
@@ -138,8 +138,8 @@ def add_axis_options(xyz_grid):
             type_convert(valslist, type_func, allow_blank=True)  # Type conv
             return
         else:                            # There is a list inside
-            fix(valslist, type_func)  # Fix & Type conv
-            padding(valslist)  # Fill sublist with None
+            fix_to_type_convert(valslist, type_func, allow_blank=True)  # Fix & Type conv
+            pad_to_longest(valslist)  # Fill sublist with None
             return
 
     ################################################
@@ -183,8 +183,8 @@ def add_axis_options(xyz_grid):
     #         any = [any] = [any, None, None, ...]
     #         (any and [any] are considered equivalent)
     def confirm(func_or_str):
-        def find_dict(dict_name):
-            return next((d for d in validation_data if d["name"] == dict_name), None)
+        def find_dict(dict_list, keyword, search_key="name"):
+            return next((d for d in dict_list if d[search_key] == keyword), None)
 
         def flatten_list(lst):
             for element in lst:
@@ -199,10 +199,10 @@ def add_axis_options(xyz_grid):
                 normalize_list(xs, func_or_str)
                 return
 
-            elif isinstance(func_or_str, str):  # func_or_str is dict_name
-                valid_data = find_dict(func_or_str)
+            elif isinstance(func_or_str, str):  # func_or_str is search keyword
+                valid_data = find_dict(validation_data, func_or_str)
                 if valid_data is None:
-                    return
+                    raise KeyError(f"{func_or_str} dictionary not found")
 
                 normalize_list(xs, valid_data["type"])
 
@@ -213,20 +213,20 @@ def add_axis_options(xyz_grid):
                 return
 
             else:
-                return
+                raise TypeError(f"argument must be callable or str, not {type(func_or_str).__name__}")
 
         return confirm_
 
-    def bool_(string):
+    def bool_(string, allow_blank=True):
         string = str(string)
-        if string in ["None", ""]:
+        if allow_blank and string in ["None", ""]:
             return None
         elif string.lower() in ["true", "1"]:
             return True
         elif string.lower() in ["false", "0"]:
             return False
         else:
-            raise ValueError(f"invalid literal for to_bool(): {string}")
+            raise ValueError(f"invalid literal for bool_(): {string}")
 
     def choices_bool():
         return ["False", "True"]
@@ -235,11 +235,11 @@ def add_axis_options(xyz_grid):
         controlnet.update_cn_models()
         return list(controlnet.cn_models_names.values())
 
-    def choices_preprocessor():
-        return list(controlnet.Script().preprocessor)
-
     def choices_resize_mode():
         return ["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"]
+
+    def choices_preprocessor():
+        return list(controlnet.Script().preprocessor)
 
     validation_data = [
         {"name": "model", "type": str, "element": choices_model, "label": "ControlNet Model"},
