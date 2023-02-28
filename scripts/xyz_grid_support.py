@@ -20,16 +20,32 @@ def debug_info(func):
     return debug_info_
 
 
-def find_dict(dict_list, keyword, search_key="name"):
-    return next((d for d in dict_list if d[search_key] == keyword), None)
-
-
 def flatten_list(lst):
     for element in lst:
         if isinstance(element, list):
             yield from flatten_list(element)
         else:
             yield element
+
+
+def is_all_included(target_list, check_list, allow_blank=False, stop=False):
+    for element in flatten_list(target_list):
+        if allow_blank and str(element) in ["None", ""]:
+            continue
+        elif element not in check_list:
+            if not stop:
+                return False
+            else:
+                raise ValueError(f"Element '{element}' is not included in check list.")
+    return True
+
+
+def find_dict(dict_list, keyword, search_key="name", stop=False):
+    result = next((d for d in dict_list if d[search_key] == keyword), None)
+    if result or not stop:
+        return result
+    else:
+        raise KeyError(f"Dictionary with value '{keyword}' in key '{search_key}' not found.")
 
 
 def find_module(module_names):
@@ -41,7 +57,14 @@ def find_module(module_names):
     return None
 
 
-# This function performs the main process of the module.
+################################################################
+################################################################
+#
+# Starting the main process of this module.
+#
+################################################################
+################################################################
+
 def add_axis_options(xyz_grid):
     # This class is currently meaningless.
     class AxisOption(xyz_grid.AxisOption):
@@ -70,7 +93,6 @@ def add_axis_options(xyz_grid):
                 return self.__class__(**self.__dict__)
             if num is True:
                 num = shared.opts.data.get("control_net_max_models_num", 1)
-
             instance_list = [copy(self)]
             for i in range(1, num):
                 instance = copy(self)
@@ -79,10 +101,9 @@ def add_axis_options(xyz_grid):
                 apply_arg = f"{self.apply.__kwdefaults__['field']}_{i}"
                 instance.apply = apply_func(apply_arg)
                 instance_list.append(instance)
-
             return instance_list
 
-    def normalize_list(valslist, type_func=None):
+    def normalize_list(valslist, type_func=None, allow_blank=True):
         """This function restores a broken list caused by the following process
         in the xyz_grid module.
             -> valslist = [x.strip() for x in chain.from_iterable(
@@ -103,16 +124,18 @@ def add_axis_options(xyz_grid):
             else:
                 return re.sub(pattern, replace, string)
 
-        def type_convert(valslist, type_func, allow_blank=False):
+        def type_convert(valslist, type_func, allow_blank=True):
             for i, s in enumerate(valslist):
-                if allow_blank and (str(s) in ["None", ""]):
+                if isinstance(s, list):
+                    type_convert(s, type_func, allow_blank)
+                elif allow_blank and (str(s) in ["None", ""]):
                     valslist[i] = None
                 elif type_func:
                     valslist[i] = type_func(s)
                 else:
                     valslist[i] = s
 
-        def fix_to_type_convert(valslist, type_func, allow_blank=True):
+        def fix_list_structure(valslist):
             def is_same_length(list1, list2):
                 return len(list1) == len(list2)
 
@@ -126,12 +149,8 @@ def add_axis_options(xyz_grid):
                     if s != (s := search_bracket(s, "]", replace="")):
                         end_indices.append(i + 1)
                 valslist[i] = s
-
             if not is_same_length(start_indices, end_indices):
                 raise ValueError(f"Lengths of {start_indices} and {end_indices} are different.")
-
-            type_convert(valslist, type_func, allow_blank=True)
-
             # Restore the structure of a list.
             for i, j in zip(reversed(start_indices), reversed(end_indices)):
                 valslist[i:j] = [valslist[i:j]]
@@ -142,12 +161,13 @@ def add_axis_options(xyz_grid):
                 if isinstance(sub_list, list):
                     valslist[i] = sub_list + [None] * (max_length-len(sub_list))
 
-        if not any(search_bracket(s) for s in valslist):  # There is no list inside
-            type_convert(valslist, type_func, allow_blank=True)  # Type conv
+        if not any(search_bracket(s) for s in valslist):    # There is no list inside
+            type_convert(valslist, type_func, allow_blank)  # Type conv
             return
-        else:                                              # There is a list inside
-            fix_to_type_convert(valslist, type_func, allow_blank=True)  # Fix & Type conv
-            pad_to_longest(valslist)                       # Fill sublist with None
+        else:                                               # There is a list inside
+            fix_list_structure(valslist)                    # Fix
+            type_convert(valslist, type_func, allow_blank)  # Type conv
+            pad_to_longest(valslist)                        # Fill sublist with None
             return
 
     ################################################
@@ -193,37 +213,31 @@ def add_axis_options(xyz_grid):
     def confirm(func_or_str):
         @debug_info
         def confirm_(p, xs):
-            if callable(func_or_str):  # func_or_str is type_func
-                normalize_list(xs, func_or_str)
+            if callable(func_or_str):           # func_or_str is type_func
+                normalize_list(xs, func_or_str, allow_blank=True)
                 return
 
-            elif isinstance(func_or_str, str):  # func_or_str is search keyword
-                if (valid_data := find_dict(validation_data, func_or_str)) is None:
-                    raise KeyError(f"{func_or_str} dictionary not found")
-
-                normalize_list(xs, valid_data["type"])
-
-                check_list = valid_data["element"]()
-                for x in flatten_list(xs):
-                    if x is not None and x not in check_list:
-                        raise RuntimeError(f"Unknown {valid_data['label']}: {x}")
+            elif isinstance(func_or_str, str):  # func_or_str is keyword
+                valid_data = find_dict(validation_data, func_or_str, stop=True)
+                normalize_list(xs, valid_data["type"], allow_blank=True)
+                is_all_included(xs, valid_data["element"](), allow_blank=True, stop=True)
                 return
 
             else:
-                raise TypeError(f"argument must be callable or str, not {type(func_or_str).__name__}")
+                raise TypeError(f"Argument must be callable or str, not {type(func_or_str).__name__}.")
 
         return confirm_
 
-    def bool_(string, allow_blank=True):
+    def bool_(string):
         string = str(string)
-        if allow_blank and string in ["None", ""]:
+        if string in ["None", ""]:
             return None
         elif string.lower() in ["true", "1"]:
             return True
         elif string.lower() in ["false", "0"]:
             return False
         else:
-            raise ValueError(f"invalid literal for bool_(): {string}")
+            raise ValueError(f"Could not convert string to boolean: {string}")
 
     def choices_bool():
         return ["False", "True"]
