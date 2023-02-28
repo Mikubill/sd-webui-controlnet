@@ -58,6 +58,7 @@ refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
+tossup_symbol = '\u2934'
 
 webcam_enabled = False
 webcam_mirrored = False
@@ -197,6 +198,10 @@ class Script(scripts.Script):
         }
         self.input_image = None
         self.latest_model_hash = ""
+        self.txt2img_w_slider = gr.Slider()
+        self.txt2img_h_slider = gr.Slider()
+        self.img2img_w_slider = gr.Slider()
+        self.img2img_h_slider = gr.Slider()
 
     def title(self):
         return "ControlNet"
@@ -206,6 +211,20 @@ class Script(scripts.Script):
             # return False
         return scripts.AlwaysVisible
     
+    def after_component(self, component, **kwargs):
+        if component.elem_id == "txt2img_width":
+            self.txt2img_w_slider = component
+            return self.txt2img_w_slider
+        if component.elem_id == "txt2img_height":
+            self.txt2img_h_slider = component
+            return self.txt2img_h_slider
+        if component.elem_id == "img2img_width":
+            self.img2img_w_slider = component
+            return self.img2img_w_slider
+        if component.elem_id == "img2img_height":
+            self.img2img_h_slider = component
+            return self.img2img_h_slider
+        
     def get_threshold_block(self, proc):
         pass
     
@@ -220,6 +239,7 @@ class Script(scripts.Script):
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
+            send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
             enabled = gr.Checkbox(label='Enable', value=False)
@@ -230,7 +250,14 @@ class Script(scripts.Script):
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
-            
+        
+        def send_dimensions(image):
+            if(image):
+                interm = np.asarray(image.get('image'))
+                return gr.Slider.update(value=interm.shape[1]), gr.Slider.update(value=interm.shape[0])
+            else:
+                return gr.Slider.update(), gr.Slider.update()
+                        
         def webcam_toggle():
             global webcam_enabled
             webcam_enabled = not webcam_enabled
@@ -388,7 +415,12 @@ class Script(scripts.Script):
         
         annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
         annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
-                                                
+
+        if is_img2img:
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
+        else:
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
+        
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
