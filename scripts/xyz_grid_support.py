@@ -20,12 +20,22 @@ def debug_info(func):
     return debug_info_
 
 
+def find_dict(dict_list, keyword, search_key="name", stop=False):
+    result = next((d for d in dict_list if d[search_key] == keyword), None)
+    if result or not stop:
+        return result
+    else:
+        raise ValueError(f"Dictionary with value '{keyword}' in key '{search_key}' not found.")
+
+
 def flatten_list(lst):
+    result = []
     for element in lst:
         if isinstance(element, list):
-            yield from flatten_list(element)
+            result.extend(flatten_list(element))
         else:
-            yield element
+            result.append(element)
+    return result
 
 
 def is_all_included(target_list, check_list, allow_blank=False, stop=False):
@@ -36,16 +46,17 @@ def is_all_included(target_list, check_list, allow_blank=False, stop=False):
             if not stop:
                 return False
             else:
-                raise ValueError(f"Element '{element}' is not included in check list.")
+                raise ValueError(f"'{element}' is not included in check list.")
     return True
 
 
-def find_dict(dict_list, keyword, search_key="name", stop=False):
-    result = next((d for d in dict_list if d[search_key] == keyword), None)
-    if result or not stop:
-        return result
-    else:
-        raise KeyError(f"Dictionary with value '{keyword}' in key '{search_key}' not found.")
+################################################################
+################################################################
+#
+# Starting the main process of this module.
+#
+################################################################
+################################################################
 
 
 def find_module(module_names):
@@ -56,14 +67,6 @@ def find_module(module_names):
             return data.module
     return None
 
-
-################################################################
-################################################################
-#
-# Starting the main process of this module.
-#
-################################################################
-################################################################
 
 def add_axis_options(xyz_grid):
     # This class is currently meaningless.
@@ -103,7 +106,7 @@ def add_axis_options(xyz_grid):
                 instance_list.append(instance)
             return instance_list
 
-    def normalize_list(valslist, type_func=None, allow_blank=True):
+    def normalize_list(valslist, type_func=None, allow_blank=True, excluded=None):
         """This function restores a broken list caused by the following process
         in the xyz_grid module.
             -> valslist = [x.strip() for x in chain.from_iterable(
@@ -111,11 +114,14 @@ def add_axis_options(xyz_grid):
         It also performs type conversion,
         adjusts the number of elements in the list, and other operations.
         """
-        def search_bracket(string, bracket="[", replace=None):
+        def search_bracket(string, bracket="[", replace=None, excluded=None):
+            if excluded:
+                excluded = "|".join(excluded)
+
             if bracket == "[":
-                pattern = r"^\[(?![a-z0-9]{8}\])"
+                pattern = rf"^\[(?!(?:{excluded})\])" if excluded else r"^\["
             elif bracket == "]":
-                pattern = r"(?<!\[[a-z0-9]{8})\]$"
+                pattern = rf"(?<!\[(?:{excluded}))\]$" if excluded else r"\]$"
             else:
                 raise ValueError(f"Invalid argument provided. (bracket: {bracket})")
 
@@ -123,6 +129,9 @@ def add_axis_options(xyz_grid):
                 return re.search(pattern, string)
             else:
                 return re.sub(pattern, replace, string)
+
+        def sublist_exists(valslist, excluded=None):
+            return any(search_bracket(s, excluded=excluded) for s in valslist)
 
         def type_convert(valslist, type_func, allow_blank=True):
             for i, s in enumerate(valslist):
@@ -135,7 +144,7 @@ def add_axis_options(xyz_grid):
                 else:
                     valslist[i] = s
 
-        def fix_list_structure(valslist):
+        def fix_list_structure(valslist, excluded=None):
             def is_same_length(list1, list2):
                 return len(list1) == len(list2)
 
@@ -143,10 +152,10 @@ def add_axis_options(xyz_grid):
             end_indices = []
             for i, s in enumerate(valslist):
                 if is_same_length(start_indices, end_indices):
-                    if s != (s := search_bracket(s, "[", replace="")):
+                    if s != (s := search_bracket(s, "[", replace="", excluded=excluded)):
                         start_indices.append(i)
                 if not is_same_length(start_indices, end_indices):
-                    if s != (s := search_bracket(s, "]", replace="")):
+                    if s != (s := search_bracket(s, "]", replace="", excluded=excluded)):
                         end_indices.append(i + 1)
                 valslist[i] = s
             if not is_same_length(start_indices, end_indices):
@@ -161,13 +170,16 @@ def add_axis_options(xyz_grid):
                 if isinstance(sub_list, list):
                     valslist[i] = sub_list + [None] * (max_length-len(sub_list))
 
-        if not any(search_bracket(s) for s in valslist):    # There is no list inside
-            type_convert(valslist, type_func, allow_blank)  # Type conv
+        ################################################
+        # Starting the main process of the normalize_list function.
+        #
+        if not sublist_exists(valslist, excluded):
+            type_convert(valslist, type_func, allow_blank)
             return
-        else:                                               # There is a list inside
-            fix_list_structure(valslist)                    # Fix
-            type_convert(valslist, type_func, allow_blank)  # Type conv
-            pad_to_longest(valslist)                        # Fill sublist with None
+        else:
+            fix_list_structure(valslist, excluded)
+            type_convert(valslist, type_func, allow_blank)
+            pad_to_longest(valslist)
             return
 
     ################################################
@@ -189,14 +201,17 @@ def add_axis_options(xyz_grid):
 
         return apply_field_
 
+    ################################################
     # Set this function as the type attribute of the AxisOption class.
     # To skip the following processing of xyz_grid module.
     #   -> valslist = [opt.type(x) for x in valslist]
     # Perform type conversion using the function
     # set to the confirm attribute instead.
+    #
     def identity(x):
         return x
 
+    ################################################
     # The confirm function defined in this module
     # enables list notation and performs type conversion.
     #
@@ -210,6 +225,7 @@ def add_axis_options(xyz_grid):
     #     Enabled Only:
     #         any = [any] = [any, None, None, ...]
     #         (any and [any] are considered equivalent)
+    #
     def confirm(func_or_str):
         @debug_info
         def confirm_(p, xs):
@@ -219,8 +235,12 @@ def add_axis_options(xyz_grid):
 
             elif isinstance(func_or_str, str):  # func_or_str is keyword
                 valid_data = find_dict(validation_data, func_or_str, stop=True)
-                normalize_list(xs, valid_data["type"], allow_blank=True)
-                is_all_included(xs, valid_data["element"](), allow_blank=True, stop=True)
+                type_func = valid_data["type"]
+                exclude_list = valid_data["exclude"]() if valid_data["exclude"] else None
+                check_list = valid_data["check"]()
+
+                normalize_list(xs, type_func, allow_blank=True, excluded=exclude_list)
+                is_all_included(xs, check_list, allow_blank=True, stop=True)
                 return
 
             else:
@@ -252,10 +272,15 @@ def add_axis_options(xyz_grid):
     def choices_preprocessor():
         return list(controlnet.Script().preprocessor)
 
+    def make_excluded_list():
+        pattern = re.compile(r"\[(\w+)\]")
+        return [match.group(1) for s in choices_model()
+                for match in pattern.finditer(s)]
+
     validation_data = [
-        {"name": "model", "type": str, "element": choices_model, "label": "ControlNet Model"},
-        {"name": "resize_mode", "type": str, "element": choices_resize_mode, "label": "Resize Mode"},
-        {"name": "preprocessor", "type": str, "element": choices_preprocessor, "label": "Preprocessor"},
+        {"name": "model", "type": str, "check": choices_model, "exclude": make_excluded_list},
+        {"name": "resize_mode", "type": str, "check": choices_resize_mode, "exclude": None},
+        {"name": "preprocessor", "type": str, "check": choices_preprocessor, "exclude": None},
     ]
 
     extra_axis_options = [
