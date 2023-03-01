@@ -383,7 +383,6 @@ class Script(scripts.Script):
         
         def set_pref_canvas_size(h,w):
             """return percentage to match this requested width or height"""
-            print (str(h),str(w))
             if (h == set_h_512_symbol):
                 p = 512 / self.inp_h * 100
             if (h == set_h_768_symbol):
