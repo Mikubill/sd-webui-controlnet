@@ -206,6 +206,9 @@ class UnetHook(nn.Module):
 
     def restore(self, model):
         scripts.script_callbacks.remove_current_script_callbacks()
+        if hasattr(self, "control_params"):
+            del self.control_params
+        
         if not hasattr(model, "_original_forward"):
             # no such handle, ignore
             return

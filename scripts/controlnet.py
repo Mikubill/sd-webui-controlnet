@@ -534,7 +534,7 @@ class Script(scripts.Script):
                 
         control_groups = []
         params_group = [args[i:i + PARAM_COUNT] for i in range(0, len(args), PARAM_COUNT)]
-        if getattr(p, 'control_net_api_access', False) and len(params_group) == 0:
+        if len(params_group) == 0:
             # fill a null group
             params, _ = self.parse_remote_call(p, None, 0)
             if params[0]: # enabled
@@ -579,8 +579,8 @@ class Script(scripts.Script):
         hook_lowvram = False
         
         # cache stuff
-        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
-        if models_changed or len(self.model_cache) > shared.opts.data.get("control_net_model_cache_size", 2):
+        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} or self.model_cache is None
+        if models_changed or len(self.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
             for key, model in self.model_cache.items():
                 model.to("cpu")
             del self.model_cache
@@ -610,9 +610,8 @@ class Script(scripts.Script):
             model_net.reset()
             networks.append(model_net)
             self.model_cache[model] = model_net
-
-            is_api = getattr(p, 'control_net_api_access', False)
-            is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+            
+            is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
                 input_image = HWC3(np.asarray(p.image_control)) 
             elif input_image is not None:
@@ -704,8 +703,7 @@ class Script(scripts.Script):
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
 
-        is_api = getattr(p, 'control_net_api_access', False)
-        is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
