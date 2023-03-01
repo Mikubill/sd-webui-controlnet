@@ -2,7 +2,7 @@ cnet_titles = {
 	"⏫": "Set this size as final processing output size",
 	"🔄": "Refresh",
 	"⇅": "Switch height/width",
-	"📷": "Switch WebCam",
+	"📷": "Mirror WebCam",
 	"⇄": "Leave WebCam"
 
 }
