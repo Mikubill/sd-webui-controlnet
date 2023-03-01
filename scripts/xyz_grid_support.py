@@ -152,10 +152,14 @@ def add_axis_options(xyz_grid):
             end_indices = []
             for i, s in enumerate(valslist):
                 if is_same_length(start_indices, end_indices):
-                    if s != (s := search_bracket(s, "[", replace="", excluded=excluded)):
+                    replace_string = search_bracket(s, "[", replace="", excluded=excluded)
+                    if s != replace_string:
+                        s = replace_string
                         start_indices.append(i)
                 if not is_same_length(start_indices, end_indices):
-                    if s != (s := search_bracket(s, "]", replace="", excluded=excluded)):
+                    replace_string = search_bracket(s, "]", replace="", excluded=excluded)
+                    if s != replace_string:
+                        s = replace_string
                         end_indices.append(i + 1)
                 valslist[i] = s
             if not is_same_length(start_indices, end_indices):
@@ -300,7 +304,8 @@ def add_axis_options(xyz_grid):
 
 
 def run():
-    if xyz_grid := find_module("xyz_grid.py, xy_grid.py"):
+    xyz_grid = find_module("xyz_grid.py, xy_grid.py")
+    if xyz_grid:
         add_axis_options(xyz_grid)
 
 
