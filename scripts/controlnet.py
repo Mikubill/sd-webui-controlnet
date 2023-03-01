@@ -531,7 +531,7 @@ class Script(scripts.Script):
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
-
+                
         control_groups = []
         params_group = [args[i:i + PARAM_COUNT] for i in range(0, len(args), PARAM_COUNT)]
         if getattr(p, 'control_net_api_access', False) and len(params_group) == 0:
@@ -580,7 +580,7 @@ class Script(scripts.Script):
         
         # cache stuff
         models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
-        if models_changed or len(self.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
+        if models_changed or len(self.model_cache) > shared.opts.data.get("control_net_model_cache_size", 2):
             for key, model in self.model_cache.items():
                 model.to("cpu")
             del self.model_cache
