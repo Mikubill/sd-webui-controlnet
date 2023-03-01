@@ -260,7 +260,7 @@ class Script(scripts.Script):
                     return round(num + (8 - rem))
             if(image):
                 interm = np.asarray(image.get('image'))
-                return gr.Slider.update(value=closesteight(interm.shape[1])), gr.Slider.update(value=closesteight(interm.shape[0]))
+                return closesteight(interm.shape[1]), closesteight(interm.shape[0])
             else:
                 return gr.Slider.update(), gr.Slider.update()
                         
