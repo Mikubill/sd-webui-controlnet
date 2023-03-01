@@ -57,6 +57,7 @@ os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_detectedmap_dir = cn_detectedmap_dir
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
+set_outres_symbol = '\U000023EB' # ⏫
 camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
 
@@ -198,6 +199,28 @@ class Script(scripts.Script):
         }
         self.input_image = None
         self.latest_model_hash = ""
+        self.inp_w=512
+        self.inp_h=512
+
+        self.txt2img_w_slider = gr.Slider()
+        self.txt2img_h_slider = gr.Slider()
+        self.img2img_w_slider = gr.Slider()
+        self.img2img_h_slider = gr.Slider()
+
+    def after_component(self, component, **kwargs):
+            if component.elem_id == "txt2img_width":
+                self.txt2img_w_slider = component
+                return self.txt2img_w_slider
+            if component.elem_id == "txt2img_height":
+                self.txt2img_h_slider = component
+                return self.txt2img_h_slider
+            if component.elem_id == "img2img_width":
+                self.img2img_w_slider = component
+                return self.img2img_w_slider
+            if component.elem_id == "img2img_height":
+                self.img2img_h_slider = component
+                return self.img2img_h_slider
+
 
     def title(self):
         return "ControlNet"
@@ -264,7 +287,8 @@ class Script(scripts.Script):
             guidance_end = gr.Slider(label="Guidance End (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
             ctrls += (module, model, weight,)
-                # model_dropdowns.append(model)
+            # model_dropdowns.append(model)
+
         def build_sliders(module):
             if module == "canny":
                 return [
@@ -344,16 +368,32 @@ class Script(scripts.Script):
 
         def create_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-          
+       
+        def onRatioChange(h,w, percent):
+            return (int(round(self.inp_h*percent/100)), int(round(self.inp_w*percent/100)))
+
+        def set_outres(h,w):
+            print (str(w),str(h))
+            return [h,w]
+
         resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
         with gr.Row():
             with gr.Column():
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                 canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    
+                canvas_ratio =  gr.Slider(label="Canvas proportional scale %", minimum=1, maximum=1000, value=100, step=1, interactive=True)
+                canvas_ratio.change(fn=onRatioChange,inputs=[canvas_height,canvas_width,canvas_ratio], outputs=[canvas_height, canvas_width], preprocess=True, postprocess=True, show_progress=False)
+
             if gradio_compat:
-                canvas_swap_res = ToolButton(value=switch_values_symbol)
+#                canvas_lock_ratio = gr.Checkbox(label=lock_ratio_symbol,value=self.is_ratio_locked)
+                canvas_swap_res = ToolButton(value=switch_values_symbol, label="Swap height/width")
                 canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+
+                canvas_set_outres = ToolButton(value=set_outres_symbol, label="Set as output size")
+                if is_img2img:
+                    canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.img2img_h_slider,self.img2img_w_slider])
+                else:
+                    canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.txt2img_h_slider,self.txt2img_w_slider])
                     
         create_button = gr.Button(value="Create blank canvas")
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
@@ -394,6 +434,8 @@ class Script(scripts.Script):
                 if (not isSVG):
                     buf = io.BytesIO(data)
                     img = Image.open(buf)
+                    self.wh_ratio = img.width/img.height
+                    self.inp_w, self.inp_h = img.width,img.height
                     return [img.width,img.height]            
 
         def svgPreprocess(inputs):
