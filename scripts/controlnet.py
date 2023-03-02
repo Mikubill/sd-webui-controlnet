@@ -477,51 +477,55 @@ class Script(scripts.Script):
         network.to(p.sd_model.device, dtype=p.sd_model.dtype)
         print(f"ControlNet model {model} loaded.")
         return network
-    
+
+    @staticmethod
+    def get_remote_call(p, attribute, default=None, idx=0, strict=False, force=False):
+        if not force and not shared.opts.data.get("control_net_allow_script_control", False):
+            return default
+
+        def get_element(obj, idx, strict=False):
+            if not isinstance(obj, list):
+                return obj if not strict or idx == 0 else None
+            elif idx < len(obj):
+                return obj[idx]
+            else:
+                return None
+
+        attribute_value = get_element(getattr(p, attribute, None), idx, strict)
+        default_value = get_element(default, idx)
+        return attribute_value if attribute_value is not None else default_value
+
     def parse_remote_call(self, p, params, idx):
         if params is None:
             params = [None] * PARAM_COUNT
-        
+
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
-        def selector(p, attribute, default=None, idx=0):
-            def get_element(obj, idx):
-                if not isinstance(obj, list):
-                    return obj
-                if idx < len(obj):
-                    return obj[idx]
-                else:
-                    return None
-            attribute_value = get_element(getattr(p, attribute, None), idx)
-            default_value = get_element(default, idx)
-            return attribute_value if attribute_value is not None else default_value
+        selector = self.get_remote_call
 
-        if shared.opts.data.get("control_net_allow_script_control", False):
-            enabled = selector(p, "control_net_enabled", enabled, idx)
-            module = selector(p, "control_net_module", module, idx)
-            model = selector(p, "control_net_model", model, idx)
-            weight = selector(p, "control_net_weight", weight, idx)
-            image = selector(p, "control_net_image", image, idx)
-            scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
-            resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
-            rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
-            lowvram = selector(p, "control_net_lowvram", lowvram, idx)
-            pres = selector(p, "control_net_pres", pres, idx)
-            pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
-            pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
-            guidance_strength = selector(p, "control_net_guidance_strength", 1.0, idx)
-            guidance_start = selector(p, "control_net_guidance_start", guidance_start, idx)
-            guidance_end = selector(p, "control_net_guidance_end", guidance_end, idx)
-            guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
-            if guidance_strength < 1.0:
-                # for backward compatible
-                guidance_end = guidance_strength
+        enabled = selector(p, "control_net_enabled", enabled, idx, strict=True)
+        module = selector(p, "control_net_module", module, idx)
+        model = selector(p, "control_net_model", model, idx)
+        weight = selector(p, "control_net_weight", weight, idx)
+        image = selector(p, "control_net_image", image, idx)
+        scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
+        resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
+        rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
+        lowvram = selector(p, "control_net_lowvram", lowvram, idx)
+        pres = selector(p, "control_net_pres", pres, idx)
+        pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
+        pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
+        guidance_strength = selector(p, "control_net_guidance_strength", 1.0, idx)
+        guidance_start = selector(p, "control_net_guidance_start", guidance_start, idx)
+        guidance_end = selector(p, "control_net_guidance_end", guidance_end, idx)
+        guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
+        if guidance_strength < 1.0:
+            # for backward compatible
+            guidance_end = guidance_strength
 
-            input_image = selector(p, "control_net_input_image", None, idx)
-        else:
-            input_image = None
-        
+        input_image = selector(p, "control_net_input_image", None, idx)
+
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
 
@@ -535,7 +539,7 @@ class Script(scripts.Script):
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
-                
+
         control_groups = []
         params_group = [args[i:i + PARAM_COUNT] for i in range(0, len(args), PARAM_COUNT)]
         if len(params_group) == 0:
@@ -543,19 +547,11 @@ class Script(scripts.Script):
             params, _ = self.parse_remote_call(p, None, 0)
             if params[0]: # enabled
                 params_group.append(params)
-            
-        for idx, params in enumerate(params_group):
-            enabled, module, model, weight = params[:4]
-            guidance_start = params[12]
-            guidance_end = params[13]
 
-            if shared.opts.data.get("control_net_allow_script_control", False):
-                p_enabled = getattr(p, "control_net_enabled", None)
-                if isinstance(p_enabled, list):
-                    if idx < len(p_enabled) and p_enabled[idx] is not None:
-                        enabled = p_enabled[idx]
-                elif idx == 0 and p_enabled is not None:
-                        enabled = p_enabled
+        for idx, params in enumerate(params_group):
+            params, _ = self.parse_remote_call(p, params, idx)
+            enabled, module, model, weight, image, scribble_mode, \
+                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
             if not enabled:
                 continue
@@ -572,11 +568,11 @@ class Script(scripts.Script):
                 f"{prefix} Guidance Start": guidance_start,
                 f"{prefix} Guidance End": guidance_end,
             })
-            
+
         if len(params_group) == 0:
            self.latest_network = None
            return 
-        
+
         networks = []
         detected_maps = []
         forward_params = []
@@ -599,9 +595,9 @@ class Script(scripts.Script):
                 self.unloadable.get(module, lambda:None)()
             
         self.latest_model_hash = p.sd_model.sd_model_hash
-        for idx,  contents in enumerate(control_groups):
+        for idx, contents in enumerate(control_groups):
             module, model, params = contents
-            params, input_image = self.parse_remote_call(p, params, idx)
+            _, input_image = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
                 
