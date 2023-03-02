@@ -419,10 +419,10 @@ class Script(scripts.Script):
                         canvas_ratio =  gr.Slider(label="Canvas proportional scale %", minimum=1, maximum=1000, value=100, step=1, interactive=True)
 
                     with gr.Row(variant="panel",):
-                        canvas_sw512 = ToolButton(value=set_w_512_symbol, label="W:512")
-                        canvas_sw768 = ToolButton(value=set_w_768_symbol, label="W:768")
-                        canvas_sh512 = ToolButton(value=set_h_512_symbol, label="H:512")
-                        canvas_sh768 = ToolButton(value=set_h_768_symbol, label="H:768")
+                        canvas_sw512 = ToolButton(value=set_w_512_symbol, label="W:512", elem_id="btn_canvas_sw512")
+                        canvas_sw768 = ToolButton(value=set_w_768_symbol, label="W:768", elem_id="btn_canvas_sw768")
+                        canvas_sh512 = ToolButton(value=set_h_512_symbol, label="H:512", elem_id="btn_canvas_sh512")
+                        canvas_sh768 = ToolButton(value=set_h_768_symbol, label="H:768", elem_id="btn_canvas_sh768")
 
                         canvas_sw512.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw512], outputs=[canvas_ratio])
                         canvas_sw768.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw768], outputs=[canvas_ratio])
