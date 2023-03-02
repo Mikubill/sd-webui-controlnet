@@ -453,19 +453,16 @@ class Script(scripts.Script):
         print(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
         network_module = PlugableControlModel
-        basedir = os.path.join(os.path.dirname(__file__), os.pardir) # scripts.basedir() returns automatic base path here as its called from main ui
-        if os.path.isabs(shared.opts.data.get("control_net_model_config", default_conf)):
-            network_config = shared.opts.data.get("control_net_model_config", default_conf)
-        else:
-            network_config = os.path.join(basedir, shared.opts.data.get("control_net_model_config", default_conf))
+        network_config = shared.opts.data.get("control_net_model_config", default_conf)
+        if not os.path.isabs(network_config):
+            network_config = os.path.join(scripts.basedir(), network_config)
 
         if any([k.startswith("body.") for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
-            if os.path.isabs(shared.opts.data.get("control_net_model_adapter_config", default_conf)):
-                network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
-            else:
-                network_config = os.path.join(basedir, shared.opts.data.get("control_net_model_adapter_config", default_conf))
+            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
+            if not os.path.isabs(network_config):
+                network_config = os.path.join(scripts.basedir(), network_config)
             
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
