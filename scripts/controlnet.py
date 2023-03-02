@@ -48,12 +48,16 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
-os.makedirs(cn_models_dir, exist_ok=True)
+
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
 cn_detectedmap_dir = os.path.join("detected_maps")
-os.makedirs(cn_detectedmap_dir, exist_ok=True)
 default_detectedmap_dir = cn_detectedmap_dir
+script_dir = scripts.basedir()
+
+os.makedirs(cn_models_dir, exist_ok=True)
+os.makedirs(cn_detectedmap_dir, exist_ok=True)
+
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
@@ -455,14 +459,14 @@ class Script(scripts.Script):
         network_module = PlugableControlModel
         network_config = shared.opts.data.get("control_net_model_config", default_conf)
         if not os.path.isabs(network_config):
-            network_config = os.path.join(scripts.basedir(), network_config)
+            network_config = os.path.join(script_dir, network_config)
 
         if any([k.startswith("body.") for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
             network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
             if not os.path.isabs(network_config):
-                network_config = os.path.join(scripts.basedir(), network_config)
+                network_config = os.path.join(script_dir, network_config)
             
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
