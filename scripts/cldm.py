@@ -147,7 +147,7 @@ class ControlNet(nn.Module):
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
     ):
-        use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not shared.cmd_opts.no_half_controlnet
+        use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not getattr(shared.cmd_opts, "no_half_controlnet", False)
             
         super().__init__()
         if use_spatial_transformer:
