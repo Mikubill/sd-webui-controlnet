@@ -57,7 +57,7 @@ def get_deprecated_cn_field(field_name: str, field):
     field_type, field = field
     field = copy.copy(field)
     field.default = None
-    field.extra['deprecated'] = True
+    field.extra['_deprecated'] = True
     if field_name in ('input_image', 'mask'):
         field_type = List[field_type]
     return f'{cn_root_field_prefix}{field_name}', (field_type, field)
@@ -76,7 +76,7 @@ def create_controlnet_request_model(p_api_class):
             def schema_extra(schema: dict, _):
                 props = {}
                 for k, v in schema.get('properties', {}).items():
-                    if not v.get('deprecated', False):
+                    if not v.get('_deprecated', False):
                         props[k] = v
                     if v.get('docs_default', None) is not None:
                         v['default'] = v['docs_default']
