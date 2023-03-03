@@ -49,12 +49,16 @@ cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
-os.makedirs(cn_models_dir, exist_ok=True)
-default_conf = os.path.join(scripts.basedir(), "models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join(scripts.basedir(), "models", "sketch_adapter_v14.yaml")
-cn_detectedmap_dir = os.path.join(scripts.basedir(), "detected_maps")
-os.makedirs(cn_detectedmap_dir, exist_ok=True)
+
+default_conf = os.path.join("models", "cldm_v15.yaml")
+default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
+cn_detectedmap_dir = os.path.join("detected_maps")
 default_detectedmap_dir = cn_detectedmap_dir
+script_dir = scripts.basedir()
+
+os.makedirs(cn_models_dir, exist_ok=True)
+os.makedirs(cn_detectedmap_dir, exist_ok=True)
+
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 set_outres_symbol = '\U000023EB' # ⏫
@@ -509,7 +513,7 @@ class Script(scripts.Script):
         ctrls_group = (gr.State(is_img2img),)
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
-            with gr.Accordion("ControlNet", open = False):
+            with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
                 if max_models > 1:
                     with gr.Tabs():
                             for i in range(max_models):
@@ -555,11 +559,15 @@ class Script(scripts.Script):
         state_dict = load_state_dict(model_path)
         network_module = PlugableControlModel
         network_config = shared.opts.data.get("control_net_model_config", default_conf)
+        if not os.path.isabs(network_config):
+            network_config = os.path.join(script_dir, network_config)
 
         if any([k.startswith("body.") for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
-            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
+            if not os.path.isabs(network_config):
+                network_config = os.path.join(script_dir, network_config)
             
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
@@ -574,51 +582,55 @@ class Script(scripts.Script):
         network.to(p.sd_model.device, dtype=p.sd_model.dtype)
         print(f"ControlNet model {model} loaded.")
         return network
-    
+
+    @staticmethod
+    def get_remote_call(p, attribute, default=None, idx=0, strict=False, force=False):
+        if not force and not shared.opts.data.get("control_net_allow_script_control", False):
+            return default
+
+        def get_element(obj, idx, strict=False):
+            if not isinstance(obj, list):
+                return obj if not strict or idx == 0 else None
+            elif idx < len(obj):
+                return obj[idx]
+            else:
+                return None
+
+        attribute_value = get_element(getattr(p, attribute, None), idx, strict)
+        default_value = get_element(default, idx)
+        return attribute_value if attribute_value is not None else default_value
+
     def parse_remote_call(self, p, params, idx):
         if params is None:
             params = [None] * PARAM_COUNT
-        
+
         enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
-        def selector(p, attribute, default=None, idx=0):
-            def get_element(obj, idx):
-                if not isinstance(obj, list):
-                    return obj
-                if idx < len(obj):
-                    return obj[idx]
-                else:
-                    return None
-            attribute_value = get_element(getattr(p, attribute, None), idx)
-            default_value = get_element(default, idx)
-            return attribute_value if attribute_value is not None else default_value
+        selector = self.get_remote_call
 
-        if shared.opts.data.get("control_net_allow_script_control", False):
-            enabled = selector(p, "control_net_enabled", enabled, idx)
-            module = selector(p, "control_net_module", module, idx)
-            model = selector(p, "control_net_model", model, idx)
-            weight = selector(p, "control_net_weight", weight, idx)
-            image = selector(p, "control_net_image", image, idx)
-            scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
-            resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
-            rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
-            lowvram = selector(p, "control_net_lowvram", lowvram, idx)
-            pres = selector(p, "control_net_pres", pres, idx)
-            pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
-            pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
-            guidance_strength = selector(p, "control_net_guidance_strength", 1.0, idx)
-            guidance_start = selector(p, "control_net_guidance_start", guidance_start, idx)
-            guidance_end = selector(p, "control_net_guidance_end", guidance_end, idx)
-            guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
-            if guidance_strength < 1.0:
-                # for backward compatible
-                guidance_end = guidance_strength
+        enabled = selector(p, "control_net_enabled", enabled, idx, strict=True)
+        module = selector(p, "control_net_module", module, idx)
+        model = selector(p, "control_net_model", model, idx)
+        weight = selector(p, "control_net_weight", weight, idx)
+        image = selector(p, "control_net_image", image, idx)
+        scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
+        resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
+        rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
+        lowvram = selector(p, "control_net_lowvram", lowvram, idx)
+        pres = selector(p, "control_net_pres", pres, idx)
+        pthr_a = selector(p, "control_net_pthr_a", pthr_a, idx)
+        pthr_b = selector(p, "control_net_pthr_b", pthr_b, idx)
+        guidance_strength = selector(p, "control_net_guidance_strength", 1.0, idx)
+        guidance_start = selector(p, "control_net_guidance_start", guidance_start, idx)
+        guidance_end = selector(p, "control_net_guidance_end", guidance_end, idx)
+        guess_mode = selector(p, "control_net_guess_mode", guess_mode, idx)
+        if guidance_strength < 1.0:
+            # for backward compatible
+            guidance_end = guidance_strength
 
-            input_image = selector(p, "control_net_input_image", None, idx)
-        else:
-            input_image = None
-        
+        input_image = selector(p, "control_net_input_image", None, idx)
+
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
 
@@ -635,24 +647,16 @@ class Script(scripts.Script):
 
         control_groups = []
         params_group = [args[i:i + PARAM_COUNT] for i in range(0, len(args), PARAM_COUNT)]
-        if getattr(p, 'control_net_api_access', False) and len(params_group) == 0:
+        if len(params_group) == 0:
             # fill a null group
             params, _ = self.parse_remote_call(p, None, 0)
             if params[0]: # enabled
                 params_group.append(params)
-            
-        for idx, params in enumerate(params_group):
-            enabled, module, model, weight = params[:4]
-            guidance_start = params[12]
-            guidance_end = params[13]
 
-            if shared.opts.data.get("control_net_allow_script_control", False):
-                p_enabled = getattr(p, "control_net_enabled", None)
-                if isinstance(p_enabled, list):
-                    if idx < len(p_enabled) and p_enabled[idx] is not None:
-                        enabled = p_enabled[idx]
-                elif idx == 0 and p_enabled is not None:
-                        enabled = p_enabled
+        for idx, params in enumerate(params_group):
+            params, _ = self.parse_remote_call(p, params, idx)
+            enabled, module, model, weight, image, scribble_mode, \
+                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
             if not enabled:
                 continue
@@ -669,18 +673,18 @@ class Script(scripts.Script):
                 f"{prefix} Guidance Start": guidance_start,
                 f"{prefix} Guidance End": guidance_end,
             })
-            
+
         if len(params_group) == 0:
            self.latest_network = None
            return 
-        
+
         networks = []
         detected_maps = []
         forward_params = []
         hook_lowvram = False
         
         # cache stuff
-        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} 
+        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} or self.model_cache is None
         if models_changed or len(self.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
             for key, model in self.model_cache.items():
                 model.to("cpu")
@@ -696,9 +700,9 @@ class Script(scripts.Script):
                 self.unloadable.get(module, lambda:None)()
             
         self.latest_model_hash = p.sd_model.sd_model_hash
-        for idx,  contents in enumerate(control_groups):
+        for idx, contents in enumerate(control_groups):
             module, model, params = contents
-            params, input_image = self.parse_remote_call(p, params, idx)
+            _, input_image = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
                 
@@ -711,9 +715,8 @@ class Script(scripts.Script):
             model_net.reset()
             networks.append(model_net)
             self.model_cache[model] = model_net
-
-            is_api = getattr(p, 'control_net_api_access', False)
-            is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+            
+            is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
                 input_image = HWC3(np.asarray(p.image_control)) 
             elif input_image is not None:
@@ -763,17 +766,10 @@ class Script(scripts.Script):
             control = rearrange(control, 'h w c -> c h w')
             detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
-            _, old_h, old_w = detected_map.shape
-
             if resize_mode == "Scale to Fit (Inner Fit)":
-                if old_h / old_w > h / w:
-                    scale = h / old_h
-                else:
-                    scale = w / old_w
-
                 transform = Compose([
-                    Resize(int(old_h*scale) if old_h < old_w else int(old_w *scale), interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(size=(h, w))
+                    Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
+                    CenterCrop(size=(h, w)),
                 ])
                 control = transform(control)
                 detected_map = transform(detected_map)
@@ -808,12 +804,13 @@ class Script(scripts.Script):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
+                if not os.path.isabs(detectmap_dir):
+                    detectmap_dir = os.path.join(p.outpath_samples, detectmap_dir)
                 os.makedirs(detectmap_dir, exist_ok=True)
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
 
-        is_api = getattr(p, 'control_net_api_access', False)
-        is_img2img_batch_tab = not is_api and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
@@ -849,7 +846,6 @@ def on_ui_settings():
         default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
-
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(

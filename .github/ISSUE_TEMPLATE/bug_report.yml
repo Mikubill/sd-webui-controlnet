@@ -46,8 +46,8 @@ body:
       label: Commit where the problem happens
       description: Which commit of the extension are you running on? Please include the commit of both the extension and the webui (Do not write *Latest version/repo/commit*, as this means nothing and will have changed by the time we read your issue. Rather, copy the **Commit** link at the bottom of the UI, or from the cmd/terminal if you can't launch it.)
       value: |
-        webui:\t\t
-        controlnet:\t
+        webui: 
+        controlnet: 
     validations:
       required: true
   - type: dropdown
