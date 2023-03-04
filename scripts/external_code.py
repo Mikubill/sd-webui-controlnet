@@ -50,9 +50,11 @@ class ControlNetUnit:
 
 
 def get_units_from_script_runner(script_runner: scripts.ScriptRunner, script_args: List[Any]) -> List[ControlNetUnit]:
-    for script in script_runner.alwayson_scripts:
-        if is_cn_script(script):
-            return get_units_from_args(script_args[script.args_from:script.args_to])
+    cn_script = find_cn_script(script_runner)
+    if cn_script:
+        return get_units_from_args(script_args[cn_script.args_from:cn_script.args_to])
+
+    return []
 
 
 def get_units_from_args(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
@@ -115,6 +117,11 @@ def get_models(update: bool=False) -> List[str]:
 
     return list(cn_models_names.values())
 
+
+def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
+    for script in script_runner.alwayson_scripts:
+        if is_cn_script(script):
+            return script
 
 def is_cn_script(script: scripts.Script) -> bool:
     return script.title().lower() == 'controlnet'
