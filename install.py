@@ -28,4 +28,5 @@ with open(req_file) as file:
 for pkg, lib in mim_packages.items():
     lib = lib.strip()
     if not launch.is_installed(pkg):
-        run_mim(f"install {lib}", f"sd-webui-controlnet requirement: {lib}")
+        print(f"[ControlNet] Package {lib} not found in current environment. Some annotators may not function properly.")
+        # run_mim(f"install {lib}", f"sd-webui-controlnet requirement: {lib}")
