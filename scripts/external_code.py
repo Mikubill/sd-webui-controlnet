@@ -69,7 +69,7 @@ def get_all_units(script_runner: scripts.ScriptRunner, script_args: List[Any]) -
 def get_all_units_from_args(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
     """
     Fetch ControlNet processing units from ControlNet script arguments.
-    Use `external_code.get_units_from_script_runner` to fetch units from the list of all scripts arguments.
+    Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
 
     Keyword arguments:
     strip_positional_args -- Whether positional arguments are present in `script_args`. (default True)
