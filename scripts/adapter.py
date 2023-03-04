@@ -66,7 +66,7 @@ class PlugableAdapter(nn.Module):
             config.model.params.cin = 192
             self.control_model = Adapter_light(**config.model.params)
         if (config.model.params.cin == 64 * 7):
-            config.model.params.cin = 192
+            del config.model.params.cin
             self.control_model = StyleAdapter(**config.model.params)
         else:
             self.control_model = Adapter(**config.model.params)           
