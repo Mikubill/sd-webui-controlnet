@@ -16,7 +16,6 @@ from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusion
 import modules.scripts as scripts
 
 from scripts import external_code
-from scripts.controlnet import update_cn_models, cn_models_names
 from scripts.processor import *
 
 def to_base64_nparray(encoding: str):
@@ -247,9 +246,9 @@ def warn_deprecated_cn_params():
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
     async def model_list():
-        update_cn_models()
-        print(list(cn_models_names.values()))
-        return {"model_list": list(cn_models_names.values())}
+        up_to_date_model_list = external_code.get_models(update=True)
+        print(up_to_date_model_list)
+        return {"model_list": up_to_date_model_list}
 
     @app.post("/controlnet/detect")
     async def detect(
