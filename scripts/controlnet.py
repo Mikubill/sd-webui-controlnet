@@ -177,6 +177,7 @@ class ResizeMode(Enum):
     OUTER_FIT = "Envelope (Outer Fit)"
     RESIZE = "Just Resize"
 
+
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
     if isinstance(value, str):
         return ResizeMode(value)
@@ -184,7 +185,6 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return [e for e in ResizeMode][value]
     else:
         return value
-
 
 class Script(scripts.Script):
     model_cache = {}

@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 from fastapi import FastAPI, Body
 from PIL import Image
@@ -42,7 +44,7 @@ cn_fields = {
     "module": (str, Field(default="none", title='Controlnet Module')),
     "model": (str, Field(default="None", title='Controlnet Model')),
     "weight": (float, Field(default=1.0, title='Controlnet Weight')),
-    "resize_mode": (str, Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')),
+    "resize_mode": (Union[int, str], Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')),
     "lowvram": (bool, Field(default=False, title='Controlnet Low VRAM')),
     "processor_res": (int, Field(default=64, title='Controlnet Processor Res')),
     "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),

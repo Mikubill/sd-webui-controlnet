@@ -140,7 +140,8 @@ def update_cn_script_args(
 
 def get_models(update: bool=False) -> List[str]:
     """
-    Fetch the list of available models. Any value returned is a candidate value of `ControlNetUnit.model`.
+    Fetch the list of available models.
+    Each value is a valid candidate of `ControlNetUnit.model`.
 
     Keyword arguments:
     update -- Whether to refresh the list from disk. (default False)
