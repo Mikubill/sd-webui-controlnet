@@ -63,10 +63,13 @@ refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 set_outres_symbol = '\U000023EB' # ⏫
 
-set_w_512_symbol = '\u00a0↔\u00a0512\u00a0' # ↔
-set_w_768_symbol = '\u00a0↔\u00a0768\u00a0' # ↔
-set_h_512_symbol = '\u00a0↕\u00a0512\u00a0' # ↕
-set_h_768_symbol = '\u00a0↕\u00a0768\u00a0' # ↕
+set_w_512_symbol = '↔\u00a0512' # ↔
+set_w_768_symbol = '↔\u00a0768' # ↔
+set_h_512_symbol = '↕\u00a0512' # ↕
+set_h_768_symbol = '↕\u00a0768' # ↕
+
+new_canvas_symbol = "\U0001F195" #🆕
+annotator_onoff_symbol = "\U0001F441" #👁
 
 camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
@@ -207,6 +210,7 @@ class Script(scripts.Script):
             "openpose_hand": unload_openpose,
             "segmentation": unload_uniformer,
         }
+        self.isAnnotateVisible = False
         self.input_image = None
         self.latest_model_hash = ""
         self.inp_w=512
@@ -243,6 +247,7 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
     
+
     def uigroup(self, is_img2img):
         ctrls = ()
         infotext_fields = []
@@ -252,6 +257,29 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+
+            def create_canvas(h, w):
+                return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
+            
+
+            def run_annotator(image, module, pres, pthr_a, pthr_b):
+                self.isAnnotateVisible = not self.isAnnotateVisible
+                if (not self.isAnnotateVisible):
+                   return gr.update(visible=False)
+                
+                img = HWC3(image['image'])
+                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                    img = HWC3(image['mask'][:, :, 0])
+                preprocessor = self.preprocessor[module]
+                result = None
+                if pres > 64:
+                    result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                else:
+                    result = preprocessor(img)
+                return gr.update(value=result, visible=True, interactive=False)
+            
+            create_button = ToolButton(value=new_canvas_symbol)
+            annotator_button = ToolButton(value=annotator_onoff_symbol)
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
 
@@ -375,10 +403,7 @@ class Script(scripts.Script):
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
                 
         # infotext_fields.extend((module, model, weight))
-
-        def create_canvas(h, w):
-            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-       
+    
         def onRatioChange(h,w, percent):
             return (int(round(self.inp_h*percent/100)), int(round(self.inp_w*percent/100)))
 
@@ -397,68 +422,45 @@ class Script(scripts.Script):
                 p = 768 / self.inp_w * 100
             return gr.Slider.update(value=p)
 
-
-        zeroComp = gr.Number(value=0)
-
+        zeroComp = gr.Number(value=0, visible=False)
         resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
+        
         with gr.Row():
-            with gr.Column():
+            with gr.Column(variant="panel"):
+                gr.HTML(value="<br>")
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                 canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                gr.HTML(value="<br>")
+                with gr.Row():
+                    canvas_ratio =  gr.Slider(label="Canvas proportional scale %", minimum=1, maximum=1000, value=100, step=1, interactive=True)
 
-            if gradio_compat:
-                canvas_swap_res = ToolButton(value=switch_values_symbol, label="Swap height/width")
-                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-            
-                canvas_set_outres = ToolButton(value=set_outres_symbol, label="Set as output size")
+                    canvas_sw512 = ToolButton(value=set_w_512_symbol, label="W:512", elem_id="btn_canvas_sw512")
+                    canvas_sw768 = ToolButton(value=set_w_768_symbol, label="W:768", elem_id="btn_canvas_sw768")
+                    canvas_sh512 = ToolButton(value=set_h_512_symbol, label="H:512", elem_id="btn_canvas_sh512")
+                    canvas_sh768 = ToolButton(value=set_h_768_symbol, label="H:768", elem_id="btn_canvas_sh768")
 
-            if is_img2img:
-                canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.img2img_h_slider,self.img2img_w_slider])
-            else:
-                canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.txt2img_h_slider,self.txt2img_w_slider])
+                    canvas_sw512.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw512], outputs=[canvas_ratio])
+                    canvas_sw768.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw768], outputs=[canvas_ratio])
+                    canvas_sh512.click(fn=set_pref_canvas_size,inputs=[canvas_sh512,zeroComp], outputs=[canvas_ratio])
+                    canvas_sh768.click(fn=set_pref_canvas_size,inputs=[canvas_sh768,zeroComp], outputs=[canvas_ratio])                        
 
-            with gr.Column(variant="panel"):
-                with gr.Box():
-                    with gr.Row():
-                        canvas_ratio =  gr.Slider(label="Canvas proportional scale %", minimum=1, maximum=1000, value=100, step=1, interactive=True)
-
-                    with gr.Row(variant="panel",):
-                        canvas_sw512 = ToolButton(value=set_w_512_symbol, label="W:512", elem_id="btn_canvas_sw512")
-                        canvas_sw768 = ToolButton(value=set_w_768_symbol, label="W:768", elem_id="btn_canvas_sw768")
-                        canvas_sh512 = ToolButton(value=set_h_512_symbol, label="H:512", elem_id="btn_canvas_sh512")
-                        canvas_sh768 = ToolButton(value=set_h_768_symbol, label="H:768", elem_id="btn_canvas_sh768")
-
-                        canvas_sw512.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw512], outputs=[canvas_ratio])
-                        canvas_sw768.click(fn=set_pref_canvas_size,inputs=[zeroComp,canvas_sw768], outputs=[canvas_ratio])
-                        canvas_sh512.click(fn=set_pref_canvas_size,inputs=[canvas_sh512,zeroComp], outputs=[canvas_ratio])
-                        canvas_sh768.click(fn=set_pref_canvas_size,inputs=[canvas_sh768,zeroComp], outputs=[canvas_ratio])                        
-                        
-                        canvas_ratio.change(fn=onRatioChange,inputs=[canvas_height,canvas_width,canvas_ratio], outputs=[canvas_height, canvas_width], preprocess=True, postprocess=True, show_progress=False)
-
-
+                    if gradio_compat:
+                        canvas_swap_res = ToolButton(value=switch_values_symbol, label="Swap height/width")
+                        canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                     
-        create_button = gr.Button(value="Create blank canvas")
+                        canvas_set_outres = ToolButton(value=set_outres_symbol, label="Set as output size")
+
+                if is_img2img:
+                    canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.img2img_h_slider,self.img2img_w_slider])
+                else:
+                    canvas_set_outres.click(fn=set_outres, inputs=[canvas_height,canvas_width], outputs=[self.txt2img_h_slider,self.txt2img_w_slider])
+
+                    canvas_ratio.change(fn=onRatioChange,inputs=[canvas_height,canvas_width,canvas_ratio], outputs=[canvas_height, canvas_width], preprocess=True, postprocess=True, show_progress=False)
+
+
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-        
-        def run_annotator(image, module, pres, pthr_a, pthr_b):
-            img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                img = HWC3(image['mask'][:, :, 0])
-            preprocessor = self.preprocessor[module]
-            result = None
-            if pres > 64:
-                result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
-            else:
-                result = preprocessor(img)
-            return gr.update(value=result, visible=True, interactive=False)
-        
-        with gr.Row():
-            annotator_button = gr.Button(value="Preview annotator result")
-            annotator_button_hide = gr.Button(value="Hide annotator result")
-        
         annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-        annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
-                                                
+
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)

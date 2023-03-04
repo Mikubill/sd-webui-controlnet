@@ -3,8 +3,13 @@ cnet_titles = {
 	"🔄": "Refresh",
 	"⇅": "Switch height/width",
 	"📷": "Enable WebCam",
-	"⇄": "Mirror WebCam"
-
+	"⇄": "Mirror WebCam",
+	"🆕":"Create empty canvas (using size from below canvas size)",
+	"👁":"Toggle Annotator preview on/off",
+	"↔\u00a0512": "Set width to 512 and height accordingly",
+	"↔\u00a0768": "Set width to 768 and height accordingly",
+	"↕\u00a0512": "Set height to 512 and width accordingly",
+	"↕\u00a0768": "Set height to 768 and width accordingly"
 }
 
 onUiUpdate(function () {
