@@ -178,11 +178,10 @@ def create_cn_script_runner(script_runner: scripts.ScriptRunner, control_unit_re
         script_runner.initialize_scripts(False)
         ui.create_ui()
 
-    cn_script = copy.copy(external_code.find_cn_script(script_runner))
-    cn_script.args_from = cn_script.args_to = 0
+    cn_script = external_code.find_cn_script(script_runner)
     cn_script_runner = copy.copy(script_runner)
     cn_script_runner.alwayson_scripts = [cn_script]
-    cn_script_args = []
+    cn_script_args = [None] * cn_script.args_from
     cn_units = [to_api_cn_unit(control_unit_request) for control_unit_request in control_unit_requests]
     external_code.update_cn_script_args(
         script_runner=cn_script_runner,
