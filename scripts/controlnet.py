@@ -173,9 +173,9 @@ update_cn_models()
 
 
 class ResizeMode(Enum):
+    RESIZE = "Just Resize"
     INNER_FIT = "Scale to Fit (Inner Fit)"
     OUTER_FIT = "Envelope (Outer Fit)"
-    RESIZE = "Just Resize"
 
 
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
