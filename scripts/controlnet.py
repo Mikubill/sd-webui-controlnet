@@ -221,6 +221,7 @@ class Script(scripts.Script):
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             cropped_image = gr.Image(label="Crop image", interactive=True, tool="select", visible=False)
+        with gr.Row():
             generated_image = gr.Image(label="Annotator result", visible=False)
 
         with gr.Row():
