@@ -14,13 +14,13 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
-Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
-
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
 3. Enter URL of this repo to "URL for extension's git repository".
 4. Press "Install" button.
 5. Reload/Restart Web UI.
+
+Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 ### Usage
 

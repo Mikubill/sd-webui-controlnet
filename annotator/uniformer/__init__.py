@@ -1,13 +1,16 @@
-from annotator.uniformer.mmseg.apis import init_segmentor, inference_segmentor, show_result_pyplot
-from annotator.uniformer.mmseg.core.evaluation import get_palette
-from modules.shared import extensions
+import os
 from modules.paths import models_path
 from modules import devices
-import os
+from annotator.uniformer.inference import init_segmentor, inference_segmentor, show_result_pyplot
+
+try:
+    from mmseg.core.evaluation import get_palette
+except ImportError:
+    from annotator.mmpkg.mmseg.core.evaluation import get_palette
 
 modeldir = os.path.join(models_path, "uniformer")
 checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
-config_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "exp", "upernet_global_small", "config.py")
+config_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),  "upernet_global_small.py")
 old_modeldir = os.path.dirname(os.path.realpath(__file__))
 model = None
 

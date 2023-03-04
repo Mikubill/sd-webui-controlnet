@@ -178,15 +178,14 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
 
     cn_script_runner = copy.copy(script_runner)
 
-    cn_script_args = [False]  # is_img2img
+    cn_script_args: List[Any] = [False]  # is_img2img
     for control_unit_request in control_unit_requests:
         cn_script_args += create_cn_unit_args(control_unit_request)
 
     script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
     cn_script_id = script_titles.index('controlnet')
-    cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
-    cn_script.args_from = 0
-    cn_script.args_to = len(cn_script_args)
+    cn_script = script_runner.alwayson_scripts[cn_script_id]
+    cn_script_args = ([None] * cn_script.args_from) + cn_script_args
 
     def make_script_runner_f_hijack(fixed_original_f):
         def script_runner_f_hijack(p, *args, **kwargs):
