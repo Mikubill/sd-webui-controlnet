@@ -108,9 +108,12 @@ def update_cn_script_args(
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
     """
 
+    cn_script = find_cn_script(script_runner)
+    if cn_script is None:
+        return
+
     def setup_p_args():
         nonlocal is_img2img, is_ui
-        cn_script = find_cn_script(script_runner)
         cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
 
         if is_img2img is None:
@@ -142,7 +145,7 @@ def update_cn_script_args(
 
     cn_script_args_len = 0
     for script in script_runner.alwayson_scripts:
-        if is_cn_script(script):
+        if script is cn_script:
             cn_script_args_len = len(flattened_cn_args)
             script_args[script.args_from:script.args_to] = flattened_cn_args
             script.args_to = script.args_from + cn_script_args_len
