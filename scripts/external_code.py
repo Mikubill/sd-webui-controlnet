@@ -5,6 +5,10 @@ import numpy as np
 
 
 class ControlNetUnit:
+    """
+    Represents an entire ControlNet processing unit.
+    """
+
     def __init__(
         self,
         enabled: bool=True,
@@ -50,6 +54,10 @@ class ControlNetUnit:
 
 
 def get_units_from_script_runner(script_runner: scripts.ScriptRunner, script_args: List[Any]) -> List[ControlNetUnit]:
+    """
+    Fetch ControlNet processing units from an existing script runner.
+    Use this function to fetch units from the list of all scripts arguments.
+    """
     cn_script = find_cn_script(script_runner)
     if cn_script:
         return get_units_from_args(script_args[cn_script.args_from:cn_script.args_to])
@@ -58,6 +66,10 @@ def get_units_from_script_runner(script_runner: scripts.ScriptRunner, script_arg
 
 
 def get_units_from_args(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
+    """
+    Fetch ControlNet processing units from ControlNet script arguments.
+    Use `external_code.get_units_from_script_runner` to fetch units from the list of all scripts arguments.
+    """
     if strip_positional_args:
         script_args = script_args[2:]
 
@@ -69,6 +81,10 @@ def get_units_from_args(script_args: List[Any], strip_positional_args=True) -> L
 
 
 def get_unit_from_args(script_args: List[Any], index: int=0) -> ControlNetUnit:
+    """
+    Fetch a single ControlNet processing unit from ControlNet script arguments.
+    The list must not contain script positional arguments. It must only consist of flattened processing unit parameters.
+    """
     index_from = index * PARAM_COUNT
     index_to = index_from + PARAM_COUNT
     return ControlNetUnit(*script_args[index_from:index_to])
@@ -81,6 +97,10 @@ def update_cn_script_args(
     is_img2img: bool = False,
     is_ui: bool = False,
 ):
+    """
+    Update the arguments of the ControlNet script in `script_runner` in place, reading from `cn_units`.
+    `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
+    """
     flattened_cn_args: List[Any] = [is_img2img, is_ui]
     for unit in cn_units:
         flattened_cn_args.extend((
@@ -112,6 +132,12 @@ def update_cn_script_args(
 
 
 def get_models(update: bool=False) -> List[str]:
+    """
+    Fetch the list of available models. Any value returned is a candidate value of `ControlNetUnit.model`.
+
+    Keyword arguments:
+    update -- Whether to refresh the list from disk. (default False)
+    """
     if update:
         update_cn_models()
 
@@ -119,9 +145,15 @@ def get_models(update: bool=False) -> List[str]:
 
 
 def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
+    """
+    Find the ControlNet script in `script_runner`. Returns `None` if `script_runner` does not contain a ControlNet script.
+    """
     for script in script_runner.alwayson_scripts:
         if is_cn_script(script):
             return script
 
 def is_cn_script(script: scripts.Script) -> bool:
+    """
+    Determine whether `script` is a ControlNet script.
+    """
     return script.title().lower() == 'controlnet'
