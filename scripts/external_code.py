@@ -100,13 +100,32 @@ def update_cn_script_args(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
-    is_img2img: bool = False,
-    is_ui: bool = False,
+    is_img2img: Optional[bool] = None,
+    is_ui: Optional[bool] = None,
 ):
     """
     Update the arguments of the ControlNet script in `script_runner` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
     """
+
+    def setup_p_args():
+        nonlocal is_img2img, is_ui
+        cn_script = find_cn_script(script_runner)
+        cn_script_has_args = cn_script.args_to - cn_script.args_from == 0
+
+        if is_img2img is None:
+            if cn_script_has_args:
+                is_img2img = script_args[cn_script.args_from]
+            else:
+                is_img2img = False
+
+        if is_ui is None:
+            if cn_script_has_args:
+                is_ui = script_args[cn_script.args_from + 1]
+            else:
+                is_ui = False
+
+    setup_p_args()
 
     flattened_cn_args: List[Any] = [is_img2img, is_ui]
     for unit in cn_units:
