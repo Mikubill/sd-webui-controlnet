@@ -220,9 +220,8 @@ class Script(scripts.Script):
         infotext_fields = []
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-            generated_image = gr.Image(label="Annotator result", visible=False)
-        with gr.Row():
             cropped_image = gr.Image(label="Crop image", interactive=True, tool="select", visible=False)
+            generated_image = gr.Image(label="Annotator result", visible=False)
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -250,17 +249,17 @@ class Script(scripts.Script):
             webcam_mirrored = not webcam_mirrored
             return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
 
-        def crop_image_toggle(image):
+        def crop_image_toggle(image, crop):
             global crop_enabled
             crop_enabled = not crop_enabled
-            if crop_enabled:
-                return gr.update(value=(image["image"] if image else None), visible=crop_enabled)
-            else:
-                return gr.update(visible=crop_enabled)
+            params = {"visible": crop_enabled}
+            if crop_enabled and image:
+                params.update(value = image["image"])
+            return gr.update(visible=(not crop_enabled)), gr.update(**params)
             
         webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
         webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
-        crop_image.click(fn=crop_image_toggle, inputs=input_image, outputs=cropped_image)
+        crop_image.click(fn=crop_image_toggle, inputs=input_image, outputs=[input_image, cropped_image])
         cropped_image.change(fn=lambda i: i, inputs=cropped_image, outputs=input_image)
 
         def refresh_all_models(*inputs):
