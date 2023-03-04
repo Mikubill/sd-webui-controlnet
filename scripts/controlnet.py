@@ -2,6 +2,8 @@ import gc
 import os
 import stat
 from collections import OrderedDict
+from enum import Enum
+from typing import Union
 
 import torch
 
@@ -44,7 +46,7 @@ except ImportError:
     pass
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
-cn_models = {}      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
+cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
@@ -141,8 +143,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 
 def update_cn_models():
-    global cn_models, cn_models_names
-    res = OrderedDict()
+    cn_models.clear()
     ext_dirs = (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
     extra_lora_paths = (extra_lora_path for extra_lora_path in ext_dirs
                 if extra_lora_path is not None and os.path.exists(extra_lora_path))
@@ -153,12 +154,16 @@ def update_cn_models():
             "control_net_models_sort_models_by", "name")
         filter_by = shared.opts.data.get("control_net_models_name_filter", "")
         found = get_all_models(sort_by, filter_by, path)
-        res = {**found, **res}
+        cn_models.update({**found, **cn_models})
 
-    cn_models = OrderedDict(**{"None": None}, **res)
-    cn_models_names = {}
+    # insert "None" at the beginning of `cn_models` in-place
+    cn_models_copy = OrderedDict(cn_models)
+    cn_models.clear()
+    cn_models.update({**{"None": None}, **cn_models_copy})
+
+    cn_models_names.clear()
     for name_and_hash, filename in cn_models.items():
-        if filename == None:
+        if filename is None:
             continue
         name = os.path.splitext(os.path.basename(filename))[0].lower()
         cn_models_names[name] = name_and_hash
@@ -166,6 +171,19 @@ def update_cn_models():
 
 update_cn_models()
 
+
+class ResizeMode(Enum):
+    INNER_FIT = "Scale to Fit (Inner Fit)"
+    OUTER_FIT = "Envelope (Outer Fit)"
+    RESIZE = "Just Resize"
+
+def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
+    if isinstance(value, str):
+        return ResizeMode(value)
+    elif isinstance(value, int):
+        return [e for e in ResizeMode][value]
+    else:
+        return value
 
 class Script(scripts.Script):
     def __init__(self) -> None:
@@ -361,7 +379,7 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
+        resize_mode = gr.Radio(choices=[e.value for e in ResizeMode], value=ResizeMode.INNER_FIT.value, label="Resize Mode")
         with gr.Row():
             with gr.Column():
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
@@ -409,7 +427,10 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
-        ctrls_group = (gr.State(is_img2img),)
+        ctrls_group = (
+            gr.State(is_img2img),
+            gr.State(True),  # is_ui
+        )
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
@@ -533,7 +554,7 @@ class Script(scripts.Script):
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
 
-    def process(self, p, is_img2img=False, *args):
+    def process(self, p, is_img2img=False, is_ui=False, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -604,6 +625,8 @@ class Script(scripts.Script):
             _, input_image = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
+
+            resize_mode = resize_mode if isinstance(resize_mode, ResizeMode) else resize_mode_from_value(resize_mode)
                 
             if lowvram:
                 hook_lowvram = True
@@ -665,14 +688,14 @@ class Script(scripts.Script):
             control = rearrange(control, 'h w c -> c h w')
             detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
-            if resize_mode == "Scale to Fit (Inner Fit)":
+            if resize_mode == ResizeMode.INNER_FIT:
                 transform = Compose([
                     Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
                     CenterCrop(size=(h, w)),
                 ])
                 control = transform(control)
                 detected_map = transform(detected_map)
-            elif resize_mode == "Envelope (Outer Fit)":
+            elif resize_mode == ResizeMode.OUTER_FIT:
                 transform = Compose([
                     Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
                     CenterCrop(size=(h, w))
@@ -699,7 +722,7 @@ class Script(scripts.Script):
         if len(control_groups) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, is_img2img=False, *args):
+    def postprocess(self, p, processed, is_img2img=False, is_ui=False, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -709,7 +732,7 @@ class Script(scripts.Script):
                 img = Image.fromarray(detect_map)
                 save_image(img, detectmap_dir, module)
 
-        is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img_batch_tab = is_ui and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
         if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
             return
