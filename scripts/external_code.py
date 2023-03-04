@@ -15,9 +15,9 @@ class ControlNetUnit:
         module: Optional[str]=None,
         model: Optional[str]=None,
         weight: float=1.0,
-        image: Optional[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray], np.ndarray]]=None,
+        image: Optional[Union[Dict[str, np.ndarray]|Tuple[np.ndarray, np.ndarray]|np.ndarray]]=None,
         invert_image: bool=False,
-        resize_mode: Union[ResizeMode|str]=ResizeMode.INNER_FIT,
+        resize_mode: Union[ResizeMode|int|str]=ResizeMode.INNER_FIT,
         rgbbgr_mode: bool=False,
         low_vram: bool=False,
         processor_res: int=64,
@@ -161,6 +161,7 @@ def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Scri
     for script in script_runner.alwayson_scripts:
         if is_cn_script(script):
             return script
+
 
 def is_cn_script(script: scripts.Script) -> bool:
     """
