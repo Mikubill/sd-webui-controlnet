@@ -167,10 +167,13 @@ def update_cn_models():
 update_cn_models()
 
 
+
+
 class Script(scripts.Script):
+    model_cache = {}
+
     def __init__(self) -> None:
         super().__init__()
-        self.model_cache = {}
         self.latest_network = None
         self.preprocessor = {
             "none": lambda x, *args, **kwargs: x,
@@ -583,15 +586,14 @@ class Script(scripts.Script):
         hook_lowvram = False
         
         # cache stuff
-        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or self.model_cache == {} or self.model_cache is None
-        if models_changed or len(self.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
-            for key, model in self.model_cache.items():
+        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or not Script.model_cache or Script.model_cache is None
+        if models_changed or len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
+            for key, model in Script.model_cache.items():
                 model.to("cpu")
-            del self.model_cache
+            Script.model_cache.clear()
             gc.collect()
             devices.torch_gc()
-            self.model_cache = {}
-            
+
         # unload unused preproc
         module_list = [mod[0] for mod in control_groups]
         for key in self.unloadable:
@@ -608,12 +610,12 @@ class Script(scripts.Script):
             if lowvram:
                 hook_lowvram = True
                 
-            model_net = self.model_cache[model] if model in self.model_cache \
+            model_net = Script.model_cache[model] if model in Script.model_cache \
                 else self.build_control_model(p, unet, model, lowvram) 
  
             model_net.reset()
             networks.append(model_net)
-            self.model_cache[model] = model_net
+            Script.model_cache[model] = model_net
             
             is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
