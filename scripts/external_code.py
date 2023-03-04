@@ -111,19 +111,13 @@ def update_cn_script_args(
     def setup_p_args():
         nonlocal is_img2img, is_ui
         cn_script = find_cn_script(script_runner)
-        cn_script_has_args = cn_script.args_to - cn_script.args_from == 0
+        cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
 
         if is_img2img is None:
-            if cn_script_has_args:
-                is_img2img = script_args[cn_script.args_from]
-            else:
-                is_img2img = False
+            is_img2img = script_args[cn_script.args_from] if cn_script_has_args else False
 
         if is_ui is None:
-            if cn_script_has_args:
-                is_ui = script_args[cn_script.args_from + 1]
-            else:
-                is_ui = False
+            is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
 
     setup_p_args()
 
