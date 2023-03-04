@@ -365,6 +365,8 @@ class Script(scripts.Script):
             
         def svgPreprocess(inputs):
             if (inputs):
+                if type(inputs) is not dict:
+                    inputs = {"image": inputs, "mask": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="}
                 if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                     svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                     drawing = svg2rlg(io.BytesIO(svg_data))
