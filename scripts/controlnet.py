@@ -358,7 +358,7 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-            if module == "binary":
+            elif module == "binary":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
                     gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
