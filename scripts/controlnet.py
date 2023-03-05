@@ -242,7 +242,7 @@ class Script(scripts.Script):
         infotext_fields = []
         webcam_enabled = gr.State(False)
         webcam_mirrored = gr.State(False)
-        input_tabs = gr.Tabs()
+        input_tabs = gr.Tabs(elem_id="controlnet_image_tabs")
         with input_tabs:
             with gr.Tab("Input Image", id="tab_input"):
                 input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
