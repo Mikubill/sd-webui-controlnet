@@ -272,7 +272,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "mlsd", 
             "normal_map", 
             "openpose", 
-            "segmentation"
+            "segmentation",
+            "binary"
         ]
 
         if controlnet_module not in available_modules:
@@ -305,6 +306,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(fake_scribble(img, controlnet_processor_res))
             elif controlnet_module == "segmentation":
                 results.append(uniformer(img, controlnet_processor_res))
+            elif controlnet_module == "binary":
+                results.append(binary(img, controlnet_processor_res, controlnet_threshold_a))
 
         if controlnet_module == "hed":
             unload_hed()

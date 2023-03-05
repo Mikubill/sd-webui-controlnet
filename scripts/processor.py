@@ -213,3 +213,16 @@ def color(img, res=512, **kwargs):
         model_color = apply_color
     result = model_color(img, res=res)
     return result, True
+
+
+model_binary = None
+
+
+def binary(img, res=512, thr_a=0, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_binary
+    if model_binary is None:
+        from annotator.binary import apply_binary
+        model_binary = apply_binary
+    result = model_binary(img, thr_a)
+    return result, True
