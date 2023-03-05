@@ -782,8 +782,18 @@ class Script(scripts.Script):
             else:
                 control = detected_map  
 
-            # hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting
-            forward_param = ControlParams(model_net, control, guess_mode, weight, False, guidance_start, guidance_end, None, isinstance(model_net, PlugableAdapter))
+            forward_param = ControlParams(
+                control_model=model_net,
+                hint_cond=control,
+                guess_mode=guess_mode,
+                weight=weight,
+                guidance_stopped=False,
+                start_guidance_percent=guidance_start,
+                stop_guidance_percent=guidance_end,
+                advanced_weighting=None,
+                is_adapter=isinstance(model_net, PlugableAdapter),
+                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter"
+            )
             forward_params.append(forward_param)
 
             del model_net
