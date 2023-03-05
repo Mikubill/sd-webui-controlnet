@@ -587,9 +587,12 @@ class Script(scripts.Script):
         
         # cache stuff
         models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or not Script.model_cache or Script.model_cache is None
-        if models_changed or len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
+        if models_changed:
             for key, model in Script.model_cache.items():
                 model.to("cpu")
+                del Script.model_cache[key]
+                gc.collect()
+                devices.torch_gc()
             Script.model_cache.clear()
             gc.collect()
             devices.torch_gc()
@@ -610,12 +613,23 @@ class Script(scripts.Script):
             if lowvram:
                 hook_lowvram = True
                 
-            model_net = Script.model_cache[model] if model in Script.model_cache \
-                else self.build_control_model(p, unet, model, lowvram) 
+            # Need to load the model
+            if model not in Script.model_cache:
+                # If loading a new model would put us over our cache size allocation, remove oldest.
+                # NOTE: This removes the model that was least recently LOADED, not least recently USED.
+                if len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 1):
+                    oldest_key = next(iter(Script.model_cache))
+                    old_model = Script.model_cache[oldest_key]
+                    old_model.to("cpu")
+                    del Script.model_cache[oldest_key]
+                    gc.collect()
+                    devices.torch_gc()
+
+                Script.model_cache[model] = self.build_control_model(p, unet, model, lowvram) 
+            model_net = Script.model_cache[model]
  
             model_net.reset()
             networks.append(model_net)
-            Script.model_cache[model] = model_net
             
             is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
@@ -750,7 +764,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
-        2, "Model cache size (requires restart)", gr.Slider, {"minimum": 0, "maximum": 5, "step": 1}, section=section))
+        1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
     shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
