@@ -2,6 +2,8 @@
 
 import torch
 import torch.nn as nn
+import importlib
+from collections import OrderedDict
 
 from omegaconf import OmegaConf
 from copy import deepcopy
@@ -54,14 +56,28 @@ def get_node_name(name, parent_name):
     if p != parent_name:
         return False, ''
     return True, name[len(parent_name):]
+    
+    
+def get_obj_from_str(string, reload=False):
+    module, cls = string.rsplit(".", 1)
+    if reload:
+        module_imp = importlib.import_module(module)
+        importlib.reload(module_imp)
+    return getattr(importlib.import_module(module, package=None), cls)
 
 
 class PlugableAdapter(nn.Module):
     def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
+        model = Adapter
+        try:
+            self.target = config.model.target
+            model = get_obj_from_str(config.model.target)
+        except ImportError:
+            pass
         
-        self.control_model = Adapter(**config.model.params)           
+        self.control_model = model(**config.model.params)       
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram 
         self.control = None
@@ -80,7 +96,7 @@ class PlugableAdapter(nn.Module):
         
         self.hint_cond = hint
         hint_in = hint
-        if self.control_model.conv_in.in_channels == 64:
+        if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
             hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
         else:
             hint_in = hint_in.unsqueeze(0)
@@ -245,6 +261,137 @@ class Adapter(nn.Module):
             for j in range(self.nums_rb):
                 idx = i*self.nums_rb +j
                 x = self.body[idx](x)
+            features.append(x)
+
+        return features
+
+class LayerNorm(nn.LayerNorm):
+    """Subclass torch's LayerNorm to handle fp16."""
+
+    def forward(self, x: torch.Tensor):
+        orig_type = x.dtype
+        ret = super().forward(x.type(torch.float32))
+        return ret.type(orig_type)
+
+
+class QuickGELU(nn.Module):
+
+    def forward(self, x: torch.Tensor):
+        return x * torch.sigmoid(1.702 * x)
+
+
+class ResidualAttentionBlock(nn.Module):
+
+    def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None):
+        super().__init__()
+
+        self.attn = nn.MultiheadAttention(d_model, n_head)
+        self.ln_1 = LayerNorm(d_model)
+        self.mlp = nn.Sequential(
+            OrderedDict([("c_fc", nn.Linear(d_model, d_model * 4)), ("gelu", QuickGELU()),
+                         ("c_proj", nn.Linear(d_model * 4, d_model))]))
+        self.ln_2 = LayerNorm(d_model)
+        self.attn_mask = attn_mask
+
+    def attention(self, x: torch.Tensor):
+        self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
+        return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
+
+    def forward(self, x: torch.Tensor):
+        x = x + self.attention(self.ln_1(x))
+        x = x + self.mlp(self.ln_2(x))
+        return x
+
+
+class StyleAdapter(nn.Module):
+
+    def __init__(self, width=1024, context_dim=768, num_head=8, n_layes=3, num_token=4):
+        super().__init__()
+
+        scale = width ** -0.5
+        self.transformer_layes = nn.Sequential(*[ResidualAttentionBlock(width, num_head) for _ in range(n_layes)])
+        self.num_token = num_token
+        self.style_embedding = nn.Parameter(torch.randn(1, num_token, width) * scale)
+        self.ln_post = LayerNorm(width)
+        self.ln_pre = LayerNorm(width)
+        self.proj = nn.Parameter(scale * torch.randn(width, context_dim))
+
+    def forward(self, x):
+        # x shape [N, HW+1, C]
+        style_embedding = self.style_embedding + torch.zeros(
+            (x.shape[0], self.num_token, self.style_embedding.shape[-1]), device=x.device)
+        
+        x = torch.cat([x, style_embedding], dim=1)
+        x = self.ln_pre(x)
+        x = x.permute(1, 0, 2)  # NLD -> LND
+        x = self.transformer_layes(x)
+        x = x.permute(1, 0, 2)  # LND -> NLD
+
+        x = self.ln_post(x[:, -self.num_token:, :])
+        x = x @ self.proj
+
+        return x
+
+
+class ResnetBlock_light(nn.Module):
+    def __init__(self, in_c):
+        super().__init__()
+        self.block1 = nn.Conv2d(in_c, in_c, 3, 1, 1)
+        self.act = nn.ReLU()
+        self.block2 = nn.Conv2d(in_c, in_c, 3, 1, 1)
+
+    def forward(self, x):
+        h = self.block1(x)
+        h = self.act(h)
+        h = self.block2(h)
+
+        return h + x
+
+
+class extractor(nn.Module):
+    def __init__(self, in_c, inter_c, out_c, nums_rb, down=False):
+        super().__init__()
+        self.in_conv = nn.Conv2d(in_c, inter_c, 1, 1, 0)
+        self.body = []
+        for _ in range(nums_rb):
+            self.body.append(ResnetBlock_light(inter_c))
+        self.body = nn.Sequential(*self.body)
+        self.out_conv = nn.Conv2d(inter_c, out_c, 1, 1, 0)
+        self.down = down
+        if self.down == True:
+            self.down_opt = Downsample(in_c, use_conv=False)
+
+    def forward(self, x):
+        if self.down == True:
+            x = self.down_opt(x)
+        x = self.in_conv(x)
+        x = self.body(x)
+        x = self.out_conv(x)
+
+        return x
+
+
+class Adapter_light(nn.Module):
+    def __init__(self, channels=[320, 640, 1280, 1280], nums_rb=3, cin=64):
+        super(Adapter_light, self).__init__()
+        self.unshuffle = nn.PixelUnshuffle(8)
+        self.channels = channels
+        self.nums_rb = nums_rb
+        self.body = []
+        for i in range(len(channels)):
+            if i == 0:
+                self.body.append(extractor(in_c=cin, inter_c=channels[i]//4, out_c=channels[i], nums_rb=nums_rb, down=False))
+            else:
+                self.body.append(extractor(in_c=channels[i-1], inter_c=channels[i]//4, out_c=channels[i], nums_rb=nums_rb, down=True))
+        self.body = nn.ModuleList(self.body)
+
+    def forward(self, x):
+        # unshuffle
+        x = self.unshuffle(x)
+        # extract features
+        features = []
+        for i in range(len(self.channels)):
+            x = self.body[i](x)
             features.append(x)
 
         return features

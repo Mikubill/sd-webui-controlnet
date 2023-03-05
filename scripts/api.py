@@ -178,15 +178,14 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
 
     cn_script_runner = copy.copy(script_runner)
 
-    cn_script_args = [False]  # is_img2img
+    cn_script_args: List[Any] = [False]  # is_img2img
     for control_unit_request in control_unit_requests:
         cn_script_args += create_cn_unit_args(control_unit_request)
 
     script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
     cn_script_id = script_titles.index('controlnet')
-    cn_script = copy.copy(script_runner.alwayson_scripts[cn_script_id])
-    cn_script.args_from = 0
-    cn_script.args_to = len(cn_script_args)
+    cn_script = script_runner.alwayson_scripts[cn_script_id]
+    cn_script_args = ([None] * cn_script.args_from) + cn_script_args
 
     def make_script_runner_f_hijack(fixed_original_f):
         def script_runner_f_hijack(p, *args, **kwargs):
@@ -273,7 +272,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "mlsd", 
             "normal_map", 
             "openpose", 
-            "segmentation"
+            "segmentation",
+            "binary",
+            "color"
         ]
 
         if controlnet_module not in available_modules:
@@ -289,23 +290,27 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             img = to_base64_nparray(input_image)
 
             if controlnet_module == "canny":
-                results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
+                results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "hed":
-                results.append(hed(img, controlnet_processor_res))
+                results.append(hed(img, controlnet_processor_res)[0])
             elif controlnet_module == "mlsd":
-                results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b))
+                results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "depth":
-                results.append(midas(img, controlnet_processor_res, np.pi * 2.0))
+                results.append(midas(img, controlnet_processor_res, np.pi * 2.0)[0])
             elif controlnet_module == "normal_map":
-                results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a))
+                results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
             elif controlnet_module == "depth_leres":
-                results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b))
+                results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "openpose":
-                results.append(openpose(img, controlnet_processor_res, False))
+                results.append(openpose(img, controlnet_processor_res, False)[0])
             elif controlnet_module == "fake_scribble":
-                results.append(fake_scribble(img, controlnet_processor_res))
+                results.append(fake_scribble(img, controlnet_processor_res)[0])
             elif controlnet_module == "segmentation":
-                results.append(uniformer(img, controlnet_processor_res))
+                results.append(uniformer(img, controlnet_processor_res)[0])
+            elif controlnet_module == "binary":
+                results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
+            elif controlnet_module == "color":
+                results.append(color(img, controlnet_processor_res)[0])
 
         if controlnet_module == "hed":
             unload_hed()

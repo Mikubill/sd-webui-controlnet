@@ -1,5 +1,5 @@
 ## sd-webui-controlnet
-(WIP) WebUI extension for ControlNet
+(WIP) WebUI extension for ControlNet and T2I-Adapter
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
@@ -14,13 +14,13 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
-Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
-
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
 3. Enter URL of this repo to "URL for extension's git repository".
 4. Press "Install" button.
 5. Reload/Restart Web UI.
+
+Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 ### Usage
 
@@ -47,14 +47,24 @@ Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
 
-### T2I-Adapter Support (Experimental)
+### T2I-Adapter Support
 
-Currently support both sketch Adapter and image Adapter. Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for reference.
+Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for reference. 
 
-To use these models:
+To use T2I-Adapter models:
 1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
-2. Setup correct config in settings panel - `sketch_adapter_v14.yaml` for sketch model and `image_adapter_v14.yaml` for keypose and segmentation model.
+2. Copy corresponding config file and rename it to the same name as the model - see list below.
 3. It's better to use a slightly lower strength (t) when generating images with sketch model, such as 0.6-0.8. (ref: [ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
+
+| Adapter | Config |
+|:-------------------------:|:-------------------------:|
+| t2iadapter_canny_sd14v1.pth | sketch_adapter_v14.yaml |
+| t2iadapter_sketch_sd14v1.pth | sketch_adapter_v14.yaml |
+| t2iadapter_seg_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_keypose_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_openpose_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
+| t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
 
 ### Tips 
 
@@ -75,12 +85,21 @@ To use these models:
 
 ### Adapter Examples
 
-| Input | Output |
-|:-------------------------:|:-------------------------:|
-|  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_out-2.png?raw=true"> |
-|  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_out-2.png?raw=true"> |
-|  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/kp_a-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/kp_o-2.png?raw=true"> |
-|  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/kp_o2-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/kp_a2-2.png?raw=true"> |
+| Source | Input | Output |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+| (no preprocessor) | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_out-2.png?raw=true"> |
+| (no preprocessor) | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_out-2.png?raw=true"> |
+| (no preprocessor) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222967315-dc50406d-2930-47c5-8027-f76b95969f2b.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222967311-724d9531-4b93-4770-8409-cd9480434112.png"> |
+| (no preprocessor) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222966824-8f6c36f1-525b-40c2-ae9e-d3f5d148b5c9.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222966821-110541a4-5014-4cee-90f8-758edf540eae.png"> |
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947416-ec9e52a4-a1d0-48d8-bb81-736bf636145e.jpeg"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947435-1164e7d8-d857-42f9-ab10-2d4a4b25f33a.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947557-5520d5f8-88b4-474d-a576-5c9cd3acac3a.png"> |
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947416-ec9e52a4-a1d0-48d8-bb81-736bf636145e.jpeg"> | (clip, non-image) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222965711-7b884c9e-7095-45cb-a91c-e50d296ba3a2.png"> |
+
+Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
+
+| Image | Disabled | Enabled |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869104-0830feab-a0a1-448e-8bcd-add54b219cba.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869047-d0111979-0ef7-4152-8523-8a45c47217c0.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869079-7e5a62e0-fffe-4a19-8875-cba4c68b9428.png"> |
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869253-44f94dfa-5448-48b2-85be-73db867bdbbb.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869261-92e598d0-2950-4874-8b6c-c159bda38365.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869272-a4883524-7804-4013-addd-4d1ac56c5d0d.png"> |
 
 ### Minimum Requirements
 

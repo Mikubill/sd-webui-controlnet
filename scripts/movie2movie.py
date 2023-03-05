@@ -45,16 +45,12 @@ def save_gif(path, image_list, name, duration):
     if os.path.isdir(tmp_dir):
         shutil.rmtree(tmp_dir)
     os.mkdir(tmp_dir)
-    path_list = []
-    imgs = []
     for i, image in enumerate(image_list):
         images.save_image(image, tmp_dir, f"output_{i}")
-        path_list.append(tmp_dir + f"output_{i}-0000.png")
-    for i in range(len(path_list)):
-        img = Image.open(path_list[i])
-        imgs.append(img)
 
-    imgs[0].save(path + f"/{name}.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=duration, loop=0)
+    os.makedirs(path + "/controlnet-m2m", exist_ok=True)
+
+    image_list[0].save(path + f"/controlnet-m2m/{name}.gif", save_all=True, append_images=image_list[1:], optimize=False, duration=duration, loop=0)
     
 
 class Script(scripts.Script):  
@@ -93,7 +89,6 @@ class Script(scripts.Script):
         # Custom functions can be defined here, and additional libraries can be imported 
         # to be used in processing. The return value should be a Processed object, which is
         # what is returned by the process_images method.
-
         video_num = opts.data.get("control_net_max_models_num", 1)
         video_list = [get_all_frames(video) for video in args[:video_num]]
         duration, = args[video_num:]
@@ -112,8 +107,9 @@ class Script(scripts.Script):
                 img = proc.images[0]
                 output_image_list.append(img)
                 copy_p.close()
+            # TODO: Generate new name for each movie2movie output
             save_gif(p.outpath_samples, output_image_list, "animation", duration)
-            proc.images = [p.outpath_samples + "/animation.gif"]
+            proc.images = [p.outpath_samples + "/controlnet-m2m/animation.gif"]
 
         else:
             proc = process_images(p)
