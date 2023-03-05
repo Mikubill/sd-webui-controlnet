@@ -3,4 +3,4 @@ model:
   params:
     channels: [320, 640, 1280, 1280]
     nums_rb: 4
-    cin: 384
+    cin: 192

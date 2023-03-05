@@ -181,7 +181,8 @@ class Script(scripts.Script):
             "mlsd": mlsd,
             "normal_map": midas_normal,
             "openpose": openpose,
-            # "openpose_hand": openpose_hand,
+            "openpose_hand": openpose_hand,
+            "clip_vision": clip,
             "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
@@ -191,6 +192,7 @@ class Script(scripts.Script):
             "hed": unload_hed,
             "fake_scribble": unload_hed,
             "mlsd": unload_mlsd,
+            "clip": unload_clip,
             "depth": unload_midas,
             "depth_leres": unload_leres,
             "normal_map": unload_midas,
@@ -532,6 +534,38 @@ class Script(scripts.Script):
 
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
+        
+    def detectmap_proc(self, module, rgbbgr_mode, resize_mode, h, w):
+        detected_map = HWC3(detected_map)
+        if module == "normal_map" or rgbbgr_mode:
+            control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+        else:
+            control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+            
+        control = rearrange(control, 'h w c -> c h w')
+        detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
+
+        if resize_mode == "Scale to Fit (Inner Fit)":
+            transform = Compose([
+                Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(size=(h, w)),
+            ])
+            control = transform(control)
+            detected_map = transform(detected_map)
+        elif resize_mode == "Envelope (Outer Fit)":
+            transform = Compose([
+                Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(size=(h, w))
+            ]) 
+            control = transform(control)
+            detected_map = transform(detected_map)
+        else:
+            control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
+            detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
+            
+        # for log use
+        detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
+        return control, detected_map
 
     def process(self, p, is_img2img=False, *args):
         """
@@ -652,43 +686,28 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[module]
             h, w, bsz = p.height, p.width, p.batch_size
             if pres > 64:
-                detected_map = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                detected_map, is_image = preprocessor(input_image, res=pres, thr_a=pthr_a, thr_b=pthr_b)
             else:
-                detected_map = preprocessor(input_image)
-                
-            detected_map = HWC3(detected_map)
-            if module == "normal_map" or rgbbgr_mode:
-                control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+                detected_map, is_image = preprocessor(input_image)
+            
+            if is_image:
+                control, detected_map = self.detectmap_proc(detected_map, rgbbgr_mode, resize_mode, h, w)
+                detected_maps.append((detected_map, module))
             else:
-                control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
+                control = detected_map  
             
-            control = rearrange(control, 'h w c -> c h w')
-            detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
-
-            if resize_mode == "Scale to Fit (Inner Fit)":
-                transform = Compose([
-                    Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(size=(h, w)),
-                ])
-                control = transform(control)
-                detected_map = transform(detected_map)
-            elif resize_mode == "Envelope (Outer Fit)":
-                transform = Compose([
-                    Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(size=(h, w))
-                ]) 
-                control = transform(control)
-                detected_map = transform(detected_map)
-            else:
-                control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
-                detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
-            # for log use
-            detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
-            detected_maps.append((detected_map, module))
-            
-            # hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting
-            forward_param = ControlParams(model_net, control, guess_mode, weight, False, guidance_start, guidance_end, None, isinstance(model_net, PlugableAdapter))
+            forward_param = ControlParams(
+                control_model=model_net,
+                hint_cond=control,
+                guess_mode=guess_mode,
+                weight=weight,
+                guidance_stopped=False,
+                start_guidance_percent=guidance_start,
+                stop_guidance_percent=guidance_end,
+                advanced_weighting=None,
+                is_adapter=isinstance(model_net, PlugableAdapter),
+                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter"
+            )
             forward_params.append(forward_param)
             
         self.latest_network = UnetHook(lowvram=hook_lowvram)    

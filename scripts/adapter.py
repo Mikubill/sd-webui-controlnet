@@ -2,6 +2,7 @@
 
 import torch
 import torch.nn as nn
+import importlib
 from collections import OrderedDict
 
 from omegaconf import OmegaConf
@@ -55,21 +56,28 @@ def get_node_name(name, parent_name):
     if p != parent_name:
         return False, ''
     return True, name[len(parent_name):]
+    
+    
+def get_obj_from_str(string, reload=False):
+    module, cls = string.rsplit(".", 1)
+    if reload:
+        module_imp = importlib.import_module(module)
+        importlib.reload(module_imp)
+    return getattr(importlib.import_module(module, package=None), cls)
 
 
 class PlugableAdapter(nn.Module):
     def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
         config = OmegaConf.load(config_path)
+        model = Adapter
+        try:
+            self.target = config.model.target
+            model = get_obj_from_str(config.model.target)
+        except ImportError:
+            pass
         
-        if (config.model.params.cin == 64 * 6):
-            config.model.params.cin = 192
-            self.control_model = Adapter_light(**config.model.params)
-        elif (config.model.params.cin == 64 * 7):
-            del config.model.params.cin
-            self.control_model = StyleAdapter(**config.model.params)
-        else:
-            self.control_model = Adapter(**config.model.params)           
+        self.control_model = model(**config.model.params)       
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram 
         self.control = None
@@ -312,6 +320,7 @@ class StyleAdapter(nn.Module):
         # x shape [N, HW+1, C]
         style_embedding = self.style_embedding + torch.zeros(
             (x.shape[0], self.num_token, self.style_embedding.shape[-1]), device=x.device)
+        
         x = torch.cat([x, style_embedding], dim=1)
         x = self.ln_pre(x)
         x = x.permute(1, 0, 2)  # NLD -> LND

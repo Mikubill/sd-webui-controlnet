@@ -1,5 +1,5 @@
 ## sd-webui-controlnet
-(WIP) WebUI extension for ControlNet
+(WIP) WebUI extension for ControlNet and T2I-Adapter
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
