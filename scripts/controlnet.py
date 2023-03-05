@@ -173,7 +173,7 @@ class Script(scripts.Script):
         self.model_cache = {}
         self.latest_network = None
         self.preprocessor = {
-            "none": lambda x, *args, **kwargs: x,
+            "none": lambda x, *args, **kwargs: (x, True),
             "canny": canny,
             "depth": midas,
             "depth_leres": leres,
