@@ -170,7 +170,7 @@ update_cn_models()
 
 
 class Script(scripts.Script):
-    model_cache = {}
+    model_cache = OrderedDict()
 
     def __init__(self) -> None:
         super().__init__()
@@ -444,6 +444,29 @@ class Script(scripts.Script):
             (guidance_end, f"{tabname} Guidance End"),
         ])
         
+    def clear_control_model_cache(self):
+        Script.model_cache.clear()
+        gc.collect()
+        devices.torch_gc()
+
+    def load_control_model(self, p, unet, model, lowvram):
+        if model in Script.model_cache:
+            print(f"Loading model from cache: {model}")
+            return Script.model_cache[model]
+
+        # Remove model from cache to clear space before building another model
+        if len(Script.model_cache) > 0 and len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
+            Script.model_cache.popitem(last=False)
+            gc.collect()
+            devices.torch_gc()
+
+        model_net = self.build_control_model(p, unet, model, lowvram)
+
+        if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
+            Script.model_cache[model] = model_net
+
+        return model_net
+
     def build_control_model(self, p, unet, model, lowvram):
 
         model_path = cn_models.get(model, None)
@@ -580,22 +603,13 @@ class Script(scripts.Script):
            self.latest_network = None
            return 
 
-        networks = []
         detected_maps = []
         forward_params = []
         hook_lowvram = False
         
         # cache stuff
-        models_changed = self.latest_model_hash != p.sd_model.sd_model_hash or not Script.model_cache or Script.model_cache is None
-        if models_changed:
-            for key, model in Script.model_cache.items():
-                model.to("cpu")
-                del Script.model_cache[key]
-                gc.collect()
-                devices.torch_gc()
-            Script.model_cache.clear()
-            gc.collect()
-            devices.torch_gc()
+        if self.latest_model_hash != p.sd_model.sd_model_hash:
+            self.clear_control_model_cache()
 
         # unload unused preproc
         module_list = [mod[0] for mod in control_groups]
@@ -613,24 +627,9 @@ class Script(scripts.Script):
             if lowvram:
                 hook_lowvram = True
                 
-            # Need to load the model
-            if model not in Script.model_cache:
-                # If loading a new model would put us over our cache size allocation, remove oldest.
-                # NOTE: This removes the model that was least recently LOADED, not least recently USED.
-                if len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 1):
-                    oldest_key = next(iter(Script.model_cache))
-                    old_model = Script.model_cache[oldest_key]
-                    old_model.to("cpu")
-                    del Script.model_cache[oldest_key]
-                    gc.collect()
-                    devices.torch_gc()
-
-                Script.model_cache[model] = self.build_control_model(p, unet, model, lowvram) 
-            model_net = Script.model_cache[model]
- 
+            model_net = self.load_control_model(p, unet, model, lowvram)
             model_net.reset()
-            networks.append(model_net)
-            
+
             is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
                 input_image = HWC3(np.asarray(p.image_control)) 
@@ -706,6 +705,8 @@ class Script(scripts.Script):
             # hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting
             forward_param = ControlParams(model_net, control, guess_mode, weight, False, guidance_start, guidance_end, None, isinstance(model_net, PlugableAdapter))
             forward_params.append(forward_param)
+
+            del model_net
             
         self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
@@ -740,6 +741,8 @@ class Script(scripts.Script):
         self.latest_network.restore(p.sd_model.model.diffusion_model)
         self.latest_network = None
 
+        gc.collect()
+        devices.torch_gc()
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
