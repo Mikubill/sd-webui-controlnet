@@ -443,7 +443,8 @@ class Script(scripts.Script):
 
                 if is_image:
                     return result, gr.update(selected="tab_result")
-            else return gr.update(), gr.update()
+            else:
+                return gr.update(), gr.update()
         
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
