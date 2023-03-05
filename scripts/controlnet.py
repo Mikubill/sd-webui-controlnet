@@ -640,14 +640,14 @@ class Script(scripts.Script):
         control = rearrange(control, 'h w c -> c h w')
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
-        if resize_mode == "Scale to Fit (Inner Fit)":
+        if resize_mode == ResizeMode.INNER_FIT:
             transform = Compose([
                 Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
                 CenterCrop(size=(h, w)),
             ])
             control = transform(control)
             detected_map = transform(detected_map)
-        elif resize_mode == "Envelope (Outer Fit)":
+        elif resize_mode == ResizeMode.OUTER_FIT:
             transform = Compose([
                 Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
                 CenterCrop(size=(h, w))
@@ -782,31 +782,6 @@ class Script(scripts.Script):
             else:
                 control = detected_map  
 
-            control = rearrange(control, 'h w c -> c h w')
-            detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
-
-            if resize_mode == ResizeMode.INNER_FIT:
-                transform = Compose([
-                    Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(size=(h, w)),
-                ])
-                control = transform(control)
-                detected_map = transform(detected_map)
-            elif resize_mode == ResizeMode.OUTER_FIT:
-                transform = Compose([
-                    Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(size=(h, w))
-                ]) 
-                control = transform(control)
-                detected_map = transform(detected_map)
-            else:
-                control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
-                detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
-            # for log use
-            detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
-            detected_maps.append((detected_map, module))
-            
             # hint_cond, guess_mode, weight, guidance_stopped, stop_guidance_percent, advanced_weighting
             forward_param = ControlParams(model_net, control, guess_mode, weight, False, guidance_start, guidance_end, None, isinstance(model_net, PlugableAdapter))
             forward_params.append(forward_param)
