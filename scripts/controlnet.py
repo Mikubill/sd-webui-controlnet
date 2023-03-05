@@ -64,10 +64,6 @@ camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
 scissors_symbol = '\U00002702'      # ✂
 
-webcam_enabled = False
-webcam_mirrored = False
-crop_enabled = False
-
 PARAM_COUNT = 15
 
 
@@ -218,11 +214,14 @@ class Script(scripts.Script):
     def uigroup(self, is_img2img):
         ctrls = ()
         infotext_fields = []
+        webcam_enabled = gr.State(False)
+        webcam_mirrored = gr.State(False)
+        crop_enabled = gr.State(False)
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             cropped_image = gr.Image(label="Crop image", interactive=True, tool="select", visible=False)
         with gr.Row():
-            generated_image = gr.Image(label="Annotator result", visible=False).style(height=240)
+            generated_image = gr.Image(label="Annotator result", visible=False, interactive=False).style(height=240)
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -240,27 +239,24 @@ class Script(scripts.Script):
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
             
-        def webcam_toggle():
-            global webcam_enabled
-            webcam_enabled = not webcam_enabled
-            return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
+        def webcam_toggle(enabled):
+            enabled = not enabled
+            return {"value": None, "source": "webcam" if enabled else "upload", "__type__": "update"}, enabled
                 
-        def webcam_mirror_toggle():
-            global webcam_mirrored
-            webcam_mirrored = not webcam_mirrored
-            return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
+        def webcam_mirror_toggle(enabled):
+            enabled = not enabled
+            return {"mirror_webcam": enabled, "__type__": "update"}, enabled
 
-        def crop_image_toggle(image, crop):
-            global crop_enabled
-            crop_enabled = not crop_enabled
-            params = {"visible": crop_enabled}
-            if crop_enabled and image:
+        def crop_image_toggle(image, enabled):
+            enabled = not enabled
+            params = {"visible": enabled}
+            if enabled and image:
                 params.update(value = image["image"])
-            return gr.update(visible=(not crop_enabled)), gr.update(**params)
+            return gr.update(visible=(not enabled)), gr.update(**params), enabled
             
-        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
-        crop_image.click(fn=crop_image_toggle, inputs=input_image, outputs=[input_image, cropped_image])
+        webcam_enable.click(fn=webcam_toggle, inputs=webcam_enabled, outputs=[input_image, webcam_enabled])
+        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=webcam_mirrored, outputs=[input_image, webcam_mirrored])
+        crop_image.click(fn=crop_image_toggle, inputs=[input_image, crop_enabled], outputs=[input_image, cropped_image, crop_enabled])
         cropped_image.change(fn=lambda i: i, inputs=cropped_image, outputs=input_image)
 
         def refresh_all_models(*inputs):
@@ -392,16 +388,18 @@ class Script(scripts.Script):
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
-            img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                img = HWC3(image['mask'][:, :, 0])
-            preprocessor = self.preprocessor[module]
-            result = None
-            if pres > 64:
-                result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
-            else:
-                result = preprocessor(img)
-            return gr.update(value=result, visible=True, interactive=False)
+            if image:
+                img = HWC3(image['image'])
+                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                    img = HWC3(image['mask'][:, :, 0])
+                preprocessor = self.preprocessor[module]
+                result = None
+                if pres > 64:
+                    result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                else:
+                    result = preprocessor(img)
+                return gr.update(value=result, visible=True)
+            return None
         
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
