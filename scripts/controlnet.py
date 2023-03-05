@@ -192,6 +192,7 @@ class Script(scripts.Script):
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
             "segmentation": uniformer,
+            "binary": binary,
         }
         self.unloadable = {
             "hed": unload_hed,
@@ -354,6 +355,13 @@ class Script(scripts.Script):
                 return [
                     gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "binary":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -793,7 +801,7 @@ class Script(scripts.Script):
 
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
-                if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet"]:
+                if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
                     detect_map = 255-detect_map
                 processed.images.extend([Image.fromarray(detect_map)])
 
