@@ -1,0 +1,8 @@
+model:
+  target: scripts.adapter.StyleAdapter
+  params:
+    width: 1024
+    context_dim: 768
+    num_head: 8
+    n_layes: 3
+    num_token: 8
