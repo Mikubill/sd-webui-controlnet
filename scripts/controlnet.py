@@ -222,7 +222,7 @@ class Script(scripts.Script):
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             cropped_image = gr.Image(label="Crop image", interactive=True, tool="select", visible=False)
         with gr.Row():
-            generated_image = gr.Image(label="Annotator result", visible=False)
+            generated_image = gr.Image(label="Annotator result", visible=False).style(height=240)
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
