@@ -45,14 +45,12 @@ def save_gif(path, image_list, name, duration):
     if os.path.isdir(tmp_dir):
         shutil.rmtree(tmp_dir)
     os.mkdir(tmp_dir)
-    imgs = []
     for i, image in enumerate(image_list):
         images.save_image(image, tmp_dir, f"output_{i}")
-        imgs.append(image)
 
     os.makedirs(path + "/controlnet-m2m", exist_ok=True)
 
-    imgs[0].save(path + f"/controlnet-m2m/{name}.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=duration, loop=0)
+    image_list[0].save(path + f"/controlnet-m2m/{name}.gif", save_all=True, append_images=image_list[1:], optimize=False, duration=duration, loop=0)
     
 
 class Script(scripts.Script):  
