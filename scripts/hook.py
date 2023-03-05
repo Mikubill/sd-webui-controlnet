@@ -49,7 +49,8 @@ class ControlParams:
         start_guidance_percent,
         stop_guidance_percent, 
         advanced_weighting, 
-        is_adapter
+        is_adapter,
+        is_extra_cond
     ):
         self.control_model = control_model
         self.hint_cond = hint_cond
@@ -60,6 +61,7 @@ class ControlParams:
         self.stop_guidance_percent = stop_guidance_percent
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
+        self.is_extra_cond = is_extra_cond
 
 
 class UnetHook(nn.Module):
@@ -108,6 +110,7 @@ class UnetHook(nn.Module):
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_control = [0.0] * 13
             total_adapter = [0.0] * 4
+            total_extra_cond = torch.zeros([0, context.shape[-1]]).to(devices.get_device_for("controlnet"))
             only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
 
@@ -138,6 +141,9 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
+                if param.is_extra_cond:
+                    total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0)]) #* param.weight
+                    continue
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
@@ -153,6 +159,19 @@ class UnetHook(nn.Module):
                     target[idx] += item
                         
             control = total_control
+            if len(total_extra_cond) > 0 and context.shape[0] % 2 == 0:
+                total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
+                if outer.is_vanilla_samplers:  
+                    uncond, cond = context.chunk(2)
+                    cond = torch.cat([cond, total_extra_cond], dim=1)
+                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
+                    context = torch.cat([uncond, cond], dim=0)
+                else:
+                    cond, uncond = context.chunk(2)
+                    cond = torch.cat([cond, total_extra_cond], dim=1)
+                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
+                    context = torch.cat([cond, uncond], dim=0)
+                    
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():

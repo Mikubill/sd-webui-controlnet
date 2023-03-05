@@ -1,0 +1,6 @@
+model:
+  target: scripts.adapter.Adapter_light
+  params:
+    channels: [320, 640, 1280, 1280]
+    nums_rb: 4
+    cin: 192

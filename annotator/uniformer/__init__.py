@@ -1,9 +1,12 @@
 import os
 from modules.paths import models_path
 from modules import devices
-
 from annotator.uniformer.inference import init_segmentor, inference_segmentor, show_result_pyplot
-from mmseg.core.evaluation import get_palette
+
+try:
+    from mmseg.core.evaluation import get_palette
+except ImportError:
+    from annotator.mmpkg.mmseg.core.evaluation import get_palette
 
 modeldir = os.path.join(models_path, "uniformer")
 checkpoint_file = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
