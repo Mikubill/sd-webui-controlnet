@@ -420,10 +420,12 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[module]
             result = None
             if pres > 64:
-                result = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
             else:
-                result = preprocessor(img)
-            return gr.update(value=result, visible=True, interactive=False)
+                result, is_image = preprocessor(img)
+            
+            if is_image:
+                return gr.update(value=result, visible=True, interactive=False)
         
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
