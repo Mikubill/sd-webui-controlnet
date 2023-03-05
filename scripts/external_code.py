@@ -112,17 +112,11 @@ def update_cn_script_args(
     if cn_script is None:
         return
 
-    def setup_p_args():
-        nonlocal is_img2img, is_ui
-        cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
-
-        if is_img2img is None:
-            is_img2img = script_args[cn_script.args_from] if cn_script_has_args else False
-
-        if is_ui is None:
-            is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
-
-    setup_p_args()
+    cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
+    if is_img2img is None:
+        is_img2img = script_args[cn_script.args_from] if cn_script_has_args else False
+    if is_ui is None:
+        is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
 
     flattened_cn_args: List[Any] = [is_img2img, is_ui]
     for unit in cn_units:
