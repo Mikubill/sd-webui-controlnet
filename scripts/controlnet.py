@@ -183,6 +183,7 @@ class Script(scripts.Script):
             "openpose": openpose,
             "openpose_hand": openpose_hand,
             "clip_vision": clip,
+            "color": color,
             "pidinet": pidinet,
             "scribble": simple_scribble,
             "fake_scribble": fake_scribble,
@@ -535,7 +536,7 @@ class Script(scripts.Script):
         return (enabled, module, model, weight, image, scribble_mode, \
             resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
         
-    def detectmap_proc(self, module, rgbbgr_mode, resize_mode, h, w):
+    def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
         detected_map = HWC3(detected_map)
         if module == "normal_map" or rgbbgr_mode:
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
@@ -691,7 +692,7 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image)
             
             if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, rgbbgr_mode, resize_mode, h, w)
+                control, detected_map = self.detectmap_proc(detected_map, module, rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, module))
             else:
                 control = detected_map  

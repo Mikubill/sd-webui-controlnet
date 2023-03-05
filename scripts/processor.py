@@ -201,3 +201,15 @@ def unload_clip():
     if clip_encoder is not None:
         from annotator.clip import unload_clip_model
         unload_clip_model()
+        
+
+model_color = None
+
+
+def color(img, res=512, **kwargs):
+    global model_color
+    if model_color is None:
+        from annotator.color import apply_color
+        model_color = apply_color
+    result = model_color(img, res=res)
+    return result, True
