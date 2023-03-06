@@ -1,5 +1,5 @@
 from typing import List, Any, Optional, Union, Tuple, Dict
-from modules import scripts
+from modules import scripts, processing
 from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PARAM_COUNT
 import numpy as np
 
@@ -97,6 +97,18 @@ def get_single_unit_from_args(script_args: List[Any], index: int=0) -> ControlNe
 
 
 def update_cn_script_args(
+    p: processing.StableDiffusionProcessing,
+    cn_units: List[ControlNetUnit],
+    is_img2img: Optional[bool] = None,
+    is_ui: Optional[bool] = None
+):
+    cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
+    script_args = list(p.script_args) if p.script_args else []
+    update_cn_script_args_impl(p.scripts, p.script_args, cn_units, is_img2img, is_ui)
+    p.script_args = cn_units_type(script_args)
+
+
+def update_cn_script_args_impl(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
