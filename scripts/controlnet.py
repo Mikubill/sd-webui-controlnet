@@ -727,8 +727,8 @@ class Script(scripts.Script):
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
-            resize_mode = resize_mode if isinstance(resize_mode, ResizeMode) else resize_mode_from_value(resize_mode)
-                
+            resize_mode = resize_mode_from_value(resize_mode)
+
             if lowvram:
                 hook_lowvram = True
                 
