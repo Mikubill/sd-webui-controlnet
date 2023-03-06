@@ -59,6 +59,14 @@ class ControlNetUnit:
         self.guess_mode = guess_mode
 
 
+def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:
+    """
+    Fetch ControlNet processing units from a StableDiffusionProcessing.
+    """
+
+    return get_all_units(p.scripts, p.script_args)
+
+
 def get_all_units(script_runner: scripts.ScriptRunner, script_args: List[Any]) -> List[ControlNetUnit]:
     """
     Fetch ControlNet processing units from an existing script runner.
