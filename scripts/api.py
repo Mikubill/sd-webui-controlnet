@@ -222,21 +222,18 @@ def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.Control
         unit_request.guidance_end = unit_request.guidance
 
     return external_code.ControlNetUnit(
-        True,  # enabled
-        unit_request.module,
-        unit_request.model,
-        unit_request.weight,
-        input_image,
-        False,  # scribble_mode
-        unit_request.resize_mode,
-        False,  # rgbbgr_mode
-        unit_request.lowvram,
-        unit_request.processor_res,
-        unit_request.threshold_a,
-        unit_request.threshold_b,
-        unit_request.guidance_start,
-        unit_request.guidance_end,
-        unit_request.guessmode,
+        module=unit_request.module,
+        model=unit_request.model,
+        weight=unit_request.weight,
+        image=input_image,
+        resize_mode=unit_request.resize_mode,
+        low_vram=unit_request.lowvram,
+        processor_res=unit_request.processor_res,
+        threshold_a=unit_request.threshold_a,
+        threshold_b=unit_request.threshold_b,
+        guidance_start=unit_request.guidance_start,
+        guidance_end=unit_request.guidance_end,
+        guess_mode=unit_request.guessmode,
     )
 
 def warn_deprecated_cn_params():
