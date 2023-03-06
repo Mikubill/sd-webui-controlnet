@@ -790,9 +790,10 @@ class Script(scripts.Script):
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
                 if not os.path.isabs(detectmap_dir):
                     detectmap_dir = os.path.join(p.outpath_samples, detectmap_dir)
-                os.makedirs(detectmap_dir, exist_ok=True)
-                img = Image.fromarray(detect_map)
-                save_image(img, detectmap_dir, module)
+                if module != "none":
+                    os.makedirs(detectmap_dir, exist_ok=True)
+                    img = Image.fromarray(detect_map)
+                    save_image(img, detectmap_dir, module)
 
         is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
