@@ -151,7 +151,7 @@ This extension can accept txt2img or img2img tasks via API or external extension
 
 To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
 
-To use external extension call: Pass your config to p(pipeline). For more details see [scripts/controlnet.py](https://github.com/Mikubill/sd-webui-controlnet/blob/8ca06ba8eb2989cbd434063c9a7c0e7a3bdfabea/scripts/controlnet.py#L459-L462)
+To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
 ### MacOS Support
 

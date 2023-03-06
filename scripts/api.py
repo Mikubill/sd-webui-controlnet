@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 from fastapi import FastAPI, Body
 from PIL import Image
@@ -15,7 +17,7 @@ from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusion
 
 import modules.scripts as scripts
 
-from scripts.controlnet import update_cn_models, cn_models_names
+from scripts import external_code
 from scripts.processor import *
 
 def to_base64_nparray(encoding: str):
@@ -42,7 +44,7 @@ cn_fields = {
     "module": (str, Field(default="none", title='Controlnet Module')),
     "model": (str, Field(default="None", title='Controlnet Model')),
     "weight": (float, Field(default=1.0, title='Controlnet Weight')),
-    "resize_mode": (str, Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')),
+    "resize_mode": (Union[int, str], Field(default="Scale to Fit (Inner Fit)", title='Controlnet Resize Mode')),
     "lowvram": (bool, Field(default=False, title='Controlnet Low VRAM')),
     "processor_res": (int, Field(default=64, title='Controlnet Processor Res')),
     "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),
@@ -108,6 +110,7 @@ class ApiHijack(api.Api):
             original_callback=ApiHijack.text2imgapi,
             p_class=StableDiffusionProcessingTxt2Img,
             script_runner=scripts.scripts_txt2img,
+            is_img2img=False,
         )
 
     def controlnet_img2img(self, img2img_request: ControlNetImg2ImgRequest):
@@ -116,11 +119,12 @@ class ApiHijack(api.Api):
             original_callback=ApiHijack.img2imgapi,
             p_class=StableDiffusionProcessingImg2Img,
             script_runner=scripts.scripts_img2img,
+            is_img2img=True,
         )
 
-    def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner):
+    def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner, is_img2img):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
-        script_runner = create_cn_script_runner(script_runner, any2img_request.controlnet_units)
+        script_runner = create_cn_script_runner(script_runner, any2img_request.controlnet_units, is_img2img)
         delattr(any2img_request, 'controlnet_units')
         with self.queue_lock:
             self_copy = copy.copy(self)
@@ -171,28 +175,31 @@ def nest_deprecated_cn_fields(any2img_request):
     any2img_request.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
     return any2img_request
 
-def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNetUnitRequest]):
+def create_cn_script_runner(script_runner: scripts.ScriptRunner, control_unit_requests: List[ControlNetUnitRequest], is_img2img: bool):
     if not script_runner.scripts:
         script_runner.initialize_scripts(False)
         ui.create_ui()
 
+    cn_script = external_code.find_cn_script(script_runner)
     cn_script_runner = copy.copy(script_runner)
-
-    cn_script_args: List[Any] = [False]  # is_img2img
-    for control_unit_request in control_unit_requests:
-        cn_script_args += create_cn_unit_args(control_unit_request)
-
-    script_titles = [script.title().lower() for script in script_runner.alwayson_scripts]
-    cn_script_id = script_titles.index('controlnet')
-    cn_script = script_runner.alwayson_scripts[cn_script_id]
-    cn_script_args = ([None] * cn_script.args_from) + cn_script_args
+    cn_script_runner.alwayson_scripts = [cn_script]
+    cn_script_args = [None] * cn_script.args_from
+    cn_units = [to_api_cn_unit(control_unit_request) for control_unit_request in control_unit_requests]
+    external_code.update_cn_script_in_place(
+        script_runner=cn_script_runner,
+        script_args=cn_script_args,
+        cn_units=cn_units,
+        is_img2img=is_img2img,
+    )
 
     def make_script_runner_f_hijack(fixed_original_f):
         def script_runner_f_hijack(p, *args, **kwargs):
             original_script_args = p.script_args
-            p.script_args = cn_script_args
-            fixed_original_f(p, *args, **kwargs)
-            p.script_args = original_script_args
+            try:
+                p.script_args = cn_script_args
+                fixed_original_f(p, *args, **kwargs)
+            finally:
+                p.script_args = original_script_args
 
         return script_runner_f_hijack
 
@@ -203,43 +210,30 @@ def create_cn_script_runner(script_runner, control_unit_requests: List[ControlNe
 
         setattr(cn_script_runner, k, make_script_runner_f_hijack(original_f))
 
-    cn_script_runner.alwayson_scripts = [cn_script]
     return cn_script_runner
 
-def create_cn_unit_args(unit_request: ControlNetUnitRequest):
+def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.ControlNetUnit:
     input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
-    mask = None
-    if input_image is not None:
-        if unit_request.mask:
-            mask = to_base64_nparray(unit_request.mask)
-        else:
-            mask = input_image * 0
-
-        if len(mask.shape) == 2:
-            mask = mask[..., np.newaxis]
+    mask = to_base64_nparray(unit_request.mask) if unit_request.mask else None
+    if input_image is not None and mask is not None:
+        input_image = (input_image, mask)
 
     if unit_request.guidance < 1.0:
         unit_request.guidance_end = unit_request.guidance
 
-    return (
-        True,  # enabled
-        unit_request.module,
-        unit_request.model,
-        unit_request.weight,
-        {
-            "image": input_image,
-            "mask": mask,
-        } if input_image is not None else None,  # input_image
-        False,  # scribble_mode
-        unit_request.resize_mode,
-        False,  # rgbbgr_mode
-        unit_request.lowvram,
-        unit_request.processor_res,
-        unit_request.threshold_a,
-        unit_request.threshold_b,
-        unit_request.guidance_start,
-        unit_request.guidance_end,
-        unit_request.guessmode
+    return external_code.ControlNetUnit(
+        module=unit_request.module,
+        model=unit_request.model,
+        weight=unit_request.weight,
+        image=input_image,
+        resize_mode=unit_request.resize_mode,
+        low_vram=unit_request.lowvram,
+        processor_res=unit_request.processor_res,
+        threshold_a=unit_request.threshold_a,
+        threshold_b=unit_request.threshold_b,
+        guidance_start=unit_request.guidance_start,
+        guidance_end=unit_request.guidance_end,
+        guess_mode=unit_request.guessmode,
     )
 
 def warn_deprecated_cn_params():
@@ -250,9 +244,9 @@ def warn_deprecated_cn_params():
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
     async def model_list():
-        update_cn_models()
-        print(list(cn_models_names.values()))
-        return {"model_list": list(cn_models_names.values())}
+        up_to_date_model_list = external_code.get_models(update=True)
+        print(up_to_date_model_list)
+        return {"model_list": up_to_date_model_list}
 
     @app.post("/controlnet/detect")
     async def detect(
