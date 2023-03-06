@@ -4,6 +4,9 @@ from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PA
 import numpy as np
 
 
+"""
+Resize modes for ControlNet input images.
+"""
 ResizeMode = ResizeMode
 
 

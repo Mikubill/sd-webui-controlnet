@@ -174,10 +174,6 @@ update_cn_models()
 
 
 class ResizeMode(Enum):
-    """
-    Resize modes for ControlNet input images.
-    """
-
     RESIZE = "Just Resize"
     INNER_FIT = "Scale to Fit (Inner Fit)"
     OUTER_FIT = "Envelope (Outer Fit)"
