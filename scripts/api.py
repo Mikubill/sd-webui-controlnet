@@ -49,7 +49,7 @@ cn_fields = {
     "processor_res": (int, Field(default=64, title='Controlnet Processor Res')),
     "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),
     "threshold_b": (float, Field(default=64, title='Controlnet Threshold b')),
-    "guidance": (float, Field(default=1.0, title='ControlNet Guidance Strength')),
+    "guidance": (float, Field(default=1.0, _deprecated=True, title='ControlNet Guidance Strength')),
     "guidance_start": (float, Field(0.0, title='ControlNet Guidance Start')),
     "guidance_end": (float, Field(1.0, title='ControlNet Guidance End')),
     "guessmode": (bool, Field(default=True, title="Guess Mode")),
