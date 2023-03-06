@@ -61,12 +61,12 @@ def get_all_units(script_runner: scripts.ScriptRunner, script_args: List[Any]) -
 
     cn_script = find_cn_script(script_runner)
     if cn_script:
-        return get_all_units_from_args(script_args[cn_script.args_from:cn_script.args_to])
+        return get_all_units_from(script_args[cn_script.args_from:cn_script.args_to])
 
     return []
 
 
-def get_all_units_from_args(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
+def get_all_units_from(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
     """
     Fetch ControlNet processing units from ControlNet script arguments.
     Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
@@ -80,12 +80,12 @@ def get_all_units_from_args(script_args: List[Any], strip_positional_args=True) 
 
     res = []
     for i in range(len(script_args) // PARAM_COUNT):
-        res.append(get_single_unit_from_args(script_args, i))
+        res.append(get_single_unit_from(script_args, i))
 
     return res
 
 
-def get_single_unit_from_args(script_args: List[Any], index: int=0) -> ControlNetUnit:
+def get_single_unit_from(script_args: List[Any], index: int=0) -> ControlNetUnit:
     """
     Fetch a single ControlNet processing unit from ControlNet script arguments.
     The list must not contain script positional arguments. It must only consist of flattened processing unit parameters.
@@ -96,7 +96,7 @@ def get_single_unit_from_args(script_args: List[Any], index: int=0) -> ControlNe
     return ControlNetUnit(*script_args[index_from:index_to])
 
 
-def update_cn_script_args(
+def update_cn_script_in_processing(
     p: processing.StableDiffusionProcessing,
     cn_units: List[ControlNetUnit],
     is_img2img: Optional[bool] = None,
@@ -104,11 +104,11 @@ def update_cn_script_args(
 ):
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
     script_args = list(p.script_args) if p.script_args else []
-    update_cn_script_args_impl(p.scripts, p.script_args, cn_units, is_img2img, is_ui)
+    update_cn_script_in_place(p.scripts, p.script_args, cn_units, is_img2img, is_ui)
     p.script_args = cn_units_type(script_args)
 
 
-def update_cn_script_args_impl(
+def update_cn_script_in_place(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
