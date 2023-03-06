@@ -180,15 +180,15 @@ def update_cn_script_in_place(
             unit.guidance_end,
             unit.guess_mode))
 
-    cn_script_args_len = 0
+    cn_script_args_diff = 0
     for script in script_runner.alwayson_scripts:
         if script is cn_script:
-            cn_script_args_len = len(flattened_cn_args)
+            cn_script_args_diff = len(flattened_cn_args) - (cn_script.args_to - cn_script.args_from)
             script_args[script.args_from:script.args_to] = flattened_cn_args
-            script.args_to = script.args_from + cn_script_args_len
+            script.args_to = script.args_from + len(flattened_cn_args)
         else:
-            script.args_from += cn_script_args_len
-            script.args_to += cn_script_args_len
+            script.args_from += cn_script_args_diff
+            script.args_to += cn_script_args_diff
 
 
 def get_models(update: bool=False) -> List[str]:
