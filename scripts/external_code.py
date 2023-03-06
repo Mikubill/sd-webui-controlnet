@@ -4,6 +4,9 @@ from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PA
 import numpy as np
 
 
+ResizeMode = ResizeMode
+
+
 class ControlNetUnit:
     """
     Represents an entire ControlNet processing unit.
