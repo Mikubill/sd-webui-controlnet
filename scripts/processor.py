@@ -42,7 +42,7 @@ def unload_hed():
         unload_hed_model()
 
 def fake_scribble(img, res=512, **kwargs):
-    result = hed(img, res)
+    result, _ = hed(img, res)
     import cv2
     from annotator.hed import nms
     result = nms(result, 127, 3.0)
