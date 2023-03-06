@@ -130,6 +130,10 @@ def update_cn_script_args_impl(
     if is_ui is None:
         is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
 
+    # fill in remaining parameters to satisfy max models, just in case script needs it.
+    max_models = shared.opts.data.get("control_net_max_models_num", 1)
+    cn_units = cn_units + [ControlNetUnit(enabled=False)] * max(max_models - len(cn_units), 0)
+
     flattened_cn_args: List[Any] = [is_img2img, is_ui]
     for unit in cn_units:
         flattened_cn_args.extend((
@@ -148,9 +152,6 @@ def update_cn_script_args_impl(
             unit.guidance_start,
             unit.guidance_end,
             unit.guess_mode))
-
-    max_models = shared.opts.data.get("control_net_max_models_num", 1)
-    flattened_cn_args += [False] * max(max_models - len(cn_units), 0) * PARAM_COUNT
 
     cn_script_args_len = 0
     for script in script_runner.alwayson_scripts:
