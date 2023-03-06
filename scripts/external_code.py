@@ -102,6 +102,15 @@ def update_cn_script_in_processing(
     is_img2img: Optional[bool] = None,
     is_ui: Optional[bool] = None
 ):
+    """
+    Update the arguments of the ControlNet script in `p.script_args` in place, reading from `cn_units`.
+    `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
+
+    Keyword arguments:
+    is_img2img -- whether to run the script as img2img. In general, this should be set to the appropriate value depending on the `StableDiffusionProcessing` subclass used for generating. If set to None, do not change existing value. (default None)
+    is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
+    """
+
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
     script_args = list(p.script_args) if p.script_args else []
     update_cn_script_in_place(p.scripts, p.script_args, cn_units, is_img2img, is_ui)
@@ -116,7 +125,7 @@ def update_cn_script_in_place(
     is_ui: Optional[bool] = None,
 ):
     """
-    Update the arguments of the ControlNet script in `script_runner` in place, reading from `cn_units`.
+    Update the arguments of the ControlNet script in `script_args` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
 
     Keyword arguments:
