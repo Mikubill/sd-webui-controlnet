@@ -112,8 +112,8 @@ def update_cn_script_in_processing(
     """
 
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
-    script_args = list(p.script_args) if p.script_args else []
-    update_cn_script_in_place(p.scripts, p.script_args, cn_units, is_img2img, is_ui)
+    script_args = list(getattr(p, 'script_args', []))
+    update_cn_script_in_place(p.scripts, script_args, cn_units, is_img2img, is_ui)
     p.script_args = cn_units_type(script_args)
 
 
