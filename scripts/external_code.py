@@ -112,13 +112,17 @@ def update_cn_script_in_processing(
     Update the arguments of the ControlNet script in `p.script_args` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
 
+    Does not update `p.script_args` if any of the folling is true:
+    - ControlNet is not present in `p.scripts`
+    - `p.script_args` is not filled with script arguments for scripts that are processed before ControlNet
+
     Keyword arguments:
     is_img2img -- whether to run the script as img2img. In general, this should be set to the appropriate value depending on the `StableDiffusionProcessing` subclass used for generating. If set to None, do not change existing value. (default None)
     is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
-    script_args = list(getattr(p, 'script_args', []))
+    script_args = list(p.script_args)
     update_cn_script_in_place(p.scripts, script_args, cn_units, is_img2img, is_ui)
     p.script_args = cn_units_type(script_args)
 
@@ -134,13 +138,17 @@ def update_cn_script_in_place(
     Update the arguments of the ControlNet script in `script_args` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
 
+    Does not update `script_args` if any of the folling is true:
+    - ControlNet is not present in `script_runner`
+    - `script_args` is not filled with script arguments for scripts that are processed before ControlNet
+
     Keyword arguments:
     is_img2img -- whether to run the script as img2img. In general, this should be set to the appropriate value depending on the `StableDiffusionProcessing` subclass used for generating. If set to None, do not change existing value. (default None)
     is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
     cn_script = find_cn_script(script_runner)
-    if cn_script is None:
+    if cn_script is None or len(script_args) < cn_script.args_from:
         return
 
     cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
