@@ -2,8 +2,13 @@
 
 import torch
 import torch.nn as nn
-from annotator.mmpkg.mmcv.cnn import ConvModule, normal_init
-from annotator.mmpkg.mmcv.ops import point_sample
+
+try: 
+    from mmcv.cnn import ConvModule, normal_init
+    from mmcv.ops import point_sample
+except ImportError:
+    from annotator.mmpkg.mmcv.cnn import ConvModule, normal_init
+    from annotator.mmpkg.mmcv.ops import point_sample
 
 from annotator.mmpkg.mmseg.models.builder import HEADS
 from annotator.mmpkg.mmseg.ops import resize
