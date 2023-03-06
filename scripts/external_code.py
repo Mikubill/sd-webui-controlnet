@@ -1,5 +1,5 @@
 from typing import List, Any, Optional, Union, Tuple, Dict
-from modules import scripts, processing
+from modules import scripts, processing, shared
 from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PARAM_COUNT
 import numpy as np
 
@@ -148,6 +148,9 @@ def update_cn_script_args_impl(
             unit.guidance_start,
             unit.guidance_end,
             unit.guess_mode))
+
+    max_models = shared.opts.data.get("control_net_max_models_num", 1)
+    flattened_cn_args += [False] * max(max_models - len(cn_units), 0) * PARAM_COUNT
 
     cn_script_args_len = 0
     for script in script_runner.alwayson_scripts:

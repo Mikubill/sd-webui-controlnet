@@ -185,7 +185,7 @@ def create_cn_script_runner(script_runner: scripts.ScriptRunner, control_unit_re
     cn_script_runner.alwayson_scripts = [cn_script]
     cn_script_args = [None] * cn_script.args_from
     cn_units = [to_api_cn_unit(control_unit_request) for control_unit_request in control_unit_requests]
-    external_code.update_cn_script_args(
+    external_code.update_cn_script_args_impl(
         script_runner=cn_script_runner,
         script_args=cn_script_args,
         cn_units=cn_units,
