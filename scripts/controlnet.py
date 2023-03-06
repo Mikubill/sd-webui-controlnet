@@ -253,9 +253,9 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-            webcam_enable = ToolButton(value=camera_symbol)
-            webcam_mirror = ToolButton(value=reverse_symbol)
-            crop_image = ToolButton(value=scissors_symbol)
+            webcam_button = ToolButton(value=camera_symbol)
+            webcam_mirror_button = ToolButton(value=reverse_symbol)
+            crop_button = ToolButton(value=scissors_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
@@ -289,9 +289,9 @@ class Script(scripts.Script):
             enabled = not enabled
             return {"mirror_webcam": enabled, "__type__": "update"}, enabled, gr.update(selected="tab_input")
             
-        webcam_enable.click(fn=webcam_toggle, inputs=webcam_enabled, outputs=[input_image, webcam_enabled, input_tabs])
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=webcam_mirrored, outputs=[input_image, webcam_mirrored, input_tabs])
-        crop_image.click(fn=lambda i: (i["image"] if i else None, gr.update(selected="tab_crop") if i else gr.update()), inputs=[input_image], outputs=[cropped_image, input_tabs])
+        webcam_button.click(fn=webcam_toggle, inputs=webcam_enabled, outputs=[input_image, webcam_enabled, input_tabs])
+        webcam_mirror_button.click(fn=webcam_mirror_toggle, inputs=webcam_mirrored, outputs=[input_image, webcam_mirrored, input_tabs])
+        crop_button.click(fn=lambda i: (i["image"] if i else None, gr.update(selected="tab_crop") if i else gr.update()), inputs=[input_image], outputs=[cropped_image, input_tabs])
         cropped_image.edit(fn=lambda i: i, inputs=cropped_image, outputs=input_image)
 
         def refresh_all_models(*inputs):
