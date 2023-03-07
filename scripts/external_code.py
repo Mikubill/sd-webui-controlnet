@@ -33,15 +33,6 @@ class ControlNetUnit:
         guidance_end: float=1.0,
         guess_mode: bool=True,
     ):
-        if image is not None:
-            if isinstance(image, tuple):
-                image = {'image': image[0], 'mask': image[1]}
-            elif isinstance(image, np.ndarray):
-                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
-
-            while len(image['mask'].shape) < 3:
-                image['mask'] = image['mask'][..., np.newaxis]
-
         self.enabled = enabled
         self.module = module
         self.model = model
@@ -58,6 +49,17 @@ class ControlNetUnit:
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
 
+    def get_image_dict(self) -> Dict[str, np.ndarray]:
+        image = self.image
+        if image is not None:
+            if isinstance(image, (tuple, list)):
+                image = {'image': image[0], 'mask': image[1]}
+            elif isinstance(image, np.ndarray):
+                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
+
+            image = dict(image)
+
+        return image
 
 def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:
     """
@@ -169,25 +171,7 @@ def update_cn_script_in_place(
     max_models = shared.opts.data.get("control_net_max_models_num", 1)
     cn_units = cn_units + [ControlNetUnit(enabled=False)] * max(max_models - len(cn_units), 0)
 
-    flattened_cn_args: List[Any] = [is_img2img, is_ui]
-    for unit in cn_units:
-        flattened_cn_args.extend((
-            unit.enabled,
-            unit.module if unit.module is not None else "none",
-            unit.model if unit.model is not None else "None",
-            unit.weight,
-            unit.image,
-            unit.invert_image,
-            unit.resize_mode,
-            unit.rgbbgr_mode,
-            unit.low_vram,
-            unit.processor_res,
-            unit.threshold_a,
-            unit.threshold_b,
-            unit.guidance_start,
-            unit.guidance_end,
-            unit.guess_mode))
-
+    flattened_cn_args: List[Any] = [is_img2img, is_ui] + cn_units
     cn_script_args_diff = 0
     for script in script_runner.alwayson_scripts:
         if script is cn_script:
