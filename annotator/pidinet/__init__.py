@@ -26,7 +26,8 @@ def apply_pidinet(input_image):
         ckp = load_state_dict(modelpath)
         netNetwork.load_state_dict({k.replace('module.',''):v for k, v in ckp.items()})
         
-    netNetwork.to(devices.get_device_for("controlnet")).eval()
+    netNetwork = netNetwork.to(devices.get_device_for("controlnet"))
+    netNetwork.eval()
     assert input_image.ndim == 3
     input_image = input_image[:, :, ::-1].copy()
     with torch.no_grad():
