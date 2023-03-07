@@ -127,7 +127,8 @@ class UnetHook(nn.Module):
             # check if it's non-batch-cond mode (lowvram, edit model etc)
             if context.shape[0] % 2 != 0 and outer.batch_cond_available:
                 outer.batch_cond_available = False
-                print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
+                if len(total_extra_cond) > 0 or outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
+                    print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
                 
             # concat styleadapter to cond, pad uncond to same length
             if len(total_extra_cond) > 0 and outer.batch_cond_available:
