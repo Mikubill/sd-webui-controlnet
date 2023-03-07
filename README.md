@@ -22,6 +22,9 @@ Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
 Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
+#### How To Install And Use Video
+https://www.youtube.com/watch?v=tXaQAkOgezQ
+
 ### Usage
 
 1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
