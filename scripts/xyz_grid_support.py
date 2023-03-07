@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import itertools
 
 from modules import scripts, shared
 
@@ -29,18 +30,9 @@ def find_dict(dict_list, keyword, search_key="name", stop=False):
         raise ValueError(f"Dictionary with value '{keyword}' in key '{search_key}' not found.")
 
 
-def flatten_list(lst):
-    result = []
-    for element in lst:
-        if isinstance(element, list):
-            result.extend(flatten_list(element))
-        else:
-            result.append(element)
-    return result
-
-
 def is_all_included(target_list, check_list, allow_blank=False, stop=False):
-    for element in flatten_list(target_list):
+    flatten_list = list(itertools.chain(target_list))
+    for element in flatten_list:
         if allow_blank and str(element) in ["None", ""]:
             continue
         elif element not in check_list:
