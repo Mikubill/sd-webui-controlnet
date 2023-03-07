@@ -561,7 +561,7 @@ class Script(scripts.Script):
         if any([k.startswith("body.") or k == 'style_embedding' for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
-            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf)
+            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
             if not os.path.isabs(network_config):
                 network_config = os.path.join(script_dir, network_config)
             
