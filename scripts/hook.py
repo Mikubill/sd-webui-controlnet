@@ -122,7 +122,7 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
                 control = param.control_model(x=x, hint=param.hint_cond, timesteps=timesteps, context=context)
-                total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0)]) #* param.weight
+                total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
                 
             # check if it's non-batch-cond mode (lowvram, edit model etc)
             if context.shape[0] % 2 != 0 and outer.batch_cond_available:
