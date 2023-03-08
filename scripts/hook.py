@@ -193,7 +193,6 @@ class UnetHook(nn.Module):
                     target[idx] += item
                         
             control = total_control
-            # print(torch.mean(torch.stack([control])))
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():

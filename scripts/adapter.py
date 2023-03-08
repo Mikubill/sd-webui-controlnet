@@ -90,7 +90,7 @@ class PlugableAdapter(nn.Module):
         self.control = None
         self.hint_cond = None
             
-    def forward(self, x=None, hint=None, *args, **kwargs):
+    def forward(self, hint=None, x=None, *args, **kwargs):
         if self.control is not None:
             return deepcopy(self.control)
         
