@@ -728,6 +728,7 @@ class Script(scripts.Script):
                 self.unloadable.get(module, lambda:None)()
             
         self.latest_model_hash = p.sd_model.sd_model_hash
+        self.detectmap_cache = {}
         for idx, contents in enumerate(control_groups):
             module, model, params = contents
             _, input_image = self.parse_remote_call(p, params, idx)
@@ -783,15 +784,28 @@ class Script(scripts.Script):
             else:
                 detected_map, is_image = preprocessor(input_image)
             
-            if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, module, rgbbgr_mode, resize_mode, h, w)
-                detected_maps.append((detected_map, module))
-            else:
-                control = detected_map  
+            def lazy_resize(h, w):
+                cache_key = f"{h}-{w}"
+                if hasattr(self, "detectmap_cache"):
+                    cached = self.detectmap_cache.get(cache_key, None)
+                    if cached is not None:
+                        return cached, None
+                    
+                detected_map_opt = detected_map
+                if is_image:
+                    control, detected_map_opt = self.detectmap_proc(detected_map, module, rgbbgr_mode, resize_mode, h, w)
+                else:
+                    control = detected_map
+                    
+                self.detectmap_cache[cache_key] = control
+                return control, detected_map_opt
+        
+            _, detected_map_opt = lazy_resize(h, w)
+            detected_maps.append((detected_map_opt, module))
 
             forward_param = ControlParams(
                 control_model=model_net,
-                hint_cond=control,
+                hint_cond=lambda h, w: lazy_resize(h, w),
                 guess_mode=guess_mode,
                 weight=weight,
                 guidance_stopped=False,
@@ -814,6 +828,7 @@ class Script(scripts.Script):
             swap_img2img_pipeline(p)
 
     def postprocess(self, p, processed, is_img2img=False, is_ui=False, *args):
+        self.detectmap_cache = {}
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -872,8 +887,8 @@ def on_ui_settings():
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
         False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
-        True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
+    # shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
+    #     True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
