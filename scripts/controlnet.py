@@ -846,6 +846,8 @@ class Script(scripts.Script):
 
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
+                if detect_map is None:
+                    continue
                 if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
                     detect_map = 255-detect_map
                 processed.images.extend([Image.fromarray(detect_map)])
