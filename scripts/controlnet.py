@@ -382,6 +382,13 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
+            elif module == "color":
+                return [
+                    gr.update(label="Annotator Resolution", value=64, minimum=64, maximum=2048, step=8, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
             elif module == "none":
                 return [
                     gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
