@@ -1,3 +1,4 @@
+from functools import partial
 import re
 import numpy as np
 
@@ -18,6 +19,7 @@ def debug_info(func):
         if DEBUG_MODE:
             print(f"Debug info: {func.__name__}, {args}")
         return func(*args, **kwargs)
+
     return debug_info_
 
 
@@ -26,7 +28,9 @@ def find_dict(dict_list, keyword, search_key="name", stop=False):
     if result or not stop:
         return result
     else:
-        raise ValueError(f"Dictionary with value '{keyword}' in key '{search_key}' not found.")
+        raise ValueError(
+            f"Dictionary with value '{keyword}' in key '{search_key}' not found."
+        )
 
 
 def flatten(lst):
@@ -51,7 +55,7 @@ def is_all_included(target_list, check_list, allow_blank=False, stop=False):
     return True
 
 
-class ListParser():
+class ListParser:
     """This class restores a broken list caused by the following process
     in the xyz_grid module.
         -> valslist = [x.strip() for x in chain.from_iterable(
@@ -61,15 +65,16 @@ class ListParser():
 
     This class directly modifies the received list.
     """
+
     numeric_pattern = {
         int: {
             "range": r"\s*([+-]?\s*\d+)\s*-\s*([+-]?\s*\d+)(?:\s*\(([+-]\d+)\s*\))?\s*",
-            "count": r"\s*([+-]?\s*\d+)\s*-\s*([+-]?\s*\d+)(?:\s*\[(\d+)\s*\])?\s*"
+            "count": r"\s*([+-]?\s*\d+)\s*-\s*([+-]?\s*\d+)(?:\s*\[(\d+)\s*\])?\s*",
         },
         float: {
             "range": r"\s*([+-]?\s*\d+(?:\.\d*)?)\s*-\s*([+-]?\s*\d+(?:\.\d*)?)(?:\s*\(([+-]\d+(?:\.\d*)?)\s*\))?\s*",
-            "count": r"\s*([+-]?\s*\d+(?:\.\d*)?)\s*-\s*([+-]?\s*\d+(?:\.\d*)?)(?:\s*\[(\d+(?:\.\d*)?)\s*\])?\s*"
-        }
+            "count": r"\s*([+-]?\s*\d+(?:\.\d*)?)\s*-\s*([+-]?\s*\d+(?:\.\d*)?)(?:\s*\[(\d+(?:\.\d*)?)\s*\])?\s*",
+        },
     }
 
     ################################################
@@ -78,7 +83,9 @@ class ListParser():
     #
     ################################################
 
-    def __init__(self, my_list, converter=None, allow_blank=True, exclude_list=None, run=True):
+    def __init__(
+        self, my_list, converter=None, allow_blank=True, exclude_list=None, run=True
+    ):
         self.my_list = my_list
         self.converter = converter
         self.allow_blank = allow_blank
@@ -99,8 +106,8 @@ class ListParser():
             self.re_bracket_start = re.compile(r"^\[")
             self.re_bracket_end = re.compile(r"\]$")
         else:
-            self.re_bracket_start = re.compile(fr"^\[(?!(?:{exclude_pattern})\])")
-            self.re_bracket_end = re.compile(fr"(?<!\[(?:{exclude_pattern}))\]$")
+            self.re_bracket_start = re.compile(rf"^\[(?!(?:{exclude_pattern})\])")
+            self.re_bracket_end = re.compile(rf"(?<!\[(?:{exclude_pattern}))\]$")
 
         if self.converter not in self.numeric_pattern:
             return self
@@ -144,7 +151,7 @@ class ListParser():
         is_matched = False
         for s in my_list:
             if isinstance(s, list):
-                result.extend(self.numeric_range_parser(s, depth+1))
+                result.extend(self.numeric_range_parser(s, depth + 1))
                 continue
 
             match = self._numeric_range_to_list(s)
@@ -193,7 +200,9 @@ class ListParser():
                     end_indices.append(i + 1)
             self.my_list[i] = s
         if not is_same_length(start_indices, end_indices):
-            raise ValueError(f"Lengths of {start_indices} and {end_indices} are different.")
+            raise ValueError(
+                f"Lengths of {start_indices} and {end_indices} are different."
+            )
         # Restore the structure of a list.
         for i, j in zip(reversed(start_indices), reversed(end_indices)):
             self.my_list[i:j] = [self.my_list[i:j]]
@@ -203,22 +212,24 @@ class ListParser():
         my_list = self.my_list if my_list is None else my_list
         if not self.sublist_exists(my_list):
             return self
-        max_length = max(len(sub_list) for sub_list in my_list if isinstance(sub_list, list))
+        max_length = max(
+            len(sub_list) for sub_list in my_list if isinstance(sub_list, list)
+        )
         for i, sub_list in enumerate(my_list):
             if isinstance(sub_list, list):
                 fill_value = value if index is None else sub_list[index]
-                my_list[i] = sub_list + [fill_value] * (max_length-len(sub_list))
+                my_list[i] = sub_list + [fill_value] * (max_length - len(sub_list))
         return self
 
     def sublist_exists(self, my_list=None):
         my_list = self.my_list if my_list is None else my_list
         return any(isinstance(item, list) for item in my_list)
 
-    def all_sublists(self, my_list=None):    # Unused method
+    def all_sublists(self, my_list=None):  # Unused method
         my_list = self.my_list if my_list is None else my_list
         return all(isinstance(item, list) for item in my_list)
 
-    def get_list(self):                      # Unused method
+    def get_list(self):  # Unused method
         return self.my_list
 
     ################################################
@@ -252,7 +263,7 @@ class ListParser():
                 end = int(match.group(2)) + 1
                 step = int(match.group(3)) if match.group(3) is not None else 1
                 return list(range(start, end, step))
-            else:              # float
+            else:  # float
                 start = float(match.group(1))
                 end = float(match.group(2))
                 step = float(match.group(3)) if match.group(3) is not None else 1
@@ -264,8 +275,10 @@ class ListParser():
                 start = int(match.group(1))
                 end = int(match.group(2))
                 num = int(match.group(3)) if match.group(3) is not None else 1
-                return [int(x) for x in np.linspace(start=start, stop=end, num=num).tolist()]
-            else:              # float
+                return [
+                    int(x) for x in np.linspace(start=start, stop=end, num=num).tolist()
+                ]
+            else:  # float
                 start = float(match.group(1))
                 end = float(match.group(2))
                 num = int(match.group(3)) if match.group(3) is not None else 1
@@ -283,6 +296,7 @@ class ListParser():
     # The methods of ListParser class end here.
     #
     ################################################
+
 
 ################################################################
 ################################################################
@@ -302,127 +316,177 @@ def find_module(module_names):
     return None
 
 
-def add_axis_options(xyz_grid):
+@debug_info
+def confirm(func_or_str, p, xs):
+    if callable(func_or_str):  # func_or_str is converter
+        ListParser(xs, func_or_str, allow_blank=True)
+        return
+    elif isinstance(func_or_str, str):  # func_or_str is keyword
+        valid_data = find_dict(validation_data, func_or_str, stop=True)
+        converter = valid_data["type"]
+        exclude_list = valid_data["exclude"]() if valid_data["exclude"] else None
+        check_list = valid_data["check"]()
+        ListParser(xs, converter, allow_blank=True, exclude_list=exclude_list)
+        is_all_included(xs, check_list, allow_blank=True, stop=True)
+        return
+    else:
+        raise TypeError(
+            f"Argument must be callable or str, not {type(func_or_str).__name__}."
+        )
 
-    ################################################
-    #
-    # Define a function to pass to the AxisOption class from here.
-    #
-    ################################################
 
-    def enable_script_control():
-        shared.opts.data["control_net_allow_script_control"] = True
+def bool_(string):
+    string = str(string)
+    if string in ["None", ""]:
+        return None
+    elif string.lower() in ["true", "1"]:
+        return True
+    elif string.lower() in ["false", "0"]:
+        return False
+    else:
+        raise ValueError(f"Could not convert string to boolean: {string}")
 
-    def apply_field(field):
-        @debug_info
-        def apply_field_(p, x, xs, *, field=field, enclosure=apply_field):
-            enable_script_control()
-            setattr(p, field, x)
 
-        return apply_field_
+def choices_bool() -> list[str]:
+    return ["False", "True"]
 
-    ################################################
-    # Set this function as the type attribute of the AxisOption class.
-    # To skip the following processing of xyz_grid module.
-    #   -> valslist = [opt.type(x) for x in valslist]
-    # Perform type conversion using the function
-    # set to the confirm attribute instead.
-    #
-    def identity(x):
-        return x
 
-    ################################################
-    # The confirm function defined in this module
-    # enables list notation and performs type conversion.
-    #
-    # Example:
-    #     any = [any, any, any, ...]
-    #     [any] = [any, None, None, ...]
-    #     [None, None, any] = [None, None, any]
-    #     [,,any] = [None, None, any]
-    #     any, [,any,] = [any, any, any, ...], [None, any, None]
-    #
-    #     Enabled Only:
-    #         any = [any] = [any, None, None, ...]
-    #         (any and [any] are considered equivalent)
-    #
-    def confirm(func_or_str):
-        @debug_info
-        def confirm_(p, xs):
-            if callable(func_or_str):           # func_or_str is converter
-                ListParser(xs, func_or_str, allow_blank=True)
-                return
+def choices_model():
+    controlnet.update_cn_models()
+    return list(controlnet.cn_models_names.values())
 
-            elif isinstance(func_or_str, str):  # func_or_str is keyword
-                valid_data = find_dict(validation_data, func_or_str, stop=True)
-                converter = valid_data["type"]
-                exclude_list = valid_data["exclude"]() if valid_data["exclude"] else None
-                check_list = valid_data["check"]()
 
-                ListParser(xs, converter, allow_blank=True, exclude_list=exclude_list)
-                is_all_included(xs, check_list, allow_blank=True, stop=True)
-                return
+def choices_resize_mode():
+    return [e.value for e in controlnet.ResizeMode]
 
-            else:
-                raise TypeError(f"Argument must be callable or str, not {type(func_or_str).__name__}.")
 
-        return confirm_
+def choices_preprocessor():
+    return list(controlnet.Script().preprocessor)
 
-    def bool_(string):
-        string = str(string)
-        if string in ["None", ""]:
-            return None
-        elif string.lower() in ["true", "1"]:
-            return True
-        elif string.lower() in ["false", "0"]:
-            return False
-        else:
-            raise ValueError(f"Could not convert string to boolean: {string}")
 
-    def choices_bool():
-        return ["False", "True"]
+def make_excluded_list():
+    pattern = re.compile(r"\[(\w+)\]")
+    return [match.group(1) for s in choices_model() for match in pattern.finditer(s)]
 
-    def choices_model():
-        controlnet.update_cn_models()
-        return list(controlnet.cn_models_names.values())
 
-    def choices_resize_mode():
-        return [e.value for e in controlnet.ResizeMode]
+validation_data = [
+    {
+        "name": "model",
+        "type": str,
+        "check": choices_model,
+        "exclude": make_excluded_list,
+    },
+    {
+        "name": "resize_mode",
+        "type": str,
+        "check": choices_resize_mode,
+        "exclude": None,
+    },
+    {
+        "name": "preprocessor",
+        "type": str,
+        "check": choices_preprocessor,
+        "exclude": None,
+    },
+]
 
-    def choices_preprocessor():
-        return list(controlnet.Script().preprocessor)
 
-    def make_excluded_list():
-        pattern = re.compile(r"\[(\w+)\]")
-        return [match.group(1) for s in choices_model()
-                for match in pattern.finditer(s)]
+def identity(x):
+    return x
 
-    validation_data = [
-        {"name": "model", "type": str, "check": choices_model, "exclude": make_excluded_list},
-        {"name": "resize_mode", "type": str, "check": choices_resize_mode, "exclude": None},
-        {"name": "preprocessor", "type": str, "check": choices_preprocessor, "exclude": None},
-    ]
 
-    extra_axis_options = [
-        xyz_grid.AxisOption("[ControlNet] Enabled", identity, apply_field("control_net_enabled"), confirm=confirm(bool_), choices=choices_bool),
-        xyz_grid.AxisOption("[ControlNet] Model", identity, apply_field("control_net_model"), confirm=confirm("model"), choices=choices_model, cost=0.9),
-        xyz_grid.AxisOption("[ControlNet] Weight", identity, apply_field("control_net_weight"), confirm=confirm(float)),
-        xyz_grid.AxisOption("[ControlNet] Guidance Start", identity, apply_field("control_net_guidance_start"), confirm=confirm(float)),
-        xyz_grid.AxisOption("[ControlNet] Guidance End", identity, apply_field("control_net_guidance_end"), confirm=confirm(float)),
-        xyz_grid.AxisOption("[ControlNet] Resize Mode", identity, apply_field("control_net_resize_mode"), confirm=confirm("resize_mode"), choices=choices_resize_mode),
-        xyz_grid.AxisOption("[ControlNet] Preprocessor", identity, apply_field("control_net_module"), confirm=confirm("preprocessor"), choices=choices_preprocessor),
-        xyz_grid.AxisOption("[ControlNet] Pre Resolution", identity, apply_field("control_net_pres"), confirm=confirm(int)),
-        xyz_grid.AxisOption("[ControlNet] Pre Threshold A", identity, apply_field("control_net_pthr_a"), confirm=confirm(float)),
-        xyz_grid.AxisOption("[ControlNet] Pre Threshold B", identity, apply_field("control_net_pthr_b"), confirm=confirm(float)),
-    ]
+def enable_script_control():
+    shared.opts.data["control_net_allow_script_control"] = True
 
-    xyz_grid.axis_options.extend(extra_axis_options)
+
+def apply_field(field):
+    @debug_info
+    def apply_field_(p, x, xs, *, field=field, enclosure=apply_field):
+        enable_script_control()
+        setattr(p, field, x)
+
+    return apply_field_
+
+
+def add_axis_options(xyz_grid, extra_axis_options: list[dict]) -> None:
+    for my_dict in extra_axis_options:
+        control_net_axis_options = xyz_grid.AxisOption(**my_dict)
+        xyz_grid.axis_options.append(control_net_axis_options)
+
+
+extra_axis_options = [
+    {
+        "label": "[ControlNet] Enabled",
+        "type": identity,
+        "apply": apply_field("control_net_enabled"),
+        "confirm": partial(confirm, bool_),
+        "choices": choices_bool,
+    },
+    {
+        "label": "[ControlNet] Model",
+        "type": identity,
+        "apply": apply_field("control_net_model"),
+        "confirm": partial(confirm, "model"),
+        "cost": 0.9,
+        "choices": choices_model,
+    },
+    {
+        "label": "[ControlNet] Weight",
+        "type": identity,
+        "apply": apply_field("control_net_weight"),
+        "confirm": partial(confirm, float),
+    },
+    {
+        "label": "[ControlNet] Guidance Start",
+        "type": identity,
+        "apply": apply_field("control_net_guidance_start"),
+        "confirm": partial(confirm, float),
+    },
+    {
+        "label": "[ControlNet] Guidance End",
+        "type": identity,
+        "apply": apply_field("control_net_guidance_end"),
+        "confirm": partial(confirm, float),
+    },
+    {
+        "label": "[ControlNet] Resize Mode",
+        "type": identity,
+        "apply": apply_field("control_net_resize_mode"),
+        "confirm": partial(confirm, "resize_mode"),
+        "choices": choices_resize_mode,
+    },
+    {
+        "label": "[ControlNet] Preprocessor",
+        "type": identity,
+        "apply": apply_field("control_net_module"),
+        "confirm": partial(confirm, "preprocessor"),
+        "choices": choices_preprocessor,
+    },
+    {
+        "label": "[ControlNet] Pre Resolution",
+        "type": identity,
+        "apply": apply_field("control_net_pres"),
+        "confirm": partial(confirm, int),
+    },
+    {
+        "label": "[ControlNet] Pre Threshold A",
+        "type": identity,
+        "apply": apply_field("control_net_pthr_a"),
+        "confirm": partial(confirm, float),
+    },
+    {
+        "label": "[ControlNet] Pre Threshold B",
+        "type": identity,
+        "apply": apply_field("control_net_pthr_b"),
+        "confirm": partial(confirm, float),
+    },
+]
 
 
 def run():
     xyz_grid = find_module("xyz_grid.py, xy_grid.py")
     if xyz_grid:
-        add_axis_options(xyz_grid)
+        add_axis_options(xyz_grid, extra_axis_options)
 
 
 if not import_error:
