@@ -1,4 +1,4 @@
-import types
+
 import torch
 import torch.nn as nn
 from modules import devices, lowvram, shared, scripts
@@ -127,12 +127,7 @@ class UnetHook(nn.Module):
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
-                    
-                hint_cond = param.hint_cond
-                if isinstance(hint_cond, types.FunctionType):
-                    h, w = x.shape[-2:]
-                    hint_cond, _ = param.hint_cond(h*8, w*8)
-                control = param.control_model(x=x, hint=hint_cond, timesteps=timesteps, context=context)
+                control = param.control_model(x=x, hint=param.hint_cond, timesteps=timesteps, context=context)
                 total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
                 
             # check if it's non-batch-cond mode (lowvram, edit model etc)
@@ -162,14 +157,13 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
                     
-                hint_cond = param.hint_cond
-                if isinstance(hint_cond, types.FunctionType):
-                    h, w = x.shape[-2:]
-                    hint_cond, _ = param.hint_cond(h*8, w*8)
-
-                # Deprecated: control_net_only_midctrl_hires was removed since fed7a52. use control_net_only_mid_control instead.                  
-                # only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
-                
+                # hires stuffs
+                # note that this method may not works if hr_scale < 1.1
+                if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
+                    only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
+                    # If you want to completely disable control net, uncomment this.
+                    # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
+                    
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
@@ -178,8 +172,8 @@ class UnetHook(nn.Module):
                     x_in = x[:, :4, ...]
                     require_inpaint_hijack = True
                     
-                assert hint_cond is not None, f"Controlnet is enabled but no input image is given"  
-                control = param.control_model(x=x_in, hint=hint_cond, timesteps=timesteps, context=context)
+                assert param.hint_cond is not None, f"Controlnet is enabled but no input image is given"  
+                control = param.control_model(x=x_in, hint=param.hint_cond, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
                 
                 if outer.lowvram:
