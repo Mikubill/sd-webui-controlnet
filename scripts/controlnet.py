@@ -1,4 +1,3 @@
-from copy import deepcopy
 import gc
 import os
 import stat
@@ -793,9 +792,9 @@ class Script(scripts.Script):
             if scribble_mode:
                 detected_map = np.zeros_like(input_image, dtype=np.uint8)
                 detected_map[np.min(input_image, axis=2) < 127] = 255
-                input_image = detected_map
-             
+                input_image = detected_map 
                 
+                            
             print(f"Loading preprocessor: {module}")
             preprocessor = self.preprocessor[module]
             h, w, bsz = p.height, p.width, p.batch_size
