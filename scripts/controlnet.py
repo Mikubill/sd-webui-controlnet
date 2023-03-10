@@ -825,11 +825,11 @@ class Script(scripts.Script):
                     save_image(img, detectmap_dir, module)
 
         is_img2img_batch_tab = is_ui and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
+        if self.latest_network is None or is_img2img_batch_tab:
             return
 
-        if hasattr(self, "detected_map") and self.detected_map is not None:
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if not no_detectmap_opt and hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
