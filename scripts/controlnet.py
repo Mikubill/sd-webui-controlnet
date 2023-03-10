@@ -1,3 +1,4 @@
+from copy import deepcopy
 import gc
 import os
 import stat
@@ -69,7 +70,7 @@ tossup_symbol = '\u2934'
 webcam_enabled = False
 webcam_mirrored = False
 
-PARAM_COUNT = 15
+PARAM_COUNT = 16
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -271,6 +272,7 @@ class Script(scripts.Script):
 
         with gr.Row():
             enabled = gr.Checkbox(label='Enable', value=False)
+            use_generated = gr.Checkbox(label='Use Generated Image', value=False)
             scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
             rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
             lowvram = gr.Checkbox(label='Low VRAM', value=False)
@@ -474,6 +476,7 @@ class Script(scripts.Script):
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
+        ctrls += (use_generated,)
             
         input_image.orgpreprocess=input_image.preprocess
         input_image.preprocess=svgPreprocess
@@ -608,7 +611,7 @@ class Script(scripts.Script):
             params = [None] * PARAM_COUNT
 
         enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode, use_generated = params
 
         selector = self.get_remote_call
 
@@ -617,6 +620,7 @@ class Script(scripts.Script):
         model = selector(p, "control_net_model", model, idx)
         weight = selector(p, "control_net_weight", weight, idx)
         image = selector(p, "control_net_image", image, idx)
+        use_generated = selector(p, "control_net_use_generated", use_generated, idx)
         scribble_mode = selector(p, "control_net_scribble_mode", scribble_mode, idx)
         resize_mode = selector(p, "control_net_resize_mode", resize_mode, idx)
         rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", rgbbgr_mode, idx)
@@ -635,7 +639,7 @@ class Script(scripts.Script):
         input_image = selector(p, "control_net_input_image", None, idx)
 
         return (enabled, module, model, weight, image, scribble_mode, \
-            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode), input_image
+            resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode, use_generated), input_image
         
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
         detected_map = HWC3(detected_map)
@@ -691,7 +695,7 @@ class Script(scripts.Script):
         for idx, params in enumerate(params_group):
             params, _ = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
-                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
+                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode, use_generated = params
 
             if not enabled:
                 continue
@@ -716,6 +720,7 @@ class Script(scripts.Script):
         detected_maps = []
         forward_params = []
         hook_lowvram = False
+        save_seed = None
         
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
@@ -732,7 +737,7 @@ class Script(scripts.Script):
             module, model, params = contents
             _, input_image = self.parse_remote_call(p, params, idx)
             enabled, module, model, weight, image, scribble_mode, \
-                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
+                resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode, use_generated = params
 
             resize_mode = resize_mode_from_value(resize_mode)
 
@@ -756,9 +761,24 @@ class Script(scripts.Script):
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
-                if input_image is None:
+                if input_image is None and not use_generated:
                     raise ValueError('controlnet is enabled but no input image is given')
-                input_image = HWC3(np.asarray(input_image))
+                elif input_image is None and use_generated:
+                    print("use_generated is used!!")
+                    if p.scripts is not None:
+                        copy_scripts = p.scripts
+                        p.scripts = None
+                        use_generated = False
+                        # for multi controlnet with use_generated enable
+                        # , use the same seed
+                        if save_seed is None:
+                            generated_im = processing.process_images(p)
+                            save_seed = generated_im.seed
+                        p.scripts = copy_scripts
+                        input_image = generated_im.images[0]
+                        input_image = HWC3(np.asarray(input_image))
+                else:
+                    input_image = HWC3(np.asarray(input_image))
                 
             if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
                 input_image = Image.fromarray(input_image)
@@ -774,7 +794,8 @@ class Script(scripts.Script):
                 detected_map = np.zeros_like(input_image, dtype=np.uint8)
                 detected_map[np.min(input_image, axis=2) < 127] = 255
                 input_image = detected_map
-            
+             
+                
             print(f"Loading preprocessor: {module}")
             preprocessor = self.preprocessor[module]
             h, w, bsz = p.height, p.width, p.batch_size
