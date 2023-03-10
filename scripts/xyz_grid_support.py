@@ -289,6 +289,19 @@ class ListParser():
 #
 # Starting the main process of this module.
 #
+# functions are executed in this order:
+    # find_module
+    # add_axis_options
+    # identity
+    # enable_script_control
+    # apply_field
+    # confirm
+    # bool_
+    # choices_for
+    # make_excluded_list
+# config lists for AxisOptions:
+    # validation_data
+    # extra_axis_options
 ################################################################
 ################################################################
 
@@ -309,18 +322,7 @@ def add_axis_options(xyz_grid):
     # Define a function to pass to the AxisOption class from here.
     #
     ################################################
-
-    def enable_script_control():
-        shared.opts.data["control_net_allow_script_control"] = True
-
-    def apply_field(field):
-        @debug_info
-        def apply_field_(p, x, xs, *, field=field, enclosure=apply_field):
-            enable_script_control()
-            setattr(p, field, x)
-
-        return apply_field_
-
+  
     ################################################
     # Set this function as the type attribute of the AxisOption class.
     # To skip the following processing of xyz_grid module.
@@ -330,6 +332,17 @@ def add_axis_options(xyz_grid):
     #
     def identity(x):
         return x
+ 
+    def enable_script_control():
+        shared.opts.data["control_net_allow_script_control"] = True
+
+    def apply_field(field):
+        @debug_info
+        def apply_field_(p, x, xs):
+            enable_script_control()
+            setattr(p, field, x)
+
+        return apply_field_
 
     ################################################
     # The confirm function defined in this module
