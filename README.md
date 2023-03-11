@@ -70,8 +70,6 @@ Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-
 
 T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models. 
 
-Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for reference. 
-
 To use T2I-Adapter models:
 1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
 2. Copy corresponding config file and rename it to the same name as the model - see list below.
@@ -87,7 +85,10 @@ To use T2I-Adapter models:
 | t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
 | t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
 
-Note: Some adapters may have mapping deviations (see issue https://github.com/lllyasviel/ControlNet/issues/255)
+Note: 
+
+* This implement is experimental, result may differ from original repo.
+* Some adapters may have mapping deviations (see issue https://github.com/lllyasviel/ControlNet/issues/255)
 
 ### Adapter Examples
 
