@@ -734,6 +734,10 @@ class Script(scripts.Script):
             enabled, module, model, weight, image, scribble_mode, \
                 resize_mode, rgbbgr_mode, lowvram, pres, pthr_a, pthr_b, guidance_start, guidance_end, guess_mode = params
 
+            if module.lower() == 'none':
+                print('No preprocessor selected, skipping ControlNet')
+                return
+
             resize_mode = resize_mode_from_value(resize_mode)
 
             if lowvram:
@@ -822,9 +826,6 @@ class Script(scripts.Script):
         self.latest_network.hook(unet)
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
         self.detected_map = detected_maps
-            
-        if len(control_groups) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
-            swap_img2img_pipeline(p)
 
     def postprocess(self, p, processed, is_img2img=False, is_ui=False, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
