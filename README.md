@@ -165,3 +165,21 @@ To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-contr
 Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
 
 To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
+
+### Example: Visual-ChatGPT (by API)
+
+Quick start:
+
+```base
+# Run WebUI in API mode
+python launch.py --api --xformers
+
+# Install/Upgrade transformers
+pip install -U transformers
+
+# Install deps
+pip install langchain==0.0.101 openai 
+
+# Run exmaple
+python example/chatgpt.py
+```
