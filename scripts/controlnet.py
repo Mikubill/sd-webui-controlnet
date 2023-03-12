@@ -738,9 +738,15 @@ class Script(scripts.Script):
 
             if lowvram:
                 hook_lowvram = True
-                
-            model_net = self.load_control_model(p, unet, model, lowvram)
-            model_net.reset()
+            
+            model_net = None
+            if (is_img2img and shared.opts.data.get("control_net_skip_img2img_processing")) or model is None or model.lower() == 'none':
+                # this will disable img2img processing
+                p.n_iter = 0
+                p.disable_extra_networks = True
+            else:
+                model_net = self.load_control_model(p, unet, model, lowvram)
+                model_net.reset()
 
             is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and hasattr(p, "image_control") and p.image_control is not None:
