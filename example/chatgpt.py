@@ -506,7 +506,7 @@ class BLIPVQA:
 class ConversationBot:
     def __init__(self):
         print("Initializing VisualChatGPT")
-        self.edit = ImageEditing(device=device)
+        # self.edit = ImageEditing(device=device)
         self.i2t = ImageCaptioning(device=device)
         self.t2i = T2I(device=device)
         self.image2canny = image2canny()
