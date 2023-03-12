@@ -748,8 +748,15 @@ class Script(scripts.Script):
             elif input_image is not None:
                 input_image = HWC3(np.asarray(input_image))
             elif image is not None:
-                input_image = HWC3(image['image'])
-                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                # Need to check the image for API compatibility
+                if isinstance(image['image'], str):
+                    from modules.api.api import decode_base64_to_image
+                    input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
+                else:
+                    input_image = HWC3(image['image'])
+
+                # Adding 'mask' check for API compatibility
+                if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
                     print("using mask as input")
                     input_image = HWC3(image['mask'][:, :, 0])
                     scribble_mode = True
