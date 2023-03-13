@@ -1,12 +1,82 @@
-from typing import List, Any, Optional
+from enum import Enum
+from typing import List, Any, Optional, Union, Tuple, Dict
+import numpy as np
 from modules import scripts, processing, shared
-from scripts.controlnet import ControlNetUnit, ResizeMode, update_cn_models, cn_models_names, PARAM_COUNT
+from scripts.global_state import update_cn_models, cn_models_names
 
 
-ResizeMode = ResizeMode
+PARAM_COUNT = 15
 
 
-ControlNetUnit = ControlNetUnit
+class ResizeMode(Enum):
+    """
+    Resize modes for ControlNet input images.
+    """
+
+    RESIZE = "Just Resize"
+    INNER_FIT = "Scale to Fit (Inner Fit)"
+    OUTER_FIT = "Envelope (Outer Fit)"
+
+
+def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
+    if isinstance(value, str):
+        return ResizeMode(value)
+    elif isinstance(value, int):
+        return [e for e in ResizeMode][value]
+    else:
+        return value
+
+
+class ControlNetUnit:
+    """
+    Represents an entire ControlNet processing unit.
+    """
+
+    def __init__(
+        self,
+        enabled: bool=True,
+        module: Optional[str]=None,
+        model: Optional[str]=None,
+        weight: float=1.0,
+        image: Optional[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray], np.ndarray]]=None,
+        invert_image: bool=False,
+        resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
+        rgbbgr_mode: bool=False,
+        low_vram: bool=False,
+        processor_res: int=64,
+        threshold_a: float=64,
+        threshold_b: float=64,
+        guidance_start: float=0.0,
+        guidance_end: float=1.0,
+        guess_mode: bool=True,
+    ):
+        self.enabled = enabled
+        self.module = module
+        self.model = model
+        self.weight = weight
+        self.image = image
+        self.invert_image = invert_image
+        self.resize_mode = resize_mode
+        self.rgbbgr_mode = rgbbgr_mode
+        self.low_vram = low_vram
+        self.processor_res = processor_res
+        self.threshold_a = threshold_a
+        self.threshold_b = threshold_b
+        self.guidance_start = guidance_start
+        self.guidance_end = guidance_end
+        self.guess_mode = guess_mode
+
+    def get_image_dict(self) -> Dict[str, np.ndarray]:
+        image = self.image
+        if image is not None:
+            if isinstance(image, (tuple, list)):
+                image = {'image': image[0], 'mask': image[1]}
+            elif isinstance(image, np.ndarray):
+                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
+
+            image = dict(image)
+
+        return image
 
 
 def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:

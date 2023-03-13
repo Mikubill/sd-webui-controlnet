@@ -1,9 +1,7 @@
 import gc
 import os
-import stat
 from collections import OrderedDict
-from enum import Enum
-from typing import Union, Dict, Any, Optional, Tuple
+from typing import Union, Dict, Any
 
 import torch
 
@@ -18,8 +16,7 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
-from modules import sd_models
-from modules.paths import models_path
+from scripts import external_code, global_state
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -45,21 +42,6 @@ try:
 except ImportError:
     pass
 
-CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
-cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
-cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
-cn_models_dir = os.path.join(models_path, "ControlNet")
-cn_models_dir_old = os.path.join(scripts.basedir(), "models")
-
-default_conf = os.path.join("models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
-cn_detectedmap_dir = os.path.join("detected_maps")
-default_detectedmap_dir = cn_detectedmap_dir
-script_dir = scripts.basedir()
-
-os.makedirs(cn_models_dir, exist_ok=True)
-os.makedirs(cn_detectedmap_dir, exist_ok=True)
-
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
@@ -68,8 +50,6 @@ tossup_symbol = '\u2934'
 
 webcam_enabled = False
 webcam_mirrored = False
-
-PARAM_COUNT = 15
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -80,58 +60,22 @@ class ToolButton(gr.Button, gr.components.FormComponent):
 
     def get_block_name(self):
         return "button"
-    
-
-def traverse_all_files(curr_path, model_list):
-    f_list = [(os.path.join(curr_path, entry.name), entry.stat())
-              for entry in os.scandir(curr_path)]
-    for f_info in f_list:
-        fname, fstat = f_info
-        if os.path.splitext(fname)[1] in CN_MODEL_EXTS:
-            model_list.append(f_info)
-        elif stat.S_ISDIR(fstat.st_mode):
-            model_list = traverse_all_files(fname, model_list)
-    return model_list
-
-
-def get_all_models(sort_by, filter_by, path):
-    res = OrderedDict()
-    fileinfos = traverse_all_files(path, [])
-    filter_by = filter_by.strip(" ")
-    if len(filter_by) != 0:
-        fileinfos = [x for x in fileinfos if filter_by.lower()
-                     in os.path.basename(x[0]).lower()]
-    if sort_by == "name":
-        fileinfos = sorted(fileinfos, key=lambda x: os.path.basename(x[0]))
-    elif sort_by == "date":
-        fileinfos = sorted(fileinfos, key=lambda x: -x[1].st_mtime)
-    elif sort_by == "path name":
-        fileinfos = sorted(fileinfos)
-
-    for finfo in fileinfos:
-        filename = finfo[0]
-        name = os.path.splitext(os.path.basename(filename))[0]
-        # Prevent a hypothetical "None.pt" from being listed.
-        if name != "None":
-            res[name + f" [{sd_models.model_hash(filename)}]"] = filename
-
-    return res
 
 
 def find_closest_lora_model_name(search: str):
     if not search:
         return None
-    if search in cn_models:
+    if search in global_state.cn_models:
         return search
     search = search.lower()
-    if search in cn_models_names:
-        return cn_models_names.get(search)
-    applicable = [name for name in cn_models_names.keys()
+    if search in global_state.cn_models_names:
+        return global_state.cn_models_names.get(search)
+    applicable = [name for name in global_state.cn_models_names.keys()
                   if search in name.lower()]
     if not applicable:
         return None
     applicable = sorted(applicable, key=lambda name: len(name))
-    return cn_models_names[applicable[0]]
+    return global_state.cn_models_names[applicable[0]]
 
 
 def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
@@ -143,108 +87,10 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
         setattr(p, k, v)
 
 
-def update_cn_models():
-    cn_models.clear()
-    ext_dirs = (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
-    extra_lora_paths = (extra_lora_path for extra_lora_path in ext_dirs
-                if extra_lora_path is not None and os.path.exists(extra_lora_path))
-    paths = [cn_models_dir, cn_models_dir_old, *extra_lora_paths]
-
-    for path in paths:
-        sort_by = shared.opts.data.get(
-            "control_net_models_sort_models_by", "name")
-        filter_by = shared.opts.data.get("control_net_models_name_filter", "")
-        found = get_all_models(sort_by, filter_by, path)
-        cn_models.update({**found, **cn_models})
-
-    # insert "None" at the beginning of `cn_models` in-place
-    cn_models_copy = OrderedDict(cn_models)
-    cn_models.clear()
-    cn_models.update({**{"None": None}, **cn_models_copy})
-
-    cn_models_names.clear()
-    for name_and_hash, filename in cn_models.items():
-        if filename is None:
-            continue
-        name = os.path.splitext(os.path.basename(filename))[0].lower()
-        cn_models_names[name] = name_and_hash
+global_state.update_cn_models()
 
 
-update_cn_models()
-
-
-class ResizeMode(Enum):
-    """
-    Resize modes for ControlNet input images.
-    """
-
-    RESIZE = "Just Resize"
-    INNER_FIT = "Scale to Fit (Inner Fit)"
-    OUTER_FIT = "Envelope (Outer Fit)"
-
-
-def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
-    if isinstance(value, str):
-        return ResizeMode(value)
-    elif isinstance(value, int):
-        return [e for e in ResizeMode][value]
-    else:
-        return value
-
-
-class ControlNetUnit:
-    """
-    Represents an entire ControlNet processing unit.
-    """
-
-    def __init__(
-        self,
-        enabled: bool=True,
-        module: Optional[str]=None,
-        model: Optional[str]=None,
-        weight: float=1.0,
-        image: Optional[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray], np.ndarray]]=None,
-        invert_image: bool=False,
-        resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
-        rgbbgr_mode: bool=False,
-        low_vram: bool=False,
-        processor_res: int=64,
-        threshold_a: float=64,
-        threshold_b: float=64,
-        guidance_start: float=0.0,
-        guidance_end: float=1.0,
-        guess_mode: bool=True,
-    ):
-        self.enabled = enabled
-        self.module = module
-        self.model = model
-        self.weight = weight
-        self.image = image
-        self.invert_image = invert_image
-        self.resize_mode = resize_mode
-        self.rgbbgr_mode = rgbbgr_mode
-        self.low_vram = low_vram
-        self.processor_res = processor_res
-        self.threshold_a = threshold_a
-        self.threshold_b = threshold_b
-        self.guidance_start = guidance_start
-        self.guidance_end = guidance_end
-        self.guess_mode = guess_mode
-
-    def get_image_dict(self) -> Dict[str, np.ndarray]:
-        image = self.image
-        if image is not None:
-            if isinstance(image, (tuple, list)):
-                image = {'image': image[0], 'mask': image[1]}
-            elif isinstance(image, np.ndarray):
-                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
-
-            image = dict(image)
-
-        return image
-
-
-def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]):
+def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]):
     ext_compat_keys = {
         'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
@@ -255,9 +101,9 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]):
 
     if type(unit) is dict:
         unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
-        unit = ControlNetUnit(**unit)
+        unit = external_code.ControlNetUnit(**unit)
 
-    assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
+    assert isinstance(unit, external_code.ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
     return unit
 
 
@@ -333,7 +179,7 @@ class Script(scripts.Script):
     def uigroup(self, tabname, is_img2img):
         ctrls = ()
         infotext_fields = []
-        default_unit = ControlNetUnit(
+        default_unit = external_code.ControlNetUnit(
             enabled=False,
             module="none",
             model="None",
@@ -386,15 +232,15 @@ class Script(scripts.Script):
         webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
         def refresh_all_models(*inputs):
-            update_cn_models()
+            global_state.update_cn_models()
                 
             dd = inputs[0]
-            selected = dd if dd in cn_models else "None"
-            return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
+            selected = dd if dd in global_state.cn_models else "None"
+            return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
             module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value=default_unit.module)
-            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value=default_unit.model)
+            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
                 # ctrls += (refresh_models, )
@@ -505,7 +351,7 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        resize_mode = gr.Radio(choices=[e.value for e in ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
         with gr.Row():
             with gr.Column():
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
@@ -553,9 +399,9 @@ class Script(scripts.Script):
         input_image.preprocess=svgPreprocess
 
         def controlnet_unit_from_args(*args):
-            return ControlNetUnit(*args)
+            return external_code.ControlNetUnit(*args)
 
-        default_unit = gr.State(default_unit)
+        unit = gr.State(default_unit)
         for comp in ctrls:
             event_subscriber = comp.change
             if hasattr(comp, 'edit'):
@@ -563,9 +409,9 @@ class Script(scripts.Script):
             elif hasattr(comp, 'click'):
                 event_subscriber = comp.click
 
-            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=default_unit)
+            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
 
-        return default_unit
+        return unit
 
 
     def ui(self, is_img2img):
@@ -630,7 +476,7 @@ class Script(scripts.Script):
 
     def build_control_model(self, p, unet, model, lowvram):
 
-        model_path = cn_models.get(model, None)
+        model_path = global_state.cn_models.get(model, None)
         if model_path is None:
             raise RuntimeError(f"model not found: {model}")
 
@@ -644,16 +490,16 @@ class Script(scripts.Script):
         print(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
         network_module = PlugableControlModel
-        network_config = shared.opts.data.get("control_net_model_config", default_conf)
+        network_config = shared.opts.data.get("control_net_model_config", global_state.default_conf)
         if not os.path.isabs(network_config):
-            network_config = os.path.join(script_dir, network_config)
+            network_config = os.path.join(global_state.script_dir, network_config)
 
         if any([k.startswith("body.") or k == 'style_embedding' for k, v in state_dict.items()]):
             # adapter model     
             network_module = PlugableAdapter
-            network_config = shared.opts.data.get("control_net_model_adapter_config", default_conf_adapter)
+            network_config = shared.opts.data.get("control_net_model_adapter_config", global_state.default_conf_adapter)
             if not os.path.isabs(network_config):
-                network_config = os.path.join(script_dir, network_config)
+                network_config = os.path.join(global_state.script_dir, network_config)
             
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
@@ -686,7 +532,7 @@ class Script(scripts.Script):
         default_value = get_element(default)
         return attribute_value if attribute_value is not None else default_value
 
-    def parse_remote_call(self, p, unit: ControlNetUnit, idx):
+    def parse_remote_call(self, p, unit: external_code.ControlNetUnit, idx):
         selector = self.get_remote_call
 
         unit.enabled = selector(p, "control_net_enabled", unit.enabled, idx, strict=True)
@@ -718,14 +564,14 @@ class Script(scripts.Script):
         control = rearrange(control, 'h w c -> c h w')
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
-        if resize_mode == ResizeMode.INNER_FIT:
+        if resize_mode == external_code.ResizeMode.INNER_FIT:
             transform = Compose([
                 Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
                 CenterCrop(size=(h, w)),
             ])
             control = transform(control)
             detected_map = transform(detected_map)
-        elif resize_mode == ResizeMode.OUTER_FIT:
+        elif resize_mode == external_code.ResizeMode.OUTER_FIT:
             transform = Compose([
                 Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
                 CenterCrop(size=(h, w))
@@ -745,11 +591,12 @@ class Script(scripts.Script):
         i = 0
         while i < len(args):
             if type(args[i]) is bool:
-                units.append(ControlNetUnit(*args[i:i + PARAM_COUNT]))
-                i += PARAM_COUNT
+                units.append(external_code.ControlNetUnit(*args[i:i + external_code.PARAM_COUNT]))
+                i += external_code.PARAM_COUNT
 
             else:
-                units.append(to_processing_unit(args[i]))
+                if args[i] is not None:
+                    units.append(to_processing_unit(args[i]))
                 i += 1
 
         return units
@@ -769,7 +616,7 @@ class Script(scripts.Script):
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group
-            remote_unit = self.parse_remote_call(p, ControlNetUnit(), 0)
+            remote_unit = self.parse_remote_call(p, external_code.ControlNetUnit(), 0)
             if remote_unit.enabled:
                 params_group.append(remote_unit)
 
@@ -819,7 +666,7 @@ class Script(scripts.Script):
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
 
-            resize_mode = resize_mode_from_value(unit.resize_mode)
+            resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             invert_image = unit.invert_image
 
             if unit.low_vram:
@@ -941,11 +788,11 @@ def update_script_args(p, value, arg_idx):
 def on_ui_settings():
     section = ('control_net', "ControlNet")
     shared.opts.add_option("control_net_model_config", shared.OptionInfo(
-        default_conf, "Config file for Control Net models", section=section))
+        global_state.default_conf, "Config file for Control Net models", section=section))
     shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
-        default_conf_adapter, "Config file for Adapter models", section=section))
+        global_state.default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_detectedmap_dir", shared.OptionInfo(
-        default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
+        global_state.default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
