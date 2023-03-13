@@ -120,12 +120,13 @@ class ApiHijack(api.Api):
 
     def controlnet_any2img(self, any2img_request, original_callback, is_img2img):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
+        alwayson_scripts = dict(any2img_request.alwayson_scripts)
         any2img_request.alwayson_scripts.update({'ControlNet': {'args': [is_img2img, False, *[to_api_cn_unit(unit) for unit in any2img_request.controlnet_units]]}})
         controlnet_units = any2img_request.controlnet_units
         delattr(any2img_request, 'controlnet_units')
         result = original_callback(self, any2img_request)
         result.parameters['controlnet_units'] = controlnet_units
-        result.parameters['alwayson_scripts'].clear()
+        result.parameters['alwayson_scripts'] = alwayson_scripts
         return result
 
 api.Api = ApiHijack
