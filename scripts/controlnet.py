@@ -333,6 +333,12 @@ class Script(scripts.Script):
     def uigroup(self, tabname, is_img2img):
         ctrls = ()
         infotext_fields = []
+        default_unit = ControlNetUnit(
+            enabled=False,
+            module="none",
+            model="None",
+            guess_mode=False,
+        )
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             generated_image = gr.Image(label="Annotator result", visible=False)
@@ -344,11 +350,11 @@ class Script(scripts.Script):
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
-            enabled = gr.Checkbox(label='Enable', value=False)
-            scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
-            rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
-            lowvram = gr.Checkbox(label='Low VRAM', value=False)
-            guess_mode = gr.Checkbox(label='Guess Mode', value=False)
+            enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
+            scribble_mode = gr.Checkbox(label='Invert Input Color', value=default_unit.invert_image)
+            rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=default_unit.rgbbgr_mode)
+            lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
+            guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -387,15 +393,15 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value="none")
-            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
+            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value=default_unit.module)
+            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
                 # ctrls += (refresh_models, )
         with gr.Row():
-            weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
-            guidance_start = gr.Slider(label="Guidance Start (T)", value=0.0, minimum=0.0, maximum=1.0, interactive=True)
-            guidance_end = gr.Slider(label="Guidance End (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
+            weight = gr.Slider(label=f"Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05)
+            guidance_start = gr.Slider(label="Guidance Start (T)", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True)
+            guidance_end = gr.Slider(label="Guidance End (T)", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True)
 
             ctrls += (module, model, weight,)
                 # model_dropdowns.append(model)
@@ -474,9 +480,9 @@ class Script(scripts.Script):
         # advanced options    
         advanced = gr.Column(visible=False)
         with advanced:
-            processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
-            threshold_a =  gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
-            threshold_b =  gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
+            processor_res = gr.Slider(label="Annotator resolution", value=default_unit.processor_res, minimum=64, maximum=2048, interactive=False)
+            threshold_a =  gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
+            threshold_b =  gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
             
         if gradio_compat:    
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
@@ -499,7 +505,7 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        resize_mode = gr.Radio(choices=[e.value for e in ResizeMode], value=ResizeMode.INNER_FIT.value, label="Resize Mode")
+        resize_mode = gr.Radio(choices=[e.value for e in ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
         with gr.Row():
             with gr.Column():
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
@@ -549,7 +555,7 @@ class Script(scripts.Script):
         def controlnet_unit_from_args(*args):
             return ControlNetUnit(*args)
 
-        unit = gr.State(ControlNetUnit(enabled=False))
+        default_unit = gr.State(default_unit)
         for comp in ctrls:
             event_subscriber = comp.change
             if hasattr(comp, 'edit'):
@@ -557,9 +563,9 @@ class Script(scripts.Script):
             elif hasattr(comp, 'click'):
                 event_subscriber = comp.click
 
-            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=default_unit)
 
-        return unit
+        return default_unit
 
 
     def ui(self, is_img2img):
