@@ -106,6 +106,12 @@ class UnetHook(nn.Module):
                     if is_adapter:
                         return torch.cat([cond + x, uncond], dim=0)
             
+            # resize to sample resolution
+            base_h, base_w = base.shape[-2:]
+            xh, xw = x.shape[-2:]
+            if base_h != xh or base_w != xw:
+                x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
+            
             return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):

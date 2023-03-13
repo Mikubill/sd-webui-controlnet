@@ -308,6 +308,13 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
+            elif module == "color":
+                return [
+                    gr.update(label="Annotator Resolution", value=512, minimum=64, maximum=2048, step=8, interactive=True),
+                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
             elif module == "none":
                 return [
                     gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
@@ -681,8 +688,15 @@ class Script(scripts.Script):
             elif p_input_image is not None:
                 input_image = HWC3(np.asarray(p_input_image))
             elif image is not None:
-                input_image = HWC3(image['image'])
-                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                # Need to check the image for API compatibility
+                if isinstance(image['image'], str):
+                    from modules.api.api import decode_base64_to_image
+                    input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
+                else:
+                    input_image = HWC3(image['image'])
+
+                # Adding 'mask' check for API compatibility
+                if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
                     print("using mask as input")
                     input_image = HWC3(image['mask'][:, :, 0])
                     invert_image = True
@@ -758,12 +772,14 @@ class Script(scripts.Script):
                     save_image(img, detectmap_dir, module)
 
         is_img2img_batch_tab = is_ui and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if self.latest_network is None or no_detectmap_opt or is_img2img_batch_tab:
+        if self.latest_network is None or is_img2img_batch_tab:
             return
 
-        if hasattr(self, "detected_map") and self.detected_map is not None:
+        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
+        if not no_detectmap_opt and hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
+                if detect_map is None:
+                    continue
                 if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
                     detect_map = 255-detect_map
                 processed.images.extend([Image.fromarray(detect_map)])
