@@ -96,15 +96,31 @@ def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]
         'guidance': 'guidance_end',
         'lowvram': 'low_vram',
         'input_image': 'image',
-        'scribble_mode': 'invert_image',
+        'scribble_mode': 'invert_image'
     }
 
-    if type(unit) is dict:
+    if isinstance(unit, dict):
         unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
+        if 'image' in unit and not isinstance(unit['image'], dict):
+            mask = unit['mask'] if 'mask' in unit else None
+            unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
         unit = external_code.ControlNetUnit(**unit)
 
     assert isinstance(unit, external_code.ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
     return unit
+
+
+def image_dict_from_unit(unit) -> Dict[str, np.ndarray]:
+    image = unit.image
+    if image is not None:
+        if isinstance(image, (tuple, list)):
+            image = {'image': image[0], 'mask': image[1]}
+        elif isinstance(image, np.ndarray):
+            image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
+
+        image = dict(image)
+
+    return image
 
 
 class Script(scripts.Script):

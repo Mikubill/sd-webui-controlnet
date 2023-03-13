@@ -66,18 +66,6 @@ class ControlNetUnit:
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
 
-    def get_image_dict(self) -> Dict[str, np.ndarray]:
-        image = self.image
-        if image is not None:
-            if isinstance(image, (tuple, list)):
-                image = {'image': image[0], 'mask': image[1]}
-            elif isinstance(image, np.ndarray):
-                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
-
-            image = dict(image)
-
-        return image
-
 
 def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:
     """
