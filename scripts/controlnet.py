@@ -64,10 +64,8 @@ refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
+scissors_symbol = '\U00002702'      # ✂
 tossup_symbol = '\u2934'
-
-webcam_enabled = False
-webcam_mirrored = False
 
 PARAM_COUNT = 15
 
@@ -259,14 +257,22 @@ class Script(scripts.Script):
     def uigroup(self, is_img2img):
         ctrls = ()
         infotext_fields = []
-        with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-            generated_image = gr.Image(label="Annotator result", visible=False)
+        webcam_enabled = gr.State(False)
+        webcam_mirrored = gr.State(False)
+        input_tabs = gr.Tabs(elem_id="controlnet_image_tabs")
+        with input_tabs:
+            with gr.Tab("Input Image", id="tab_input"):
+                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+            with gr.Tab("Crop Image", id="tab_crop"):
+                cropped_image = gr.Image(label="Crop image", interactive=True, tool="select")
+            with gr.Tab("Annotator Result", id="tab_result"):
+                generated_image = gr.Image(label="Annotator result", interactive=False).style(height=240)
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
-            webcam_enable = ToolButton(value=camera_symbol)
-            webcam_mirror = ToolButton(value=reverse_symbol)
+            webcam_button = ToolButton(value=camera_symbol)
+            webcam_mirror_button = ToolButton(value=reverse_symbol)
+            crop_button = ToolButton(value=scissors_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
@@ -292,18 +298,18 @@ class Script(scripts.Script):
             else:
                 return gr.Slider.update(), gr.Slider.update()
                         
-        def webcam_toggle():
-            global webcam_enabled
-            webcam_enabled = not webcam_enabled
-            return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
+        def webcam_toggle(enabled):
+            enabled = not enabled
+            return {"value": None, "source": "webcam" if enabled else "upload", "__type__": "update"}, enabled, gr.update(selected="tab_input")
                 
-        def webcam_mirror_toggle():
-            global webcam_mirrored
-            webcam_mirrored = not webcam_mirrored
-            return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
+        def webcam_mirror_toggle(enabled):
+            enabled = not enabled
+            return {"mirror_webcam": enabled, "__type__": "update"}, enabled, gr.update(selected="tab_input")
             
-        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
+        webcam_button.click(fn=webcam_toggle, inputs=webcam_enabled, outputs=[input_image, webcam_enabled, input_tabs])
+        webcam_mirror_button.click(fn=webcam_mirror_toggle, inputs=webcam_mirrored, outputs=[input_image, webcam_mirrored, input_tabs])
+        crop_button.click(fn=lambda i: (i["image"] if i else None, gr.update(selected="tab_crop") if i else gr.update()), inputs=[input_image], outputs=[cropped_image, input_tabs])
+        cropped_image.edit(fn=lambda i: i, inputs=cropped_image, outputs=input_image)
 
         def refresh_all_models(*inputs):
             update_cn_models()
@@ -421,6 +427,8 @@ class Script(scripts.Script):
             
         def svgPreprocess(inputs):
             if (inputs):
+                if type(inputs) is not dict:
+                    inputs = {"image": inputs, "mask": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="}
                 if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
                     svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
                     drawing = svg2rlg(io.BytesIO(svg_data))
@@ -446,31 +454,32 @@ class Script(scripts.Script):
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
-            img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                img = HWC3(image['mask'][:, :, 0])
-            preprocessor = self.preprocessor[module]
-            result = None
-            if pres > 64:
-                result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+            if image:
+                img = HWC3(image['image'])
+                if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+                    img = HWC3(image['mask'][:, :, 0])
+                preprocessor = self.preprocessor[module]
+                result = None
+                if pres > 64:
+                    result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+                else:
+                    result, is_image = preprocessor(img)
+
+                if is_image:
+                    return result, gr.update(selected="tab_result")
             else:
-                result, is_image = preprocessor(img)
-            
-            if is_image:
-                return gr.update(value=result, visible=True, interactive=False)
+                return gr.update(), gr.update()
         
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
-            annotator_button_hide = gr.Button(value="Hide annotator result")
-        
-        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-        annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
+
+        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image, input_tabs])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
-        
+
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
