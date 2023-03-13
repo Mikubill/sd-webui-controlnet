@@ -1,4 +1,4 @@
-name: Pylint
+name: Run basic features tests on CPU
 
 on:
   - push
@@ -10,11 +10,15 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: Checkout Code
-        uses: actions/checkout@v3
         with: 
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
+          path: 'stable-diffusion-webui'
+          
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          repository: 'Mikubill/sd-webui-controlnet'
+          path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
           
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -26,7 +30,6 @@ jobs:
             stable-diffusion-webui/requirements*txt
             
       - run: |
-          mv sd-webui-controlnet stable-diffusion-webui/extensions/
           curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
-          cd stable-diffusion-webui && python launch.py --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
-          
+          cd stable-diffusion-webui && python launch.py --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
+          rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
