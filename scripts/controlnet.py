@@ -3,7 +3,7 @@ import os
 import stat
 from collections import OrderedDict
 from enum import Enum
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, Optional, Tuple
 
 import torch
 
@@ -18,7 +18,6 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
-from scripts import external_code
 from modules import sd_models
 from modules.paths import models_path
 from modules.processing import StableDiffusionProcessingImg2Img
@@ -175,6 +174,10 @@ update_cn_models()
 
 
 class ResizeMode(Enum):
+    """
+    Resize modes for ControlNet input images.
+    """
+
     RESIZE = "Just Resize"
     INNER_FIT = "Scale to Fit (Inner Fit)"
     OUTER_FIT = "Envelope (Outer Fit)"
@@ -189,7 +192,59 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return value
 
 
-def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]):
+class ControlNetUnit:
+    """
+    Represents an entire ControlNet processing unit.
+    """
+
+    def __init__(
+        self,
+        enabled: bool=True,
+        module: Optional[str]=None,
+        model: Optional[str]=None,
+        weight: float=1.0,
+        image: Optional[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray], np.ndarray]]=None,
+        invert_image: bool=False,
+        resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
+        rgbbgr_mode: bool=False,
+        low_vram: bool=False,
+        processor_res: int=64,
+        threshold_a: float=64,
+        threshold_b: float=64,
+        guidance_start: float=0.0,
+        guidance_end: float=1.0,
+        guess_mode: bool=True,
+    ):
+        self.enabled = enabled
+        self.module = module
+        self.model = model
+        self.weight = weight
+        self.image = image
+        self.invert_image = invert_image
+        self.resize_mode = resize_mode
+        self.rgbbgr_mode = rgbbgr_mode
+        self.low_vram = low_vram
+        self.processor_res = processor_res
+        self.threshold_a = threshold_a
+        self.threshold_b = threshold_b
+        self.guidance_start = guidance_start
+        self.guidance_end = guidance_end
+        self.guess_mode = guess_mode
+
+    def get_image_dict(self) -> Dict[str, np.ndarray]:
+        image = self.image
+        if image is not None:
+            if isinstance(image, (tuple, list)):
+                image = {'image': image[0], 'mask': image[1]}
+            elif isinstance(image, np.ndarray):
+                image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
+
+            image = dict(image)
+
+        return image
+
+
+def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]):
     ext_compat_keys = {
         'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
@@ -200,9 +255,9 @@ def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]
 
     if type(unit) is dict:
         unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
-        unit = external_code.ControlNetUnit(**unit)
+        unit = ControlNetUnit(**unit)
 
-    assert isinstance(unit, external_code.ControlNetUnit)
+    assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
     return unit
 
 
@@ -491,7 +546,10 @@ class Script(scripts.Script):
         input_image.orgpreprocess=input_image.preprocess
         input_image.preprocess=svgPreprocess
 
-        unit = gr.State(external_code.ControlNetUnit())
+        def controlnet_unit_from_args(*args):
+            return ControlNetUnit(*args)
+
+        unit = gr.State(ControlNetUnit(enabled=False))
         for comp in ctrls:
             event_subscriber = comp.change
             if hasattr(comp, 'edit'):
@@ -499,7 +557,7 @@ class Script(scripts.Script):
             elif hasattr(comp, 'click'):
                 event_subscriber = comp.click
 
-            event_subscriber(fn=lambda *args: external_code.ControlNetUnit(*args), inputs=list(ctrls), outputs=unit)
+            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
 
         return unit
 
@@ -622,7 +680,7 @@ class Script(scripts.Script):
         default_value = get_element(default)
         return attribute_value if attribute_value is not None else default_value
 
-    def parse_remote_call(self, p, unit: external_code.ControlNetUnit, idx):
+    def parse_remote_call(self, p, unit: ControlNetUnit, idx):
         selector = self.get_remote_call
 
         unit.enabled = selector(p, "control_net_enabled", unit.enabled, idx, strict=True)
@@ -634,7 +692,7 @@ class Script(scripts.Script):
         unit.resize_mode = selector(p, "control_net_resize_mode", unit.resize_mode, idx)
         unit.rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", unit.rgbbgr_mode, idx)
         unit.low_vram = selector(p, "control_net_lowvram", unit.low_vram, idx)
-        unit.pres = selector(p, "control_net_pres", unit.pres, idx)
+        unit.processor_res = selector(p, "control_net_pres", unit.processor_res, idx)
         unit.threshold_a = selector(p, "control_net_pthr_a", unit.threshold_a, idx)
         unit.threshold_b = selector(p, "control_net_pthr_b", unit.threshold_b, idx)
         unit.guidance_start = selector(p, "control_net_guidance_start", unit.guidance_start, idx)
@@ -681,11 +739,11 @@ class Script(scripts.Script):
         i = 0
         while i < len(args):
             if type(args[0]) is bool:
-                units.append(external_code.ControlNetUnit(*args[i:i + PARAM_COUNT]))
+                units.append(ControlNetUnit(*args[i:i + PARAM_COUNT]))
                 i += PARAM_COUNT
 
             else:
-                units.append(to_processing_unit(args[0]))
+                units.append(to_processing_unit(args[i]))
                 i += 1
 
         return units
@@ -705,7 +763,7 @@ class Script(scripts.Script):
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group
-            remote_unit = self.parse_remote_call(p, external_code.ControlNetUnit(), 0)
+            remote_unit = self.parse_remote_call(p, ControlNetUnit(), 0)
             if remote_unit.enabled:
                 params_group.append(remote_unit)
 
@@ -800,8 +858,8 @@ class Script(scripts.Script):
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
-            if unit.pres > 64:
-                detected_map, is_image = preprocessor(input_image, res=unit.pres, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+            if unit.processor_res > 64:
+                detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
             
