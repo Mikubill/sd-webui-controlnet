@@ -63,7 +63,7 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
 class TestOldTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     def setUp(self):
         setup_args = [
-            False, False, True, "none", get_model(), 1.0,
+            False, True, "none", get_model(), 1.0,
             readImage("test/test_files/img2img_basic.png"),
             False, "Scale to Fit (Inner Fit)", False, False,
             64, 64, 64, 0.0, 1.0, False
@@ -85,7 +85,7 @@ class TestOldTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
 class TestNewTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     def setUp(self):
         setup_args = [
-            False, False, {
+            False, {
                 "enabled": True,
                 "module": "none",
                 "model": get_model(),
