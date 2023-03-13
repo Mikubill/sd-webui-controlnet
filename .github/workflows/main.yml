@@ -1,0 +1,38 @@
+name: Lint and Format Python Code
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint black autoflake
+        pip install isort[requirements_deprecated_finder,pipfile_deprecated_finder]
+        pip install -r requirements.txt
+    - name: Run Black
+      run: black *.py
+    - name: Push changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+         commit_message: 'Apply Black formatting'
+    - name: Run AutoFlake
+      run: autoflake --in-place --remove-unused-variables --remove-all-unused-imports --recursive *.py
+    - name: Push changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: 'Apply Autoflake formatting'
