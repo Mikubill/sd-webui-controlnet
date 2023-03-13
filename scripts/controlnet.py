@@ -738,7 +738,7 @@ class Script(scripts.Script):
         units = []
         i = 0
         while i < len(args):
-            if type(args[0]) is bool:
+            if type(args[i]) is bool:
                 units.append(ControlNetUnit(*args[i:i + PARAM_COUNT]))
                 i += PARAM_COUNT
 
