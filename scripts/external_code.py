@@ -121,7 +121,6 @@ def get_single_unit_from(script_args: List[Any], index: int=0) -> ControlNetUnit
 def update_cn_script_in_processing(
     p: processing.StableDiffusionProcessing,
     cn_units: List[ControlNetUnit],
-    is_img2img: Optional[bool] = None,
     is_ui: Optional[bool] = None
 ):
     """
@@ -133,13 +132,12 @@ def update_cn_script_in_processing(
     - `p.script_args` is not filled with script arguments for scripts that are processed before ControlNet
 
     Keyword arguments:
-    is_img2img -- whether to run the script as img2img. In general, this should be set to the appropriate value depending on the `StableDiffusionProcessing` subclass used for generating. If set to None, do not change existing value. (default None)
     is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
     script_args = list(p.script_args)
-    update_cn_script_in_place(p.scripts, script_args, cn_units, is_img2img, is_ui)
+    update_cn_script_in_place(p.scripts, script_args, cn_units, is_ui)
     p.script_args = cn_units_type(script_args)
 
 
@@ -147,7 +145,6 @@ def update_cn_script_in_place(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
-    is_img2img: Optional[bool] = None,
     is_ui: Optional[bool] = None,
 ):
     """
@@ -159,7 +156,6 @@ def update_cn_script_in_place(
     - `script_args` is not filled with script arguments for scripts that are processed before ControlNet
 
     Keyword arguments:
-    is_img2img -- whether to run the script as img2img. In general, this should be set to the appropriate value depending on the `StableDiffusionProcessing` subclass used for generating. If set to None, do not change existing value. (default None)
     is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
@@ -168,8 +164,6 @@ def update_cn_script_in_place(
         return
 
     cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
-    if is_img2img is None:
-        is_img2img = script_args[cn_script.args_from] if cn_script_has_args else False
     if is_ui is None:
         is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
 
@@ -177,7 +171,7 @@ def update_cn_script_in_place(
     max_models = shared.opts.data.get("control_net_max_models_num", 1)
     cn_units = cn_units + [ControlNetUnit(enabled=False)] * max(max_models - len(cn_units), 0)
 
-    flattened_cn_args: List[Any] = [is_img2img, is_ui] + cn_units
+    flattened_cn_args: List[Any] = [is_ui] + cn_units
     cn_script_args_diff = 0
     for script in script_runner.alwayson_scripts:
         if script is cn_script:

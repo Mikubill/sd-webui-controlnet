@@ -443,10 +443,7 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
-        controls = (
-            gr.State(is_img2img),
-            gr.State(True),  # is_ui
-        )
+        controls = (gr.State(True),)  # is_ui
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
@@ -624,7 +621,7 @@ class Script(scripts.Script):
 
         return units
 
-    def process(self, p, is_img2img=False, is_ui=False, *args):
+    def process(self, p, is_ui=False, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -684,7 +681,7 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(enabled_units):
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
-            image = unit.get_image_dict()
+            image = image_dict_from_unit(unit)
             if image is not None:
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
@@ -698,7 +695,7 @@ class Script(scripts.Script):
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
-            is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+            is_img2img_batch_tab = self.is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
             elif p_input_image is not None:
@@ -776,7 +773,7 @@ class Script(scripts.Script):
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, is_img2img=False, is_ui=False, *args):
+    def postprocess(self, p, processed, is_ui=False, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -787,7 +784,7 @@ class Script(scripts.Script):
                     img = Image.fromarray(detect_map)
                     save_image(img, detectmap_dir, module)
 
-        is_img2img_batch_tab = is_ui and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img_batch_tab = is_ui and self.is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         if self.latest_network is None or is_img2img_batch_tab:
             return
 
