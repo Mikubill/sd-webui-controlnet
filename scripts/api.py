@@ -4,13 +4,18 @@ import numpy as np
 from fastapi import FastAPI, Body
 from PIL import Image
 import copy
+import contextlib
 import pydantic
 import sys
 
 import gradio as gr
 
+from modules import ui
 from modules.api.models import *
 from modules.api import api
+from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
+
+import modules.scripts as scripts
 
 from scripts import external_code
 from scripts.processor import *
@@ -103,6 +108,8 @@ class ApiHijack(api.Api):
         return self.controlnet_any2img(
             any2img_request=txt2img_request,
             original_callback=ApiHijack.text2imgapi,
+            p_class=StableDiffusionProcessingTxt2Img,
+            script_runner=scripts.scripts_txt2img,
             is_img2img=False,
         )
 
@@ -110,22 +117,40 @@ class ApiHijack(api.Api):
         return self.controlnet_any2img(
             any2img_request=img2img_request,
             original_callback=ApiHijack.img2imgapi,
+            p_class=StableDiffusionProcessingImg2Img,
+            script_runner=scripts.scripts_img2img,
             is_img2img=True,
         )
 
-    def controlnet_any2img(self, any2img_request, original_callback, is_img2img):
-        warn_deprecated_route(is_img2img)
+    def controlnet_any2img(self, any2img_request, original_callback, p_class, script_runner, is_img2img):
         any2img_request = nest_deprecated_cn_fields(any2img_request)
-        alwayson_scripts = dict(any2img_request.alwayson_scripts)
-        any2img_request.alwayson_scripts.update({'ControlNet': {'args': [is_img2img, False, *[to_api_cn_unit(unit) for unit in any2img_request.controlnet_units]]}})
-        controlnet_units = any2img_request.controlnet_units
+        script_runner = create_cn_script_runner(script_runner, any2img_request.controlnet_units, is_img2img)
         delattr(any2img_request, 'controlnet_units')
-        result = original_callback(self, any2img_request)
-        result.parameters['controlnet_units'] = controlnet_units
-        result.parameters['alwayson_scripts'] = alwayson_scripts
-        return result
+        with self.queue_lock:
+            self_copy = copy.copy(self)
+            self_copy.queue_lock = contextlib.nullcontext()
+            with OverrideInit(p_class, scripts=script_runner):
+                return original_callback(self_copy, any2img_request)
 
 api.Api = ApiHijack
+
+class OverrideInit:
+    def __init__(self, cls, **kwargs):
+        self.cls = cls
+        self.kwargs = kwargs
+        self.original_init = None
+
+    def __enter__(self):
+        def init_hijack(p, *args, **kwargs):
+            self.original_init(p, *args, **kwargs)
+            for k, v in self.kwargs.items():
+                setattr(p, k, v)
+
+        self.original_init = self.cls.__init__
+        self.cls.__init__ = init_hijack
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cls.__init__ = self.original_init
 
 def nest_deprecated_cn_fields(any2img_request):
     deprecated_cn_fields = {k: v for k, v in vars(any2img_request).items()
@@ -138,6 +163,7 @@ def nest_deprecated_cn_fields(any2img_request):
     if all(v is None for v in deprecated_cn_fields.values()):
         return any2img_request
 
+    warn_deprecated_cn_params()
     deprecated_cn_fields = {k[len(cn_root_field_prefix):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
         if v is None:
@@ -148,6 +174,43 @@ def nest_deprecated_cn_fields(any2img_request):
 
     any2img_request.controlnet_units.insert(0, ControlNetUnitRequest(**deprecated_cn_fields))
     return any2img_request
+
+def create_cn_script_runner(script_runner: scripts.ScriptRunner, control_unit_requests: List[ControlNetUnitRequest], is_img2img: bool):
+    if not script_runner.scripts:
+        script_runner.initialize_scripts(False)
+        ui.create_ui()
+
+    cn_script = external_code.find_cn_script(script_runner)
+    cn_script_runner = copy.copy(script_runner)
+    cn_script_runner.alwayson_scripts = [cn_script]
+    cn_script_args = [None] * cn_script.args_from
+    cn_units = [to_api_cn_unit(control_unit_request) for control_unit_request in control_unit_requests]
+    external_code.update_cn_script_in_place(
+        script_runner=cn_script_runner,
+        script_args=cn_script_args,
+        cn_units=cn_units,
+        is_img2img=is_img2img,
+    )
+
+    def make_script_runner_f_hijack(fixed_original_f):
+        def script_runner_f_hijack(p, *args, **kwargs):
+            original_script_args = p.script_args
+            try:
+                p.script_args = cn_script_args
+                fixed_original_f(p, *args, **kwargs)
+            finally:
+                p.script_args = original_script_args
+
+        return script_runner_f_hijack
+
+    for k in ('process', 'process_batch', 'postprocess', 'postprocess_batch', 'postprocess_image'):
+        original_f = getattr(cn_script_runner, k, None)
+        if original_f is None:
+            continue
+
+        setattr(cn_script_runner, k, make_script_runner_f_hijack(original_f))
+
+    return cn_script_runner
 
 def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.ControlNetUnit:
     input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
@@ -173,11 +236,10 @@ def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.Control
         guess_mode=unit_request.guessmode,
     )
 
-def warn_deprecated_route(is_img2img):
-    route = 'img2img' if is_img2img else 'txt2img'
+def warn_deprecated_cn_params():
     warning_prefix = '[ControlNet] warning: '
-    print(f"{warning_prefix}using deprecated '/controlnet/{route}' route", file=sys.stderr)
-    print(f"{warning_prefix}consider using the '/sdapi/v1/{route}' route with the 'alwayson_scripts' json property instead", file=sys.stderr)
+    print(f"{warning_prefix}using deprecated '{cn_root_field_prefix}*' request params", file=sys.stderr)
+    print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
