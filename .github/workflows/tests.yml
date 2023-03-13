@@ -1,0 +1,32 @@
+name: Pylint
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with: 
+          repository: 'AUTOMATIC1111/stable-diffusion-webui'
+          
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10.6
+          cache: pip
+          cache-dependency-path: |
+            **/requirements*txt
+            stable-diffusion-webui/requirements*txt
+            
+      - run: |
+          mv sd-webui-controlnet stable-diffusion-webui/extensions/
+          curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+          cd stable-diffusion-webui && python launch.py --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
+          
