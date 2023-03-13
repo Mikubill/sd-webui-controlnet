@@ -4,18 +4,13 @@ import numpy as np
 from fastapi import FastAPI, Body
 from PIL import Image
 import copy
-import contextlib
 import pydantic
 import sys
 
 import gradio as gr
 
-from modules import ui
 from modules.api.models import *
 from modules.api import api
-from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
-
-import modules.scripts as scripts
 
 from scripts import external_code
 from scripts.processor import *
@@ -119,6 +114,7 @@ class ApiHijack(api.Api):
         )
 
     def controlnet_any2img(self, any2img_request, original_callback, is_img2img):
+        warn_deprecated_route(is_img2img)
         any2img_request = nest_deprecated_cn_fields(any2img_request)
         alwayson_scripts = dict(any2img_request.alwayson_scripts)
         any2img_request.alwayson_scripts.update({'ControlNet': {'args': [is_img2img, False, *[to_api_cn_unit(unit) for unit in any2img_request.controlnet_units]]}})
@@ -142,7 +138,6 @@ def nest_deprecated_cn_fields(any2img_request):
     if all(v is None for v in deprecated_cn_fields.values()):
         return any2img_request
 
-    warn_deprecated_cn_params()
     deprecated_cn_fields = {k[len(cn_root_field_prefix):]: v for k, v in deprecated_cn_fields.items()}
     for k, v in deprecated_cn_fields.items():
         if v is None:
@@ -178,10 +173,11 @@ def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.Control
         guess_mode=unit_request.guessmode,
     )
 
-def warn_deprecated_cn_params():
+def warn_deprecated_route(is_img2img):
+    route = 'img2img' if is_img2img else 'txt2img'
     warning_prefix = '[ControlNet] warning: '
-    print(f"{warning_prefix}using deprecated '{cn_root_field_prefix}*' request params", file=sys.stderr)
-    print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
+    print(f"{warning_prefix}using deprecated '/controlnet/{route}' route", file=sys.stderr)
+    print(f"{warning_prefix}consider using the '/sdapi/v1/{route}' route with the 'alwayson_scripts' json property instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
