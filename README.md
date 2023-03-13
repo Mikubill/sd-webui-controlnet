@@ -3,7 +3,7 @@
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
-ControlNet is a neural network structure to control diffusion models by adding extra conditions. 
+ControlNet is a neural network structure to control diffusion models by adding extra conditions.
 
 Thanks & Inspired: kohya-ss/sd-webui-additional-networks
 
@@ -41,13 +41,13 @@ Two methods can be used to reduce the model's filesize:
 
 2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
 
-All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
+All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73.
 
 Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
 
-### Tips 
+### Tips
 
 * Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
@@ -68,7 +68,7 @@ Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-
 
 (From TencentARC/T2I-Adapter)
 
-T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models. 
+T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models.
 
 To use T2I-Adapter models:
 1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
@@ -85,7 +85,7 @@ To use T2I-Adapter models:
 | t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
 | t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
 
-Note: 
+Note:
 
 * This implement is experimental, result may differ from original repo.
 * Some adapters may have mapping deviations (see issue https://github.com/lllyasviel/ControlNet/issues/255)
@@ -108,6 +108,27 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869104-0830feab-a0a1-448e-8bcd-add54b219cba.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869047-d0111979-0ef7-4152-8523-8a45c47217c0.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869079-7e5a62e0-fffe-4a19-8875-cba4c68b9428.png"> |
 | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869253-44f94dfa-5448-48b2-85be-73db867bdbbb.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869261-92e598d0-2950-4874-8b6c-c159bda38365.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869272-a4883524-7804-4013-addd-4d1ac56c5d0d.png"> |
 
+### Models recommended for each Preprocessors
+
+| Preprocessor | Model |
+|:-------------------------:|:-------------------------:|
+| canny | control_canny - t2iadapter_canny |
+| mlsd | control_mlsd |
+| hed | control_hed |
+| scribble | control_scribble - t2iadapter_sketch |
+| fake_scribble | control_scribble - t2iadapter_sketch |
+| openpose | control_openpose - t2iadapter_openpose - t2iadapter_keypose |
+| openpose_hand | control_openpose - t2iadapter_openpose |
+| segmentation | control_seg - t2iadapter_seg |
+| depth | control_depth - t2iadapter_depth |
+| depth_leres | control_depth - t2iadapter_depth |
+| depth_leres_boost | control_depth - t2iadapter_depth |
+| normal_map | control_normal |
+| binary | control_scribble - t2iadapter_sketch |
+| color | t2iadapter_color |
+| pidinet | control_hed |
+| clip_vision | t2iadapter_style |
+
 ### Minimum Requirements
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
@@ -122,7 +143,7 @@ Note that you need to use a low cfg scale/guidance scale (such as 3-5) and prope
 
 ### Guess Mode (Non-Prompt Mode, Experimental)
 
-Guess Mode is CFG Based ControlNet + Exponential decay in weighting. 
+Guess Mode is CFG Based ControlNet + Exponential decay in weighting.
 
 See issue https://github.com/Mikubill/sd-webui-controlnet/issues/236 for more details.
 
@@ -178,7 +199,7 @@ python launch.py --api --xformers
 pip install -U transformers
 
 # Install deps
-pip install langchain==0.0.101 openai 
+pip install langchain==0.0.101 openai
 
 # Run exmaple
 python example/chatgpt.py
