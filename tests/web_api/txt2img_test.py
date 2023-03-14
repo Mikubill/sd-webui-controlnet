@@ -2,6 +2,9 @@ import unittest
 import requests
 import cv2
 from base64 import b64encode
+import importlib
+
+importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils').remove_torch_check()
 
 def readImage(path):
     img = cv2.imread(path)
@@ -131,6 +134,14 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     def test_txt2img_2_units(self):
         self.units_count = 2
         self.setUp()
+        self.assert_status_ok()
+
+    def test_txt2img_default_params(self):
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = {
+            "input_image": readImage("test/test_files/img2img_basic.png"),
+            "model": get_model(),
+        }
+
         self.assert_status_ok()
 
 if __name__ == "__main__":
