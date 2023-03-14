@@ -709,7 +709,7 @@ class Script(scripts.Script):
                 f"{prefix} Guidance End": guidance_end,
             })
 
-        if len(params_group) == 0:
+        if len(params_group) == 0 or len(control_groups) == 0:
            self.latest_network = None
            return 
 
