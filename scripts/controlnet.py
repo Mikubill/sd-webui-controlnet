@@ -8,14 +8,15 @@ import torch
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
+import numpy as np
 
 from einops import rearrange
-from ..scripts.cldm import PlugableControlModel
-from ..scripts.processor import *
-from ..scripts.adapter import PlugableAdapter
-from ..scripts.utils import load_state_dict
-from ..scripts.hook import ControlParams, UnetHook
-from ..scripts import external_code, global_state
+from scripts.cldm import PlugableControlModel
+from scripts.processor import *
+from scripts.adapter import PlugableAdapter
+from scripts.utils import load_state_dict
+from scripts.hook import ControlParams, UnetHook
+from scripts import external_code, global_state
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image

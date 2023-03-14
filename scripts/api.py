@@ -11,8 +11,8 @@ import gradio as gr
 from modules.api.models import *
 from modules.api import api
 
-from ..scripts import external_code
-from ..scripts.processor import *
+from scripts import external_code
+from scripts.processor import *
 
 def to_base64_nparray(encoding: str):
     return np.array(api.decode_base64_to_image(encoding)).astype('uint8')

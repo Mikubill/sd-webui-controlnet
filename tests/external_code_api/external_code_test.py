@@ -30,15 +30,19 @@ class TestExternalCodeWorking(unittest.TestCase):
         shared.opts.data.update(control_net_max_models_num=self.initial_max_models)
 
     def test_empty_resizes_min_args(self):
-        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units=[])
         expected_args_len = 1 + self.max_models
+
+        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units=[])
+
         self.assertEqual(self.cn_script.args_to, self.args_offset + expected_args_len)
 
     def test_empty_resizes_extra_args(self):
         extra_models = 1
-        cn_units = [external_code.ControlNetUnit()] * (self.max_models + extra_models)
-        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units)
         expected_args_len = 1 + self.max_models + extra_models
+        cn_units = [external_code.ControlNetUnit()] * (self.max_models + extra_models)
+
+        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units)
+
         self.assertEqual(self.cn_script.args_to, self.args_offset + expected_args_len)
 
 
