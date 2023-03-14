@@ -2,9 +2,7 @@ import unittest
 import requests
 import cv2
 from base64 import b64encode
-import importlib
 
-importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils').remove_torch_check()
 
 def readImage(path):
     img = cv2.imread(path)
