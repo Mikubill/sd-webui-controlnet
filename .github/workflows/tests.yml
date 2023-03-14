@@ -11,8 +11,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
         with: 
-          repository: 'AUTOMATIC1111/stable-diffusion-webui'
+          repository: 'ljleb/stable-diffusion-webui'
           path: 'stable-diffusion-webui'
+          ref: 'add-skip-torch-cli'
           
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -31,6 +32,5 @@ jobs:
             
       - run: |
           curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
-          cd stable-diffusion-webui && git apply --reject extensions/sd-webui-controlnet/tests/webui-argparser.patch
           cd stable-diffusion-webui && python launch.py --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
           rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
