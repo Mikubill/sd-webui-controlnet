@@ -1,5 +1,6 @@
 from typing import Union
 
+import numpy as np
 from fastapi import FastAPI, Body
 from PIL import Image
 import copy
@@ -13,9 +14,6 @@ from modules.api import api
 
 from scripts import external_code
 from scripts.processor import *
-
-def to_base64_nparray(encoding: str):
-    return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
 def encode_to_base64(image):
     if type(image) is str:
@@ -149,8 +147,8 @@ def nest_deprecated_cn_fields(any2img_request):
     return any2img_request
 
 def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.ControlNetUnit:
-    input_image = to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
-    mask = to_base64_nparray(unit_request.mask) if unit_request.mask else None
+    input_image = external_code.to_base64_nparray(unit_request.input_image) if unit_request.input_image else None
+    mask = external_code.to_base64_nparray(unit_request.mask) if unit_request.mask else None
     if input_image is not None and mask is not None:
         input_image = (input_image, mask)
 
@@ -218,7 +216,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         results = []
 
         for input_image in controlnet_input_images:
-            img = to_base64_nparray(input_image)
+            img = external_code.to_base64_nparray(input_image)
 
             if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])

@@ -89,35 +89,21 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 global_state.update_cn_models()
 
-
-def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]):
-    ext_compat_keys = {
-        'guessmode': 'guess_mode',
-        'guidance': 'guidance_end',
-        'lowvram': 'low_vram',
-        'input_image': 'image',
-        'scribble_mode': 'invert_image'
-    }
-
-    if isinstance(unit, dict):
-        unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
-        if 'image' in unit and not isinstance(unit['image'], dict):
-            mask = unit['mask'] if 'mask' in unit else None
-            unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
-        unit = external_code.ControlNetUnit(**unit)
-
-    assert isinstance(unit, external_code.ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
-    return unit
-
-
 def image_dict_from_unit(unit) -> Dict[str, np.ndarray]:
     image = unit.image
     if image is not None:
         if isinstance(image, (tuple, list)):
             image = {'image': image[0], 'mask': image[1]}
-        elif isinstance(image, np.ndarray):
-            image = {'image': image, 'mask': np.zeros_like(image, dtype=np.uint8)}
+        elif not isinstance(image, dict):
+            image = {'image': image, 'mask': None}
 
+        for key, value in image.keys():
+            if isinstance(value, str):
+                image[key] = external_code.to_base64_nparray(value)
+            elif value is None:
+                image[key] = np.zeros_like(image['image'], dtype=np.uint8)
+
+        # copy to enable modifying the dict
         image = dict(image)
 
     return image
@@ -606,21 +592,6 @@ class Script(scripts.Script):
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
 
-    def parse_external_args(self, args):
-        units = []
-        i = 0
-        while i < len(args):
-            if type(args[i]) is bool:
-                units.append(external_code.ControlNetUnit(*args[i:i + external_code.PARAM_COUNT]))
-                i += external_code.PARAM_COUNT
-
-            else:
-                if args[i] is not None:
-                    units.append(to_processing_unit(args[i]))
-                i += 1
-
-        return units
-
     def process(self, p, is_ui=False, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
@@ -632,7 +603,7 @@ class Script(scripts.Script):
             # always restore (~0.05s)
             self.latest_network.restore(unet)
 
-        params_group = self.parse_external_args(args)
+        params_group = external_code.get_all_units_from(args, strip_positional_args=False)
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group

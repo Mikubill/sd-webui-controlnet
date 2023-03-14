@@ -1,24 +1,9 @@
 import unittest
+import importlib
+utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
+utils.setup_test_env()
 import requests
-import cv2
-from base64 import b64encode
 
-
-def readImage(path):
-    img = cv2.imread(path)
-    retval, buffer = cv2.imencode('.jpg', img)
-    b64img = b64encode(buffer).decode("utf-8")
-    return b64img
-
-def get_model():
-    r = requests.get("http://localhost:7860/controlnet/model_list")
-    result = r.json()
-    if "model_list" in result:
-        result = result["model_list"]
-        for item in result:
-            print("Using model: ", item)
-            return item
-    return "None"
 
 
 class TestTxt2ImgWorkingBase(unittest.TestCase):
@@ -67,8 +52,8 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
 class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     def setUp(self):
         controlnet_unit = [
-            True, "none", get_model(), 1.0,
-            readImage("test/test_files/img2img_basic.png"),
+            True, "none", utils.get_model(), 1.0,
+            utils.readImage("test/test_files/img2img_basic.png"),
             False, "Scale to Fit (Inner Fit)", False, False,
             64, 64, 64, 0.0, 1.0, False
         ]
@@ -99,9 +84,9 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         controlnet_unit = {
             "enabled": True,
             "module": "none",
-            "model": get_model(),
+            "model": utils.get_model(),
             "weight": 1.0,
-            "input_image": readImage("test/test_files/img2img_basic.png"),
+            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
             "invert_image": False,
             "resize_mode": 1,
             "rgbbgr_mode": False,
@@ -141,8 +126,8 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
 
     def test_txt2img_default_params(self):
         self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = {
-            "input_image": readImage("test/test_files/img2img_basic.png"),
-            "model": get_model(),
+            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+            "model": utils.get_model(),
         }
 
         self.assert_status_ok()

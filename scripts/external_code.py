@@ -4,6 +4,7 @@ import numpy as np
 from modules import scripts, processing, shared
 from scripts.global_state import update_cn_models, cn_models_names
 
+from modules.api import api
 
 PARAM_COUNT = 15
 
@@ -38,7 +39,7 @@ class ControlNetUnit:
         module: Optional[str]=None,
         model: Optional[str]=None,
         weight: float=1.0,
-        image: Optional[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray], np.ndarray]]=None,
+        image: Optional[Union[Dict[str, Union[np.ndarray, str]], Tuple[Union[np.ndarray, str], Union[np.ndarray, str]], np.ndarray, str]]=None,
         invert_image: bool=False,
         resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
         rgbbgr_mode: bool=False,
@@ -65,6 +66,16 @@ class ControlNetUnit:
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
+
+    def __eq__(self, other):
+        if not isinstance(other, ControlNetUnit):
+            return False
+
+        return vars(self) == vars(other)
+
+
+def to_base64_nparray(encoding: str):
+    return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
 
 def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:
@@ -98,24 +109,46 @@ def get_all_units_from(script_args: List[Any], strip_positional_args=True) -> Li
     """
 
     if strip_positional_args:
-        script_args = script_args[2:]
+        script_args = script_args[1:]
 
-    res = []
-    for i in range(len(script_args) // PARAM_COUNT):
-        res.append(get_single_unit_from(script_args, i))
+    units = []
+    i = 0
+    while i < len(script_args):
+        if type(script_args[i]) is bool:
+            units.append(ControlNetUnit(*script_args[i:i + PARAM_COUNT]))
+            i += PARAM_COUNT
 
-    return res
+        else:
+            if script_args[i] is not None:
+                units.append(to_processing_unit(script_args[i]))
+            i += 1
+
+    return units
 
 
-def get_single_unit_from(script_args: List[Any], index: int=0) -> ControlNetUnit:
+def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNetUnit:
     """
-    Fetch a single ControlNet processing unit from ControlNet script arguments.
-    The list must not contain script positional arguments. It must only consist of flattened processing unit parameters.
+    Convert different types to processing unit.
+    If `unit` is a dict, alternative keys are supported. See `ext_compat_keys` in implementation for details.
     """
 
-    index_from = index * PARAM_COUNT
-    index_to = index_from + PARAM_COUNT
-    return ControlNetUnit(*script_args[index_from:index_to])
+    ext_compat_keys = {
+        'guessmode': 'guess_mode',
+        'guidance': 'guidance_end',
+        'lowvram': 'low_vram',
+        'input_image': 'image',
+        'scribble_mode': 'invert_image'
+    }
+
+    if isinstance(unit, dict):
+        unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
+        if 'image' in unit and not isinstance(unit['image'], dict):
+            mask = unit['mask'] if 'mask' in unit else None
+            unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
+        unit = ControlNetUnit(**unit)
+
+    assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
+    return unit
 
 
 def update_cn_script_in_processing(

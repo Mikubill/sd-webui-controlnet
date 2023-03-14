@@ -1,15 +1,16 @@
 import unittest
 import importlib
-from copy import copy
+utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
+utils.setup_test_env()
 
-importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils').setup_test_env()
-external_code = importlib.import_module('extensions.sd-webui-controlnet.scripts.external_code', 'external_code')
-controlnet = importlib.import_module('extensions.sd-webui-controlnet.scripts.controlnet', 'controlnet')
+from copy import copy
+from scripts import external_code
+from scripts import controlnet
 from modules import scripts, ui, shared
 
 
 class TestExternalCodeWorking(unittest.TestCase):
-    max_models = 4
+    max_models = 6
     args_offset = 10
 
     def setUp(self):
@@ -25,24 +26,55 @@ class TestExternalCodeWorking(unittest.TestCase):
         self.initial_max_models = shared.opts.data.get("control_net_max_models_num", 1)
         shared.opts.data.update(control_net_max_models_num=self.max_models)
 
+        self.extra_models = 0
+
     def tearDown(self):
         shared.opts.data.update(control_net_max_models_num=self.initial_max_models)
 
+    def get_expected_args_to(self):
+        pos_args = 1  # is_ui
+        args_len = pos_args + self.max_models + self.extra_models
+        return self.args_offset + args_len
+
+    def assert_update_in_place_ok(self):
+        external_code.update_cn_script_in_place(self.scripts, self.script_args, self.cn_units)
+        self.assertEqual(self.cn_script.args_to, self.get_expected_args_to())
+
     def test_empty_resizes_min_args(self):
-        expected_args_len = 1 + self.max_models
-
-        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units=[])
-
-        self.assertEqual(self.cn_script.args_to, self.args_offset + expected_args_len)
+        self.cn_units = []
+        self.assert_update_in_place_ok()
 
     def test_empty_resizes_extra_args(self):
-        extra_models = 1
-        expected_args_len = 1 + self.max_models + extra_models
-        cn_units = [external_code.ControlNetUnit()] * (self.max_models + extra_models)
+        self.extra_models = 1
+        self.cn_units = [external_code.ControlNetUnit()] * (self.max_models + self.extra_models)
+        self.assert_update_in_place_ok()
 
-        external_code.update_cn_script_in_place(self.scripts, self.script_args, cn_units)
 
-        self.assertEqual(self.cn_script.args_to, self.args_offset + expected_args_len)
+class TestControlNetUnitConversion(unittest.TestCase):
+    def setUp(self):
+        self.dummy_image = 'base64...'
+        self.input = {}
+        self.expected = external_code.ControlNetUnit()
+
+    def assert_converts_to_expected(self):
+        self.assertEqual(vars(external_code.to_processing_unit(self.input)), vars(self.expected))
+
+    def test_empty_dict_works(self):
+        self.assert_converts_to_expected()
+
+    def test_image_works(self):
+        self.input = {
+            'image': self.dummy_image
+        }
+        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
+        self.assert_converts_to_expected()
+
+    def test_image_alias_works(self):
+        self.input = {
+            'input_image': self.dummy_image
+        }
+        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
+        self.assert_converts_to_expected()
 
 
 if __name__ == '__main__':
