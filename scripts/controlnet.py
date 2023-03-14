@@ -2,6 +2,7 @@ import gc
 import os
 from collections import OrderedDict
 from typing import Union, Dict, Any, Optional
+import importlib
 
 import torch
 
@@ -17,6 +18,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
+importlib.reload(external_code)
+importlib.reload(global_state)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
