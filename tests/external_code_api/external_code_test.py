@@ -76,6 +76,14 @@ class TestControlNetUnitConversion(unittest.TestCase):
         self.expected = external_code.ControlNetUnit(image=self.dummy_image)
         self.assert_converts_to_expected()
 
+    def test_masked_image_works(self):
+        self.input = {
+            'image': self.dummy_image,
+            'mask': self.dummy_image,
+        }
+        self.expected = external_code.ControlNetUnit(image={'image': self.dummy_image, 'mask': self.dummy_image})
+        self.assert_converts_to_expected()
+
 
 if __name__ == '__main__':
     unittest.main()

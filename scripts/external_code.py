@@ -146,9 +146,15 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
     if isinstance(unit, dict):
         unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
+
+        mask = None
+        if 'mask' in unit:
+            mask = unit['mask']
+            del unit['mask']
+
         if 'image' in unit and not isinstance(unit['image'], dict):
-            mask = unit['mask'] if 'mask' in unit else None
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
+
         unit = ControlNetUnit(**unit)
 
     assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
