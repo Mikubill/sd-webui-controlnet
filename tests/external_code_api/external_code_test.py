@@ -2,6 +2,7 @@ import unittest
 import importlib
 from copy import copy
 
+importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils').setup_test_env()
 external_code = importlib.import_module('extensions.sd-webui-controlnet.scripts.external_code', 'external_code')
 controlnet = importlib.import_module('extensions.sd-webui-controlnet.scripts.controlnet', 'controlnet')
 from modules import scripts, ui, shared
