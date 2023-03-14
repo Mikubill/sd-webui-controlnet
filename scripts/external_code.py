@@ -75,6 +75,10 @@ class ControlNetUnit:
 
 
 def to_base64_nparray(encoding: str):
+    """
+    Convert a base64 image into the image type the extension uses
+    """
+
     return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
 

@@ -1,7 +1,7 @@
 import gc
 import os
 from collections import OrderedDict
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, Optional
 
 import torch
 
@@ -89,24 +89,26 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 global_state.update_cn_models()
 
-def image_dict_from_unit(unit) -> Dict[str, np.ndarray]:
+def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
     image = unit.image
-    if image is not None:
-        if isinstance(image, (tuple, list)):
-            image = {'image': image[0], 'mask': image[1]}
-        elif not isinstance(image, dict):
-            image = {'image': image, 'mask': None}
+    if image is None:
+        return None
 
-        for key, value in image.keys():
-            if isinstance(value, str):
-                image[key] = external_code.to_base64_nparray(value)
-            elif value is None:
-                image[key] = np.zeros_like(image['image'], dtype=np.uint8)
+    if isinstance(image, (tuple, list)):
+        image = {'image': image[0], 'mask': image[1]}
+    elif not isinstance(image, dict):
+        image = {'image': image, 'mask': None}
 
-        # copy to enable modifying the dict
-        image = dict(image)
+    if isinstance(image['image'], str):
+        image['image'] = external_code.to_base64_nparray(image['image'])
 
-    return image
+    if isinstance(image['mask'], str):
+        image['mask'] = external_code.to_base64_nparray(image['mask'])
+    elif image['mask'] is None:
+        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
+
+    # copy to enable modifying the dict
+    return dict(image)
 
 
 class Script(scripts.Script):
@@ -738,7 +740,7 @@ class Script(scripts.Script):
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS"])
+        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
         self.detected_map = detected_maps
 
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
