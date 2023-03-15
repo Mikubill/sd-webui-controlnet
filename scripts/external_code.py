@@ -130,6 +130,29 @@ def get_all_units_from(script_args: List[Any], strip_positional_args=True) -> Li
     return units
 
 
+def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[ControlNetUnit]:
+    """
+    Fetch a single ControlNet processing unit from ControlNet script arguments.
+    The list must not contain script positional arguments. It must only contain processing units.
+    """
+
+    i = 0
+    while i < len(script_args) and index >= 0:
+        if type(script_args[i]) is bool:
+            if index == 0:
+                return ControlNetUnit(*script_args[i:i + PARAM_COUNT])
+            i += PARAM_COUNT
+
+        else:
+            if index == 0 and script_args[i] is not None:
+                return to_processing_unit(script_args[i])
+            i += 1
+
+        index -= 1
+
+    return None
+
+
 def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNetUnit:
     """
     Convert different types to processing unit.
