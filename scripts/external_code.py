@@ -103,17 +103,11 @@ def get_all_units(script_runner: scripts.ScriptRunner, script_args: List[Any]) -
     return []
 
 
-def get_all_units_from(script_args: List[Any], strip_positional_args=True) -> List[ControlNetUnit]:
+def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     """
     Fetch ControlNet processing units from ControlNet script arguments.
     Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
-
-    Keyword arguments:
-    strip_positional_args -- Whether positional arguments are present in `script_args`. (default True)
     """
-
-    if strip_positional_args:
-        script_args = script_args[1:]
 
     units = []
     i = 0
@@ -186,8 +180,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
 def update_cn_script_in_processing(
     p: processing.StableDiffusionProcessing,
-    cn_units: List[ControlNetUnit],
-    is_ui: Optional[bool] = None
+    cn_units: List[ControlNetUnit]
 ):
     """
     Update the arguments of the ControlNet script in `p.script_args` in place, reading from `cn_units`.
@@ -196,14 +189,11 @@ def update_cn_script_in_processing(
     Does not update `p.script_args` if any of the folling is true:
     - ControlNet is not present in `p.scripts`
     - `p.script_args` is not filled with script arguments for scripts that are processed before ControlNet
-
-    Keyword arguments:
-    is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
     script_args = list(p.script_args)
-    update_cn_script_in_place(p.scripts, script_args, cn_units, is_ui)
+    update_cn_script_in_place(p.scripts, script_args, cn_units)
     p.script_args = cn_units_type(script_args)
 
 
@@ -211,7 +201,6 @@ def update_cn_script_in_place(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
-    is_ui: Optional[bool] = None,
 ):
     """
     Update the arguments of the ControlNet script in `script_args` in place, reading from `cn_units`.
@@ -220,30 +209,22 @@ def update_cn_script_in_place(
     Does not update `script_args` if any of the folling is true:
     - ControlNet is not present in `script_runner`
     - `script_args` is not filled with script arguments for scripts that are processed before ControlNet
-
-    Keyword arguments:
-    is_ui -- whether to run the script as if from the gradio interface. If set to None, do not change existing value. (default None)
     """
 
     cn_script = find_cn_script(script_runner)
     if cn_script is None or len(script_args) < cn_script.args_from:
         return
 
-    cn_script_has_args = len(script_args[cn_script.args_from:cn_script.args_to]) > 0
-    if is_ui is None:
-        is_ui = script_args[cn_script.args_from + 1] if cn_script_has_args else False
-
     # fill in remaining parameters to satisfy max models, just in case script needs it.
     max_models = shared.opts.data.get("control_net_max_models_num", 1)
     cn_units = cn_units + [ControlNetUnit(enabled=False)] * max(max_models - len(cn_units), 0)
 
-    flattened_cn_args: List[Any] = [is_ui] + cn_units
     cn_script_args_diff = 0
     for script in script_runner.alwayson_scripts:
         if script is cn_script:
-            cn_script_args_diff = len(flattened_cn_args) - (cn_script.args_to - cn_script.args_from)
-            script_args[script.args_from:script.args_to] = flattened_cn_args
-            script.args_to = script.args_from + len(flattened_cn_args)
+            cn_script_args_diff = len(cn_units) - (cn_script.args_to - cn_script.args_from)
+            script_args[script.args_from:script.args_to] = cn_units
+            script.args_to = script.args_from + len(cn_units)
         else:
             script.args_from += cn_script_args_diff
             script.args_to += cn_script_args_diff

@@ -413,7 +413,9 @@ class Script(scripts.Script):
         input_image.preprocess=svgPreprocess
 
         def controlnet_unit_from_args(*args):
-            return external_code.ControlNetUnit(*args)
+            unit = external_code.ControlNetUnit(*args)
+            setattr(unit, 'is_ui', True)
+            return unit
 
         unit = gr.State(default_unit)
         for comp in ctrls:
@@ -434,7 +436,7 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
-        controls = (gr.State(True),)  # is_ui
+        controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
@@ -597,7 +599,10 @@ class Script(scripts.Script):
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
 
-    def process(self, p, is_ui=False, *args):
+    def is_ui(self, args):
+        return args and isinstance(args[0], external_code.ControlNetUnit) and getattr(args[0], 'is_ui', False)
+
+    def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -608,7 +613,7 @@ class Script(scripts.Script):
             # always restore (~0.05s)
             self.latest_network.restore(unet)
 
-        params_group = external_code.get_all_units_from(args, strip_positional_args=False)
+        params_group = external_code.get_all_units_from(args)
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group
@@ -671,7 +676,8 @@ class Script(scripts.Script):
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
-            is_img2img_batch_tab = self.is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+            is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
+            is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
             elif p_input_image is not None:
@@ -749,7 +755,7 @@ class Script(scripts.Script):
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, is_ui=False, *args):
+    def postprocess(self, p, processed, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -760,7 +766,8 @@ class Script(scripts.Script):
                     img = Image.fromarray(detect_map)
                     save_image(img, detectmap_dir, module)
 
-        is_img2img_batch_tab = is_ui and self.is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
+        is_img2img_batch_tab = self.is_ui(args) and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         if self.latest_network is None or is_img2img_batch_tab:
             return
 
@@ -831,9 +838,11 @@ class Img2ImgTabTracker:
         self.img2img_tabs = set()
         self.active_img2img_tab = 'img2img_img2img_tab'
         self.submit_img2img_tab = None
+        self.submit_button = None
 
-    def save_submit_img2img_tab(self):
+    def save_submit_img2img_tab(self, button):
         self.submit_img2img_tab = self.active_img2img_tab
+        self.submit_button = button.elem_id
 
     def set_active_img2img_tab(self, tab):
         self.active_img2img_tab = tab.elem_id
@@ -842,8 +851,8 @@ class Img2ImgTabTracker:
         if type(component) is gr.State:
             return
 
-        if type(component) is gr.Button and component.elem_id == 'img2img_generate':
-            component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
+        if type(component) is gr.Button and component.elem_id in ('img2img_generate', 'txt2img_generate'):
+            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component), outputs=[])
             return
 
         tab = getattr(component, 'parent', None)

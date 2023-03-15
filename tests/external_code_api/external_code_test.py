@@ -35,8 +35,7 @@ class TestExternalCodeWorking(unittest.TestCase):
         shared.opts.data.update(control_net_max_models_num=self.initial_max_models)
 
     def get_expected_args_to(self):
-        pos_args = 1  # is_ui
-        args_len = pos_args + max(self.max_models, len(self.cn_units))
+        args_len = max(self.max_models, len(self.cn_units))
         return self.args_offset + args_len
 
     def assert_update_in_place_ok(self):

@@ -114,7 +114,7 @@ class ApiHijack(api.Api):
         warn_deprecated_route(is_img2img)
         any2img_request = nest_deprecated_cn_fields(any2img_request)
         alwayson_scripts = dict(any2img_request.alwayson_scripts)
-        any2img_request.alwayson_scripts.update({'ControlNet': {'args': [False, *[to_api_cn_unit(unit) for unit in any2img_request.controlnet_units]]}})
+        any2img_request.alwayson_scripts.update({'ControlNet': {'args': [to_api_cn_unit(unit) for unit in any2img_request.controlnet_units]}})
         controlnet_units = any2img_request.controlnet_units
         delattr(any2img_request, 'controlnet_units')
         result = original_callback(self, any2img_request)

@@ -17,23 +17,23 @@ class TestGetAllUnitsFrom(unittest.TestCase):
         self.object_unit = external_code.ControlNetUnit(*self.flat_control_unit)
 
     def test_empty_converts(self):
-        script_args = [False]
-        units = external_code.get_all_units_from(script_args, strip_positional_args=True)
+        script_args = []
+        units = external_code.get_all_units_from(script_args)
         self.assertListEqual(units, [])
 
     def test_flattened_converts(self):
-        script_args = [False] + self.flat_control_unit
-        units = external_code.get_all_units_from(script_args, strip_positional_args=True)
+        script_args = self.flat_control_unit
+        units = external_code.get_all_units_from(script_args)
         self.assertListEqual(units, [self.object_unit])
 
     def test_object_forwards(self):
-        script_args = [False, self.object_unit]
-        units = external_code.get_all_units_from(script_args, strip_positional_args=True)
+        script_args = [self.object_unit]
+        units = external_code.get_all_units_from(script_args)
         self.assertListEqual(units, [self.object_unit])
 
     def test_mixed_converts(self):
-        script_args = [False, self.object_unit] + self.flat_control_unit + [self.object_unit] + self.flat_control_unit
-        units = external_code.get_all_units_from(script_args, strip_positional_args=True)
+        script_args = [self.object_unit] + self.flat_control_unit + [self.object_unit] + self.flat_control_unit
+        units = external_code.get_all_units_from(script_args)
         self.assertListEqual(units, [self.object_unit] * 4)
 
 

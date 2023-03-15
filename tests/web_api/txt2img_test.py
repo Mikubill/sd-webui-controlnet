@@ -58,7 +58,7 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             64, 64, 64, 0.0, 1.0, False
         ]
         setup_args = [
-            False, *controlnet_unit * getattr(self, 'units_count', 1)
+            *controlnet_unit * getattr(self, 'units_count', 1)
         ]
         self.setup_route(setup_args)
 
@@ -100,7 +100,7 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             "guessmode": False,
         }
         setup_args = [
-            False, [controlnet_unit] * getattr(self, 'units_count', 1)
+            [controlnet_unit] * getattr(self, 'units_count', 1)
         ]
         self.setup_route(setup_args)
 
