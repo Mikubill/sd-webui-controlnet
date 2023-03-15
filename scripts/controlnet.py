@@ -183,15 +183,18 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
 
-    def uigroup(self, tabname, is_img2img):
-        ctrls = ()
-        infotext_fields = []
-        default_unit = external_code.ControlNetUnit(
+    def get_default_ui_unit(self):
+        return external_code.ControlNetUnit(
             enabled=False,
             module="none",
             model="None",
             guess_mode=False,
         )
+
+    def uigroup(self, tabname, is_img2img):
+        ctrls = ()
+        infotext_fields = []
+        default_unit = self.get_default_ui_unit()
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             generated_image = gr.Image(label="Annotator result", visible=False)
@@ -617,7 +620,7 @@ class Script(scripts.Script):
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group
-            remote_unit = self.parse_remote_call(p, external_code.ControlNetUnit(), 0)
+            remote_unit = self.parse_remote_call(p, self.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 params_group.append(remote_unit)
 
