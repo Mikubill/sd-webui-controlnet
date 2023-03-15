@@ -48,6 +48,7 @@ except ImportError:
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
+cn_preprocessors_names = {}
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 
@@ -850,6 +851,10 @@ class Script(scripts.Script):
 
         gc.collect()
         devices.torch_gc()
+
+
+# so the preprocessor list is available for the API
+cn_preprocessors_names = Script().preprocessor
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:

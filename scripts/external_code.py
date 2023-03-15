@@ -1,6 +1,6 @@
 from typing import List, Any, Optional, Union, Tuple, Dict
 from modules import scripts, processing, shared
-from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PARAM_COUNT
+from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, cn_preprocessors_names, PARAM_COUNT
 import numpy as np
 
 
@@ -212,6 +212,17 @@ def get_models(update: bool=False) -> List[str]:
         update_cn_models()
 
     return list(cn_models_names.values())
+
+
+def get_modules() -> List[str]:
+    """
+    Fetch the list of available preprocessors.
+    Each value is a valid candidate of `ControlNetUnit.module`.
+
+    Keyword arguments:
+    """
+
+    return list(cn_preprocessors_names.keys())
 
 
 def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
