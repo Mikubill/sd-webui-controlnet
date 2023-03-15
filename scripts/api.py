@@ -242,6 +242,10 @@ def warn_deprecated_cn_params():
     print(f"{warning_prefix}consider using the 'control_units' request param instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
+    @app.get("/controlnet/version")
+    async def version():
+        return {"version": external_code.get_api_version()}
+
     @app.get("/controlnet/model_list")
     async def model_list():
         up_to_date_model_list = external_code.get_models(update=True)

@@ -4,6 +4,10 @@ from scripts.controlnet import ResizeMode, update_cn_models, cn_models_names, PA
 import numpy as np
 
 
+def get_api_version() -> int:
+    return 1
+
+
 """
 Resize modes for ControlNet input images.
 """
