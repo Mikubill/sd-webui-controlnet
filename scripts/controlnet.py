@@ -641,7 +641,7 @@ class Script(scripts.Script):
                 f"{prefix} Guidance End": unit.guidance_end,
             })
 
-        if len(params_group) == 0 or len(control_groups) == 0:
+        if len(params_group) == 0 or len(enabled_units) == 0:
            self.latest_network = None
            return 
 
