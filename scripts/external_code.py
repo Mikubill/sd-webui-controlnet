@@ -1,9 +1,8 @@
 from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
-
 import numpy as np
 from modules import scripts, processing, shared
-from scripts.global_state import update_cn_models, cn_models_names
+from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessors_names
 
 from modules.api import api
 

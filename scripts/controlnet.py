@@ -45,7 +45,6 @@ try:
 except ImportError:
     pass
 
-
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
@@ -789,8 +788,8 @@ class Script(scripts.Script):
         devices.torch_gc()
 
 
-# so the preprocessor list is available for the API
-cn_preprocessors_names = Script().preprocessor
+# Now the preprocessor list is available for the API
+global_state.cn_preprocessors_names = Script().preprocessor
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
