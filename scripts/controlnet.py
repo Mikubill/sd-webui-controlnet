@@ -787,6 +787,12 @@ class Script(scripts.Script):
         gc.collect()
         devices.torch_gc()
 
+
+# Now that the Script class is defined we can populate the preprocessor names
+global_state.cn_preprocessors_names = Script().preprocessor
+
+
+
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
         if isinstance(s, Script):
@@ -795,7 +801,6 @@ def update_script_args(p, value, arg_idx):
             args[s.args_from + arg_idx] = value
             p.script_args = tuple(args)
             break
-        
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
