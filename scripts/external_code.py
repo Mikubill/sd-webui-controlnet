@@ -9,6 +9,10 @@ from modules.api import api
 PARAM_COUNT = 15
 
 
+def get_api_version() -> int:
+    return 1
+
+
 class ResizeMode(Enum):
     """
     Resize modes for ControlNet input images.

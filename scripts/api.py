@@ -177,6 +177,10 @@ def warn_deprecated_route(is_img2img):
     print(f"{warning_prefix}consider using the '/sdapi/v1/{route}' route with the 'alwayson_scripts' json property instead", file=sys.stderr)
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
+    @app.get("/controlnet/version")
+    async def version():
+        return {"version": external_code.get_api_version()}
+
     @app.get("/controlnet/model_list")
     async def model_list():
         up_to_date_model_list = external_code.get_models(update=True)
