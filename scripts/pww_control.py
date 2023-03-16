@@ -286,10 +286,7 @@ class Script(Script_cn):
         self.latest_network.hook(unet)
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
         self.detected_map = detected_maps
-
-        if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
-            swap_img2img_pipeline(p)
-        
+       
         # Retreive PwW arguments
         pww_enabled, color_context, weight_function_scale, color_map_image = pww_args
         if pww_enabled:
@@ -301,3 +298,6 @@ class Script(Script_cn):
             self.latest_network.p = p
             self.latest_network.pww_cross_attention_weight.update(pww_cross_attention_weight)
             hijack_CrossAttn(p)
+
+        if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
+            swap_img2img_pipeline(p)

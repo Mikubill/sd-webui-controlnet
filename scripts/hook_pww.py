@@ -16,7 +16,6 @@ class UnetHook(UnetHook_cn):
         super().__init__(lowvram)
         self.pww_cross_attention_weight = {}
         self.p = None
-        self.control_params = {}
         
     def hook(self, model):
         outer = self
@@ -194,3 +193,19 @@ class UnetHook(UnetHook_cn):
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
 
+    def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
+        self.is_vanilla_samplers = is_vanilla_samplers
+        self.control_params = params
+        self.guess_mode = any([param.guess_mode for param in params])
+
+    def restore(self, model):
+        scripts.script_callbacks.remove_current_script_callbacks()
+        if hasattr(self, "control_params"):
+            del self.control_params
+        
+        if not hasattr(model, "_original_forward"):
+            # no such handle, ignore
+            return
+        
+        model.forward = model._original_forward
+        del model._original_forward
