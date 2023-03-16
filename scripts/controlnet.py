@@ -164,7 +164,8 @@ class Script(scripts.Script):
     def show(self, is_img2img):
         # if is_img2img:
             # return False
-        return scripts.AlwaysVisible
+        # return scripts.AlwaysVisible
+        return False
     
     def after_component(self, component, **kwargs):
         if component.elem_id == "txt2img_width":
