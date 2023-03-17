@@ -165,7 +165,7 @@ class Script(scripts.Script):
         # if is_img2img:
             # return False
         return scripts.AlwaysVisible
-
+    
     def after_component(self, component, **kwargs):
         if component.elem_id == "txt2img_width":
             self.txt2img_w_slider = component
@@ -179,7 +179,7 @@ class Script(scripts.Script):
         if component.elem_id == "img2img_height":
             self.img2img_h_slider = component
             return self.img2img_h_slider
-
+        
     def get_threshold_block(self, proc):
         pass
 
@@ -214,7 +214,7 @@ class Script(scripts.Script):
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
-
+        
         def send_dimensions(image):
             def closesteight(num):
                 rem = num % 8
@@ -227,23 +227,23 @@ class Script(scripts.Script):
                 return closesteight(interm.shape[1]), closesteight(interm.shape[0])
             else:
                 return gr.Slider.update(), gr.Slider.update()
-
+                        
         def webcam_toggle():
             global webcam_enabled
             webcam_enabled = not webcam_enabled
             return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
-
+                
         def webcam_mirror_toggle():
             global webcam_mirrored
             webcam_mirrored = not webcam_mirrored
             return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
-
+            
         webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
         webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
         def refresh_all_models(*inputs):
             global_state.update_cn_models()
-
+                
             dd = inputs[0]
             selected = dd if dd in global_state.cn_models else "None"
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
@@ -339,22 +339,22 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-
-        # advanced options
+                
+        # advanced options    
         advanced = gr.Column(visible=False)
         with advanced:
             processor_res = gr.Slider(label="Annotator resolution", value=default_unit.processor_res, minimum=64, maximum=2048, interactive=False)
             threshold_a =  gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
             threshold_b =  gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
-
-        if gradio_compat:
+            
+        if gradio_compat:    
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
-
+                
         # infotext_fields.extend((module, model, weight))
 
         def create_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-
+            
         def svgPreprocess(inputs):
             if (inputs):
                 if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
@@ -373,14 +373,14 @@ class Script(scripts.Script):
             with gr.Column():
                 canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
                 canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-
+                    
             if gradio_compat:
                 canvas_swap_res = ToolButton(value=switch_values_symbol)
                 canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-
+                    
         create_button = gr.Button(value="Create blank canvas")
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
-
+        
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
             if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
@@ -391,22 +391,22 @@ class Script(scripts.Script):
                 result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
             else:
                 result, is_image = preprocessor(img)
-
+            
             if is_image:
                 return gr.update(value=result, visible=True, interactive=False)
-
+        
         with gr.Row():
             annotator_button = gr.Button(value="Preview annotator result")
             annotator_button_hide = gr.Button(value="Hide annotator result")
-
+        
         annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
         annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
-
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
+        
         ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
@@ -457,7 +457,7 @@ class Script(scripts.Script):
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
         guidance_start, guidance_end, guess_mode = params[-3:]
-
+        
         self.infotext_fields.extend([
             (enabled, f"{tabname} Enabled"),
             (module, f"{tabname} Preprocessor"),
@@ -466,7 +466,7 @@ class Script(scripts.Script):
             (guidance_start, f"{tabname} Guidance Start"),
             (guidance_end, f"{tabname} Guidance End"),
         ])
-
+        
     def clear_control_model_cache(self):
         Script.model_cache.clear()
         gc.collect()
@@ -511,19 +511,19 @@ class Script(scripts.Script):
             network_config = os.path.join(global_state.script_dir, network_config)
 
         if any([k.startswith("body.") or k == 'style_embedding' for k, v in state_dict.items()]):
-            # adapter model
+            # adapter model     
             network_module = PlugableAdapter
             network_config = shared.opts.data.get("control_net_model_adapter_config", global_state.default_conf_adapter)
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
-
+            
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
             network_config = override_config
 
         network = network_module(
-            state_dict=state_dict,
-            config_path=network_config,
+            state_dict=state_dict, 
+            config_path=network_config,  
             lowvram=lowvram,
             base_model=unet,
         )
@@ -576,7 +576,7 @@ class Script(scripts.Script):
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
-
+            
         control = rearrange(control, 'h w c -> c h w')
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
@@ -611,7 +611,7 @@ class Script(scripts.Script):
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-
+       
         # for log use
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
@@ -660,12 +660,12 @@ class Script(scripts.Script):
 
         if len(params_group) == 0 or len(enabled_units) == 0:
            self.latest_network = None
-           return
+           return 
 
         detected_maps = []
         forward_params = []
         hook_lowvram = False
-
+        
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             self.clear_control_model_cache()
@@ -689,7 +689,7 @@ class Script(scripts.Script):
 
             if unit.low_vram:
                 hook_lowvram = True
-
+                
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
@@ -714,7 +714,7 @@ class Script(scripts.Script):
                     invert_image = True
             else:
                 # use img2img init_image as default
-                input_image = getattr(p, "init_images", [None])[0]
+                input_image = getattr(p, "init_images", [None])[0] 
                 if input_image is None:
                     raise ValueError('controlnet is enabled but no input image is given')
                 input_image = HWC3(np.asarray(input_image))
@@ -741,12 +741,12 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-
+            
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
-                control = detected_map
+                control = detected_map  
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -764,7 +764,7 @@ class Script(scripts.Script):
 
             del model_net
 
-        self.latest_network = UnetHook(lowvram=hook_lowvram)
+        self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
         self.detected_map = detected_maps
@@ -812,7 +812,7 @@ def update_script_args(p, value, arg_idx):
             args[s.args_from + arg_idx] = value
             p.script_args = tuple(args)
             break
-
+        
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
@@ -848,8 +848,8 @@ def on_ui_settings():
         False, "Enable CFG-Based guidance", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
-
-
+    
+    
 class Img2ImgTabTracker:
     def __init__(self):
         self.img2img_tabs = set()
