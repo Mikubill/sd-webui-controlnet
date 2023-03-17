@@ -579,6 +579,7 @@ class Script(scripts.Script):
 
         control = rearrange(control, 'h w c -> c h w')
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
+
         if resize_mode == external_code.ResizeMode.INNER_FIT:
             h0 = detected_map.shape[1]
             w0 = detected_map.shape[2]
