@@ -12,14 +12,14 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-from scripts.cldm import PlugableControlModel
 from scripts.processor import *
+from scripts.cldm import PlugableControlModel
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
-importlib.reload(external_code)
 importlib.reload(global_state)
+importlib.reload(external_code)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -120,37 +120,6 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = {
-            "none": lambda x, *args, **kwargs: (x, True),
-            "canny": canny,
-            "depth": midas,
-            "depth_leres": leres,
-            "hed": hed,
-            "mlsd": mlsd,
-            "normal_map": midas_normal,
-            "openpose": openpose,
-            "openpose_hand": openpose_hand,
-            "clip_vision": clip,
-            "color": color,
-            "pidinet": pidinet,
-            "scribble": simple_scribble,
-            "fake_scribble": fake_scribble,
-            "segmentation": uniformer,
-            "binary": binary,
-        }
-        self.unloadable = {
-            "hed": unload_hed,
-            "fake_scribble": unload_hed,
-            "mlsd": unload_mlsd,
-            "clip": unload_clip,
-            "depth": unload_midas,
-            "depth_leres": unload_leres,
-            "normal_map": unload_midas,
-            "pidinet": unload_pidinet,
-            "openpose": unload_openpose,
-            "openpose_hand": unload_openpose,
-            "segmentation": unload_uniformer,
-        }
         self.input_image = None
         self.latest_model_hash = ""
         self.txt2img_w_slider = gr.Slider()
@@ -249,7 +218,7 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value=default_unit.module)
+            module = gr.Dropdown(list(global_state.cn_preprocessors.keys()), label=f"Preprocessor", value=default_unit.module)
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
@@ -385,7 +354,7 @@ class Script(scripts.Script):
             img = HWC3(image['image'])
             if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
                 img = HWC3(image['mask'][:, :, 0])
-            preprocessor = self.preprocessor[module]
+            preprocessor = global_state.cn_preprocessors[module]
             result = None
             if pres > 64:
                 result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
@@ -658,9 +627,9 @@ class Script(scripts.Script):
 
         # unload unused preproc
         module_list = [unit.module for unit in enabled_units]
-        for key in self.unloadable:
+        for key in global_state.cn_preprocessor_unloaders:
             if key not in module_list:
-                self.unloadable.get(unit.module, lambda:None)()
+                global_state.cn_preprocessor_unloaders.get(unit.module, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(enabled_units):
@@ -721,7 +690,7 @@ class Script(scripts.Script):
                 input_image = detected_map
 
             print(f"Loading preprocessor: {unit.module}")
-            preprocessor = self.preprocessor[unit.module]
+            preprocessor = global_state.cn_preprocessors[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
             if unit.processor_res > 64:
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
@@ -789,6 +758,7 @@ class Script(scripts.Script):
 
         gc.collect()
         devices.torch_gc()
+
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
