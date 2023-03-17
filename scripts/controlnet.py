@@ -790,6 +790,10 @@ class Script(scripts.Script):
         gc.collect()
         devices.torch_gc()
 
+
+# Do this so the preprocessor list is available for the API
+global_state.cn_preprocessors_names = Script().preprocessor
+
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
         if isinstance(s, Script):
