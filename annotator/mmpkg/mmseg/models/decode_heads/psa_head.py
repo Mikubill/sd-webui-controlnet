@@ -8,7 +8,10 @@ from ..builder import HEADS
 from .decode_head import BaseDecodeHead
 
 try:
-    from annotator.mmpkg.mmcv.ops import PSAMask
+    try: 
+        from mmcv.ops import PSAMask
+    except ImportError:
+        from annotator.mmpkg.mmcv.ops import PSAMask
 except ModuleNotFoundError:
     PSAMask = None
 

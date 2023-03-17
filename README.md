@@ -47,25 +47,6 @@ Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
 
-### T2I-Adapter Support
-
-Note that the impl is experimental, result may differ from original repo. See `Adapter Examples` for reference. 
-
-To use T2I-Adapter models:
-1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
-2. Copy corresponding config file and rename it to the same name as the model - see list below.
-3. It's better to use a slightly lower strength (t) when generating images with sketch model, such as 0.6-0.8. (ref: [ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
-
-| Adapter | Config |
-|:-------------------------:|:-------------------------:|
-| t2iadapter_canny_sd14v1.pth | sketch_adapter_v14.yaml |
-| t2iadapter_sketch_sd14v1.pth | sketch_adapter_v14.yaml |
-| t2iadapter_seg_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_keypose_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_openpose_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
-| t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
-
 ### Tips 
 
 * Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
@@ -82,6 +63,32 @@ To use T2I-Adapter models:
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-source.jpg?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-pose.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-gen.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-dep.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-out.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-gen.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-out.png?raw=true"> |
+
+### T2I-Adapter Support
+
+(From TencentARC/T2I-Adapter)
+
+T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models. 
+
+To use T2I-Adapter models:
+1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
+2. Copy corresponding config file and rename it to the same name as the model - see list below.
+3. It's better to use a slightly lower strength (t) when generating images with sketch model, such as 0.6-0.8. (ref: [ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
+
+| Adapter | Config |
+|:-------------------------:|:-------------------------:|
+| t2iadapter_canny_sd14v1.pth | sketch_adapter_v14.yaml |
+| t2iadapter_sketch_sd14v1.pth | sketch_adapter_v14.yaml |
+| t2iadapter_seg_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_keypose_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_openpose_sd14v1.pth | image_adapter_v14.yaml |
+| t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
+| t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
+
+Note: 
+
+* This implement is experimental, result may differ from original repo.
+* Some adapters may have mapping deviations (see issue https://github.com/lllyasviel/ControlNet/issues/255)
 
 ### Adapter Examples
 
@@ -151,10 +158,28 @@ This extension can accept txt2img or img2img tasks via API or external extension
 
 To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
 
-To use external extension call: Pass your config to p(pipeline). For more details see [scripts/controlnet.py](https://github.com/Mikubill/sd-webui-controlnet/blob/8ca06ba8eb2989cbd434063c9a7c0e7a3bdfabea/scripts/controlnet.py#L459-L462)
+To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
 ### MacOS Support
 
 Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
 
 To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
+
+### Example: Visual-ChatGPT (by API)
+
+Quick start:
+
+```base
+# Run WebUI in API mode
+python launch.py --api --xformers
+
+# Install/Upgrade transformers
+pip install -U transformers
+
+# Install deps
+pip install langchain==0.0.101 openai 
+
+# Run exmaple
+python example/chatgpt.py
+```

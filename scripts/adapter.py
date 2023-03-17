@@ -90,12 +90,13 @@ class PlugableAdapter(nn.Module):
         self.control = None
         self.hint_cond = None
             
-    def forward(self, hint=None, *args, **kwargs):
+    def forward(self, hint=None, x=None, *args, **kwargs):
         if self.control is not None:
             return deepcopy(self.control)
         
         self.hint_cond = hint
         hint_in = hint
+        
         if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
             hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
         else:

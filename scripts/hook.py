@@ -68,6 +68,7 @@ class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
         self.lowvram = lowvram
+        self.batch_cond_available = True
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
         
     def hook(self, model):
@@ -105,6 +106,12 @@ class UnetHook(nn.Module):
                     if is_adapter:
                         return torch.cat([cond + x, uncond], dim=0)
             
+            # resize to sample resolution
+            base_h, base_w = base.shape[-2:]
+            xh, xw = x.shape[-2:]
+            if base_h != xh or base_w != xw:
+                x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
+            
             return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
@@ -113,9 +120,39 @@ class UnetHook(nn.Module):
             total_extra_cond = torch.zeros([0, context.shape[-1]]).to(devices.get_device_for("controlnet"))
             only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
-
+            
+            # handle external cond first
             for param in outer.control_params:
-                if param.guidance_stopped:
+                if param.guidance_stopped or not param.is_extra_cond:
+                    continue
+                if outer.lowvram:
+                    param.control_model.to(devices.get_device_for("controlnet"))
+                control = param.control_model(x=x, hint=param.hint_cond, timesteps=timesteps, context=context)
+                total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
+                
+            # check if it's non-batch-cond mode (lowvram, edit model etc)
+            if context.shape[0] % 2 != 0 and outer.batch_cond_available:
+                outer.batch_cond_available = False
+                if len(total_extra_cond) > 0 or outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
+                    print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
+                
+            # concat styleadapter to cond, pad uncond to same length
+            if len(total_extra_cond) > 0 and outer.batch_cond_available:
+                total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
+                if outer.is_vanilla_samplers:  
+                    uncond, cond = context.chunk(2)
+                    cond = torch.cat([cond, total_extra_cond], dim=1)
+                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
+                    context = torch.cat([uncond, cond], dim=0)
+                else:
+                    cond, uncond = context.chunk(2)
+                    cond = torch.cat([cond, total_extra_cond], dim=1)
+                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
+                    context = torch.cat([cond, uncond], dim=0)
+                
+            # handle unet injection stuff
+            for param in outer.control_params:
+                if param.guidance_stopped or param.is_extra_cond:
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
@@ -141,9 +178,6 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
-                if param.is_extra_cond:
-                    total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0)]) #* param.weight
-                    continue
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
@@ -159,19 +193,6 @@ class UnetHook(nn.Module):
                     target[idx] += item
                         
             control = total_control
-            if len(total_extra_cond) > 0 and context.shape[0] % 2 == 0:
-                total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
-                if outer.is_vanilla_samplers:  
-                    uncond, cond = context.chunk(2)
-                    cond = torch.cat([cond, total_extra_cond], dim=1)
-                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
-                    context = torch.cat([uncond, cond], dim=0)
-                else:
-                    cond, uncond = context.chunk(2)
-                    cond = torch.cat([cond, total_extra_cond], dim=1)
-                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
-                    context = torch.cat([cond, uncond], dim=0)
-                    
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():

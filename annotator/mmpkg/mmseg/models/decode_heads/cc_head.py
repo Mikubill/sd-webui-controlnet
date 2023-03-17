@@ -4,7 +4,10 @@ from ..builder import HEADS
 from .fcn_head import FCNHead
 
 try:
-    from annotator.mmpkg.mmcv.ops import CrissCrossAttention
+    try: 
+        from mmcv.ops import CrissCrossAttention
+    except ImportError:
+        from annotator.mmpkg.mmcv.ops import CrissCrossAttention
 except ModuleNotFoundError:
     CrissCrossAttention = None
 
