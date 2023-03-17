@@ -185,7 +185,8 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
 def update_cn_script_in_processing(
     p: processing.StableDiffusionProcessing,
-    cn_units: List[ControlNetUnit]
+    cn_units: List[ControlNetUnit],
+    **_kwargs, # for backwards compatibility
 ):
     """
     Update the arguments of the ControlNet script in `p.script_args` in place, reading from `cn_units`.
@@ -206,6 +207,7 @@ def update_cn_script_in_place(
     script_runner: scripts.ScriptRunner,
     script_args: List[Any],
     cn_units: List[ControlNetUnit],
+    **_kwargs, # for backwards compatibility
 ):
     """
     Update the arguments of the ControlNet script in `script_args` in place, reading from `cn_units`.
