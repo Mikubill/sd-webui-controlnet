@@ -1,12 +1,36 @@
-## This is a submodule of [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) combining ControlNet and PwW as an extension of AUTOMATIC1111 stable-diffusion webui.
+# This is a submodule of [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) combining ControlNet and PwW as an extension of AUTOMATIC1111 stable-diffusion webui.
 
-The webui should be something like
+The webui should be like
 ![screencapture-127-0-0-1-7860-2023-03-15-13_57_05](https://user-images.githubusercontent.com/42672685/226088317-64778825-7a23-41af-ab6e-57fe96444609.png)
-if it is successfully installed.
+if it is successfully installed. The demo is shown below.
+![screencapture-127-0-0-1-7860-2023-03-13-10_56_34](https://user-images.githubusercontent.com/42672685/225545442-bdb481ec-e234-475e-900d-e9340c0c7deb.png)
+
+## Installation
+
+#### (1) Clone the source code to A1111 webui extensions
+one can install by cloning the 'pww_controlnet" directory into the extensions directory of A1111 webui
+
+```bash
+cp -rf pww_controlnet path/stable-diffusion-webui/extensions/
+```
+
+or simply
+
+```bash
+cd path/stable-diffusion-webui/extensions/
+git clone git@github.com:lwchen6309/sd-webui-controlnet-pww.git
+```
+
+where path is the location of A1111 webui.
+
+### (2) Setup pretrained model of ControlNet
+Please follow the instruction of [controlnet extension](https://github.com/Mikubill/sd-webui-controlnet) to get the pretrained models. 
 
 Please see [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) for the document of using this extension.
 
 Please raise issues here if you encounter any problem.
+
+---
 
 ## sd-webui-controlnet
 (WIP) WebUI extension for ControlNet and T2I-Adapter
