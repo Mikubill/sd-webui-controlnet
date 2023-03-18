@@ -1,4 +1,4 @@
-# This is a submodule of [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) combining ControlNet and PwW as an extension of AUTOMATIC1111 stable-diffusion webui.
+# AUTOMATIC1111 stable-diffusion webui extension combining [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) and [ControlNet](https://github.com/Mikubill/sd-webui-controlnet).
 
 The webui should be like
 ![screencapture-127-0-0-1-7860-2023-03-15-13_57_05](https://user-images.githubusercontent.com/42672685/226088317-64778825-7a23-41af-ab6e-57fe96444609.png)
