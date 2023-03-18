@@ -427,6 +427,7 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
+        self.paste_field_names = []
         controls = (
             gr.State(is_img2img),
             gr.State(True),  # is_ui
@@ -457,6 +458,8 @@ class Script(scripts.Script):
             (guidance_start, f"{tabname} Guidance Start"),
             (guidance_end, f"{tabname} Guidance End"),
         ])
+        for _, field_name in self.infotext_fields:
+            self.paste_field_names.append(field_name)
         
     def clear_control_model_cache(self):
         Script.model_cache.clear()
