@@ -1,3 +1,6 @@
+## This is a submodule of [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) combining ControlNet and PwW.
+
+
 ## sd-webui-controlnet
 (WIP) WebUI extension for ControlNet and T2I-Adapter
 
