@@ -18,8 +18,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
-importlib.reload(external_code)
 importlib.reload(global_state)
+importlib.reload(external_code)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -117,40 +117,13 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
+
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = {
-            "none": lambda x, *args, **kwargs: (x, True),
-            "canny": canny,
-            "depth": midas,
-            "depth_leres": leres,
-            "hed": hed,
-            "mlsd": mlsd,
-            "normal_map": midas_normal,
-            "openpose": openpose,
-            "openpose_hand": openpose_hand,
-            "clip_vision": clip,
-            "color": color,
-            "pidinet": pidinet,
-            "scribble": simple_scribble,
-            "fake_scribble": fake_scribble,
-            "segmentation": uniformer,
-            "binary": binary,
-        }
-        self.unloadable = {
-            "hed": unload_hed,
-            "fake_scribble": unload_hed,
-            "mlsd": unload_mlsd,
-            "clip": unload_clip,
-            "depth": unload_midas,
-            "depth_leres": unload_leres,
-            "normal_map": unload_midas,
-            "pidinet": unload_pidinet,
-            "openpose": unload_openpose,
-            "openpose_hand": unload_openpose,
-            "segmentation": unload_uniformer,
-        }
+        self.preprocessor = global_state.cn_preprocessor_modules
+
+        self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
         self.txt2img_w_slider = gr.Slider()
@@ -789,10 +762,6 @@ class Script(scripts.Script):
 
         gc.collect()
         devices.torch_gc()
-
-
-# Do this so the preprocessor list is available for the API
-global_state.cn_preprocessors_names = Script().preprocessor
 
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:

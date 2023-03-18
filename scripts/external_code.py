@@ -2,7 +2,7 @@ from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
 from modules import scripts, processing, shared
-from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessors_names
+from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
 
 from modules.api import api
 
@@ -260,7 +260,7 @@ def get_modules() -> List[str]:
     Keyword arguments:
     """
 
-    return list(cn_preprocessors_names.keys())
+    return list(cn_preprocessor_modules.keys())
 
 
 def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
