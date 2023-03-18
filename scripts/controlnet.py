@@ -117,12 +117,10 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
-
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
         self.preprocessor = global_state.cn_preprocessor_modules
-
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
