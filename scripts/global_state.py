@@ -4,13 +4,46 @@ from collections import OrderedDict
 
 from modules import shared, scripts, sd_models
 from modules.paths import models_path
-
+from scripts.processor import *
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
+
+cn_preprocessor_modules = {
+    "none": lambda x, *args, **kwargs: (x, True),
+    "canny": canny,
+    "depth": midas,
+    "depth_leres": leres,
+    "hed": hed,
+    "mlsd": mlsd,
+    "normal_map": midas_normal,
+    "openpose": openpose,
+    "openpose_hand": openpose_hand,
+    "clip_vision": clip,
+    "color": color,
+    "pidinet": pidinet,
+    "scribble": simple_scribble,
+    "fake_scribble": fake_scribble,
+    "segmentation": uniformer,
+    "binary": binary,
+}
+
+cn_preprocessor_unloadable = {
+    "hed": unload_hed,
+    "fake_scribble": unload_hed,
+    "mlsd": unload_mlsd,
+    "clip": unload_clip,
+    "depth": unload_midas,
+    "depth_leres": unload_leres,
+    "normal_map": unload_midas,
+    "pidinet": unload_pidinet,
+    "openpose": unload_openpose,
+    "openpose_hand": unload_openpose,
+    "segmentation": unload_uniformer,
+}
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
