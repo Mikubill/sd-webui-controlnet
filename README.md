@@ -1,8 +1,5 @@
 # AUTOMATIC1111 stable-diffusion webui extension combining [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) and [ControlNet](https://github.com/Mikubill/sd-webui-controlnet).
 
-The webui should be like
-![screencapture-127-0-0-1-7860-2023-03-15-13_57_05](https://user-images.githubusercontent.com/42672685/226088317-64778825-7a23-41af-ab6e-57fe96444609.png)
-if it is successfully installed. The demo is shown below.
 ![screencapture-127-0-0-1-7860-2023-03-13-10_56_34](https://user-images.githubusercontent.com/42672685/225545442-bdb481ec-e234-475e-900d-e9340c0c7deb.png)
 
 ## Installation
@@ -11,24 +8,98 @@ if it is successfully installed. The demo is shown below.
 one can install by cloning the 'pww_controlnet" directory into the extensions directory of A1111 webui
 
 ```bash
-cp -rf pww_controlnet path/stable-diffusion-webui/extensions/
-```
-
-or simply
-
-```bash
 cd path/stable-diffusion-webui/extensions/
 git clone git@github.com:lwchen6309/sd-webui-controlnet-pww.git
 ```
 
 where path is the location of A1111 webui.
 
+The webui should be like
+![screencapture-127-0-0-1-7860-2023-03-15-13_57_05](https://user-images.githubusercontent.com/42672685/226088317-64778825-7a23-41af-ab6e-57fe96444609.png)
+if it is successfully installed.
+
 ### (2) Setup pretrained model of ControlNet
 Please follow the instruction of [controlnet extension](https://github.com/Mikubill/sd-webui-controlnet) to get the pretrained models. 
 
-Please see [Paint-with-Word (PwW)](https://github.com/cloneofsimo/paint-with-words-sd) for the document of using this extension.
+## Preparing color content
 
-Please raise issues here if you encounter any problem.
+Similar to the ui of PwW, one can prepare the color content by first clicking "Extract color content" then "Generate olor content"
+
+![screencapture-127-0-0-1-7860-2023-03-16-15_43_25](https://user-images.githubusercontent.com/42672685/225548893-b1610bfa-2777-47b8-afdd-e2aa7fadae4a.png)
+
+In this extension, the regional-based seeding is not enables, thus the random seed for each object will not be retrieved (just leave it as -1).
+More importantly, please DO NOT use "," in object for the same reason mentioned in gradio ui. Please leave object as "" if no object is assigned for the region.
+
+## Benchmark of ControlNet + PwW
+
+The following figure shows the comparison between the ControlNet results and the ControlNet+PwW results for the boat examples. 
+
+<!-- #region -->
+<p align="center">
+<img  src="demo_img/cn_pww_boat.jpg">
+</p>
+<!-- #endregion -->
+
+Noting that the PwW make the background, e.g. aurora and mountains, more realistic as weight function scales increases. 
+
+The setups are detailed as follows
+
+Scribble and Segmentation map:
+
+<p float="middle">
+  <img src="demo_img/user1.png" width="200" />
+  <img src="demo_img/seg_map1.png" width="200" /> 
+</p>
+
+Prompts:
+
+> "A digital painting of a half-frozen lake near mountains under a full moon and aurora. A boat is in the middle of the lake. Highly detailed."
+
+Color contents: 
+
+> "{(7, 9, 182): "aurora,0.5,-1",(136, 178, 92): "full moon,1.5,-1",(51, 193, 217): "mountains,0.4,-1",(61, 163, 35): "a half-frozen lake,0.3,-1",(89, 102, 255): "boat,2.0,-1",}"
+
+## Assign the material for the specific region in scribble
+
+One can use PwW to assign the material upon scribble, see the results comparing ControlNet and ControlNet+PwW below.
+
+<!-- #region -->
+<p align="center">
+<img  src="demo_img/cn_pww_turtle.jpg">
+</p>
+<!-- #endregion -->
+
+Noting that the material of turtle shell specified by PwW is significantly improved showns in the right blocks.
+
+The setups are detailed as follows:
+
+Scribble and Segmentation map:
+
+<p float="middle">
+  <img src="demo_img/user2.png" width="200" />
+  <img src="demo_img/seg_map2.png" width="200" /> 
+</p>
+
+Note that there are additional prompt: "its texture and grain need to be particularly emphasized." for these examples. Making the full prompts and color content shown as follows for the 3 cases respectively.
+
+Prompts:
+
+> "A turtle with a shell made of metal and beechwood material, its texture and grain need to be particularly emphasized."
+
+> "A turtle with a shell made of wool and beechwood material, its texture and grain need to be particularly emphasized."
+
+> "A turtle with a shell made of cake and chocolate material, its texture and grain need to be particularly emphasized."
+
+Color contents: 
+
+>"{(255, 255, 255):",0.5,-1",(89, 102, 255):"beechwood,2.0,-1",(61, 163, 35):"turtle,1.5,-1",(51, 193, 217):"metal,1.0,-1"}"
+
+> "{(255, 255, 255):",0.5,-1",(89, 102, 255):"wool,2.0,-1",(61, 163, 35):"turtle,1.5,-1",(51, 193, 217):"beechwood,1.0,-1"}"
+
+> "{(255, 255, 255):",0.5,-1",(89, 102, 255):"cake,2.0,-1",(61, 163, 35):"turtle,1.5,-1",(51, 193, 217):"chocolate,1.0,-1"}"
+
+with random seed: 0, and weight function scale: 0.3
+
 
 ---
 
