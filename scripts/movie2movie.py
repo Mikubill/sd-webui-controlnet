@@ -11,6 +11,8 @@ from modules.processing import process_images
 from modules.shared import opts
 from PIL import Image
 
+_BASEDIR = "/controlnet-m2m"
+_BASEFILE = "animation"
 
 def get_all_frames(video_path):
     if video_path is None:
@@ -48,9 +50,9 @@ def save_gif(path, image_list, name, duration):
     for i, image in enumerate(image_list):
         images.save_image(image, tmp_dir, f"output_{i}")
 
-    os.makedirs(path + "/controlnet-m2m", exist_ok=True)
+    os.makedirs(f"{path}{_BASEDIR}", exist_ok=True)
 
-    image_list[0].save(path + f"/controlnet-m2m/{name}.gif", save_all=True, append_images=image_list[1:], optimize=False, duration=duration, loop=0)
+    image_list[0].save(f"{path}{_BASEDIR}/{name}.gif", save_all=True, append_images=image_list[1:], optimize=False, duration=duration, loop=0)
     
 
 class Script(scripts.Script):  
@@ -76,8 +78,8 @@ class Script(scripts.Script):
                     for i in range(max_models):
                         with gr.Tab(f"ControlNet-{i}", open=False):
                             ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
-
-                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True) 
+                            ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
+                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True)
         ctrls_group += (duration,)
 
         return ctrls_group
@@ -90,12 +92,18 @@ class Script(scripts.Script):
         # to be used in processing. The return value should be a Processed object, which is
         # what is returned by the process_images method.
         video_num = opts.data.get("control_net_max_models_num", 1)
-        video_list = [get_all_frames(video) for video in args[:video_num]]
-        duration, = args[video_num:]
+        arg_num = 2
+        video_list = [get_all_frames(video) for video in args[:video_num * arg_num:2]]
+        save_pre = list(args[1:video_num * arg_num:2])
+        duration, = args[video_num * arg_num:]
 
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
             output_image_list = []
+            pre_output_image_list = []
+            for i in range(video_num):
+                pre_output_image_list.append([])
+
             for frame in range(frame_num):
                 copy_p = copy.copy(p)
                 copy_p.control_net_input_image = []
@@ -106,10 +114,28 @@ class Script(scripts.Script):
                 proc = process_images(copy_p)
                 img = proc.images[0]
                 output_image_list.append(img)
+
+                for i in range(len(save_pre)):
+                    if save_pre[i]:
+                        try:
+                            pre_output_image_list[i].append(proc.images[i + 1])
+                        except:
+                            print(f"proc.images[{i + 1} failed")
+
                 copy_p.close()
-            # TODO: Generate new name for each movie2movie output
-            save_gif(p.outpath_samples, output_image_list, "animation", duration)
-            proc.images = [p.outpath_samples + "/controlnet-m2m/animation.gif"]
+
+            # filename format is seq-seed-animation.gif seq is 5 places left filled with 0
+
+            seq = images.get_next_sequence_number(f"{p.outpath_samples}{_BASEDIR}", "")
+            filename = f"{seq:05}-{proc.seed}-{_BASEFILE}"
+            save_gif(p.outpath_samples, output_image_list, filename, duration)
+            proc.images = [f"{p.outpath_samples}{_BASEDIR}/{filename}.gif"]
+
+            for i in range(len(save_pre)):
+                if save_pre[i]:
+                    # control files add -controlX.gif where X is the controlnet number
+                    save_gif(p.outpath_samples, pre_output_image_list[i], f"{filename}-control{i}", duration)
+                    proc.images.append(f"{p.outpath_samples}{_BASEDIR}/{filename}-control{i}.gif")
 
         else:
             proc = process_images(p)
