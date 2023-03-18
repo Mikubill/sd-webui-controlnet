@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
-from modules import devices, lowvram, shared, scripts
+from modules import devices, shared
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 

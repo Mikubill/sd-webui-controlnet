@@ -1,7 +1,8 @@
 import gc
 import os
 from collections import OrderedDict
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, Optional
+import importlib
 
 import torch
 
@@ -17,6 +18,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
+importlib.reload(external_code)
+importlib.reload(global_state)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -89,22 +92,26 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 global_state.update_cn_models()
 
+def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
+    image = unit.image
+    if image is None:
+        return None
 
-def to_processing_unit(unit: Union[Dict[str, Any], external_code.ControlNetUnit]):
-    ext_compat_keys = {
-        'guessmode': 'guess_mode',
-        'guidance': 'guidance_end',
-        'lowvram': 'low_vram',
-        'input_image': 'image',
-        'scribble_mode': 'invert_image',
-    }
+    if isinstance(image, (tuple, list)):
+        image = {'image': image[0], 'mask': image[1]}
+    elif not isinstance(image, dict):
+        image = {'image': image, 'mask': None}
 
-    if type(unit) is dict:
-        unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
-        unit = external_code.ControlNetUnit(**unit)
+    if isinstance(image['image'], str):
+        image['image'] = external_code.to_base64_nparray(image['image'])
 
-    assert isinstance(unit, external_code.ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
-    return unit
+    if isinstance(image['mask'], str):
+        image['mask'] = external_code.to_base64_nparray(image['mask'])
+    elif image['mask'] is None:
+        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
+
+    # copy to enable modifying the dict
+    return dict(image)
 
 
 class Script(scripts.Script):
@@ -176,15 +183,18 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
 
-    def uigroup(self, tabname, is_img2img):
-        ctrls = ()
-        infotext_fields = []
-        default_unit = external_code.ControlNetUnit(
+    def get_default_ui_unit(self):
+        return external_code.ControlNetUnit(
             enabled=False,
             module="none",
             model="None",
             guess_mode=False,
         )
+
+    def uigroup(self, tabname, is_img2img):
+        ctrls = ()
+        infotext_fields = []
+        default_unit = self.get_default_ui_unit()
         with gr.Row():
             input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
             generated_image = gr.Image(label="Annotator result", visible=False)
@@ -406,7 +416,9 @@ class Script(scripts.Script):
         input_image.preprocess=svgPreprocess
 
         def controlnet_unit_from_args(*args):
-            return external_code.ControlNetUnit(*args)
+            unit = external_code.ControlNetUnit(*args)
+            setattr(unit, 'is_ui', True)
+            return unit
 
         unit = gr.State(default_unit)
         for comp in ctrls:
@@ -428,10 +440,7 @@ class Script(scripts.Script):
         """
         self.infotext_fields = []
         self.paste_field_names = []
-        controls = (
-            gr.State(is_img2img),
-            gr.State(True),  # is_ui
-        )
+        controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
@@ -596,22 +605,10 @@ class Script(scripts.Script):
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
 
-    def parse_external_args(self, args):
-        units = []
-        i = 0
-        while i < len(args):
-            if type(args[i]) is bool:
-                units.append(external_code.ControlNetUnit(*args[i:i + external_code.PARAM_COUNT]))
-                i += external_code.PARAM_COUNT
+    def is_ui(self, args):
+        return args and isinstance(args[0], external_code.ControlNetUnit) and getattr(args[0], 'is_ui', False)
 
-            else:
-                if args[i] is not None:
-                    units.append(to_processing_unit(args[i]))
-                i += 1
-
-        return units
-
-    def process(self, p, is_img2img=False, is_ui=False, *args):
+    def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
@@ -622,11 +619,11 @@ class Script(scripts.Script):
             # always restore (~0.05s)
             self.latest_network.restore(unet)
 
-        params_group = self.parse_external_args(args)
+        params_group = external_code.get_all_units_from(args)
         enabled_units = []
         if len(params_group) == 0:
             # fill a null group
-            remote_unit = self.parse_remote_call(p, external_code.ControlNetUnit(), 0)
+            remote_unit = self.parse_remote_call(p, self.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 params_group.append(remote_unit)
 
@@ -650,7 +647,7 @@ class Script(scripts.Script):
                 f"{prefix} Guidance End": unit.guidance_end,
             })
 
-        if len(params_group) == 0:
+        if len(params_group) == 0 or len(enabled_units) == 0:
            self.latest_network = None
            return 
 
@@ -671,7 +668,7 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(enabled_units):
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
-            image = unit.get_image_dict()
+            image = image_dict_from_unit(unit)
             if image is not None:
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
@@ -685,6 +682,7 @@ class Script(scripts.Script):
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
+            is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
             is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
             if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
@@ -763,7 +761,7 @@ class Script(scripts.Script):
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
-    def postprocess(self, p, processed, is_img2img=False, is_ui=False, *args):
+    def postprocess(self, p, processed, *args):
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -774,7 +772,8 @@ class Script(scripts.Script):
                     img = Image.fromarray(detect_map)
                     save_image(img, detectmap_dir, module)
 
-        is_img2img_batch_tab = is_ui and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
+        is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
+        is_img2img_batch_tab = self.is_ui(args) and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
         if self.latest_network is None or is_img2img_batch_tab:
             return
 
@@ -845,9 +844,11 @@ class Img2ImgTabTracker:
         self.img2img_tabs = set()
         self.active_img2img_tab = 'img2img_img2img_tab'
         self.submit_img2img_tab = None
+        self.submit_button = None
 
-    def save_submit_img2img_tab(self):
+    def save_submit_img2img_tab(self, button):
         self.submit_img2img_tab = self.active_img2img_tab
+        self.submit_button = button.elem_id
 
     def set_active_img2img_tab(self, tab):
         self.active_img2img_tab = tab.elem_id
@@ -856,8 +857,8 @@ class Img2ImgTabTracker:
         if type(component) is gr.State:
             return
 
-        if type(component) is gr.Button and component.elem_id == 'img2img_generate':
-            component.click(fn=self.save_submit_img2img_tab, inputs=[], outputs=[])
+        if type(component) is gr.Button and component.elem_id in ('img2img_generate', 'txt2img_generate'):
+            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component), outputs=[])
             return
 
         tab = getattr(component, 'parent', None)

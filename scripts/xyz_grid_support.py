@@ -5,6 +5,8 @@ from modules import scripts, shared
 
 try:
     from scripts import controlnet
+    from scripts.global_state import update_cn_models, cn_models_names
+    from scripts.external_code import ResizeMode
 except ImportError:
     import_error = True
 else:
@@ -396,11 +398,11 @@ def add_axis_options(xyz_grid):
         return ["False", "True"]
 
     def choices_model():
-        controlnet.update_cn_models()
-        return list(controlnet.cn_models_names.values())
+        update_cn_models()
+        return list(cn_models_names.values())
 
     def choices_resize_mode():
-        return [e.value for e in controlnet.ResizeMode]
+        return [e.value for e in ResizeMode]
 
     def choices_preprocessor():
         return list(controlnet.Script().preprocessor)
