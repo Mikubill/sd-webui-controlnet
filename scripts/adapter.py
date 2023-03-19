@@ -8,6 +8,7 @@ from collections import OrderedDict
 from omegaconf import OmegaConf
 from copy import deepcopy
 from modules import devices, lowvram, shared, scripts
+cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
 
@@ -94,8 +95,8 @@ class PlugableAdapter(nn.Module):
         if self.control is not None:
             return deepcopy(self.control)
         
-        self.hint_cond = hint
-        hint_in = hint
+        self.hint_cond = cond_cast_unet(hint)
+        hint_in = cond_cast_unet(hint)
         
         if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
             hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
