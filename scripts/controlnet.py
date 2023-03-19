@@ -452,8 +452,11 @@ class Script(scripts.Script):
                 else:
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        
+        for _, field_name in self.infotext_fields:
+            self.paste_field_names.append(field_name)
 
-                return controls
+        return controls
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
@@ -467,8 +470,6 @@ class Script(scripts.Script):
             (guidance_start, f"{tabname} Guidance Start"),
             (guidance_end, f"{tabname} Guidance End"),
         ])
-        for _, field_name in self.infotext_fields:
-            self.paste_field_names.append(field_name)
         
     def clear_control_model_cache(self):
         Script.model_cache.clear()
