@@ -556,23 +556,37 @@ class Script(scripts.Script):
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
         if resize_mode == external_code.ResizeMode.INNER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            w1 = w0
+            h1 = int(w0/w*h)
+            if (h/w > h0/w0):
+                h1 = h0
+                w1 = int(h0/h*w)
             transform = Compose([
-                Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w)),
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w), interpolation=InterpolationMode.BICUBIC)
             ])
             control = transform(control)
             detected_map = transform(detected_map)
         elif resize_mode == external_code.ResizeMode.OUTER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            h1 = h0
+            w1 = int(h0/h*w)
+            if (h/w > h0/w0):
+                w1 = w0
+                h1 = int(w0/w*h)
             transform = Compose([
-                Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w))
-            ]) 
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w),interpolation=InterpolationMode.BICUBIC)
+            ])
             control = transform(control)
             detected_map = transform(detected_map)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
+       
         # for log use
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
