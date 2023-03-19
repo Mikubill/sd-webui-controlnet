@@ -94,8 +94,8 @@ class PlugableAdapter(nn.Module):
         if self.control is not None:
             return deepcopy(self.control)
         
-        self.hint_cond = hint
-        hint_in = hint
+        self.hint_cond = devices.cond_cast_unet(hint)
+        hint_in = devices.cond_cast_unet(hint)
         
         if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
             hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
