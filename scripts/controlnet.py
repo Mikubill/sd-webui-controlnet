@@ -410,6 +410,7 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
+        self.paste_field_names = []
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
@@ -422,8 +423,11 @@ class Script(scripts.Script):
                 else:
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        
+        for _, field_name in self.infotext_fields:
+            self.paste_field_names.append(field_name)
 
-                return controls
+        return controls
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
