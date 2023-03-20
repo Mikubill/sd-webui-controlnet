@@ -1,0 +1,181 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include "common_mlu_helper.hpp"
+
+__nram__ char nram_buffer[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_func__ void MLUUnion1MaskedIm2colForward(
+    const T *feature, const int height, const int width, const int channels,
+    const int kernel_h, const int kernel_w, const int pad_h, const int pad_w,
+    const int32_t *mask_h_idx, const int32_t *mask_w_idx, const int mask_cnt,
+    T *data_col) {
+  for (int index = taskId; index < mask_cnt; index += taskDim) {
+    const int h_col = mask_h_idx[index];
+    const int w_col = mask_w_idx[index];
+    const int h_offset = h_col - pad_h;
+    const int w_offset = w_col - pad_w;
+    int h_start = h_offset;
+    int h_end = h_offset + kernel_h - 1;
+    int w_start = w_offset;
+    int w_end = w_start + kernel_w - 1;
+    if (h_start >= height || w_start >= width || h_end < 0 || w_end < 0) {
+      continue;
+    } else {
+      int h_start_valid = max(0, h_start);
+      int h_end_valid = min(height - 1, h_end);
+      int w_start_valid = max(0, w_start);
+      int w_end_valid = min(width - 1, w_end);
+      __memcpy(
+          data_col + index * kernel_h * kernel_w * channels +
+              ((h_start_valid - h_start) * kernel_w +
+               (w_start_valid - w_start)) *
+                  channels,
+          feature + h_start_valid * width * channels + w_start_valid * channels,
+          (w_end_valid - w_start_valid + 1) * channels * sizeof(T), GDRAM2GDRAM,
+          kernel_w * channels * sizeof(T), width * channels * sizeof(T),
+          h_end_valid - h_start_valid);
+    }
+  }
+}
+
+template <typename T>
+__mlu_func__ void MLUUnion1MaskedCol2imForward(const T *col, const int height,
+                                               const int width,
+                                               const int channels,
+                                               const int32_t *mask_h_idx,
+                                               const int32_t *mask_w_idx,
+                                               const int mask_cnt, T *im) {
+  const int channels_max_num_nram = MAX_NRAM_SIZE / sizeof(T);
+  if (channels <= channels_max_num_nram) {
+    const int deal_num = channels_max_num_nram / channels;
+    int mask_per_core = mask_cnt / taskDim;
+    const int mask_remain = mask_cnt % taskDim;
+    mask_per_core += taskId < mask_remain ? 1 : 0;
+    int index_start = taskId < mask_remain
+                          ? taskId * mask_per_core
+                          : taskId * mask_per_core + mask_remain;
+    int loop = mask_per_core / deal_num;
+    int remain_num = mask_per_core % deal_num;
+    T *nram_col = (T *)nram_buffer;
+    for (int index = 0; index < loop; ++index) {
+      int cur_index = index_start + index * deal_num;
+      __memcpy(nram_col, col + cur_index * channels,
+               deal_num * channels * sizeof(T), GDRAM2NRAM);
+      for (int i = 0; i < deal_num; ++i) {
+        int mask_index = cur_index + i;
+        const int h_im = mask_h_idx[mask_index];
+        const int w_im = mask_w_idx[mask_index];
+        // if(h_im>=height || w_im>=width) continue;
+        __memcpy(im + (h_im * width + w_im) * channels, nram_col + i * channels,
+                 channels * sizeof(T), NRAM2GDRAM);
+      }
+    }
+    if (remain_num > 0) {
+      int cur_index = index_start + loop * deal_num;
+      __memcpy(nram_col, col + cur_index * channels,
+               remain_num * channels * sizeof(T), GDRAM2NRAM);
+      for (int i = 0; i < remain_num; ++i) {
+        int mask_index = cur_index + i;
+        const int h_im = mask_h_idx[mask_index];
+        const int w_im = mask_w_idx[mask_index];
+        // if(h_im>=height || w_im>=width) continue;
+        __memcpy(im + (h_im * width + w_im) * channels, nram_col + i * channels,
+                 channels * sizeof(T), NRAM2GDRAM);
+      }
+    }
+  } else {
+    for (int index = taskId; index < mask_cnt; index += taskDim) {
+      const int m_index = index % mask_cnt;
+      const int h_im = mask_h_idx[m_index];
+      const int w_im = mask_w_idx[m_index];
+      // if(h_im>=height || w_im>=width) continue;
+      __memcpy(im + (h_im * width + w_im) * channels, col + index * channels,
+               channels * sizeof(T), GDRAM2GDRAM);
+    }
+  }
+}
+
+__mlu_global__ void MLUKernelMaskedIm2colForward(
+    const void *feature, const int height, const int width, const int channels,
+    const int kernel_h, const int kernel_w, const int pad_h, const int pad_w,
+    const void *mask_h_idx, const void *mask_w_idx, const int mask_cnt,
+    void *data_col, const cnrtDataType_t data_dtype) {
+  if (coreId == 0x80) {
+    return;
+  }
+
+  switch (data_dtype) {
+    case CNRT_FLOAT16: {
+      MLUUnion1MaskedIm2colForward((half *)feature, height, width, channels,
+                                   kernel_h, kernel_w, pad_h, pad_w,
+                                   (int32_t *)mask_h_idx, (int32_t *)mask_w_idx,
+                                   mask_cnt, (half *)data_col);
+    }; break;
+    case CNRT_FLOAT32: {
+      MLUUnion1MaskedIm2colForward((float *)feature, height, width, channels,
+                                   kernel_h, kernel_w, pad_h, pad_w,
+                                   (int32_t *)mask_h_idx, (int32_t *)mask_w_idx,
+                                   mask_cnt, (float *)data_col);
+    }; break;
+    default: {
+      break;
+    }
+  }
+}
+
+__mlu_global__ void MLUKernelMaskedCol2imForward(
+    const void *col, const int height, const int width, const int channels,
+    const void *mask_h_idx, const void *mask_w_idx, const int mask_cnt,
+    void *im, const cnrtDataType_t data_dtype) {
+  if (coreId == 0x80) {
+    return;
+  }
+  switch (data_dtype) {
+    case CNRT_FLOAT16: {
+      MLUUnion1MaskedCol2imForward((half *)col, height, width, channels,
+                                   (int32_t *)mask_h_idx, (int32_t *)mask_w_idx,
+                                   mask_cnt, (half *)im);
+    }; break;
+    case CNRT_FLOAT32: {
+      MLUUnion1MaskedCol2imForward((float *)col, height, width, channels,
+                                   (int32_t *)mask_h_idx, (int32_t *)mask_w_idx,
+                                   mask_cnt, (float *)im);
+    }; break;
+    default: {
+      break;
+    }
+  }
+}
+
+void KernelMaskedIm2colForward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    cnrtDataType_t k_dtype, const void *im_ptr, const int height,
+    const int width, const int channels, const int kernel_h, const int kernel_w,
+    const int pad_h, const int pad_w, const void *mask_h_idx_ptr,
+    const void *mask_w_idx_ptr, const int mask_cnt, void *col_ptr) {
+  MLUKernelMaskedIm2colForward<<<k_dim, k_type, queue>>>(
+      im_ptr, height, width, channels, kernel_h, kernel_w, pad_h, pad_w,
+      mask_h_idx_ptr, mask_w_idx_ptr, mask_cnt, col_ptr, k_dtype);
+}
+
+void KernelMaskedCol2imForward(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
+                               cnrtQueue_t queue, cnrtDataType_t k_dtype,
+                               const void *col_ptr, const int height,
+                               const int width, const int channels,
+                               const void *mask_h_idx_ptr,
+                               const void *mask_w_idx_ptr, const int mask_cnt,
+                               void *im_ptr) {
+  MLUKernelMaskedCol2imForward<<<k_dim, k_type, queue>>>(
+      col_ptr, height, width, channels, mask_h_idx_ptr, mask_w_idx_ptr,
+      mask_cnt, im_ptr, k_dtype);
+}

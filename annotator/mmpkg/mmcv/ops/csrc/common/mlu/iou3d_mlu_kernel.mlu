@@ -1,0 +1,431 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+
+#include "common_mlu_helper.hpp"
+#include "iou3d_utils.hpp"
+
+#define SIZE_SRAM_BUF (MAX_SRAM_SIZE)
+
+/* NRAM buffer
+ * Suppose deal N boxes once time.
+----------------------------------------------------------------
+| Basic |score (1N)+       |intersect_pts(48N)|                |
+|       |valid_box(1N)     |+ ordered_pts(48N)| temp_long(72N) |
+|       |+ temp_buffer(10N)|                  |                |
+|--------------------------|------------------|----------------|
+| Reuse |     null         |     null         |rotated_pts(16N)|
+|-------|------------------|------------------|----------------|
+
+---------------------------------------------------------------------------
+| Basic |  dist_ram(24N)   | valid_pts(24N)  |box1(5N)  |box1_buffer(5KB) |
+|       |                  |+ nums_in_ram(1N)|+ box2(5N)|+nram_save(5KB)  |
+|--------------------------|-----------------|----------|-----------------|
+| Reuse |  vec_buffer(5N)  |    null         |   null   |      null       |
+|-------|------------------|-----------------|----------|-----------------|
+Total Basic Memory Size = 239N * sizeof(float) + 10KB
+*/
+
+__nram__ char nram_buffer[MAX_NRAM_SIZE];
+__mlu_shared__ char sram_buffer[SIZE_SRAM_BUF];
+
+template <typename T>
+__mlu_func__ void iou3D_detection(int32_t &result_box_num, int32_t *output_data,
+                                  const T *boxes_data, float *scores_data,
+                                  const int core_limit, const int input_box_num,
+                                  const float iou_threshold,
+                                  mluMemcpyDirection_t scores_load_dir,
+                                  mluMemcpyDirection_t scores_store_dir,
+                                  mluMemcpyDirection_t boxes_load_dir) {
+  // NRAM divide by (2+4*COMPUTE_COUNT_ALIGN) copies of NRAM, counted by bytes
+  const int nram_save_limit_count = 256;
+  int box_read_limit_count = 256;
+  float div_thresh_iou = 1.0 / iou_threshold;
+  // every box require 239 * sizeof(float) space in nram;
+  const int32_t copies_of_nram = 239 * sizeof(float);
+  const int32_t limit = (MAX_NRAM_SIZE - 5 * box_read_limit_count * sizeof(T) -
+                         nram_save_limit_count * sizeof(int32_t)) /
+                        copies_of_nram;
+
+  // x,y,z,dx,dy,dz,angle
+  const T *input_x_ptr = boxes_data;
+  const T *input_y_ptr = input_x_ptr + input_box_num;
+  const T *input_dx_ptr = input_y_ptr + 2 * input_box_num;
+  const T *input_dy_ptr = input_dx_ptr + input_box_num;
+  const T *input_angle_ptr = input_dy_ptr + 2 * input_box_num;
+  float *input_score_ptr = scores_data;
+
+  // data split
+  int avg_cluster = 0;
+  int rem_cluster = 0;
+  int len_cluster = 0;
+  int cluster_offset = 0;
+  if (clusterDim > 0) {
+    // union
+    avg_cluster = input_box_num / clusterDim;
+    rem_cluster = input_box_num % clusterDim;
+    len_cluster = avg_cluster + (clusterId < rem_cluster ? 1 : 0);
+    cluster_offset = avg_cluster * clusterId +
+                     (clusterId <= rem_cluster ? clusterId : rem_cluster);
+  } else {
+    // block
+    len_cluster = input_box_num;
+    cluster_offset = 0;
+  }
+  int len_core = input_box_num;
+  int input_offset = 0;
+  if (core_limit > 1) {
+    int avg_core = len_cluster / coreDim;
+    int rem_core = len_cluster % coreDim;
+    len_core = avg_core + (coreId < rem_core ? 1 : 0);
+    int core_offset =
+        avg_core * coreId + (coreId <= rem_core ? coreId : rem_core);
+    input_offset = cluster_offset + core_offset;
+  }
+
+  int32_t max_seg_pad = IOU3D_DOWN(limit, IOU3D_SIZE);
+  int repeat_iou_compute = len_core / max_seg_pad;
+  int remain_iou_compute = len_core % max_seg_pad;
+
+  // basic consistent memory layout
+  void *score = ((char *)nram_buffer);
+  void *valid_box = ((char *)score) + 1 * max_seg_pad * sizeof(float);
+  void *temp_buffer = ((char *)valid_box) + 1 * max_seg_pad * sizeof(float);
+  void *intersect_pts_x =
+      ((char *)temp_buffer) + 10 * max_seg_pad * sizeof(float);
+  void *intersect_pts_y =
+      ((char *)intersect_pts_x) + 24 * max_seg_pad * sizeof(float);
+  void *ordered_pts_x =
+      ((char *)intersect_pts_y) + 24 * max_seg_pad * sizeof(float);
+  void *ordered_pts_y =
+      ((char *)ordered_pts_x) + 24 * max_seg_pad * sizeof(float);
+  void *temp_long_1 =
+      ((char *)ordered_pts_y) + 24 * max_seg_pad * sizeof(float);
+  void *temp_long_2 = ((char *)temp_long_1) + 24 * max_seg_pad * sizeof(float);
+  void *temp_long_3 = ((char *)temp_long_2) + 24 * max_seg_pad * sizeof(float);
+  void *dist_ram = ((char *)temp_long_3) + 24 * max_seg_pad * sizeof(float);
+  void *valid_pts = ((char *)dist_ram) + 24 * max_seg_pad * sizeof(float);
+  void *nums_in_ram = ((char *)valid_pts) + 24 * max_seg_pad * sizeof(float);
+  T *box1 = (T *)(((char *)nums_in_ram) + 1 * max_seg_pad * sizeof(float));
+  T *box2 = (T *)(((char *)box1) + 5 * max_seg_pad * sizeof(float));
+  void *box1_buffer = ((char *)box2) + 5 * max_seg_pad * sizeof(float);
+  int32_t *nram_save =
+      (int32_t *)(((char *)box1_buffer) + 5 * box_read_limit_count * sizeof(T));
+  // nram_save ~ nram_save_limit_count * sizeof(int32_t)
+  int nram_save_count = 0;
+
+  // reuse memory
+  void *rotated_pts1_x = ((char *)dist_ram);
+  void *rotated_pts1_y =
+      ((char *)rotated_pts1_x) + 4 * max_seg_pad * sizeof(float);
+  void *rotated_pts2_x =
+      ((char *)rotated_pts1_y) + 4 * max_seg_pad * sizeof(float);
+  void *rotated_pts2_y =
+      ((char *)rotated_pts2_x) + 4 * max_seg_pad * sizeof(float);
+  void *vec_buffer = ((char *)temp_long_1) + 5 * max_seg_pad * sizeof(float);
+  // vec_buffer ~ 16 * max_seg_pad * sizeof(float)
+
+  // First, initialize ram with all 0, or could cause nan/inf unexcepted results
+  __bang_write_zero((unsigned char *)nram_buffer, copies_of_nram * max_seg_pad);
+  // number 8 and 0xff relay on box_read_limit_count initial as 256
+  const int max_box_seg_id = (input_box_num - 1) >> 8;
+  const int last_rem_box_number = ((input_box_num - 1) & 0xff) + 1;
+  for (int32_t cur_box = 0; cur_box < input_box_num; ++cur_box) {
+    __sync_all();
+    int box_seg_id = cur_box >> 8, box_id = cur_box & 0xff;
+    box_read_limit_count = box_seg_id == max_box_seg_id ? last_rem_box_number
+                                                        : box_read_limit_count;
+    if (box_id == 0) {
+      // x,y,z,dx,dy,dz,angle
+      int offset_num = box_seg_id << 8;
+      // x
+      __memcpy((char *)box1_buffer, input_x_ptr + offset_num,
+               box_read_limit_count * 1 * sizeof(T), boxes_load_dir,
+               box_read_limit_count * 1 * sizeof(T),
+               box_read_limit_count * 1 * sizeof(T), 0);
+      // y
+      __memcpy((char *)box1_buffer + box_read_limit_count * 1 * sizeof(T),
+               input_y_ptr + offset_num, box_read_limit_count * 1 * sizeof(T),
+               boxes_load_dir, box_read_limit_count * 1 * sizeof(T),
+               box_read_limit_count * 1 * sizeof(T), 0);
+      // dx
+      __memcpy((char *)box1_buffer + box_read_limit_count * 2 * sizeof(T),
+               input_dx_ptr + offset_num, box_read_limit_count * 1 * sizeof(T),
+               boxes_load_dir, box_read_limit_count * 1 * sizeof(T),
+               box_read_limit_count * 1 * sizeof(T), 0);
+      // dy
+      __memcpy((char *)box1_buffer + box_read_limit_count * 3 * sizeof(T),
+               input_dy_ptr + offset_num, box_read_limit_count * 1 * sizeof(T),
+               boxes_load_dir, box_read_limit_count * 1 * sizeof(T),
+               box_read_limit_count * 1 * sizeof(T), 0);
+      // angle
+      __memcpy((char *)box1_buffer + box_read_limit_count * 4 * sizeof(T),
+               input_angle_ptr + offset_num,
+               box_read_limit_count * 1 * sizeof(T), boxes_load_dir,
+               box_read_limit_count * 1 * sizeof(T),
+               box_read_limit_count * 1 * sizeof(T), 0);
+    }
+    if (((float *)input_score_ptr)[cur_box] == 0) {
+      continue;
+    }
+    // save result
+    nram_save[nram_save_count] = cur_box;
+    result_box_num++;
+    nram_save_count++;
+    if (clusterId == 0 && coreId == 0 &&
+        nram_save_count == nram_save_limit_count) {
+      pvLock();
+      __memcpy(output_data, nram_save, nram_save_count * sizeof(int32_t),
+               NRAM2GDRAM);
+      pvUnlock();
+      output_data += nram_save_count;
+      nram_save_count = 0;
+    }
+    // prepare box1
+    // x
+    __bang_write_value((float *)box1, max_seg_pad,
+                       float(((T *)box1_buffer)[box_id]));
+    // y
+    __bang_write_value(
+        (float *)box1 + max_seg_pad, max_seg_pad,
+        float(((T *)box1_buffer)[box_id + 1 * box_read_limit_count]));
+    // dx
+    __bang_write_value(
+        (float *)box1 + max_seg_pad * 2, max_seg_pad,
+        float(((T *)box1_buffer)[box_id + 2 * box_read_limit_count]));
+    // dy
+    __bang_write_value(
+        (float *)box1 + max_seg_pad * 3, max_seg_pad,
+        float(((T *)box1_buffer)[box_id + 3 * box_read_limit_count]));
+    // angle
+    __bang_write_value(
+        (float *)box1 + max_seg_pad * 4, max_seg_pad,
+        float(((T *)box1_buffer)[box_id + 4 * box_read_limit_count]));
+
+    float max_area = 1.0f *
+                     ((T *)box1_buffer)[box_id + 2 * box_read_limit_count] *
+                     ((T *)box1_buffer)[box_id + 3 * box_read_limit_count];
+    // update score
+
+    for (int i = 0; i <= repeat_iou_compute; i++) {
+      if (i == repeat_iou_compute && remain_iou_compute == 0) {
+        break;
+      }
+      int seg_len = max_seg_pad;
+      int cpy_len =
+          (i == repeat_iou_compute) ? remain_iou_compute : max_seg_pad;
+      // int half_offset = std::is_same<T, half>::value ? max_seg_pad * 5 : 0;
+      int half_offset = (sizeof(T) == sizeof(half)) ? max_seg_pad * 5 : 0;
+      // score
+      __memcpy(score, input_score_ptr + input_offset + i * max_seg_pad,
+               cpy_len * sizeof(float), scores_load_dir,
+               cpy_len * sizeof(float), cpy_len * sizeof(float), 0);
+      // x
+      __memcpy(box2 + half_offset, input_x_ptr + input_offset + i * max_seg_pad,
+               cpy_len * 1 * sizeof(T), boxes_load_dir, cpy_len * 1 * sizeof(T),
+               cpy_len * 1 * sizeof(T), 0);
+      // y
+      __memcpy(box2 + half_offset + seg_len * 1,
+               input_y_ptr + input_offset + i * max_seg_pad,
+               cpy_len * 1 * sizeof(T), boxes_load_dir, cpy_len * 1 * sizeof(T),
+               cpy_len * 1 * sizeof(T), 0);
+      // dx
+      __memcpy(box2 + half_offset + seg_len * 2,
+               input_dx_ptr + input_offset + i * max_seg_pad,
+               cpy_len * 1 * sizeof(T), boxes_load_dir, cpy_len * 1 * sizeof(T),
+               cpy_len * 1 * sizeof(T), 0);
+      // dy
+      __memcpy(box2 + half_offset + seg_len * 3,
+               input_dy_ptr + input_offset + i * max_seg_pad,
+               cpy_len * 1 * sizeof(T), boxes_load_dir, cpy_len * 1 * sizeof(T),
+               cpy_len * 1 * sizeof(T), 0);
+      // angle
+      __memcpy(box2 + half_offset + seg_len * 4,
+               input_angle_ptr + input_offset + i * max_seg_pad,
+               cpy_len * 1 * sizeof(T), boxes_load_dir, cpy_len * 1 * sizeof(T),
+               cpy_len * 1 * sizeof(T), 0);
+      // if (std::is_same<T, half>::value) {
+      if (sizeof(T) == sizeof(half)) {
+        __bang_half2float((float *)box2, (half *)(box2 + half_offset),
+                          seg_len * 5);
+      }
+
+      // Calculate rotated vertices
+      void *temp1_ram = ((char *)temp_buffer);
+      void *temp2_ram = ((char *)temp_buffer) + seg_len * sizeof(float);
+      void *temp3_ram = ((char *)temp_buffer) + 2 * seg_len * sizeof(float);
+      void *temp4_ram = ((char *)temp_buffer) + 3 * seg_len * sizeof(float);
+      getRotatedVertices((float *)rotated_pts1_x, (float *)rotated_pts1_y,
+                         (float *)box1, (float *)temp1_ram, (float *)temp2_ram,
+                         (float *)temp3_ram, (float *)temp4_ram, seg_len);
+      getRotatedVertices((float *)rotated_pts2_x, (float *)rotated_pts2_y,
+                         (float *)box2, (float *)temp1_ram, (float *)temp2_ram,
+                         (float *)temp3_ram, (float *)temp4_ram, seg_len);
+
+      __bang_write_zero((float *)valid_pts, 24 * seg_len);
+      __bang_write_zero((float *)nums_in_ram, seg_len);
+      __bang_write_value(((float *)valid_box), seg_len, 1.0f);
+      void *vec1_x = ((char *)vec_buffer);
+      void *vec1_y = ((char *)vec1_x) + 4 * seg_len * sizeof(float);
+      void *vec2_x = ((char *)vec1_y) + 4 * seg_len * sizeof(float);
+      void *vec2_y = ((char *)vec2_x) + 4 * seg_len * sizeof(float);
+      void *temp5_ram = ((char *)temp_buffer) + 4 * seg_len * sizeof(float);
+      void *temp6_ram = ((char *)temp_buffer) + 5 * seg_len * sizeof(float);
+      void *temp7_ram = ((char *)temp_buffer) + 6 * seg_len * sizeof(float);
+      void *temp8_ram = ((char *)temp_buffer) + 7 * seg_len * sizeof(float);
+      void *temp9_ram = ((char *)temp_buffer) + 8 * seg_len * sizeof(float);
+      void *temp10_ram = ((char *)temp_buffer) + 9 * seg_len * sizeof(float);
+
+      // Get all intersection points
+      getIntersectPts(
+          (float *)rotated_pts1_x, (float *)rotated_pts1_y,
+          (float *)rotated_pts2_x, (float *)rotated_pts2_y, (float *)vec1_x,
+          (float *)vec1_y, (float *)vec2_x, (float *)vec2_y,
+          (float *)intersect_pts_x, (float *)intersect_pts_y,
+          (float *)valid_pts, (float *)nums_in_ram, (float *)temp1_ram,
+          (float *)temp2_ram, (float *)temp3_ram, (float *)temp4_ram,
+          (float *)temp5_ram, (float *)temp6_ram, (float *)temp7_ram,
+          (float *)temp8_ram, (float *)temp9_ram, (float *)temp10_ram, seg_len);
+
+      // Where nums_in <= 2, set valid_box to false
+      __bang_write_value((float *)temp9_ram, COMPUTE_COUNT_ALIGN, (float)2);
+      __bang_cycle_gt((float *)temp1_ram, (float *)nums_in_ram,
+                      (float *)temp9_ram, seg_len, COMPUTE_COUNT_ALIGN);
+      __bang_and((float *)valid_box, (float *)valid_box, (float *)temp1_ram,
+                 seg_len);
+      __bang_cycle_and((float *)valid_pts, (float *)valid_pts,
+                       (float *)valid_box, 24 * seg_len, seg_len);
+
+      // Convex-hull-graham to order the intersection points in clockwise order
+      // and find the contour area
+
+      convexHullGraham(
+          (float *)intersect_pts_x, (float *)intersect_pts_y,
+          (float *)ordered_pts_x, (float *)ordered_pts_y, (float *)dist_ram,
+          (float *)valid_box, (float *)valid_pts, (float *)nums_in_ram,
+          (float *)temp7_ram, (float *)temp8_ram, (float *)temp9_ram,
+          (float *)temp_long_1, (float *)temp_long_2, (float *)temp_long_3,
+          seg_len, seg_len);
+      // Calculate polygon area
+      // set temp1 = intersection part area
+      polygonArea((float *)ordered_pts_x, (float *)ordered_pts_y,
+                  (float *)valid_box, (float *)valid_pts, (float *)nums_in_ram,
+                  (float *)temp1_ram, (float *)temp2_ram, (float *)temp3_ram,
+                  (float *)temp4_ram, (float *)temp5_ram, (float *)temp6_ram,
+                  (float *)temp7_ram, (float *)temp8_ram, (float *)temp9_ram,
+                  seg_len);
+      // area
+      __bang_mul((float *)temp2_ram, (float *)box2 + seg_len * 2,
+                 (float *)box2 + seg_len * 3, seg_len);
+      // get the area_U: area + max_area - area_I
+      __bang_add_scalar((float *)temp2_ram, (float *)temp2_ram, float(max_area),
+                        seg_len);
+      __bang_sub((float *)temp2_ram, (float *)temp2_ram, (float *)temp1_ram,
+                 seg_len);  // area_U
+      if (iou_threshold > 0.0) {
+        __bang_mul_scalar((float *)temp1_ram, (float *)temp1_ram,
+                          div_thresh_iou, seg_len);
+      } else {
+        __bang_mul_scalar((float *)temp2_ram, (float *)temp2_ram, iou_threshold,
+                          seg_len);
+      }
+      __bang_ge((float *)temp1_ram, (float *)temp2_ram, (float *)temp1_ram,
+                seg_len);
+      __bang_mul((float *)score, (float *)score, (float *)temp1_ram, seg_len);
+
+      pvLock();
+      __memcpy(input_score_ptr + input_offset + i * max_seg_pad, score,
+               cpy_len * sizeof(float), scores_store_dir,
+               cpy_len * sizeof(float), cpy_len * sizeof(float), 0);
+      pvUnlock();
+    }
+  }
+  if (clusterId == 0 && coreId == 0 && nram_save_count) {
+    pvLock();
+    __memcpy(output_data, nram_save, nram_save_count * sizeof(int32_t),
+             NRAM2GDRAM);
+    pvUnlock();
+  }
+}
+__mlu_global__ void MLUBlockorUnionIKernelOU3D(
+    const void *input_boxes, const int input_box_num, const float iou_threshold,
+    const cnrtDataType_t data_type_input, void *workspace, void *result_num,
+    void *output) {
+  int input_dwidth = (data_type_input == CNRT_FLOAT32) ? 4 : 2;
+  mluMemcpyDirection_t scores_load_dir = GDRAM2NRAM;
+  mluMemcpyDirection_t scores_store_dir = NRAM2GDRAM;
+  mluMemcpyDirection_t boxes_load_dir = GDRAM2NRAM;
+  float *scores_data = (float *)workspace;
+  float *boxes_data = (float *)input_boxes;
+  const int cluster_score_size = input_box_num * sizeof(float);
+  const int cluster_boxes_size = input_box_num * 7 * input_dwidth;
+  char *sram_score = (char *)sram_buffer;
+  char *sram_boxes = (char *)sram_buffer + cluster_score_size;
+  if (clusterDim == 1 && SIZE_SRAM_BUF > cluster_score_size) {
+    scores_data = (float *)sram_score;
+    scores_load_dir = SRAM2NRAM;
+    scores_store_dir = NRAM2SRAM;
+    if (coreId == 0x80) {
+      __sramset((void *)sram_buffer, input_box_num, 1.0f);
+    }
+  } else {
+    if (coreId == 0) {
+      __gdramset(scores_data, input_box_num, 1.0f);
+    }
+  }
+  if (clusterDim == 1 &&
+      SIZE_SRAM_BUF - cluster_score_size >= cluster_boxes_size) {
+    boxes_load_dir = SRAM2NRAM;
+    boxes_data = (float *)sram_boxes;
+    if (coreId == 0x80) {
+      __memcpy((char *)boxes_data, (char *)input_boxes, cluster_boxes_size,
+               GDRAM2SRAM);
+    }
+  }
+  __sync_cluster();
+
+  int32_t result_box_num = 0;
+  int32_t *out_data = (int32_t *)output;
+
+  switch (data_type_input) {
+    default: { return; }
+    case CNRT_FLOAT16: {
+      iou3D_detection(result_box_num, out_data, (half *)boxes_data, scores_data,
+                      taskDim, input_box_num, iou_threshold, scores_load_dir,
+                      scores_store_dir, boxes_load_dir);
+    }; break;
+    case CNRT_FLOAT32: {
+      iou3D_detection(result_box_num, out_data, boxes_data, scores_data,
+                      taskDim, input_box_num, iou_threshold, scores_load_dir,
+                      scores_store_dir, boxes_load_dir);
+    }; break;
+  }
+  ((int32_t *)result_num)[0] = result_box_num;
+}
+
+void KernelIou3d(cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+                 const cnrtDataType_t data_type_input, const void *boxes_dram,
+                 const int input_box_num, const float iou_threshold,
+                 void *workspace, void *output_size, void *output) {
+  switch (k_type) {
+    default: { return; }
+    case CNRT_FUNC_TYPE_BLOCK:
+    case CNRT_FUNC_TYPE_UNION1:
+    case CNRT_FUNC_TYPE_UNION2:
+    case CNRT_FUNC_TYPE_UNION4:
+    case CNRT_FUNC_TYPE_UNION8:
+    case CNRT_FUNC_TYPE_UNION16: {
+      MLUBlockorUnionIKernelOU3D<<<k_dim, k_type, queue>>>(
+          (void *)boxes_dram, input_box_num, iou_threshold, data_type_input,
+          workspace, output_size, output);
+    }; break;
+  }
+}

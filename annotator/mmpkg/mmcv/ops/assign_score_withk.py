@@ -1,3 +1,6 @@
+from typing import Tuple
+
+import torch
 from torch.autograd import Function
 
 from ..utils import ext_loader
@@ -27,11 +30,11 @@ class AssignScoreWithK(Function):
 
     @staticmethod
     def forward(ctx,
-                scores,
-                point_features,
-                center_features,
-                knn_idx,
-                aggregate='sum'):
+                scores: torch.Tensor,
+                point_features: torch.Tensor,
+                center_features: torch.Tensor,
+                knn_idx: torch.Tensor,
+                aggregate: str = 'sum') -> torch.Tensor:
         """
         Args:
             scores (torch.Tensor): (B, npoint, K, M), predicted scores to
@@ -78,15 +81,20 @@ class AssignScoreWithK(Function):
         return output
 
     @staticmethod
-    def backward(ctx, grad_out):
+    def backward(
+        ctx, grad_out: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
         """
         Args:
             grad_out (torch.Tensor): (B, out_dim, npoint, K)
 
         Returns:
-            grad_scores (torch.Tensor): (B, npoint, K, M)
-            grad_point_features (torch.Tensor): (B, N, M, out_dim)
-            grad_center_features (torch.Tensor): (B, N, M, out_dim)
+            tuple[torch.Tensor]: A tuple contains five elements. The first one
+            is the gradient of ``scores`` whose shape is (B, npoint, K, M). The
+            second is the gradient of ``point_features`` whose shape is
+            (B, N, M, out_dim). The third is the gradient of
+            ``center_features`` with the shape of (B, N, M, out_dim). The last
+            two are ``None``.
         """
         _, point_features, center_features, scores, knn_idx = ctx.saved_tensors
 

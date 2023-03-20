@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Optional
+
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -35,8 +37,10 @@ class SyncBatchNormFunction(Function):
             stats_mode=stats_mode)
 
     @staticmethod
-    def forward(self, input, running_mean, running_var, weight, bias, momentum,
-                eps, group, group_size, stats_mode):
+    def forward(self, input: torch.Tensor, running_mean: torch.Tensor,
+                running_var: torch.Tensor, weight: torch.Tensor,
+                bias: torch.Tensor, momentum: float, eps: float, group: int,
+                group_size: int, stats_mode: str) -> torch.Tensor:
         self.momentum = momentum
         self.eps = eps
         self.group = group
@@ -126,7 +130,7 @@ class SyncBatchNormFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(self, grad_output):
+    def backward(self, grad_output: torch.Tensor) -> tuple:
         norm, std, weight = self.saved_tensors
         grad_weight = torch.zeros_like(weight)
         grad_bias = torch.zeros_like(weight)
@@ -191,14 +195,14 @@ class SyncBatchNorm(Module):
     """
 
     def __init__(self,
-                 num_features,
-                 eps=1e-5,
-                 momentum=0.1,
-                 affine=True,
-                 track_running_stats=True,
-                 group=None,
-                 stats_mode='default'):
-        super(SyncBatchNorm, self).__init__()
+                 num_features: int,
+                 eps: float = 1e-5,
+                 momentum: float = 0.1,
+                 affine: bool = True,
+                 track_running_stats: bool = True,
+                 group: Optional[int] = None,
+                 stats_mode: str = 'default'):
+        super().__init__()
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
@@ -239,7 +243,7 @@ class SyncBatchNorm(Module):
             self.weight.data.uniform_()  # pytorch use ones_()
             self.bias.data.zero_()
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         if input.dim() < 2:
             raise ValueError(
                 f'expected at least 2D input, got {input.dim()}D input')

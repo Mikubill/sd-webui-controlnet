@@ -8,7 +8,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Generator, Iterator, Optional, Tuple, Union
 from urllib.request import urlopen
 
 import annotator.mmpkg.mmcv as mmcv
@@ -64,7 +64,8 @@ class CephBackend(BaseStorageBackend):
             raise ImportError('Please install ceph to enable CephBackend.')
 
         warnings.warn(
-            'CephBackend will be deprecated, please use PetrelBackend instead')
+            'CephBackend will be deprecated, please use PetrelBackend instead',
+            DeprecationWarning)
         self._client = ceph.S3Client()
         assert isinstance(path_mapping, dict) or path_mapping is None
         self.path_mapping = path_mapping
@@ -73,7 +74,7 @@ class CephBackend(BaseStorageBackend):
         filepath = str(filepath)
         if self.path_mapping is not None:
             for k, v in self.path_mapping.items():
-                filepath = filepath.replace(k, v)
+                filepath = filepath.replace(k, v, 1)
         value = self._client.Get(filepath)
         value_buf = memoryview(value)
         return value_buf
@@ -96,6 +97,8 @@ class PetrelBackend(BaseStorageBackend):
             ``filepath`` will be replaced by ``dst``. Default: None.
         enable_mc (bool, optional): Whether to enable memcached support.
             Default: True.
+        conf_path (str, optional): Config path of Petrel client. Default: None.
+            `New in version 1.7.1`.
 
     Examples:
         >>> filepath1 = 's3://path/of/file'
@@ -107,14 +110,15 @@ class PetrelBackend(BaseStorageBackend):
 
     def __init__(self,
                  path_mapping: Optional[dict] = None,
-                 enable_mc: bool = True):
+                 enable_mc: bool = True,
+                 conf_path: str = None):
         try:
             from petrel_client import client
         except ImportError:
             raise ImportError('Please install petrel_client to enable '
                               'PetrelBackend.')
 
-        self._client = client.Client(enable_mc=enable_mc)
+        self._client = client.Client(conf_path=conf_path, enable_mc=enable_mc)
         assert isinstance(path_mapping, dict) or path_mapping is None
         self.path_mapping = path_mapping
 
@@ -128,7 +132,7 @@ class PetrelBackend(BaseStorageBackend):
         filepath = str(filepath)
         if self.path_mapping is not None:
             for k, v in self.path_mapping.items():
-                filepath = filepath.replace(k, v)
+                filepath = filepath.replace(k, v, 1)
         return filepath
 
     def _format_path(self, filepath: str) -> str:
@@ -209,9 +213,9 @@ class PetrelBackend(BaseStorageBackend):
         """
         if not has_method(self._client, 'delete'):
             raise NotImplementedError(
-                ('Current version of Petrel Python SDK has not supported '
-                 'the `delete` method, please use a higher version or dev'
-                 ' branch instead.'))
+                'Current version of Petrel Python SDK has not supported '
+                'the `delete` method, please use a higher version or dev'
+                ' branch instead.')
 
         filepath = self._map_path(filepath)
         filepath = self._format_path(filepath)
@@ -229,9 +233,9 @@ class PetrelBackend(BaseStorageBackend):
         if not (has_method(self._client, 'contains')
                 and has_method(self._client, 'isdir')):
             raise NotImplementedError(
-                ('Current version of Petrel Python SDK has not supported '
-                 'the `contains` and `isdir` methods, please use a higher'
-                 'version or dev branch instead.'))
+                'Current version of Petrel Python SDK has not supported '
+                'the `contains` and `isdir` methods, please use a higher'
+                'version or dev branch instead.')
 
         filepath = self._map_path(filepath)
         filepath = self._format_path(filepath)
@@ -246,13 +250,13 @@ class PetrelBackend(BaseStorageBackend):
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a directory,
-                ``False`` otherwise.
+            ``False`` otherwise.
         """
         if not has_method(self._client, 'isdir'):
             raise NotImplementedError(
-                ('Current version of Petrel Python SDK has not supported '
-                 'the `isdir` method, please use a higher version or dev'
-                 ' branch instead.'))
+                'Current version of Petrel Python SDK has not supported '
+                'the `isdir` method, please use a higher version or dev'
+                ' branch instead.')
 
         filepath = self._map_path(filepath)
         filepath = self._format_path(filepath)
@@ -266,13 +270,13 @@ class PetrelBackend(BaseStorageBackend):
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a file, ``False``
-                otherwise.
+            otherwise.
         """
         if not has_method(self._client, 'contains'):
             raise NotImplementedError(
-                ('Current version of Petrel Python SDK has not supported '
-                 'the `contains` method, please use a higher version or '
-                 'dev branch instead.'))
+                'Current version of Petrel Python SDK has not supported '
+                'the `contains` method, please use a higher version or '
+                'dev branch instead.')
 
         filepath = self._map_path(filepath)
         filepath = self._format_path(filepath)
@@ -297,7 +301,10 @@ class PetrelBackend(BaseStorageBackend):
         return '/'.join(formatted_paths)
 
     @contextmanager
-    def get_local_path(self, filepath: Union[str, Path]) -> Iterable[str]:
+    def get_local_path(
+            self,
+            filepath: Union[str,
+                            Path]) -> Generator[Union[str, Path], None, None]:
         """Download a file from ``filepath`` and return a temporary path.
 
         ``get_local_path`` is decorated by :meth:`contxtlib.contextmanager`. It
@@ -362,9 +369,9 @@ class PetrelBackend(BaseStorageBackend):
         """
         if not has_method(self._client, 'list'):
             raise NotImplementedError(
-                ('Current version of Petrel Python SDK has not supported '
-                 'the `list` method, please use a higher version or dev'
-                 ' branch instead.'))
+                'Current version of Petrel Python SDK has not supported '
+                'the `list` method, please use a higher version or dev'
+                ' branch instead.')
 
         dir_path = self._map_path(dir_path)
         dir_path = self._format_path(dir_path)
@@ -473,17 +480,16 @@ class LmdbBackend(BaseStorageBackend):
                  readahead=False,
                  **kwargs):
         try:
-            import lmdb
+            import lmdb  # NOQA
         except ImportError:
             raise ImportError('Please install lmdb to enable LmdbBackend.')
 
         self.db_path = str(db_path)
-        self._client = lmdb.open(
-            self.db_path,
-            readonly=readonly,
-            lock=lock,
-            readahead=readahead,
-            **kwargs)
+        self.readonly = readonly
+        self.lock = lock
+        self.readahead = readahead
+        self.kwargs = kwargs
+        self._client = None
 
     def get(self, filepath):
         """Get values according to the filepath.
@@ -491,13 +497,28 @@ class LmdbBackend(BaseStorageBackend):
         Args:
             filepath (str | obj:`Path`): Here, filepath is the lmdb key.
         """
-        filepath = str(filepath)
+        if self._client is None:
+            self._client = self._get_client()
+
         with self._client.begin(write=False) as txn:
-            value_buf = txn.get(filepath.encode('ascii'))
+            value_buf = txn.get(str(filepath).encode('utf-8'))
         return value_buf
 
     def get_text(self, filepath, encoding=None):
         raise NotImplementedError
+
+    def _get_client(self):
+        import lmdb
+
+        return lmdb.open(
+            self.db_path,
+            readonly=self.readonly,
+            lock=self.lock,
+            readahead=self.readahead,
+            **self.kwargs)
+
+    def __del__(self):
+        self._client.close()
 
 
 class HardDiskBackend(BaseStorageBackend):
@@ -531,7 +552,7 @@ class HardDiskBackend(BaseStorageBackend):
         Returns:
             str: Expected text reading from ``filepath``.
         """
-        with open(filepath, 'r', encoding=encoding) as f:
+        with open(filepath, encoding=encoding) as f:
             value_buf = f.read()
         return value_buf
 
@@ -598,7 +619,7 @@ class HardDiskBackend(BaseStorageBackend):
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a directory,
-                ``False`` otherwise.
+            ``False`` otherwise.
         """
         return osp.isdir(filepath)
 
@@ -610,7 +631,7 @@ class HardDiskBackend(BaseStorageBackend):
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a file, ``False``
-                otherwise.
+            otherwise.
         """
         return osp.isfile(filepath)
 
@@ -631,7 +652,9 @@ class HardDiskBackend(BaseStorageBackend):
 
     @contextmanager
     def get_local_path(
-            self, filepath: Union[str, Path]) -> Iterable[Union[str, Path]]:
+            self,
+            filepath: Union[str,
+                            Path]) -> Generator[Union[str, Path], None, None]:
         """Only for unified API and do nothing."""
         yield filepath
 
@@ -700,7 +723,8 @@ class HTTPBackend(BaseStorageBackend):
         return value_buf.decode(encoding)
 
     @contextmanager
-    def get_local_path(self, filepath: str) -> Iterable[str]:
+    def get_local_path(
+            self, filepath: str) -> Generator[Union[str, Path], None, None]:
         """Download a file from ``filepath``.
 
         ``get_local_path`` is decorated by :meth:`contxtlib.contextmanager`. It
@@ -770,19 +794,16 @@ class FileClient:
         'petrel': PetrelBackend,
         'http': HTTPBackend,
     }
-    # This collection is used to record the overridden backends, and when a
-    # backend appears in the collection, the singleton pattern is disabled for
-    # that backend, because if the singleton pattern is used, then the object
-    # returned will be the backend before overwriting
-    _overridden_backends = set()
+
     _prefix_to_backends = {
         's3': PetrelBackend,
         'http': HTTPBackend,
         'https': HTTPBackend,
     }
-    _overridden_prefixes = set()
 
-    _instances = {}
+    _instances: dict = {}
+
+    client: Any
 
     def __new__(cls, backend=None, prefix=None, **kwargs):
         if backend is None and prefix is None:
@@ -802,10 +823,7 @@ class FileClient:
         for key, value in kwargs.items():
             arg_key += f':{key}:{value}'
 
-        # if a backend was overridden, it will create a new object
-        if (arg_key in cls._instances
-                and backend not in cls._overridden_backends
-                and prefix not in cls._overridden_prefixes):
+        if arg_key in cls._instances:
             _instance = cls._instances[arg_key]
         else:
             # create a new object and put it to _instance
@@ -839,8 +857,8 @@ class FileClient:
             's3'
 
         Returns:
-            str | None: Return the prefix of uri if the uri contains '://'
-                else ``None``.
+            str | None: Return the prefix of uri if the uri contains '://' else
+            ``None``.
         """
         assert is_filepath(uri)
         uri = str(uri)
@@ -899,7 +917,9 @@ class FileClient:
                 'add "force=True" if you want to override it')
 
         if name in cls._backends and force:
-            cls._overridden_backends.add(name)
+            for arg_key, instance in list(cls._instances.items()):
+                if isinstance(instance.client, cls._backends[name]):
+                    cls._instances.pop(arg_key)
         cls._backends[name] = backend
 
         if prefixes is not None:
@@ -911,7 +931,12 @@ class FileClient:
                 if prefix not in cls._prefix_to_backends:
                     cls._prefix_to_backends[prefix] = backend
                 elif (prefix in cls._prefix_to_backends) and force:
-                    cls._overridden_prefixes.add(prefix)
+                    overridden_backend = cls._prefix_to_backends[prefix]
+                    if isinstance(overridden_backend, list):
+                        overridden_backend = tuple(overridden_backend)
+                    for arg_key, instance in list(cls._instances.items()):
+                        if isinstance(instance.client, overridden_backend):
+                            cls._instances.pop(arg_key)
                     cls._prefix_to_backends[prefix] = backend
                 else:
                     raise KeyError(
@@ -987,7 +1012,7 @@ class FileClient:
 
         Returns:
             bytes | memoryview: Expected bytes object or a memory view of the
-                bytes object.
+            bytes object.
         """
         return self.client.get(filepath)
 
@@ -1060,7 +1085,7 @@ class FileClient:
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a directory,
-                ``False`` otherwise.
+            ``False`` otherwise.
         """
         return self.client.isdir(filepath)
 
@@ -1072,7 +1097,7 @@ class FileClient:
 
         Returns:
             bool: Return ``True`` if ``filepath`` points to a file, ``False``
-                otherwise.
+            otherwise.
         """
         return self.client.isfile(filepath)
 
@@ -1092,7 +1117,10 @@ class FileClient:
         return self.client.join_path(filepath, *filepaths)
 
     @contextmanager
-    def get_local_path(self, filepath: Union[str, Path]) -> Iterable[str]:
+    def get_local_path(
+            self,
+            filepath: Union[str,
+                            Path]) -> Generator[Union[str, Path], None, None]:
         """Download data from ``filepath`` and write the data to local path.
 
         ``get_local_path`` is decorated by :meth:`contxtlib.contextmanager`. It

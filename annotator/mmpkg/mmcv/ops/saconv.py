@@ -12,8 +12,9 @@ from annotator.mmpkg.mmcv.utils import TORCH_VERSION, digit_version
 class SAConv2d(ConvAWS2d):
     """SAC (Switchable Atrous Convolution)
 
-    This is an implementation of SAC in DetectoRS
-    (https://arxiv.org/pdf/2006.02334.pdf).
+    This is an implementation of `DetectoRS: Detecting Objects with Recursive
+    Feature Pyramid and Switchable Atrous Convolution
+    <https://arxiv.org/abs/2006.02334>`_.
 
     Args:
         in_channels (int): Number of channels in the input image

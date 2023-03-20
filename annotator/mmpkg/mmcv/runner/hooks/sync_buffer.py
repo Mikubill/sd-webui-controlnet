@@ -13,7 +13,7 @@ class SyncBuffersHook(Hook):
           effective only for distributed training. Defaults to True.
     """
 
-    def __init__(self, distributed=True):
+    def __init__(self, distributed: bool = True):
         self.distributed = distributed
 
     def after_epoch(self, runner):

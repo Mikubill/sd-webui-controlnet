@@ -1,4 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Dict
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -24,9 +27,9 @@ class PixelShufflePack(nn.Module):
             channels.
     """
 
-    def __init__(self, in_channels, out_channels, scale_factor,
-                 upsample_kernel):
-        super(PixelShufflePack, self).__init__()
+    def __init__(self, in_channels: int, out_channels: int, scale_factor: int,
+                 upsample_kernel: int):
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.scale_factor = scale_factor
@@ -41,13 +44,13 @@ class PixelShufflePack(nn.Module):
     def init_weights(self):
         xavier_init(self.upsample_conv, distribution='uniform')
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.upsample_conv(x)
         x = F.pixel_shuffle(x, self.scale_factor)
         return x
 
 
-def build_upsample_layer(cfg, *args, **kwargs):
+def build_upsample_layer(cfg: Dict, *args, **kwargs) -> nn.Module:
     """Build upsample layer.
 
     Args:
@@ -55,7 +58,7 @@ def build_upsample_layer(cfg, *args, **kwargs):
 
             - type (str): Layer type.
             - scale_factor (int): Upsample ratio, which is not applicable to
-                deconv.
+              deconv.
             - layer args: Args needed to instantiate a upsample layer.
         args (argument list): Arguments passed to the ``__init__``
             method of the corresponding conv layer.

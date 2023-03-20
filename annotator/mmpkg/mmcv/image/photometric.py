@@ -1,9 +1,14 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import warnings
+from typing import Optional
+
 import cv2
 import numpy as np
+from PIL import Image, ImageEnhance
 
 from ..utils import is_tuple_of
 from .colorspace import bgr2gray, gray2bgr
+from .io import imread_backend
 
 
 def imnormalize(img, mean, std, to_rgb=True):
@@ -97,7 +102,7 @@ def posterize(img, bits):
     return img
 
 
-def adjust_color(img, alpha=1, beta=None, gamma=0):
+def adjust_color(img, alpha=1, beta=None, gamma=0, backend=None):
     r"""It blends the source image and its gray image:
 
     .. math::
@@ -110,22 +115,41 @@ def adjust_color(img, alpha=1, beta=None, gamma=0):
             If None, it's assigned the value (1 - `alpha`).
         gamma (int | float): Scalar added to each sum.
             Same as :func:`cv2.addWeighted`. Default 0.
+        backend (str | None): The image processing backend type. Options are
+            `cv2`, `pillow`, `None`. If backend is None, the global
+            ``imread_backend`` specified by ``mmcv.use_backend()`` will be
+            used. Defaults to None.
 
     Returns:
         ndarray: Colored image which has the same size and dtype as input.
     """
-    gray_img = bgr2gray(img)
-    gray_img = np.tile(gray_img[..., None], [1, 1, 3])
-    if beta is None:
-        beta = 1 - alpha
-    colored_img = cv2.addWeighted(img, alpha, gray_img, beta, gamma)
-    if not colored_img.dtype == np.uint8:
-        # Note when the dtype of `img` is not the default `np.uint8`
-        # (e.g. np.float32), the value in `colored_img` got from cv2
-        # is not guaranteed to be in range [0, 255], so here clip
-        # is needed.
-        colored_img = np.clip(colored_img, 0, 255)
-    return colored_img
+    if backend is None:
+        backend = imread_backend
+    if backend not in ['cv2', 'pillow']:
+        raise ValueError(f'backend: {backend} is not supported.'
+                         f"Supported backends are 'cv2', 'pillow'")
+
+    if backend == 'pillow':
+        assert img.dtype == np.uint8, 'Pillow backend only support uint8 type'
+        warnings.warn("Only use 'alpha' for pillow backend.")
+        # Image.fromarray defaultly supports RGB, not BGR.
+        pil_image = Image.fromarray(img[..., ::-1], mode='RGB')
+        enhancer = ImageEnhance.Color(pil_image)
+        pil_image = enhancer.enhance(alpha)
+        return np.array(pil_image, dtype=img.dtype)[..., ::-1]
+    else:
+        gray_img = bgr2gray(img)
+        gray_img = np.tile(gray_img[..., None], [1, 1, 3])
+        if beta is None:
+            beta = 1 - alpha
+        colored_img = cv2.addWeighted(img, alpha, gray_img, beta, gamma)
+        if not colored_img.dtype == np.uint8:
+            # Note when the dtype of `img` is not the default `np.uint8`
+            # (e.g. np.float32), the value in `colored_img` got from cv2
+            # is not guaranteed to be in range [0, 255], so here clip
+            # is needed.
+            colored_img = np.clip(colored_img, 0, 255)
+        return colored_img.astype(img.dtype)
 
 
 def imequalize(img):
@@ -173,7 +197,7 @@ def imequalize(img):
     return equalized_img.astype(img.dtype)
 
 
-def adjust_brightness(img, factor=1.):
+def adjust_brightness(img, factor=1., backend=None):
     """Adjust image brightness.
 
     This function controls the brightness of an image. An
@@ -190,22 +214,40 @@ def adjust_brightness(img, factor=1.):
             Factor 1.0 returns the original image, lower
             factors mean less color (brightness, contrast,
             etc), and higher values more. Default 1.
+        backend (str | None): The image processing backend type. Options are
+            `cv2`, `pillow`, `None`. If backend is None, the global
+            ``imread_backend`` specified by ``mmcv.use_backend()`` will be
+            used. Defaults to None.
 
     Returns:
         ndarray: The brightened image.
     """
-    degenerated = np.zeros_like(img)
-    # Note manually convert the dtype to np.float32, to
-    # achieve as close results as PIL.ImageEnhance.Brightness.
-    # Set beta=1-factor, and gamma=0
-    brightened_img = cv2.addWeighted(
-        img.astype(np.float32), factor, degenerated.astype(np.float32),
-        1 - factor, 0)
-    brightened_img = np.clip(brightened_img, 0, 255)
-    return brightened_img.astype(img.dtype)
+    if backend is None:
+        backend = imread_backend
+    if backend not in ['cv2', 'pillow']:
+        raise ValueError(f'backend: {backend} is not supported.'
+                         f"Supported backends are 'cv2', 'pillow'")
+
+    if backend == 'pillow':
+        assert img.dtype == np.uint8, 'Pillow backend only support uint8 type'
+        # Image.fromarray defaultly supports RGB, not BGR.
+        pil_image = Image.fromarray(img[..., ::-1], mode='RGB')
+        enhancer = ImageEnhance.Brightness(pil_image)
+        pil_image = enhancer.enhance(factor)
+        return np.array(pil_image, dtype=img.dtype)[..., ::-1]
+    else:
+        degenerated = np.zeros_like(img)
+        # Note manually convert the dtype to np.float32, to
+        # achieve as close results as PIL.ImageEnhance.Brightness.
+        # Set beta=1-factor, and gamma=0
+        brightened_img = cv2.addWeighted(
+            img.astype(np.float32), factor, degenerated.astype(np.float32),
+            1 - factor, 0)
+        brightened_img = np.clip(brightened_img, 0, 255)
+        return brightened_img.astype(img.dtype)
 
 
-def adjust_contrast(img, factor=1.):
+def adjust_contrast(img, factor=1., backend=None):
     """Adjust image contrast.
 
     This function controls the contrast of an image. An
@@ -219,20 +261,38 @@ def adjust_contrast(img, factor=1.):
     Args:
         img (ndarray): Image to be contrasted. BGR order.
         factor (float): Same as :func:`mmcv.adjust_brightness`.
+        backend (str | None): The image processing backend type. Options are
+            `cv2`, `pillow`, `None`. If backend is None, the global
+            ``imread_backend`` specified by ``mmcv.use_backend()`` will be
+            used. Defaults to None.
 
     Returns:
         ndarray: The contrasted image.
     """
-    gray_img = bgr2gray(img)
-    hist = np.histogram(gray_img, 256, (0, 255))[0]
-    mean = round(np.sum(gray_img) / np.sum(hist))
-    degenerated = (np.ones_like(img[..., 0]) * mean).astype(img.dtype)
-    degenerated = gray2bgr(degenerated)
-    contrasted_img = cv2.addWeighted(
-        img.astype(np.float32), factor, degenerated.astype(np.float32),
-        1 - factor, 0)
-    contrasted_img = np.clip(contrasted_img, 0, 255)
-    return contrasted_img.astype(img.dtype)
+    if backend is None:
+        backend = imread_backend
+    if backend not in ['cv2', 'pillow']:
+        raise ValueError(f'backend: {backend} is not supported.'
+                         f"Supported backends are 'cv2', 'pillow'")
+
+    if backend == 'pillow':
+        assert img.dtype == np.uint8, 'Pillow backend only support uint8 type'
+        # Image.fromarray defaultly supports RGB, not BGR.
+        pil_image = Image.fromarray(img[..., ::-1], mode='RGB')
+        enhancer = ImageEnhance.Contrast(pil_image)
+        pil_image = enhancer.enhance(factor)
+        return np.array(pil_image, dtype=img.dtype)[..., ::-1]
+    else:
+        gray_img = bgr2gray(img)
+        hist = np.histogram(gray_img, 256, (0, 255))[0]
+        mean = round(np.sum(gray_img) / np.sum(hist))
+        degenerated = (np.ones_like(img[..., 0]) * mean).astype(img.dtype)
+        degenerated = gray2bgr(degenerated)
+        contrasted_img = cv2.addWeighted(
+            img.astype(np.float32), factor, degenerated.astype(np.float32),
+            1 - factor, 0)
+        contrasted_img = np.clip(contrasted_img, 0, 255)
+        return contrasted_img.astype(img.dtype)
 
 
 def auto_contrast(img, cutoff=0):
@@ -426,3 +486,76 @@ def clahe(img, clip_limit=40.0, tile_grid_size=(8, 8)):
 
     clahe = cv2.createCLAHE(clip_limit, tile_grid_size)
     return clahe.apply(np.array(img, dtype=np.uint8))
+
+
+def adjust_hue(img: np.ndarray,
+               hue_factor: float,
+               backend: Optional[str] = None) -> np.ndarray:
+    """Adjust hue of an image.
+
+    The image hue is adjusted by converting the image to HSV and cyclically
+    shifting the intensities in the hue channel (H). The image is then
+    converted back to original image mode.
+
+    `hue_factor` is the amount of shift in H channel and must be in the
+    interval `[-0.5, 0.5]`.
+
+    Modified from
+    https://github.com/pytorch/vision/blob/main/torchvision/
+    transforms/functional.py
+
+    Args:
+        img (ndarray): Image to be adjusted.
+        hue_factor (float):  How much to shift the hue channel. Should be in
+            [-0.5, 0.5]. 0.5 and -0.5 give complete reversal of hue channel in
+            HSV space in positive and negative direction respectively.
+            0 means no shift. Therefore, both -0.5 and 0.5 will give an image
+            with complementary colors while 0 gives the original image.
+        backend (str | None): The image processing backend type. Options are
+            `cv2`, `pillow`, `None`. If backend is None, the global
+            ``imread_backend`` specified by ``mmcv.use_backend()`` will be
+            used. Defaults to None.
+
+    Returns:
+        ndarray: Hue adjusted image.
+    """
+    if backend is None:
+        backend = imread_backend
+    if backend not in ['cv2', 'pillow']:
+        raise ValueError(f'backend: {backend} is not supported.'
+                         f"Supported backends are 'cv2', 'pillow'")
+
+    if not (-0.5 <= hue_factor <= 0.5):
+        raise ValueError(f'hue_factor:{hue_factor} is not in [-0.5, 0.5].')
+    if not (isinstance(img, np.ndarray) and (img.ndim in {2, 3})):
+        raise TypeError('img should be ndarray with dim=[2 or 3].')
+
+    if backend == 'pillow':
+        assert img.dtype == np.uint8, 'Pillow backend only support uint8 type'
+        # Image.fromarray defaultly supports RGB, not BGR.
+        pil_image = Image.fromarray(img[..., ::-1], mode='RGB')
+        input_mode = pil_image.mode
+        if input_mode in {'L', '1', 'I', 'F'}:
+            return pil_image
+
+        h, s, v = pil_image.convert('HSV').split()
+
+        np_h = np.array(h, dtype=np.uint8)
+        # uint8 addition take cares of rotation across boundaries
+        with np.errstate(over='ignore'):
+            np_h += np.uint8(hue_factor * 255)
+        h = Image.fromarray(np_h, 'L')
+
+        pil_image = Image.merge('HSV', (h, s, v)).convert(input_mode)
+        return np.array(pil_image, dtype=img.dtype)[..., ::-1]
+    else:
+        dtype = img.dtype
+        img = img.astype(np.uint8)
+        hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV_FULL)
+        h, s, v = cv2.split(hsv_img)
+        h = h.astype(np.uint8)
+        # uint8 addition take cares of rotation across boundaries
+        with np.errstate(over='ignore'):
+            h += np.uint8(hue_factor * 255)
+        hsv_img = cv2.merge([h, s, v])
+        return cv2.cvtColor(hsv_img, cv2.COLOR_HSV2BGR_FULL).astype(dtype)

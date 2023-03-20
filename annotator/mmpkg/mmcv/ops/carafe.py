@@ -1,7 +1,10 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 from torch.autograd import Function
 from torch.nn.modules.module import Module
 
@@ -17,7 +20,8 @@ ext_module = ext_loader.load_ext('_ext', [
 class CARAFENaiveFunction(Function):
 
     @staticmethod
-    def symbolic(g, features, masks, kernel_size, group_size, scale_factor):
+    def symbolic(g, features: Tensor, masks: Tensor, kernel_size: int,
+                 group_size: int, scale_factor: int) -> Tensor:
         return g.op(
             'mmcv::MMCVCARAFENaive',
             features,
@@ -27,7 +31,8 @@ class CARAFENaiveFunction(Function):
             scale_factor_f=scale_factor)
 
     @staticmethod
-    def forward(ctx, features, masks, kernel_size, group_size, scale_factor):
+    def forward(ctx, features: Tensor, masks: Tensor, kernel_size: int,
+                group_size: int, scale_factor: int) -> Tensor:
         assert scale_factor >= 1
         assert masks.size(1) == kernel_size * kernel_size * group_size
         assert masks.size(-1) == features.size(-1) * scale_factor
@@ -50,12 +55,15 @@ class CARAFENaiveFunction(Function):
             group_size=group_size,
             scale_factor=scale_factor)
 
-        if features.requires_grad or masks.requires_grad:
+        if features.requires_grad or masks.requires_grad or \
+                torch.__version__ == 'parrots':
             ctx.save_for_backward(features, masks)
         return output
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(
+            ctx,
+            grad_output: Tensor) -> Tuple[Tensor, Tensor, None, None, None]:
         assert grad_output.is_cuda
 
         features, masks = ctx.saved_tensors
@@ -83,8 +91,8 @@ carafe_naive = CARAFENaiveFunction.apply
 
 class CARAFENaive(Module):
 
-    def __init__(self, kernel_size, group_size, scale_factor):
-        super(CARAFENaive, self).__init__()
+    def __init__(self, kernel_size: int, group_size: int, scale_factor: int):
+        super().__init__()
 
         assert isinstance(kernel_size, int) and isinstance(
             group_size, int) and isinstance(scale_factor, int)
@@ -92,7 +100,7 @@ class CARAFENaive(Module):
         self.group_size = group_size
         self.scale_factor = scale_factor
 
-    def forward(self, features, masks):
+    def forward(self, features: Tensor, masks: Tensor) -> Tensor:
         return carafe_naive(features, masks, self.kernel_size, self.group_size,
                             self.scale_factor)
 
@@ -100,7 +108,8 @@ class CARAFENaive(Module):
 class CARAFEFunction(Function):
 
     @staticmethod
-    def symbolic(g, features, masks, kernel_size, group_size, scale_factor):
+    def symbolic(g, features: Tensor, masks: Tensor, kernel_size: int,
+                 group_size: int, scale_factor: int) -> Tensor:
         return g.op(
             'mmcv::MMCVCARAFE',
             features,
@@ -110,7 +119,8 @@ class CARAFEFunction(Function):
             scale_factor_f=scale_factor)
 
     @staticmethod
-    def forward(ctx, features, masks, kernel_size, group_size, scale_factor):
+    def forward(ctx, features: Tensor, masks: Tensor, kernel_size: int,
+                group_size: int, scale_factor: int) -> Tensor:
         assert scale_factor >= 1
         assert masks.size(1) == kernel_size * kernel_size * group_size
         assert masks.size(-1) == features.size(-1) * scale_factor
@@ -139,14 +149,15 @@ class CARAFEFunction(Function):
             group_size=group_size,
             scale_factor=scale_factor)
 
-        if features.requires_grad or masks.requires_grad:
+        if features.requires_grad or masks.requires_grad or \
+                torch.__version__ == 'parrots':
             ctx.save_for_backward(features, masks, rfeatures)
         return output
 
     @staticmethod
-    def backward(ctx, grad_output):
-        assert grad_output.is_cuda
-
+    def backward(
+            ctx,
+            grad_output: Tensor) -> Tuple[Tensor, Tensor, None, None, None]:
         features, masks, rfeatures = ctx.saved_tensors
         kernel_size = ctx.kernel_size
         group_size = ctx.group_size
@@ -180,7 +191,8 @@ carafe = CARAFEFunction.apply
 class CARAFE(Module):
     """ CARAFE: Content-Aware ReAssembly of FEatures
 
-    Please refer to https://arxiv.org/abs/1905.02188 for more details.
+    Please refer to `CARAFE: Content-Aware ReAssembly of FEatures
+    <https://arxiv.org/abs/1905.02188>`_ for more details.
 
     Args:
         kernel_size (int): reassemble kernel size
@@ -191,8 +203,8 @@ class CARAFE(Module):
         upsampled feature map
     """
 
-    def __init__(self, kernel_size, group_size, scale_factor):
-        super(CARAFE, self).__init__()
+    def __init__(self, kernel_size: int, group_size: int, scale_factor: int):
+        super().__init__()
 
         assert isinstance(kernel_size, int) and isinstance(
             group_size, int) and isinstance(scale_factor, int)
@@ -200,7 +212,7 @@ class CARAFE(Module):
         self.group_size = group_size
         self.scale_factor = scale_factor
 
-    def forward(self, features, masks):
+    def forward(self, features: Tensor, masks: Tensor) -> Tensor:
         return carafe(features, masks, self.kernel_size, self.group_size,
                       self.scale_factor)
 
@@ -211,8 +223,8 @@ class CARAFEPack(nn.Module):
     compressor 2) content encoder 3) CARAFE op.
 
     Official implementation of ICCV 2019 paper
-    CARAFE: Content-Aware ReAssembly of FEatures
-    Please refer to https://arxiv.org/abs/1905.02188 for more details.
+    `CARAFE: Content-Aware ReAssembly of FEatures
+    <https://arxiv.org/abs/1905.02188>`_.
 
     Args:
         channels (int): input feature channels
@@ -228,14 +240,14 @@ class CARAFEPack(nn.Module):
     """
 
     def __init__(self,
-                 channels,
-                 scale_factor,
-                 up_kernel=5,
-                 up_group=1,
-                 encoder_kernel=3,
-                 encoder_dilation=1,
-                 compressed_channels=64):
-        super(CARAFEPack, self).__init__()
+                 channels: int,
+                 scale_factor: int,
+                 up_kernel: int = 5,
+                 up_group: int = 1,
+                 encoder_kernel: int = 3,
+                 encoder_dilation: int = 1,
+                 compressed_channels: int = 64):
+        super().__init__()
         self.channels = channels
         self.scale_factor = scale_factor
         self.up_kernel = up_kernel
@@ -261,7 +273,7 @@ class CARAFEPack(nn.Module):
                 xavier_init(m, distribution='uniform')
         normal_init(self.content_encoder, std=0.001)
 
-    def kernel_normalizer(self, mask):
+    def kernel_normalizer(self, mask: Tensor) -> Tensor:
         mask = F.pixel_shuffle(mask, self.scale_factor)
         n, mask_c, h, w = mask.size()
         # use float division explicitly,
@@ -274,11 +286,11 @@ class CARAFEPack(nn.Module):
 
         return mask
 
-    def feature_reassemble(self, x, mask):
+    def feature_reassemble(self, x: Tensor, mask: Tensor) -> Tensor:
         x = carafe(x, mask, self.up_kernel, self.up_group, self.scale_factor)
         return x
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         compressed_x = self.channel_compressor(x)
         mask = self.content_encoder(compressed_x)
         mask = self.kernel_normalizer(mask)

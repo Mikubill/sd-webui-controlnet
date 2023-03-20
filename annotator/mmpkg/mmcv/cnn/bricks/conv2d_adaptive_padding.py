@@ -1,6 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
+from typing import Tuple, Union
 
+import torch
 from torch import nn
 from torch.nn import functional as F
 
@@ -31,18 +33,18 @@ class Conv2dAdaptivePadding(nn.Conv2d):
     """
 
     def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride=1,
-                 padding=0,
-                 dilation=1,
-                 groups=1,
-                 bias=True):
+                 in_channels: int,
+                 out_channels: int,
+                 kernel_size: Union[int, Tuple[int, int]],
+                 stride: Union[int, Tuple[int, int]] = 1,
+                 padding: Union[int, Tuple[int, int]] = 0,
+                 dilation: Union[int, Tuple[int, int]] = 1,
+                 groups: int = 1,
+                 bias: bool = True):
         super().__init__(in_channels, out_channels, kernel_size, stride, 0,
                          dilation, groups, bias)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         img_h, img_w = x.size()[-2:]
         kernel_h, kernel_w = self.weight.size()[-2:]
         stride_h, stride_w = self.stride

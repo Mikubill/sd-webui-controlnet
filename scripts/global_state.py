@@ -22,6 +22,7 @@ cn_preprocessor_modules = {
     "normal_map": midas_normal,
     "openpose": openpose,
     "openpose_hand": openpose_hand,
+    "face_landmark": face,
     "clip_vision": clip,
     "color": color,
     "pidinet": pidinet,
@@ -42,6 +43,7 @@ cn_preprocessor_unloadable = {
     "pidinet": unload_pidinet,
     "openpose": unload_openpose,
     "openpose_hand": unload_openpose,
+    "face_landmark": unload_face_model,
     "segmentation": unload_uniformer,
 }
 

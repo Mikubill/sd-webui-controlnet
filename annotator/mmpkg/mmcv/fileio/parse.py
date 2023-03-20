@@ -1,16 +1,18 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
 from io import StringIO
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 from .file_client import FileClient
 
 
-def list_from_file(filename,
-                   prefix='',
-                   offset=0,
-                   max_num=0,
-                   encoding='utf-8',
-                   file_client_args=None):
+def list_from_file(filename: Union[str, Path],
+                   prefix: str = '',
+                   offset: int = 0,
+                   max_num: int = 0,
+                   encoding: str = 'utf-8',
+                   file_client_args: Optional[Dict] = None) -> List:
     """Load a text file and parse the content as a list of strings.
 
     Note:
@@ -52,10 +54,10 @@ def list_from_file(filename,
     return item_list
 
 
-def dict_from_file(filename,
-                   key_type=str,
-                   encoding='utf-8',
-                   file_client_args=None):
+def dict_from_file(filename: Union[str, Path],
+                   key_type: type = str,
+                   encoding: str = 'utf-8',
+                   file_client_args: Optional[Dict] = None) -> Dict:
     """Load a text file and parse the content as a dict.
 
     Each line of the text file will be two or more columns split by

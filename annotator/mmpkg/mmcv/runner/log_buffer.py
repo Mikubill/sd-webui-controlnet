@@ -12,16 +12,16 @@ class LogBuffer:
         self.output = OrderedDict()
         self.ready = False
 
-    def clear(self):
+    def clear(self) -> None:
         self.val_history.clear()
         self.n_history.clear()
         self.clear_output()
 
-    def clear_output(self):
+    def clear_output(self) -> None:
         self.output.clear()
         self.ready = False
 
-    def update(self, vars, count=1):
+    def update(self, vars: dict, count: int = 1) -> None:
         assert isinstance(vars, dict)
         for key, var in vars.items():
             if key not in self.val_history:
@@ -30,7 +30,7 @@ class LogBuffer:
             self.val_history[key].append(var)
             self.n_history[key].append(count)
 
-    def average(self, n=0):
+    def average(self, n: int = 0) -> None:
         """Average latest n values or all values."""
         assert n >= 0
         for key in self.val_history:

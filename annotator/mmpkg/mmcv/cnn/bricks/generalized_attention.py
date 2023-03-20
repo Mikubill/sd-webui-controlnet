@@ -15,7 +15,7 @@ class GeneralizedAttention(nn.Module):
     """GeneralizedAttention module.
 
     See 'An Empirical Study of Spatial Attention Mechanisms in Deep Networks'
-    (https://arxiv.org/abs/1711.07971) for details.
+    (https://arxiv.org/abs/1904.05873) for details.
 
     Args:
         in_channels (int): Channels of the input feature map.
@@ -45,16 +45,16 @@ class GeneralizedAttention(nn.Module):
     _abbr_ = 'gen_attention_block'
 
     def __init__(self,
-                 in_channels,
-                 spatial_range=-1,
-                 num_heads=9,
-                 position_embedding_dim=-1,
-                 position_magnitude=1,
-                 kv_stride=2,
-                 q_stride=1,
-                 attention_type='1111'):
+                 in_channels: int,
+                 spatial_range: int = -1,
+                 num_heads: int = 9,
+                 position_embedding_dim: int = -1,
+                 position_magnitude: int = 1,
+                 kv_stride: int = 2,
+                 q_stride: int = 1,
+                 attention_type: str = '1111'):
 
-        super(GeneralizedAttention, self).__init__()
+        super().__init__()
 
         # hard range means local range for non-local operation
         self.position_embedding_dim = (
@@ -131,7 +131,7 @@ class GeneralizedAttention(nn.Module):
 
             max_len_kv = int((max_len - 1.0) / self.kv_stride + 1)
             local_constraint_map = np.ones(
-                (max_len, max_len, max_len_kv, max_len_kv), dtype=np.int)
+                (max_len, max_len, max_len_kv, max_len_kv), dtype=int)
             for iy in range(max_len):
                 for ix in range(max_len):
                     local_constraint_map[
@@ -213,7 +213,7 @@ class GeneralizedAttention(nn.Module):
 
         return embedding_x, embedding_y
 
-    def forward(self, x_input):
+    def forward(self, x_input: torch.Tensor) -> torch.Tensor:
         num_heads = self.num_heads
 
         # use empirical_attention
@@ -351,7 +351,7 @@ class GeneralizedAttention(nn.Module):
                         repeat(n, 1, 1, 1)
 
                     position_feat_x_reshape = position_feat_x.\
-                        view(n, num_heads, w*w_kv, self.qk_embed_dim)
+                        view(n, num_heads, w * w_kv, self.qk_embed_dim)
 
                     position_feat_y_reshape = position_feat_y.\
                         view(n, num_heads, h * h_kv, self.qk_embed_dim)

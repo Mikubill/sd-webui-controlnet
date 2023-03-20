@@ -1,7 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
+from typing import Dict, List, Optional, Union
 
 import torch
+import torch.nn as nn
 from torch.nn import GroupNorm, LayerNorm
 
 from annotator.mmpkg.mmcv.utils import _BatchNorm, _InstanceNorm, build_from_cfg, is_list_of
@@ -46,16 +48,17 @@ class DefaultOptimizerConstructor:
       would not be added into optimizer. Default: False.
 
     Note:
+
         1. If the option ``dcn_offset_lr_mult`` is used, the constructor will
-            override the effect of ``bias_lr_mult`` in the bias of offset
-            layer. So be careful when using both ``bias_lr_mult`` and
-            ``dcn_offset_lr_mult``. If you wish to apply both of them to the
-            offset layer in deformable convs, set ``dcn_offset_lr_mult``
-            to the original ``dcn_offset_lr_mult`` * ``bias_lr_mult``.
+        override the effect of ``bias_lr_mult`` in the bias of offset layer.
+        So be careful when using both ``bias_lr_mult`` and
+        ``dcn_offset_lr_mult``. If you wish to apply both of them to the offset
+        layer in deformable convs, set ``dcn_offset_lr_mult`` to the original
+        ``dcn_offset_lr_mult`` * ``bias_lr_mult``.
+
         2. If the option ``dcn_offset_lr_mult`` is used, the constructor will
-            apply it to all the DCN layers in the model. So be careful when
-            the model contains multiple DCN layers in places other than
-            backbone.
+        apply it to all the DCN layers in the model. So be careful when the
+        model contains multiple DCN layers in places other than backbone.
 
     Args:
         model (:obj:`nn.Module`): The model with parameters to be optimized.
@@ -83,7 +86,7 @@ class DefaultOptimizerConstructor:
         >>> # assume model have attribute model.backbone and model.cls_head
         >>> optimizer_cfg = dict(type='SGD', lr=0.01, weight_decay=0.95)
         >>> paramwise_cfg = dict(custom_keys={
-                '.backbone': dict(lr_mult=0.1, decay_mult=0.9)})
+                'backbone': dict(lr_mult=0.1, decay_mult=0.9)})
         >>> optim_builder = DefaultOptimizerConstructor(
         >>>     optimizer_cfg, paramwise_cfg)
         >>> optimizer = optim_builder(model)
@@ -92,7 +95,9 @@ class DefaultOptimizerConstructor:
         >>> # model.cls_head is (0.01, 0.95).
     """
 
-    def __init__(self, optimizer_cfg, paramwise_cfg=None):
+    def __init__(self,
+                 optimizer_cfg: Dict,
+                 paramwise_cfg: Optional[Dict] = None):
         if not isinstance(optimizer_cfg, dict):
             raise TypeError('optimizer_cfg should be a dict',
                             f'but got {type(optimizer_cfg)}')
@@ -102,7 +107,7 @@ class DefaultOptimizerConstructor:
         self.base_wd = optimizer_cfg.get('weight_decay', None)
         self._validate_cfg()
 
-    def _validate_cfg(self):
+    def _validate_cfg(self) -> None:
         if not isinstance(self.paramwise_cfg, dict):
             raise TypeError('paramwise_cfg should be None or a dict, '
                             f'but got {type(self.paramwise_cfg)}')
@@ -125,7 +130,7 @@ class DefaultOptimizerConstructor:
             if self.base_wd is None:
                 raise ValueError('base_wd should not be None')
 
-    def _is_in(self, param_group, param_group_list):
+    def _is_in(self, param_group: Dict, param_group_list: List) -> bool:
         assert is_list_of(param_group_list, dict)
         param = set(param_group['params'])
         param_set = set()
@@ -134,7 +139,11 @@ class DefaultOptimizerConstructor:
 
         return not param.isdisjoint(param_set)
 
-    def add_params(self, params, module, prefix='', is_dcn_module=None):
+    def add_params(self,
+                   params: List[Dict],
+                   module: nn.Module,
+                   prefix: str = '',
+                   is_dcn_module: Union[int, float, None] = None) -> None:
         """Add all parameters of module to the params list.
 
         The parameters of the given module will be added to the list of param
@@ -231,7 +240,7 @@ class DefaultOptimizerConstructor:
                 prefix=child_prefix,
                 is_dcn_module=is_dcn_module)
 
-    def __call__(self, model):
+    def __call__(self, model: nn.Module):
         if hasattr(model, 'module'):
             model = model.module
 
@@ -242,7 +251,7 @@ class DefaultOptimizerConstructor:
             return build_from_cfg(optimizer_cfg, OPTIMIZERS)
 
         # set param-wise lr and weight decay recursively
-        params = []
+        params: List[Dict] = []
         self.add_params(params, model)
         optimizer_cfg['params'] = params
 

@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
 import annotator.mmpkg.mmcv as mmcv
 from .hook import HOOKS, Hook
 from .lr_updater import annealing_cos, annealing_linear, format_param
@@ -7,10 +9,10 @@ from .lr_updater import annealing_cos, annealing_linear, format_param
 class MomentumUpdaterHook(Hook):
 
     def __init__(self,
-                 by_epoch=True,
-                 warmup=None,
-                 warmup_iters=0,
-                 warmup_ratio=0.9):
+                 by_epoch: bool = True,
+                 warmup: Optional[str] = None,
+                 warmup_iters: int = 0,
+                 warmup_ratio: float = 0.9):
         # validate the "warmup" argument
         if warmup is not None:
             if warmup not in ['constant', 'linear', 'exp']:
@@ -28,9 +30,10 @@ class MomentumUpdaterHook(Hook):
         self.warmup_iters = warmup_iters
         self.warmup_ratio = warmup_ratio
 
-        self.base_momentum = []  # initial momentum for all param groups
-        self.regular_momentum = [
-        ]  # expected momentum if no warming up is performed
+        # initial momentum for all param groups
+        self.base_momentum: Union[list, dict] = []
+        # expected momentum if no warming up is performed
+        self.regular_momentum: Union[list, dict] = []
 
     def _set_momentum(self, runner, momentum_groups):
         if isinstance(runner.optimizer, dict):
@@ -49,44 +52,52 @@ class MomentumUpdaterHook(Hook):
                 elif 'betas' in param_group.keys():
                     param_group['betas'] = (mom, param_group['betas'][1])
 
-    def get_momentum(self, runner, base_momentum):
+    def get_momentum(self, runner, base_momentum) -> float:
         raise NotImplementedError
 
-    def get_regular_momentum(self, runner):
+    def get_regular_momentum(self, runner) -> Union[list, Dict[str, list]]:
         if isinstance(runner.optimizer, dict):
-            momentum_groups = {}
+            assert isinstance(self.base_momentum, dict)
+            momentum_groups: Dict[str, List[float]] = {}
             for k in runner.optimizer.keys():
-                _momentum_group = [
+                _momentum_group: List[float] = [
                     self.get_momentum(runner, _base_momentum)
                     for _base_momentum in self.base_momentum[k]
                 ]
                 momentum_groups.update({k: _momentum_group})
             return momentum_groups
         else:
+            assert isinstance(self.base_momentum, list)
             return [
                 self.get_momentum(runner, _base_momentum)
                 for _base_momentum in self.base_momentum
             ]
 
-    def get_warmup_momentum(self, cur_iters):
+    def get_warmup_momentum(
+            self,
+            cur_iters: int) -> Union[List[float], Dict[str, List[float]]]:
 
         def _get_warmup_momentum(cur_iters, regular_momentum):
             if self.warmup == 'constant':
                 warmup_momentum = [
                     _momentum / self.warmup_ratio
-                    for _momentum in self.regular_momentum
+                    for _momentum in regular_momentum
                 ]
             elif self.warmup == 'linear':
                 k = (1 - cur_iters / self.warmup_iters) * (1 -
                                                            self.warmup_ratio)
                 warmup_momentum = [
-                    _momentum / (1 - k) for _momentum in self.regular_mom
+                    _momentum / (1 - k) for _momentum in regular_momentum
                 ]
             elif self.warmup == 'exp':
                 k = self.warmup_ratio**(1 - cur_iters / self.warmup_iters)
                 warmup_momentum = [
-                    _momentum / k for _momentum in self.regular_mom
+                    _momentum / k for _momentum in regular_momentum
                 ]
+            else:
+                raise ValueError(
+                    'Expected values of `self.warmup` to be "constant", '
+                    f'"linear", or "exp", got {self.warmup}')
             return warmup_momentum
 
         if isinstance(self.regular_momentum, dict):
@@ -128,15 +139,15 @@ class MomentumUpdaterHook(Hook):
     def before_train_epoch(self, runner):
         if not self.by_epoch:
             return
-        self.regular_mom = self.get_regular_momentum(runner)
-        self._set_momentum(runner, self.regular_mom)
+        self.regular_momentum = self.get_regular_momentum(runner)
+        self._set_momentum(runner, self.regular_momentum)
 
     def before_train_iter(self, runner):
         cur_iter = runner.iter
         if not self.by_epoch:
-            self.regular_mom = self.get_regular_momentum(runner)
+            self.regular_momentum = self.get_regular_momentum(runner)
             if self.warmup is None or cur_iter >= self.warmup_iters:
-                self._set_momentum(runner, self.regular_mom)
+                self._set_momentum(runner, self.regular_momentum)
             else:
                 warmup_momentum = self.get_warmup_momentum(cur_iter)
                 self._set_momentum(runner, warmup_momentum)
@@ -144,7 +155,7 @@ class MomentumUpdaterHook(Hook):
             if self.warmup is None or cur_iter > self.warmup_iters:
                 return
             elif cur_iter == self.warmup_iters:
-                self._set_momentum(runner, self.regular_mom)
+                self._set_momentum(runner, self.regular_momentum)
             else:
                 warmup_momentum = self.get_warmup_momentum(cur_iter)
                 self._set_momentum(runner, warmup_momentum)
@@ -165,7 +176,11 @@ class StepMomentumUpdaterHook(MomentumUpdaterHook):
             Default: None.
     """
 
-    def __init__(self, step, gamma=0.5, min_momentum=None, **kwargs):
+    def __init__(self,
+                 step: Union[int, List[int]],
+                 gamma: float = 0.5,
+                 min_momentum: Optional[float] = None,
+                 **kwargs):
         if isinstance(step, list):
             assert mmcv.is_list_of(step, int)
             assert all([s > 0 for s in step])
@@ -176,9 +191,9 @@ class StepMomentumUpdaterHook(MomentumUpdaterHook):
         self.step = step
         self.gamma = gamma
         self.min_momentum = min_momentum
-        super(StepMomentumUpdaterHook, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
-    def get_momentum(self, runner, base_momentum):
+    def get_momentum(self, runner, base_momentum: float) -> float:
         progress = runner.epoch if self.by_epoch else runner.iter
 
         # calculate exponential term
@@ -200,14 +215,26 @@ class StepMomentumUpdaterHook(MomentumUpdaterHook):
 
 @HOOKS.register_module()
 class CosineAnnealingMomentumUpdaterHook(MomentumUpdaterHook):
+    """Cosine annealing LR Momentum decays the Momentum of each parameter group
+    linearly.
 
-    def __init__(self, min_momentum=None, min_momentum_ratio=None, **kwargs):
+    Args:
+        min_momentum (float, optional): The minimum momentum. Default: None.
+        min_momentum_ratio (float, optional): The ratio of minimum momentum to
+            the base momentum. Either `min_momentum` or `min_momentum_ratio`
+            should be specified. Default: None.
+    """
+
+    def __init__(self,
+                 min_momentum: Optional[float] = None,
+                 min_momentum_ratio: Optional[float] = None,
+                 **kwargs):
         assert (min_momentum is None) ^ (min_momentum_ratio is None)
         self.min_momentum = min_momentum
         self.min_momentum_ratio = min_momentum_ratio
-        super(CosineAnnealingMomentumUpdaterHook, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
-    def get_momentum(self, runner, base_momentum):
+    def get_momentum(self, runner, base_momentum: float) -> float:
         if self.by_epoch:
             progress = runner.epoch
             max_progress = runner.max_epochs
@@ -217,9 +244,47 @@ class CosineAnnealingMomentumUpdaterHook(MomentumUpdaterHook):
         if self.min_momentum_ratio is not None:
             target_momentum = base_momentum * self.min_momentum_ratio
         else:
+            assert self.min_momentum is not None
             target_momentum = self.min_momentum
         return annealing_cos(base_momentum, target_momentum,
                              progress / max_progress)
+
+
+@HOOKS.register_module()
+class LinearAnnealingMomentumUpdaterHook(MomentumUpdaterHook):
+    """Linear annealing LR Momentum decays the Momentum of each parameter group
+    linearly.
+
+    Args:
+        min_momentum (float, optional): The minimum momentum. Default: None.
+        min_momentum_ratio (float, optional): The ratio of minimum momentum to
+            the base momentum. Either `min_momentum` or `min_momentum_ratio`
+            should be specified. Default: None.
+    """
+
+    def __init__(self,
+                 min_momentum: Optional[float] = None,
+                 min_momentum_ratio: Optional[float] = None,
+                 **kwargs):
+        assert (min_momentum is None) ^ (min_momentum_ratio is None)
+        self.min_momentum = min_momentum
+        self.min_momentum_ratio = min_momentum_ratio
+        super().__init__(**kwargs)
+
+    def get_momentum(self, runner, base_momentum: float) -> float:
+        if self.by_epoch:
+            progress = runner.epoch
+            max_progress = runner.max_epochs
+        else:
+            progress = runner.iter
+            max_progress = runner.max_iters
+        if self.min_momentum_ratio is not None:
+            target_momentum = base_momentum * self.min_momentum_ratio
+        else:
+            assert self.min_momentum is not None
+            target_momentum = self.min_momentum
+        return annealing_linear(base_momentum, target_momentum,
+                                progress / max_progress)
 
 
 @HOOKS.register_module()
@@ -232,20 +297,29 @@ class CyclicMomentumUpdaterHook(MomentumUpdaterHook):
     This momentum scheduler usually used together with the CyclicLRUpdater
     to improve the performance in the 3D detection area.
 
-    Attributes:
+    Args:
         target_ratio (tuple[float]): Relative ratio of the lowest momentum and
             the highest momentum to the initial momentum.
         cyclic_times (int): Number of cycles during training
         step_ratio_up (float): The ratio of the increasing process of momentum
             in  the total cycle.
         by_epoch (bool): Whether to update momentum by epoch.
+        anneal_strategy (str, optional): {'cos', 'linear'}
+            Specifies the annealing strategy: 'cos' for cosine annealing,
+            'linear' for linear annealing. Default: 'cos'.
+        gamma (float, optional): Cycle decay ratio. Default: 1.
+            It takes values in the range (0, 1]. The difference between the
+            maximum learning rate and the minimum learning rate decreases
+            periodically when it is less than 1. `New in version 1.4.4.`
     """
 
     def __init__(self,
-                 by_epoch=False,
-                 target_ratio=(0.85 / 0.95, 1),
-                 cyclic_times=1,
-                 step_ratio_up=0.4,
+                 by_epoch: bool = False,
+                 target_ratio: Tuple[float, float] = (0.85 / 0.95, 1.),
+                 cyclic_times: int = 1,
+                 step_ratio_up: float = 0.4,
+                 anneal_strategy: str = 'cos',
+                 gamma: float = 1.,
                  **kwargs):
         if isinstance(target_ratio, float):
             target_ratio = (target_ratio, target_ratio / 1e5)
@@ -264,35 +338,60 @@ class CyclicMomentumUpdaterHook(MomentumUpdaterHook):
         self.target_ratio = target_ratio
         self.cyclic_times = cyclic_times
         self.step_ratio_up = step_ratio_up
-        self.momentum_phases = []  # init momentum_phases
+        self.gamma = gamma
+        self.momentum_phases: List[list] = []  # init momentum_phases
+
+        self.anneal_func: Callable[[float, float, float], float]
+        if anneal_strategy not in ['cos', 'linear']:
+            raise ValueError('anneal_strategy must be one of "cos" or '
+                             f'"linear", instead got {anneal_strategy}')
+        elif anneal_strategy == 'cos':
+            self.anneal_func = annealing_cos
+        elif anneal_strategy == 'linear':
+            self.anneal_func = annealing_linear
         # currently only support by_epoch=False
         assert not by_epoch, \
             'currently only support "by_epoch" = False'
-        super(CyclicMomentumUpdaterHook, self).__init__(by_epoch, **kwargs)
+        super().__init__(by_epoch, **kwargs)
 
     def before_run(self, runner):
-        super(CyclicMomentumUpdaterHook, self).before_run(runner)
+        super().before_run(runner)
         # initiate momentum_phases
         # total momentum_phases are separated as up and down
         max_iter_per_phase = runner.max_iters // self.cyclic_times
         iter_up_phase = int(self.step_ratio_up * max_iter_per_phase)
+        self.max_iter_per_phase = max_iter_per_phase
         self.momentum_phases.append(
-            [0, iter_up_phase, max_iter_per_phase, 1, self.target_ratio[0]])
+            [0, iter_up_phase, 1, self.target_ratio[0]])
         self.momentum_phases.append([
-            iter_up_phase, max_iter_per_phase, max_iter_per_phase,
-            self.target_ratio[0], self.target_ratio[1]
+            iter_up_phase, max_iter_per_phase, self.target_ratio[0],
+            self.target_ratio[1]
         ])
 
-    def get_momentum(self, runner, base_momentum):
-        curr_iter = runner.iter
-        for (start_iter, end_iter, max_iter_per_phase, start_ratio,
-             end_ratio) in self.momentum_phases:
-            curr_iter %= max_iter_per_phase
+    def get_momentum(self, runner, base_momentum: float) -> float:
+        curr_iter = runner.iter % self.max_iter_per_phase
+        curr_cycle = runner.iter // self.max_iter_per_phase
+        scale = self.gamma**curr_cycle
+        for (start_iter, end_iter, start_ratio, end_ratio) \
+                in self.momentum_phases:
             if start_iter <= curr_iter < end_iter:
+                # Apply cycle scaling to gradually reduce the difference
+                # between max_momentum and base momentum. The target end_ratio
+                # can be expressed as:
+                # end_ratio = (base_momentum + scale * \
+                # (max_momentum - base_momentum)) / base_momentum
+                # iteration: 0-iter_up_phase:
+                if start_iter == 0:
+                    end_ratio = 1 - scale + end_ratio * scale
+                # iteration: iter_up_phase-self.max_iter_per_phase
+                else:
+                    start_ratio = 1 - scale + start_ratio * scale
                 progress = curr_iter - start_iter
-                return annealing_cos(base_momentum * start_ratio,
-                                     base_momentum * end_ratio,
-                                     progress / (end_iter - start_iter))
+                return self.anneal_func(base_momentum * start_ratio,
+                                        base_momentum * end_ratio,
+                                        progress / (end_iter - start_iter))
+        raise RuntimeError('The method should return in the for-loop and '
+                           'should not be executed until this')
 
 
 @HOOKS.register_module()
@@ -331,11 +430,11 @@ class OneCycleMomentumUpdaterHook(MomentumUpdaterHook):
     """
 
     def __init__(self,
-                 base_momentum=0.85,
-                 max_momentum=0.95,
-                 pct_start=0.3,
-                 anneal_strategy='cos',
-                 three_phase=False,
+                 base_momentum: Union[float, list, dict] = 0.85,
+                 max_momentum: Union[float, list, dict] = 0.95,
+                 pct_start: float = 0.3,
+                 anneal_strategy: str = 'cos',
+                 three_phase: bool = False,
                  **kwargs):
         # validate by_epoch, currently only support by_epoch=False
         if 'by_epoch' not in kwargs:
@@ -357,6 +456,7 @@ class OneCycleMomentumUpdaterHook(MomentumUpdaterHook):
                              f'got {pct_start}')
         self.pct_start = pct_start
         # validate anneal_strategy
+        self.anneal_func: Callable[[float, float, float], float]
         if anneal_strategy not in ['cos', 'linear']:
             raise ValueError('anneal_strategy must by one of "cos" or '
                              f'"linear", instead got {anneal_strategy}')
@@ -365,8 +465,8 @@ class OneCycleMomentumUpdaterHook(MomentumUpdaterHook):
         elif anneal_strategy == 'linear':
             self.anneal_func = annealing_linear
         self.three_phase = three_phase
-        self.momentum_phases = []  # init momentum_phases
-        super(OneCycleMomentumUpdaterHook, self).__init__(**kwargs)
+        self.momentum_phases: List[dict] = []  # init momentum_phases
+        super().__init__(**kwargs)
 
     def before_run(self, runner):
         if isinstance(runner.optimizer, dict):
@@ -462,9 +562,10 @@ class OneCycleMomentumUpdaterHook(MomentumUpdaterHook):
                 elif 'betas' in param_group.keys():
                     param_group['betas'] = (mom, param_group['betas'][1])
 
-    def get_momentum(self, runner, param_group):
+    def get_momentum(self, runner, param_group: Dict[str, float]) -> float:
         curr_iter = runner.iter
         start_iter = 0
+        momentum = 0.
         for i, phase in enumerate(self.momentum_phases):
             end_iter = phase['end_iter']
             if curr_iter <= end_iter or i == len(self.momentum_phases) - 1:

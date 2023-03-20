@@ -19,7 +19,7 @@ class Swish(nn.Module):
     """
 
     def __init__(self):
-        super(Swish, self).__init__()
+        super().__init__()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x * torch.sigmoid(x)

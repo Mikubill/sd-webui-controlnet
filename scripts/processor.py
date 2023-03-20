@@ -226,3 +226,23 @@ def binary(img, res=512, thr_a=0, **kwargs):
         model_binary = apply_binary
     result = model_binary(img, thr_a)
     return result, True
+
+
+model_face = None
+
+
+def face(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_face
+    if model_face is None:
+        from annotator.face import apply_face_model
+        model_face = apply_face_model
+    result = model_face(img)
+    return result, True
+
+
+def unload_face_model():
+    global model_face
+    if model_face is not None:
+        from annotator.face import unload_face_model
+        unload_face_model()

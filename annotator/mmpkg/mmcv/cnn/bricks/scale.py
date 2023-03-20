@@ -13,9 +13,9 @@ class Scale(nn.Module):
         scale (float): Initial value of scale factor. Default: 1.0
     """
 
-    def __init__(self, scale=1.0):
-        super(Scale, self).__init__()
+    def __init__(self, scale: float = 1.0):
+        super().__init__()
         self.scale = nn.Parameter(torch.tensor(scale, dtype=torch.float))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale

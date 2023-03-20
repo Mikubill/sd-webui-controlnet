@@ -4,8 +4,10 @@ import platform
 import shutil
 import time
 import warnings
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
+from torch.utils.data import DataLoader
 
 import annotator.mmpkg.mmcv as mmcv
 from .base_runner import BaseRunner
@@ -21,7 +23,7 @@ class EpochBasedRunner(BaseRunner):
     This runner train models epoch by epoch.
     """
 
-    def run_iter(self, data_batch, train_mode, **kwargs):
+    def run_iter(self, data_batch: Any, train_mode: bool, **kwargs) -> None:
         if self.batch_processor is not None:
             outputs = self.batch_processor(
                 self.model, data_batch, train_mode=train_mode, **kwargs)
@@ -45,10 +47,12 @@ class EpochBasedRunner(BaseRunner):
         self.call_hook('before_train_epoch')
         time.sleep(2)  # Prevent possible deadlock during epoch transition
         for i, data_batch in enumerate(self.data_loader):
+            self.data_batch = data_batch
             self._inner_iter = i
             self.call_hook('before_train_iter')
             self.run_iter(data_batch, train_mode=True, **kwargs)
             self.call_hook('after_train_iter')
+            del self.data_batch
             self._iter += 1
 
         self.call_hook('after_train_epoch')
@@ -62,14 +66,19 @@ class EpochBasedRunner(BaseRunner):
         self.call_hook('before_val_epoch')
         time.sleep(2)  # Prevent possible deadlock during epoch transition
         for i, data_batch in enumerate(self.data_loader):
+            self.data_batch = data_batch
             self._inner_iter = i
             self.call_hook('before_val_iter')
             self.run_iter(data_batch, train_mode=False)
             self.call_hook('after_val_iter')
-
+            del self.data_batch
         self.call_hook('after_val_epoch')
 
-    def run(self, data_loaders, workflow, max_epochs=None, **kwargs):
+    def run(self,
+            data_loaders: List[DataLoader],
+            workflow: List[Tuple[str, int]],
+            max_epochs: Optional[int] = None,
+            **kwargs) -> None:
         """Start running.
 
         Args:
@@ -130,11 +139,11 @@ class EpochBasedRunner(BaseRunner):
         self.call_hook('after_run')
 
     def save_checkpoint(self,
-                        out_dir,
-                        filename_tmpl='epoch_{}.pth',
-                        save_optimizer=True,
-                        meta=None,
-                        create_symlink=True):
+                        out_dir: str,
+                        filename_tmpl: str = 'epoch_{}.pth',
+                        save_optimizer: bool = True,
+                        meta: Optional[Dict] = None,
+                        create_symlink: bool = True) -> None:
         """Save the checkpoint.
 
         Args:
@@ -183,5 +192,6 @@ class Runner(EpochBasedRunner):
 
     def __init__(self, *args, **kwargs):
         warnings.warn(
-            'Runner was deprecated, please use EpochBasedRunner instead')
+            'Runner was deprecated, please use EpochBasedRunner instead',
+            DeprecationWarning)
         super().__init__(*args, **kwargs)

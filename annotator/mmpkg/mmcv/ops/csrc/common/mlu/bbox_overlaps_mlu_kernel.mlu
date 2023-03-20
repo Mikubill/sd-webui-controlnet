@@ -1,0 +1,322 @@
+/*************************************************************************
+ * Copyright (C) 2021 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include <float.h>
+
+#include "common_mlu_helper.hpp"
+
+#define COORD_NUM 4
+
+__nram__ char nmem_buf[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_func__ void computeDiv(void *nram_dst, void *nram_src0, void *nram_src1,
+                             void *nram_addition, const int32_t deal_num) {
+  __bang_active_reciphp((T *)nram_dst, (T *)nram_src1, deal_num);
+  __bang_mul((T *)nram_dst, (T *)nram_src0, (T *)nram_dst, deal_num);
+}
+
+template <>
+__mlu_func__ void computeDiv<half>(void *nram_dst, void *nram_src0,
+                                   void *nram_src1, void *nram_addition,
+                                   const int32_t deal_num) {
+  __bang_half2float((float *)nram_addition, (half *)nram_src1, deal_num);
+  __bang_active_reciphp((float *)nram_addition, (float *)nram_addition,
+                        deal_num);
+  __bang_float2half_rd((half *)nram_src1, (float *)nram_addition, deal_num);
+  __bang_mul((half *)nram_dst, (half *)nram_src0, (half *)nram_src1, deal_num);
+}
+
+template <typename T>
+__mlu_func__ void bboxOverlapsWorkflow(
+    T *vec_b1_x1, T *vec_b1_y1, T *vec_b1_x2, T *vec_b1_y2, T *vec_b2_x1,
+    T *vec_b2_y1, T *vec_b2_x2, T *vec_b2_y2, T *vec_left, T *vec_right,
+    T *vec_top, T *vec_bottom, const T *bbox1, const T *bbox2, void *ious,
+    const int32_t offset, const int32_t mode, const int32_t batches_stride,
+    const int32_t num_bbox1, const int32_t num_bbox2, const bool aligned) {
+  int32_t task_batch_stride = (num_bbox1 + taskDim - 1) / taskDim;
+  int32_t batch_start = taskId * task_batch_stride;
+  int32_t batch_per_task = batch_start + task_batch_stride < num_bbox1
+                               ? task_batch_stride
+                               : num_bbox1 - batch_start;
+  batch_per_task = batch_per_task > 0 ? batch_per_task : (0);
+
+  if (aligned) {
+    int32_t num_loop_cpy = batch_per_task / batches_stride;
+    int32_t num_rem_cpy_batches = batch_per_task % batches_stride;
+    num_loop_cpy = num_rem_cpy_batches > 0 ? num_loop_cpy + 1 : num_loop_cpy;
+    for (int32_t i = 0; i < num_loop_cpy; i++) {
+      int32_t index = batch_start + i * batches_stride;
+      int32_t handle_batches = index + batches_stride > num_bbox1
+                                   ? num_rem_cpy_batches
+                                   : batches_stride;
+      int32_t b1 = index;
+      int32_t b2 = index;
+
+      int32_t base1 = b1 * COORD_NUM;
+      __memcpy(vec_b1_x1, &bbox1[base1], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b1_y1, &bbox1[base1 + 1], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b1_x2, &bbox1[base1 + 2], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b1_y2, &bbox1[base1 + 3], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+
+      int32_t base2 = b2 * COORD_NUM;
+      __memcpy(vec_b2_x1, &bbox2[base2], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b2_y1, &bbox2[base2 + 1], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b2_x2, &bbox2[base2 + 2], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      __memcpy(vec_b2_y2, &bbox2[base2 + 3], sizeof(T), GDRAM2NRAM, sizeof(T),
+               COORD_NUM * sizeof(T), handle_batches - 1);
+      // get the width and height
+      __bang_maxequal(vec_left, vec_b1_x1, vec_b2_x1, batches_stride);
+      __bang_minequal(vec_right, vec_b1_x2, vec_b2_x2, batches_stride);
+      __bang_maxequal(vec_top, vec_b1_y1, vec_b2_y1, batches_stride);
+      __bang_minequal(vec_bottom, vec_b1_y2, vec_b2_y2, batches_stride);
+
+      // right - left + offset ---> left
+      __bang_sub(vec_left, vec_right, vec_left, batches_stride);
+      __bang_add_scalar(vec_left, vec_left, (T)offset, batches_stride);
+
+      // bottom - top + offset ---> right
+      __bang_sub(vec_right, vec_bottom, vec_top, batches_stride);
+      __bang_add_scalar(vec_right, vec_right, (T)offset, batches_stride);
+
+      // zero vector ---> bottom
+      __bang_write_value(vec_bottom, batches_stride, 0.f);
+
+      // width --> vec_left
+      __bang_maxequal(vec_left, vec_bottom, vec_left, batches_stride);
+      T *width = vec_left;
+      // height --> vec_right
+      __bang_maxequal(vec_right, vec_bottom, vec_right, batches_stride);
+      T *height = vec_right;
+
+      // get the b1_area
+      // (b1_x2 - b1_x1 + offset)  --->  vec_top
+      __bang_sub(vec_top, vec_b1_x2, vec_b1_x1, batches_stride);
+      __bang_add_scalar(vec_top, vec_top, (T)offset, batches_stride);
+
+      // (b1_y2 - b1_y1 + offset)  --->  vec_bottom
+      __bang_sub(vec_bottom, vec_b1_y2, vec_b1_y1, batches_stride);
+      __bang_add_scalar(vec_bottom, vec_bottom, (T)offset, batches_stride);
+
+      // b1_area = (b1_x2 - b1_x1 + offset) * (b1_y2 - b1_y1 + offset)
+      // --->  vec_top;
+      __bang_mul(vec_top, vec_top, vec_bottom, batches_stride);
+      T *b1_area = vec_top;
+
+      // get the b2_area
+      // (b2_x2 - b2_x1 + offset)  --->  b2_x1
+      __bang_sub(vec_b2_x1, vec_b2_x2, vec_b2_x1, batches_stride);
+      __bang_add_scalar(vec_b2_x1, vec_b2_x1, (T)offset, batches_stride);
+
+      // (b2_y2 - b2_y1 + offset)  --->  b2_y1
+      __bang_sub(vec_b2_y1, vec_b2_y2, vec_b2_y1, batches_stride);
+      __bang_add_scalar(vec_b2_y1, vec_b2_y1, (T)offset, batches_stride);
+
+      // b2_area = (b2_x2 - b2_x1 + offset) * (b2_y2 - b2_y1 + offset)
+      // --->  b2_x1;
+      __bang_mul(vec_b2_x1, vec_b2_x1, vec_b2_y1, batches_stride);
+      T *b2_area = vec_b2_x1;
+
+      // inter_s = width * height
+      __bang_mul(height, width, height, batches_stride);
+      T *inter_s = height;
+
+      // offset vector ---> vec_b2_y1
+      __bang_write_value(vec_b2_y1, batches_stride, T(offset));
+      T *vec_offset = vec_b2_y1;
+
+      if (mode == 0) {
+        __bang_add(b1_area, b1_area, b2_area, batches_stride);
+        __bang_sub(b1_area, b1_area, inter_s, batches_stride);
+        __bang_maxequal(b1_area, vec_offset, b1_area, batches_stride);
+      } else {
+        __bang_maxequal(b1_area, vec_offset, b1_area, batches_stride);
+      }
+      T *base_s = b1_area;
+
+      // ious = inter_s / base_s
+      computeDiv<T>(width, inter_s, base_s, vec_b2_x2, batches_stride);
+      __memcpy((T *)ious + index, width, handle_batches * sizeof(T),
+               NRAM2GDRAM);
+    }
+  } else {
+    int32_t num_loop_cpy = num_bbox2 / batches_stride;
+    int32_t num_rem_cpy_batches = num_bbox2 % batches_stride;
+    num_loop_cpy = num_rem_cpy_batches > 0 ? num_loop_cpy + 1 : num_loop_cpy;
+    for (int32_t i = 0; i < batch_per_task; i++) {
+      int32_t index1 = batch_start + i;
+      int32_t b1 = index1;
+      int32_t base1 = b1 * COORD_NUM;
+
+      // set bbox1 and bbox2 to nram
+      __bang_write_value(vec_b1_x1, batches_stride, bbox1[base1]);
+      __bang_write_value(vec_b1_y1, batches_stride, bbox1[base1 + 1]);
+      __bang_write_value(vec_b1_x2, batches_stride, bbox1[base1 + 2]);
+      __bang_write_value(vec_b1_y2, batches_stride, bbox1[base1 + 3]);
+
+      for (int32_t j = 0; j < num_loop_cpy; j++) {
+        int32_t index2 = j * batches_stride;
+        int32_t handle_batches = index2 + batches_stride > num_bbox2
+                                     ? num_rem_cpy_batches
+                                     : batches_stride;
+        int32_t b2 = index2;
+        int32_t base2 = b2 * COORD_NUM;
+
+        // copy bbox2 to nram
+        __memcpy(vec_b2_x1, &bbox2[base2], sizeof(T), GDRAM2NRAM, sizeof(T),
+                 COORD_NUM * sizeof(T), handle_batches - 1);
+        __memcpy(vec_b2_y1, &bbox2[base2 + 1], sizeof(T), GDRAM2NRAM, sizeof(T),
+                 COORD_NUM * sizeof(T), handle_batches - 1);
+        __memcpy(vec_b2_x2, &bbox2[base2 + 2], sizeof(T), GDRAM2NRAM, sizeof(T),
+                 COORD_NUM * sizeof(T), handle_batches - 1);
+        __memcpy(vec_b2_y2, &bbox2[base2 + 3], sizeof(T), GDRAM2NRAM, sizeof(T),
+                 COORD_NUM * sizeof(T), handle_batches - 1);
+
+        // get the width and height
+        __bang_maxequal(vec_left, vec_b1_x1, vec_b2_x1, batches_stride);
+        __bang_minequal(vec_right, vec_b1_x2, vec_b2_x2, batches_stride);
+        __bang_maxequal(vec_top, vec_b1_y1, vec_b2_y1, batches_stride);
+        __bang_minequal(vec_bottom, vec_b1_y2, vec_b2_y2, batches_stride);
+
+        // right - left + offset ---> left
+        __bang_sub(vec_left, vec_right, vec_left, batches_stride);
+        __bang_add_scalar(vec_left, vec_left, (T)offset, batches_stride);
+        // bottom - top + offset ---> right
+        __bang_sub(vec_right, vec_bottom, vec_top, batches_stride);
+        __bang_add_scalar(vec_right, vec_right, (T)offset, batches_stride);
+
+        // zero vector ---> bottom
+        __bang_write_value(vec_bottom, batches_stride, (T)0);
+
+        // width --> vec_left
+        __bang_maxequal(vec_left, vec_bottom, vec_left, batches_stride);
+        T *width = vec_left;
+        // height --> vec_right
+        __bang_maxequal(vec_right, vec_bottom, vec_right, batches_stride);
+        T *height = vec_right;
+
+        // get the b1_area
+        // (b1_x2 - b1_x1 + offset)  --->  vec_top
+        __bang_sub(vec_top, vec_b1_x2, vec_b1_x1, batches_stride);
+        __bang_add_scalar(vec_top, vec_top, (T)offset, batches_stride);
+        // (b1_y2 - b1_y1 + offset)  --->  vec_bottom
+        __bang_sub(vec_bottom, vec_b1_y2, vec_b1_y1, batches_stride);
+        __bang_add_scalar(vec_bottom, vec_bottom, (T)offset, batches_stride);
+        // b1_area = (b1_x2 - b1_x1 + offset) * (b1_y2 - b1_y1 + offset)
+        // --->  vec_top;
+        __bang_mul(vec_top, vec_top, vec_bottom, batches_stride);
+        T *b1_area = vec_top;
+
+        // get the b2_area
+        // (b2_x2 - b2_x1 + offset)  --->  b2_x1
+        __bang_sub(vec_b2_x1, vec_b2_x2, vec_b2_x1, batches_stride);
+        __bang_add_scalar(vec_b2_x1, vec_b2_x1, (T)offset, batches_stride);
+        // (b2_y2 - b2_y1 + offset)  --->  b2_y1
+        __bang_sub(vec_b2_y1, vec_b2_y2, vec_b2_y1, batches_stride);
+        __bang_add_scalar(vec_b2_y1, vec_b2_y1, (T)offset, batches_stride);
+        // b2_area = (b2_x2 - b2_x1 + offset) * (b2_y2 - b2_y1 + offset)
+        // --->  b2_x1;
+        __bang_mul(vec_b2_x1, vec_b2_x1, vec_b2_y1, batches_stride);
+        T *b2_area = vec_b2_x1;
+
+        // inter_s = width * height
+        __bang_mul(height, width, height, batches_stride);
+        T *inter_s = height;
+
+        // offset vector ---> vec_b2_y1
+        __bang_write_value(vec_b2_y1, batches_stride, T(offset));
+        T *vec_offset = vec_b2_y1;
+
+        if (mode == 0) {
+          __bang_add(b1_area, b1_area, b2_area, batches_stride);
+          __bang_sub(b1_area, b1_area, inter_s, batches_stride);
+          __bang_maxequal(b1_area, vec_offset, b1_area, batches_stride);
+        } else {
+          __bang_maxequal(b1_area, vec_offset, b1_area, batches_stride);
+        }
+        T *base_s = b1_area;
+
+        // ious = inter_s / base_s
+        computeDiv<T>(width, inter_s, base_s, vec_b2_x2, batches_stride);
+        int32_t gdram_offset = index1 * num_bbox2 + index2;
+        __memcpy((T *)ious + gdram_offset, width, handle_batches * sizeof(T),
+                 NRAM2GDRAM);
+      }
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelBBoxOverlaps(
+    const void *bbox1, const void *bbox2, void *ious, const int32_t num_bbox1,
+    const int32_t num_bbox2, const int32_t mode, const bool aligned,
+    const int32_t offset) {
+  /*
+   * NRAM partition
+   *  |-------------------------------------------------------------|
+   *  |   vec_b1_x1   |  vec_b1_y1   |   vec_b1_x2  |   vec_b1_y2   |
+   *  |-------------------------------------------------------------|
+   *  |   vec_b2_x1   |  vec_b2_y1   |   vec_b2_x2  |   vec_b2_y2   |
+   *  |-------------------------------------------------------------|
+   *  |    vec_left   |  vec_right   |    vec_top   |   vec_bottom  |
+   *  |-------------------------------------------------------------|
+   *
+  */
+  const int32_t align_bytes = PAD_DOWN(MAX_NRAM_SIZE, NFU_ALIGN_SIZE);
+  const int32_t split_nram_num = 12;
+  const int32_t nram_stride =
+      align_bytes / NFU_ALIGN_SIZE / split_nram_num * NFU_ALIGN_SIZE;
+
+  void *vec_b1_x1 = nmem_buf;
+  void *vec_b1_y1 = nmem_buf + nram_stride;
+  void *vec_b1_x2 = nmem_buf + 2 * nram_stride;
+  void *vec_b1_y2 = nmem_buf + 3 * nram_stride;
+
+  void *vec_b2_x1 = nmem_buf + 4 * nram_stride;
+  void *vec_b2_y1 = nmem_buf + 5 * nram_stride;
+  void *vec_b2_x2 = nmem_buf + 6 * nram_stride;
+  void *vec_b2_y2 = nmem_buf + 7 * nram_stride;
+
+  void *vec_left = nmem_buf + 8 * nram_stride;
+  void *vec_right = nmem_buf + 9 * nram_stride;
+  void *vec_top = nmem_buf + 10 * nram_stride;
+  void *vec_bottom = nmem_buf + 11 * nram_stride;
+
+  const int32_t vec_length = nram_stride / sizeof(T);
+  bboxOverlapsWorkflow((T *)vec_b1_x1, (T *)vec_b1_y1, (T *)vec_b1_x2,
+                       (T *)vec_b1_y2, (T *)vec_b2_x1, (T *)vec_b2_y1,
+                       (T *)vec_b2_x2, (T *)vec_b2_y2, (T *)vec_left,
+                       (T *)vec_right, (T *)vec_top, (T *)vec_bottom,
+                       (T *)bbox1, (T *)bbox2, (T *)ious, offset, mode,
+                       vec_length, num_bbox1, num_bbox2, aligned);
+}
+
+void KernelBBoxOverlaps(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
+                        cnrtQueue_t queue, const cnrtDataType_t d_type,
+                        const void *bbox1, const void *bbox2, void *ious,
+                        const int32_t num_bbox1, const int32_t num_bbox2,
+                        const int32_t mode, const bool aligned,
+                        const int32_t offset) {
+  if (d_type == CNRT_FLOAT16) {
+    MLUUnion1KernelBBoxOverlaps<half><<<k_dim, k_type, queue>>>(
+        bbox1, bbox2, ious, num_bbox1, num_bbox2, mode, aligned, offset);
+  } else {
+    MLUUnion1KernelBBoxOverlaps<float><<<k_dim, k_type, queue>>>(
+        bbox1, bbox2, ious, num_bbox1, num_bbox2, mode, aligned, offset);
+  }
+}

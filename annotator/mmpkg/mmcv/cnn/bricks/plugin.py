@@ -1,15 +1,19 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import inspect
 import platform
+from typing import Dict, Tuple, Union
+
+import torch.nn as nn
 
 from .registry import PLUGIN_LAYERS
 
 if platform.system() == 'Windows':
-    import regex as re
+    import regex as re  # type: ignore
 else:
-    import re
+    import re  # type: ignore
 
 
-def infer_abbr(class_type):
+def infer_abbr(class_type: type) -> str:
     """Infer abbreviation from the class name.
 
     This method will infer the abbreviation to map class types to
@@ -47,25 +51,27 @@ def infer_abbr(class_type):
         raise TypeError(
             f'class_type must be a type, but got {type(class_type)}')
     if hasattr(class_type, '_abbr_'):
-        return class_type._abbr_
+        return class_type._abbr_  # type: ignore
     else:
         return camel2snack(class_type.__name__)
 
 
-def build_plugin_layer(cfg, postfix='', **kwargs):
+def build_plugin_layer(cfg: Dict,
+                       postfix: Union[int, str] = '',
+                       **kwargs) -> Tuple[str, nn.Module]:
     """Build plugin layer.
 
     Args:
-        cfg (None or dict): cfg should contain:
-            type (str): identify plugin layer type.
-            layer args: args needed to instantiate a plugin layer.
+        cfg (dict): cfg should contain:
+
+            - type (str): identify plugin layer type.
+            - layer args: args needed to instantiate a plugin layer.
         postfix (int, str): appended into norm abbreviation to
             create named layer. Default: ''.
 
     Returns:
-        tuple[str, nn.Module]:
-            name (str): abbreviation + postfix
-            layer (nn.Module): created plugin layer
+        tuple[str, nn.Module]: The first one is the concatenation of
+        abbreviation and postfix. The second is the created plugin layer.
     """
     if not isinstance(cfg, dict):
         raise TypeError('cfg must be a dict')

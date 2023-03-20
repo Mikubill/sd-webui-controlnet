@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 
-def _fuse_conv_bn(conv, bn):
+def _fuse_conv_bn(conv: nn.Module, bn: nn.Module) -> nn.Module:
     """Fuse conv and bn into one module.
 
     Args:
@@ -24,7 +24,7 @@ def _fuse_conv_bn(conv, bn):
     return conv
 
 
-def fuse_conv_bn(module):
+def fuse_conv_bn(module: nn.Module) -> nn.Module:
     """Recursively fuse conv and bn in a module.
 
     During inference, the functionary of batch norm layers is turned off

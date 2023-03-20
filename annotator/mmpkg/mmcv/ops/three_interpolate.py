@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Tuple
 
 import torch
 from torch.autograd import Function
@@ -17,18 +17,19 @@ class ThreeInterpolate(Function):
     """
 
     @staticmethod
-    def forward(ctx, features: torch.Tensor, indices: torch.Tensor,
+    def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor,
                 weight: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            features (Tensor): (B, C, M) Features descriptors to be
-                interpolated
-            indices (Tensor): (B, n, 3) index three nearest neighbors
-                of the target features in features
-            weight (Tensor): (B, n, 3) weights of interpolation
+            features (torch.Tensor): (B, C, M) Features descriptors to be
+                interpolated.
+            indices (torch.Tensor): (B, n, 3) indices of three nearest
+                neighbor features for the target features.
+            weight (torch.Tensor): (B, n, 3) weights of three nearest
+                neighbor features for the target features.
 
         Returns:
-            Tensor: (B, C, N) tensor of the interpolated features
+            torch.Tensor: (B, C, N) tensor of the interpolated features
         """
         assert features.is_contiguous()
         assert indices.is_contiguous()
@@ -37,7 +38,7 @@ class ThreeInterpolate(Function):
         B, c, m = features.size()
         n = indices.size(1)
         ctx.three_interpolate_for_backward = (indices, weight, m)
-        output = torch.cuda.FloatTensor(B, c, n)
+        output = features.new_empty(B, c, n)
 
         ext_module.three_interpolate_forward(
             features, indices, weight, output, b=B, c=c, m=m, n=n)
@@ -49,15 +50,15 @@ class ThreeInterpolate(Function):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args:
-            grad_out (Tensor): (B, C, N) tensor with gradients of outputs
+            grad_out (torch.Tensor): (B, C, N) tensor with gradients of outputs
 
         Returns:
-            Tensor: (B, C, M) tensor with gradients of features
+            torch.Tensor: (B, C, M) tensor with gradients of features
         """
         idx, weight, m = ctx.three_interpolate_for_backward
         B, c, n = grad_out.size()
 
-        grad_features = torch.cuda.FloatTensor(B, c, m).zero_()
+        grad_features = grad_out.new_zeros(B, c, m)
         grad_out_data = grad_out.data.contiguous()
 
         ext_module.three_interpolate_backward(

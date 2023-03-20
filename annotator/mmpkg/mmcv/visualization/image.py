@@ -1,12 +1,19 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import List, Optional, Union
+
 import cv2
 import numpy as np
 
 from annotator.mmpkg.mmcv.image import imread, imwrite
-from .color import color_val
+from .color import Color, color_val
+
+# a type alias declares the optional types of color argument
+ColorType = Union[Color, str, tuple, int, np.ndarray]
 
 
-def imshow(img, win_name='', wait_time=0):
+def imshow(img: Union[str, np.ndarray],
+           win_name: str = '',
+           wait_time: int = 0):
     """Show an image.
 
     Args:
@@ -27,21 +34,21 @@ def imshow(img, win_name='', wait_time=0):
         ret = cv2.waitKey(wait_time)
 
 
-def imshow_bboxes(img,
-                  bboxes,
-                  colors='green',
-                  top_k=-1,
-                  thickness=1,
-                  show=True,
-                  win_name='',
-                  wait_time=0,
-                  out_file=None):
+def imshow_bboxes(img: Union[str, np.ndarray],
+                  bboxes: Union[list, np.ndarray],
+                  colors: ColorType = 'green',
+                  top_k: int = -1,
+                  thickness: int = 1,
+                  show: bool = True,
+                  win_name: str = '',
+                  wait_time: int = 0,
+                  out_file: Optional[str] = None):
     """Draw bboxes on an image.
 
     Args:
         img (str or ndarray): The image to be displayed.
         bboxes (list or ndarray): A list of ndarray of shape (k, 4).
-        colors (list[str or tuple or Color]): A list of colors.
+        colors (Color or str or tuple or int or ndarray): A list of colors.
         top_k (int): Plot the first k bboxes only if set positive.
         thickness (int): Thickness of lines.
         show (bool): Whether to show the image.
@@ -81,19 +88,19 @@ def imshow_bboxes(img,
     return img
 
 
-def imshow_det_bboxes(img,
-                      bboxes,
-                      labels,
-                      class_names=None,
-                      score_thr=0,
-                      bbox_color='green',
-                      text_color='green',
-                      thickness=1,
-                      font_scale=0.5,
-                      show=True,
-                      win_name='',
-                      wait_time=0,
-                      out_file=None):
+def imshow_det_bboxes(img: Union[str, np.ndarray],
+                      bboxes: np.ndarray,
+                      labels: np.ndarray,
+                      class_names: List[str] = None,
+                      score_thr: float = 0,
+                      bbox_color: ColorType = 'green',
+                      text_color: ColorType = 'green',
+                      thickness: int = 1,
+                      font_scale: float = 0.5,
+                      show: bool = True,
+                      win_name: str = '',
+                      wait_time: int = 0,
+                      out_file: Optional[str] = None):
     """Draw bboxes and class labels (with scores) on an image.
 
     Args:
@@ -103,8 +110,10 @@ def imshow_det_bboxes(img,
         labels (ndarray): Labels of bboxes.
         class_names (list[str]): Names of each classes.
         score_thr (float): Minimum score of bboxes to be shown.
-        bbox_color (str or tuple or :obj:`Color`): Color of bbox lines.
-        text_color (str or tuple or :obj:`Color`): Color of texts.
+        bbox_color (Color or str or tuple or int or ndarray): Color
+            of bbox lines.
+        text_color (Color or str or tuple or int or ndarray): Color
+            of texts.
         thickness (int): Thickness of lines.
         font_scale (float): Font scales of texts.
         show (bool): Whether to show the image.

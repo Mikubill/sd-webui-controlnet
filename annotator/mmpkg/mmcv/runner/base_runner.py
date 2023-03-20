@@ -4,9 +4,13 @@ import logging
 import os.path as osp
 import warnings
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
+from typing import (Any, Callable, Dict, List, Optional, Tuple, Union,
+                    no_type_check)
 
 import torch
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 
 import annotator.mmpkg.mmcv as mmcv
 from ..parallel import is_module_wrapper
@@ -49,20 +53,22 @@ class BaseRunner(metaclass=ABCMeta):
     """
 
     def __init__(self,
-                 model,
-                 batch_processor=None,
-                 optimizer=None,
-                 work_dir=None,
-                 logger=None,
-                 meta=None,
-                 max_iters=None,
-                 max_epochs=None):
+                 model: torch.nn.Module,
+                 batch_processor: Optional[Callable] = None,
+                 optimizer: Union[Dict, torch.optim.Optimizer, None] = None,
+                 work_dir: Optional[str] = None,
+                 logger: Optional[logging.Logger] = None,
+                 meta: Optional[Dict] = None,
+                 max_iters: Optional[int] = None,
+                 max_epochs: Optional[int] = None) -> None:
         if batch_processor is not None:
             if not callable(batch_processor):
                 raise TypeError('batch_processor must be callable, '
                                 f'but got {type(batch_processor)}')
-            warnings.warn('batch_processor is deprecated, please implement '
-                          'train_step() and val_step() in the model instead.')
+            warnings.warn(
+                'batch_processor is deprecated, please implement '
+                'train_step() and val_step() in the model instead.',
+                DeprecationWarning)
             # raise an error is `batch_processor` is not None and
             # `model.train_step()` exists.
             if is_module_wrapper(model):
@@ -104,8 +110,8 @@ class BaseRunner(metaclass=ABCMeta):
         self.logger = logger
         self.meta = meta
         # create work_dir
-        if mmcv.is_str(work_dir):
-            self.work_dir = osp.abspath(work_dir)
+        if isinstance(work_dir, str):
+            self.work_dir: Optional[str] = osp.abspath(work_dir)
             mmcv.mkdir_or_exist(self.work_dir)
         elif work_dir is None:
             self.work_dir = None
@@ -120,8 +126,8 @@ class BaseRunner(metaclass=ABCMeta):
 
         self._rank, self._world_size = get_dist_info()
         self.timestamp = get_time_str()
-        self.mode = None
-        self._hooks = []
+        self.mode: Optional[str] = None
+        self._hooks: List[Hook] = []
         self._epoch = 0
         self._iter = 0
         self._inner_iter = 0
@@ -136,38 +142,38 @@ class BaseRunner(metaclass=ABCMeta):
         self.log_buffer = LogBuffer()
 
     @property
-    def model_name(self):
+    def model_name(self) -> str:
         """str: Name of the model, usually the module class name."""
         return self._model_name
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """int: Rank of current process. (distributed training)"""
         return self._rank
 
     @property
-    def world_size(self):
+    def world_size(self) -> int:
         """int: Number of processes participating in the job.
         (distributed training)"""
         return self._world_size
 
     @property
-    def hooks(self):
+    def hooks(self) -> List[Hook]:
         """list[:obj:`Hook`]: A list of registered hooks."""
         return self._hooks
 
     @property
-    def epoch(self):
+    def epoch(self) -> int:
         """int: Current epoch."""
         return self._epoch
 
     @property
-    def iter(self):
+    def iter(self) -> int:
         """int: Current iteration."""
         return self._iter
 
     @property
-    def inner_iter(self):
+    def inner_iter(self) -> int:
         """int: Iteration in an epoch."""
         return self._inner_iter
 
@@ -190,26 +196,28 @@ class BaseRunner(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def run(self, data_loaders, workflow, **kwargs):
+    def run(self, data_loaders: List[DataLoader],
+            workflow: List[Tuple[str, int]], **kwargs) -> Any:
         pass
 
     @abstractmethod
     def save_checkpoint(self,
-                        out_dir,
-                        filename_tmpl,
-                        save_optimizer=True,
-                        meta=None,
-                        create_symlink=True):
+                        out_dir: str,
+                        filename_tmpl: str,
+                        save_optimizer: bool = True,
+                        meta: Optional[Dict] = None,
+                        create_symlink: bool = True) -> None:
         pass
 
-    def current_lr(self):
+    def current_lr(self) -> Union[List[float], Dict[str, List[float]]]:
         """Get current learning rates.
 
         Returns:
             list[float] | dict[str, list[float]]: Current learning rates of all
-                param groups. If the runner has a dict of optimizers, this
-                method will return a dict.
+            param groups. If the runner has a dict of optimizers, this method
+            will return a dict.
         """
+        lr: Union[List[float], Dict[str, List[float]]]
         if isinstance(self.optimizer, torch.optim.Optimizer):
             lr = [group['lr'] for group in self.optimizer.param_groups]
         elif isinstance(self.optimizer, dict):
@@ -221,13 +229,13 @@ class BaseRunner(metaclass=ABCMeta):
                 'lr is not applicable because optimizer does not exist.')
         return lr
 
-    def current_momentum(self):
+    def current_momentum(self) -> Union[List[float], Dict[str, List[float]]]:
         """Get current momentums.
 
         Returns:
             list[float] | dict[str, list[float]]: Current momentums of all
-                param groups. If the runner has a dict of optimizers, this
-                method will return a dict.
+            param groups. If the runner has a dict of optimizers, this method
+            will return a dict.
         """
 
         def _get_momentum(optimizer):
@@ -252,7 +260,9 @@ class BaseRunner(metaclass=ABCMeta):
                 momentums[name] = _get_momentum(optim)
         return momentums
 
-    def register_hook(self, hook, priority='NORMAL'):
+    def register_hook(self,
+                      hook: Hook,
+                      priority: Union[int, str, Priority] = 'NORMAL') -> None:
         """Register a hook into the hook list.
 
         The hook will be inserted into a priority queue, with the specified
@@ -269,25 +279,25 @@ class BaseRunner(metaclass=ABCMeta):
         if hasattr(hook, 'priority'):
             raise ValueError('"priority" is a reserved attribute for hooks')
         priority = get_priority(priority)
-        hook.priority = priority
+        hook.priority = priority  # type: ignore
         # insert the hook to a sorted list
         inserted = False
         for i in range(len(self._hooks) - 1, -1, -1):
-            if priority >= self._hooks[i].priority:
+            if priority >= self._hooks[i].priority:  # type: ignore
                 self._hooks.insert(i + 1, hook)
                 inserted = True
                 break
         if not inserted:
             self._hooks.insert(0, hook)
 
-    def register_hook_from_cfg(self, hook_cfg):
+    def register_hook_from_cfg(self, hook_cfg: Dict) -> None:
         """Register a hook from its cfg.
 
         Args:
             hook_cfg (dict): Hook config. It should have at least keys 'type'
               and 'priority' indicating its type and priority.
 
-        Notes:
+        Note:
             The specific hook class to register should not use 'type' and
             'priority' arguments during initialization.
         """
@@ -296,7 +306,7 @@ class BaseRunner(metaclass=ABCMeta):
         hook = mmcv.build_from_cfg(hook_cfg, HOOKS)
         self.register_hook(hook, priority=priority)
 
-    def call_hook(self, fn_name):
+    def call_hook(self, fn_name: str) -> None:
         """Call all hooks.
 
         Args:
@@ -306,14 +316,14 @@ class BaseRunner(metaclass=ABCMeta):
         for hook in self._hooks:
             getattr(hook, fn_name)(self)
 
-    def get_hook_info(self):
+    def get_hook_info(self) -> str:
         # Get hooks info in each stage
-        stage_hook_map = {stage: [] for stage in Hook.stages}
+        stage_hook_map: Dict[str, list] = {stage: [] for stage in Hook.stages}
         for hook in self.hooks:
             try:
-                priority = Priority(hook.priority).name
+                priority = Priority(hook.priority).name  # type: ignore
             except ValueError:
-                priority = hook.priority
+                priority = hook.priority  # type: ignore
             classname = hook.__class__.__name__
             hook_info = f'({priority:<12}) {classname:<35}'
             for trigger_stage in hook.get_triggered_stages():
@@ -329,11 +339,13 @@ class BaseRunner(metaclass=ABCMeta):
                 stage_hook_infos.append(info)
         return '\n'.join(stage_hook_infos)
 
-    def load_checkpoint(self,
-                        filename,
-                        map_location='cpu',
-                        strict=False,
-                        revise_keys=[(r'^module.', '')]):
+    def load_checkpoint(
+        self,
+        filename: str,
+        map_location: Union[str, Callable] = 'cpu',
+        strict: bool = False,
+        revise_keys: List = [(r'^module.', '')],
+    ) -> Union[Dict, OrderedDict]:
         return load_checkpoint(
             self.model,
             filename,
@@ -342,10 +354,11 @@ class BaseRunner(metaclass=ABCMeta):
             self.logger,
             revise_keys=revise_keys)
 
+    @no_type_check
     def resume(self,
-               checkpoint,
-               resume_optimizer=True,
-               map_location='default'):
+               checkpoint: str,
+               resume_optimizer: bool = True,
+               map_location: Union[str, Callable] = 'default') -> None:
         if map_location == 'default':
             if torch.cuda.is_available():
                 device_id = torch.cuda.current_device()
@@ -396,7 +409,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         self.logger.info('resumed epoch %d, iter %d', self.epoch, self.iter)
 
-    def register_lr_hook(self, lr_config):
+    def register_lr_hook(self, lr_config: Union[Dict, Hook, None]) -> None:
         if lr_config is None:
             return
         elif isinstance(lr_config, dict):
@@ -417,7 +430,8 @@ class BaseRunner(metaclass=ABCMeta):
             hook = lr_config
         self.register_hook(hook, priority='VERY_HIGH')
 
-    def register_momentum_hook(self, momentum_config):
+    def register_momentum_hook(
+            self, momentum_config: Union[Dict, Hook, None]) -> None:
         if momentum_config is None:
             return
         if isinstance(momentum_config, dict):
@@ -438,7 +452,8 @@ class BaseRunner(metaclass=ABCMeta):
             hook = momentum_config
         self.register_hook(hook, priority='HIGH')
 
-    def register_optimizer_hook(self, optimizer_config):
+    def register_optimizer_hook(
+            self, optimizer_config: Union[Dict, Hook, None]) -> None:
         if optimizer_config is None:
             return
         if isinstance(optimizer_config, dict):
@@ -448,7 +463,8 @@ class BaseRunner(metaclass=ABCMeta):
             hook = optimizer_config
         self.register_hook(hook, priority='ABOVE_NORMAL')
 
-    def register_checkpoint_hook(self, checkpoint_config):
+    def register_checkpoint_hook(
+            self, checkpoint_config: Union[Dict, Hook, None]) -> None:
         if checkpoint_config is None:
             return
         if isinstance(checkpoint_config, dict):
@@ -458,7 +474,7 @@ class BaseRunner(metaclass=ABCMeta):
             hook = checkpoint_config
         self.register_hook(hook, priority='NORMAL')
 
-    def register_logger_hooks(self, log_config):
+    def register_logger_hooks(self, log_config: Optional[Dict]) -> None:
         if log_config is None:
             return
         log_interval = log_config['interval']
@@ -467,7 +483,10 @@ class BaseRunner(metaclass=ABCMeta):
                 info, HOOKS, default_args=dict(interval=log_interval))
             self.register_hook(logger_hook, priority='VERY_LOW')
 
-    def register_timer_hook(self, timer_config):
+    def register_timer_hook(
+        self,
+        timer_config: Union[Dict, Hook, None],
+    ) -> None:
         if timer_config is None:
             return
         if isinstance(timer_config, dict):
@@ -477,7 +496,8 @@ class BaseRunner(metaclass=ABCMeta):
             hook = timer_config
         self.register_hook(hook, priority='LOW')
 
-    def register_custom_hooks(self, custom_config):
+    def register_custom_hooks(
+            self, custom_config: Union[List, Dict, Hook, None]) -> None:
         if custom_config is None:
             return
 
@@ -490,7 +510,10 @@ class BaseRunner(metaclass=ABCMeta):
             else:
                 self.register_hook(item, priority='NORMAL')
 
-    def register_profiler_hook(self, profiler_config):
+    def register_profiler_hook(
+        self,
+        profiler_config: Union[Dict, Hook, None],
+    ) -> None:
         if profiler_config is None:
             return
         if isinstance(profiler_config, dict):
@@ -500,14 +523,15 @@ class BaseRunner(metaclass=ABCMeta):
             hook = profiler_config
         self.register_hook(hook)
 
-    def register_training_hooks(self,
-                                lr_config,
-                                optimizer_config=None,
-                                checkpoint_config=None,
-                                log_config=None,
-                                momentum_config=None,
-                                timer_config=dict(type='IterTimerHook'),
-                                custom_hooks_config=None):
+    def register_training_hooks(
+            self,
+            lr_config: Union[Dict, Hook, None],
+            optimizer_config: Union[Dict, Hook, None] = None,
+            checkpoint_config: Union[Dict, Hook, None] = None,
+            log_config: Optional[Dict] = None,
+            momentum_config: Union[Dict, Hook, None] = None,
+            timer_config: Union[Dict, Hook] = dict(type='IterTimerHook'),
+            custom_hooks_config: Union[List, Dict, Hook, None] = None) -> None:
         """Register default and custom hooks for training.
 
         Default and custom hooks include:

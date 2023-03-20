@@ -18,11 +18,11 @@ class FurthestPointSampling(Function):
                 num_points: int) -> torch.Tensor:
         """
         Args:
-            points_xyz (Tensor): (B, N, 3) where N > num_points.
+            points_xyz (torch.Tensor): (B, N, 3) where N > num_points.
             num_points (int): Number of points in the sampled set.
 
         Returns:
-             Tensor: (B, num_points) indices of the sampled points.
+            torch.Tensor: (B, num_points) indices of the sampled points.
         """
         assert points_xyz.is_contiguous()
 
@@ -56,11 +56,12 @@ class FurthestPointSamplingWithDist(Function):
                 num_points: int) -> torch.Tensor:
         """
         Args:
-            points_dist (Tensor): (B, N, N) Distance between each point pair.
+            points_dist (torch.Tensor): (B, N, N) Distance between each point
+                pair.
             num_points (int): Number of points in the sampled set.
 
         Returns:
-             Tensor: (B, num_points) indices of the sampled points.
+            torch.Tensor: (B, num_points) indices of the sampled points.
         """
         assert points_dist.is_contiguous()
 

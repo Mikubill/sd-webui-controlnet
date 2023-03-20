@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Union
+
 import torch
 from torch import nn
 
@@ -6,7 +8,7 @@ from ..utils import constant_init, kaiming_init
 from .registry import PLUGIN_LAYERS
 
 
-def last_zero_init(m):
+def last_zero_init(m: Union[nn.Module, nn.Sequential]) -> None:
     if isinstance(m, nn.Sequential):
         constant_init(m[-1], val=0)
     else:
@@ -34,11 +36,11 @@ class ContextBlock(nn.Module):
     _abbr_ = 'context_block'
 
     def __init__(self,
-                 in_channels,
-                 ratio,
-                 pooling_type='att',
-                 fusion_types=('channel_add', )):
-        super(ContextBlock, self).__init__()
+                 in_channels: int,
+                 ratio: float,
+                 pooling_type: str = 'att',
+                 fusion_types: tuple = ('channel_add', )):
+        super().__init__()
         assert pooling_type in ['avg', 'att']
         assert isinstance(fusion_types, (list, tuple))
         valid_fusion_types = ['channel_add', 'channel_mul']
@@ -82,7 +84,7 @@ class ContextBlock(nn.Module):
         if self.channel_mul_conv is not None:
             last_zero_init(self.channel_mul_conv)
 
-    def spatial_pool(self, x):
+    def spatial_pool(self, x: torch.Tensor) -> torch.Tensor:
         batch, channel, height, width = x.size()
         if self.pooling_type == 'att':
             input_x = x
@@ -108,7 +110,7 @@ class ContextBlock(nn.Module):
 
         return context
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # [N, C, 1, 1]
         context = self.spatial_pool(x)
 

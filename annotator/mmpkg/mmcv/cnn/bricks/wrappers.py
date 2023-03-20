@@ -21,19 +21,19 @@ else:
     TORCH_VERSION = tuple(int(x) for x in torch.__version__.split('.')[:2])
 
 
-def obsolete_torch_version(torch_version, version_threshold):
+def obsolete_torch_version(torch_version, version_threshold) -> bool:
     return torch_version == 'parrots' or torch_version <= version_threshold
 
 
 class NewEmptyTensorOp(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, x, new_shape):
+    def forward(ctx, x: torch.Tensor, new_shape: tuple) -> torch.Tensor:
         ctx.shape = x.shape
         return x.new_empty(new_shape)
 
     @staticmethod
-    def backward(ctx, grad):
+    def backward(ctx, grad: torch.Tensor) -> tuple:
         shape = ctx.shape
         return NewEmptyTensorOp.apply(grad, shape), None
 
@@ -41,7 +41,7 @@ class NewEmptyTensorOp(torch.autograd.Function):
 @CONV_LAYERS.register_module('Conv', force=True)
 class Conv2d(nn.Conv2d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 4)):
             out_shape = [x.shape[0], self.out_channels]
             for i, k, p, s, d in zip(x.shape[-2:], self.kernel_size,
@@ -62,7 +62,7 @@ class Conv2d(nn.Conv2d):
 @CONV_LAYERS.register_module('Conv3d', force=True)
 class Conv3d(nn.Conv3d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 4)):
             out_shape = [x.shape[0], self.out_channels]
             for i, k, p, s, d in zip(x.shape[-3:], self.kernel_size,
@@ -85,7 +85,7 @@ class Conv3d(nn.Conv3d):
 @UPSAMPLE_LAYERS.register_module('deconv', force=True)
 class ConvTranspose2d(nn.ConvTranspose2d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 4)):
             out_shape = [x.shape[0], self.out_channels]
             for i, k, p, s, d, op in zip(x.shape[-2:], self.kernel_size,
@@ -108,7 +108,7 @@ class ConvTranspose2d(nn.ConvTranspose2d):
 @UPSAMPLE_LAYERS.register_module('deconv3d', force=True)
 class ConvTranspose3d(nn.ConvTranspose3d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 4)):
             out_shape = [x.shape[0], self.out_channels]
             for i, k, p, s, d, op in zip(x.shape[-3:], self.kernel_size,
@@ -128,7 +128,7 @@ class ConvTranspose3d(nn.ConvTranspose3d):
 
 class MaxPool2d(nn.MaxPool2d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # PyTorch 1.9 does not support empty tensor inference yet
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 9)):
             out_shape = list(x.shape[:2])
@@ -146,7 +146,7 @@ class MaxPool2d(nn.MaxPool2d):
 
 class MaxPool3d(nn.MaxPool3d):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # PyTorch 1.9 does not support empty tensor inference yet
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 9)):
             out_shape = list(x.shape[:2])
@@ -165,7 +165,7 @@ class MaxPool3d(nn.MaxPool3d):
 
 class Linear(torch.nn.Linear):
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # empty tensor forward of Linear layer is supported in Pytorch 1.6
         if x.numel() == 0 and obsolete_torch_version(TORCH_VERSION, (1, 5)):
             out_shape = [x.shape[0], self.out_features]

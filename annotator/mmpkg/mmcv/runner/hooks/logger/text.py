@@ -3,6 +3,7 @@ import datetime
 import os
 import os.path as osp
 from collections import OrderedDict
+from typing import Dict, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -53,17 +54,16 @@ class TextLoggerHook(LoggerHook):
     """
 
     def __init__(self,
-                 by_epoch=True,
-                 interval=10,
-                 ignore_last=True,
-                 reset_flag=False,
-                 interval_exp_name=1000,
-                 out_dir=None,
-                 out_suffix=('.log.json', '.log', '.py'),
-                 keep_local=True,
-                 file_client_args=None):
-        super(TextLoggerHook, self).__init__(interval, ignore_last, reset_flag,
-                                             by_epoch)
+                 by_epoch: bool = True,
+                 interval: int = 10,
+                 ignore_last: bool = True,
+                 reset_flag: bool = False,
+                 interval_exp_name: int = 1000,
+                 out_dir: Optional[str] = None,
+                 out_suffix: Union[str, tuple] = ('.log.json', '.log', '.py'),
+                 keep_local: bool = True,
+                 file_client_args: Optional[Dict] = None):
+        super().__init__(interval, ignore_last, reset_flag, by_epoch)
         self.by_epoch = by_epoch
         self.time_sec_tot = 0
         self.interval_exp_name = interval_exp_name
@@ -86,8 +86,8 @@ class TextLoggerHook(LoggerHook):
             self.file_client = FileClient.infer_client(file_client_args,
                                                        self.out_dir)
 
-    def before_run(self, runner):
-        super(TextLoggerHook, self).before_run(runner)
+    def before_run(self, runner) -> None:
+        super().before_run(runner)
 
         if self.out_dir is not None:
             self.file_client = FileClient.infer_client(self.file_client_args,
@@ -97,8 +97,8 @@ class TextLoggerHook(LoggerHook):
             basename = osp.basename(runner.work_dir.rstrip(osp.sep))
             self.out_dir = self.file_client.join_path(self.out_dir, basename)
             runner.logger.info(
-                (f'Text logs will be saved to {self.out_dir} by '
-                 f'{self.file_client.name} after the training process.'))
+                f'Text logs will be saved to {self.out_dir} by '
+                f'{self.file_client.name} after the training process.')
 
         self.start_iter = runner.iter
         self.json_log_path = osp.join(runner.work_dir,
@@ -106,17 +106,17 @@ class TextLoggerHook(LoggerHook):
         if runner.meta is not None:
             self._dump_log(runner.meta, runner)
 
-    def _get_max_memory(self, runner):
+    def _get_max_memory(self, runner) -> int:
         device = getattr(runner.model, 'output_device', None)
         mem = torch.cuda.max_memory_allocated(device=device)
-        mem_mb = torch.tensor([mem / (1024 * 1024)],
+        mem_mb = torch.tensor([int(mem) // (1024 * 1024)],
                               dtype=torch.int,
                               device=device)
         if runner.world_size > 1:
             dist.reduce(mem_mb, 0, op=dist.ReduceOp.MAX)
         return mem_mb.item()
 
-    def _log_info(self, log_dict, runner):
+    def _log_info(self, log_dict: Dict, runner) -> None:
         # print exp name for users to distinguish experiments
         # at every ``interval_exp_name`` iterations and the end of each epoch
         if runner.meta is not None and 'exp_name' in runner.meta:
@@ -130,9 +130,9 @@ class TextLoggerHook(LoggerHook):
                 lr_str = []
                 for k, val in log_dict['lr'].items():
                     lr_str.append(f'lr_{k}: {val:.3e}')
-                lr_str = ' '.join(lr_str)
+                lr_str = ' '.join(lr_str)  # type: ignore
             else:
-                lr_str = f'lr: {log_dict["lr"]:.3e}'
+                lr_str = f'lr: {log_dict["lr"]:.3e}'  # type: ignore
 
             # by epoch: Epoch [4][100/1000]
             # by iter:  Iter [100/100000]
@@ -182,7 +182,7 @@ class TextLoggerHook(LoggerHook):
 
         runner.logger.info(log_str)
 
-    def _dump_log(self, log_dict, runner):
+    def _dump_log(self, log_dict: Dict, runner) -> None:
         # dump log in json format
         json_log = OrderedDict()
         for k, v in log_dict.items():
@@ -201,7 +201,7 @@ class TextLoggerHook(LoggerHook):
         else:
             return items
 
-    def log(self, runner):
+    def log(self, runner) -> OrderedDict:
         if 'eval_iter_num' in runner.log_buffer.output:
             # this doesn't modify runner.iter and is regardless of by_epoch
             cur_iter = runner.log_buffer.output.pop('eval_iter_num')
@@ -229,28 +229,28 @@ class TextLoggerHook(LoggerHook):
             if torch.cuda.is_available():
                 log_dict['memory'] = self._get_max_memory(runner)
 
-        log_dict = dict(log_dict, **runner.log_buffer.output)
+        log_dict = dict(log_dict, **runner.log_buffer.output)  # type: ignore
 
         self._log_info(log_dict, runner)
         self._dump_log(log_dict, runner)
         return log_dict
 
-    def after_run(self, runner):
+    def after_run(self, runner) -> None:
         # copy or upload logs to self.out_dir
         if self.out_dir is not None:
             for filename in scandir(runner.work_dir, self.out_suffix, True):
                 local_filepath = osp.join(runner.work_dir, filename)
                 out_filepath = self.file_client.join_path(
                     self.out_dir, filename)
-                with open(local_filepath, 'r') as f:
+                with open(local_filepath) as f:
                     self.file_client.put_text(f.read(), out_filepath)
 
                 runner.logger.info(
-                    (f'The file {local_filepath} has been uploaded to '
-                     f'{out_filepath}.'))
+                    f'The file {local_filepath} has been uploaded to '
+                    f'{out_filepath}.')
 
                 if not self.keep_local:
                     os.remove(local_filepath)
                     runner.logger.info(
-                        (f'{local_filepath} was removed due to the '
-                         '`self.keep_local=False`'))
+                        f'{local_filepath} was removed due to the '
+                        '`self.keep_local=False`')

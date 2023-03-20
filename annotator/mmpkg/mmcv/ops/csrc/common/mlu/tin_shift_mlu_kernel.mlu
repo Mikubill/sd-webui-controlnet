@@ -1,0 +1,307 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include "common_mlu_helper.hpp"
+
+__nram__ char data_nram[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_func__ void mluMultiKernelTinShift(
+    const T *input, const int *shifts, T *output, const int batch_size,
+    const int time_size, const int channel_size, const int hw_size,
+    const int group_size, const int group_channel) {
+  for (int cur_channel_index = taskId;
+       cur_channel_index < batch_size * channel_size;
+       cur_channel_index += taskDim) {
+    int n_index = cur_channel_index / channel_size;
+    int group_id = cur_channel_index % channel_size / group_channel;
+    int t_shift = shifts[n_index * group_size + group_id];
+    int index = cur_channel_index % channel_size * hw_size +
+                n_index * time_size * channel_size * hw_size;
+    __bang_write_value(data_nram, MAX_NRAM_SIZE, (char)0);
+    __asm__ volatile("sync;");
+    if (abs(t_shift) >= time_size) {
+      __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+               channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+               time_size - 1);
+    } else {
+      if (t_shift > 0) {
+        __memcpy(data_nram + t_shift * hw_size * sizeof(T), input + index,
+                 hw_size * sizeof(T), GDRAM2NRAM, hw_size * sizeof(T),
+                 channel_size * hw_size * sizeof(T), time_size - 1 - t_shift);
+        __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                 channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                 time_size - 1);
+      } else {
+        __memcpy(data_nram, input + (index - t_shift * channel_size * hw_size),
+                 hw_size * sizeof(T), GDRAM2NRAM, hw_size * sizeof(T),
+                 channel_size * hw_size * sizeof(T), time_size - 1 + t_shift);
+        __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                 channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                 time_size - 1);
+      }
+    }
+    __asm__ volatile("sync;");
+  }
+}
+
+template <typename T>
+__mlu_func__ void mluHwSplit(const T *input, const int t_shift,
+                             const int time_size, const int hw_size,
+                             const int channel_size, const int index,
+                             const int cur_sequence_index,
+                             const int max_length_per_core, T *output) {
+  for (int cur_index = index; cur_index < index + hw_size;
+       cur_index += max_length_per_core) {
+    int memcpy_size = max_length_per_core;
+    if (cur_index + max_length_per_core > index + hw_size) {
+      memcpy_size = index + hw_size - cur_index;
+    }
+    if (cur_sequence_index - t_shift < 0 ||
+        cur_sequence_index - t_shift >= time_size) {
+      __memcpy(output + cur_index, data_nram, memcpy_size * sizeof(T),
+               NRAM2GDRAM);
+    } else {
+      __memcpy(data_nram, input + cur_index - t_shift * channel_size * hw_size,
+               memcpy_size * sizeof(T), GDRAM2NRAM);
+      __memcpy(output + cur_index, data_nram, memcpy_size * sizeof(T),
+               NRAM2GDRAM);
+    }
+    __asm__ volatile("sync;");
+  }
+}
+
+template <typename T>
+__mlu_func__ void mluMultiKernelTinShiftSplitSequence(
+    const T *input, const int *shifts, T *output, const int batch_size,
+    const int time_size, const int channel_size, const int hw_size,
+    const int group_size, const int group_channel,
+    const int max_number_hw_per_core, const int max_length_per_core) {
+  const int tmp_max_number_hw_per_core =
+      max_number_hw_per_core > 0 ? max_number_hw_per_core : 1;
+  const int loop_time = time_size / tmp_max_number_hw_per_core +
+                        ((time_size % tmp_max_number_hw_per_core) > 0 ? 1 : 0);
+  int segmentime_size = tmp_max_number_hw_per_core;
+  int res_segment = time_size % tmp_max_number_hw_per_core;
+
+  for (int cur_segment_index = taskId;
+       cur_segment_index < loop_time * batch_size * channel_size;
+       cur_segment_index += taskDim) {
+    int n_index = cur_segment_index / loop_time / channel_size;
+    int group_id = cur_segment_index / loop_time % channel_size / group_channel;
+    int t_shift = shifts[n_index * group_size + group_id];
+    int index = n_index * time_size * channel_size * hw_size +
+                (cur_segment_index / loop_time % channel_size) * hw_size +
+                cur_segment_index % loop_time * segmentime_size * hw_size *
+                    channel_size;
+    char *dst_gdram2nram = data_nram;
+    const T *src_gdram2nram = input + index;
+    int count_gdram2nram = -1;
+    int count_nram2gdram = -1;
+    int next_sequence_index =
+        index / hw_size / channel_size % time_size + segmentime_size;
+    int cur_sequence_index = index / hw_size / channel_size % time_size;
+    __bang_write_value(data_nram, MAX_NRAM_SIZE, (char)0);
+    __asm__ volatile("sync;");
+    if (max_number_hw_per_core == 0) {
+      mluHwSplit(input, t_shift, time_size, hw_size, channel_size, index,
+                 cur_sequence_index, max_length_per_core, output);
+      continue;
+    }
+    if (abs(t_shift) >= time_size) {
+      if ((cur_segment_index + 1) % loop_time == 0 && res_segment != 0) {
+        __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                 channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                 res_segment - 1);
+      } else {
+        __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                 channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                 segmentime_size - 1);
+      }
+      continue;
+    }
+    if (t_shift == 0) {
+      if ((cur_segment_index + 1) % loop_time == 0 && res_segment != 0) {
+        dst_gdram2nram = data_nram;
+        src_gdram2nram = input + index;
+        count_gdram2nram = res_segment - 1;
+        count_nram2gdram = res_segment - 1;
+      } else {
+        dst_gdram2nram = data_nram;
+        src_gdram2nram = input + index;
+        count_gdram2nram = segmentime_size - 1;
+        count_nram2gdram = segmentime_size - 1;
+      }
+    } else if (t_shift > 0) {
+      int first_index_cur_channel =
+          n_index * time_size * channel_size * hw_size +
+          (cur_segment_index / loop_time % channel_size) * hw_size;
+      if ((cur_segment_index + 1) % loop_time == 0 && res_segment != 0) {
+        dst_gdram2nram = data_nram;
+        src_gdram2nram =
+            input +
+            (index - t_shift * channel_size * hw_size < first_index_cur_channel
+                 ? first_index_cur_channel
+                 : index - t_shift * channel_size * hw_size);
+        count_gdram2nram = res_segment - 1;
+        count_nram2gdram = res_segment - 1;
+        if (cur_sequence_index < t_shift && t_shift < next_sequence_index) {
+          dst_gdram2nram =
+              data_nram + t_shift % segmentime_size * hw_size * sizeof(T);
+          count_gdram2nram = res_segment - (t_shift - cur_sequence_index) - 1;
+        }
+      } else {
+        if (t_shift >= next_sequence_index) {
+          __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                   channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                   segmentime_size - 1);
+          continue;
+        } else if (cur_sequence_index < t_shift &&
+                   t_shift < next_sequence_index) {
+          dst_gdram2nram =
+              data_nram + t_shift % segmentime_size * hw_size * sizeof(T);
+          src_gdram2nram = input + first_index_cur_channel;
+          count_gdram2nram = segmentime_size - (t_shift % segmentime_size) - 1;
+          count_nram2gdram = segmentime_size - 1;
+        } else {
+          dst_gdram2nram = data_nram;
+          src_gdram2nram = input + index - t_shift * channel_size * hw_size;
+          count_gdram2nram = segmentime_size - 1;
+          count_nram2gdram = segmentime_size - 1;
+        }
+      }
+    } else {
+      int offset_index = time_size + t_shift;
+      if (cur_sequence_index >= offset_index) {
+        if ((cur_segment_index + 1) % loop_time == 0 && res_segment != 0) {
+          __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                   channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                   res_segment - 1);
+          continue;
+        } else {
+          __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+                   channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+                   segmentime_size - 1);
+          continue;
+        }
+      } else {
+        dst_gdram2nram = data_nram;
+        src_gdram2nram = input + index - t_shift * channel_size * hw_size;
+        if (cur_sequence_index - t_shift + segmentime_size < time_size) {
+          count_gdram2nram = segmentime_size - 1;
+          count_nram2gdram = segmentime_size - 1;
+        } else {
+          count_gdram2nram = time_size - (cur_sequence_index - t_shift) - 1;
+          count_nram2gdram =
+              (segmentime_size - 1) < (time_size - cur_sequence_index - 1)
+                  ? (segmentime_size - 1)
+                  : (time_size - cur_sequence_index - 1);
+        }
+      }
+    }
+    __memcpy(dst_gdram2nram, src_gdram2nram, hw_size * sizeof(T), GDRAM2NRAM,
+             hw_size * sizeof(T), channel_size * hw_size * sizeof(T),
+             count_gdram2nram);
+    __memcpy(output + index, data_nram, hw_size * sizeof(T), NRAM2GDRAM,
+             channel_size * hw_size * sizeof(T), hw_size * sizeof(T),
+             count_nram2gdram);
+    __asm__ volatile("sync;");
+  }
+}
+
+__mlu_entry__ void MLUUnion1KernelTinShift(
+    const void *input, const void *shifts, void *output, const int batch_size,
+    const int time_size, const int channel_size, const int hw_size,
+    const int group_size, const int group_channel,
+    const cnrtDataType_t data_dtype) {
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  switch (data_dtype) {
+    case CNRT_FLOAT16: {
+      mluMultiKernelTinShift((half *)input, (const int *)shifts, (half *)output,
+                             batch_size, time_size, channel_size, hw_size,
+                             group_size, group_channel);
+    }; break;
+    case CNRT_FLOAT32: {
+      mluMultiKernelTinShift((float *)input, (const int *)shifts,
+                             (float *)output, batch_size, time_size,
+                             channel_size, hw_size, group_size, group_channel);
+    }; break;
+    default: { return; }
+  }
+}
+
+__mlu_entry__ void MLUUnion1KernelTinShiftSplitSequence(
+    const void *input, const void *shifts, void *output, const int batch_size,
+    const int time_size, const int channel_size, const int hw_size,
+    const int group_size, const int group_channel,
+    const int max_number_hw_per_core, const int max_length_per_core,
+    const cnrtDataType_t data_dtype) {
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  switch (data_dtype) {
+    case CNRT_FLOAT16: {
+      mluMultiKernelTinShiftSplitSequence(
+          (half *)input, (const int *)shifts, (half *)output, batch_size,
+          time_size, channel_size, hw_size, group_size, group_channel,
+          max_number_hw_per_core, max_length_per_core);
+    }; break;
+    case CNRT_FLOAT32: {
+      mluMultiKernelTinShiftSplitSequence(
+          (float *)input, (const int *)shifts, (float *)output, batch_size,
+          time_size, channel_size, hw_size, group_size, group_channel,
+          max_number_hw_per_core, max_length_per_core);
+    }; break;
+    default: { return; }
+  }
+}
+
+void KernelTinShiftForward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const void *input, const void *shifts, void *output, const int batch_size,
+    const int time_size, const int channel_size, const int hw_size,
+    const int group_size, const int group_channel,
+    const cnrtDataType_t data_dtype, const int channel_per_core,
+    const int max_number_hw_per_core, const int max_length_per_core) {
+  if (channel_per_core >= 1) {
+    MLUUnion1KernelTinShift<<<k_dim, k_type, queue>>>(
+        input, shifts, output, batch_size, time_size, channel_size, hw_size,
+        group_size, group_channel, data_dtype);
+  } else {
+    MLUUnion1KernelTinShiftSplitSequence<<<k_dim, k_type, queue>>>(
+        input, shifts, output, batch_size, time_size, channel_size, hw_size,
+        group_size, group_channel, max_number_hw_per_core, max_length_per_core,
+        data_dtype);
+  }
+}
+
+void KernelTinShiftBackward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const void *grad_output, const void *shifts, void *grad_input,
+    const int batch_size, const int time_size, const int channel_size,
+    const int hw_size, const int group_size, const int group_channel,
+    const cnrtDataType_t data_dtype, const int channel_per_core,
+    const int max_number_hw_per_core, const int max_length_per_core) {
+  if (channel_per_core >= 1) {
+    MLUUnion1KernelTinShift<<<k_dim, k_type, queue>>>(
+        grad_output, shifts, grad_input, batch_size, time_size, channel_size,
+        hw_size, group_size, group_channel, data_dtype);
+  } else {
+    MLUUnion1KernelTinShiftSplitSequence<<<k_dim, k_type, queue>>>(
+        grad_output, shifts, grad_input, batch_size, time_size, channel_size,
+        hw_size, group_size, group_channel, max_number_hw_per_core,
+        max_length_per_core, data_dtype);
+  }
+}

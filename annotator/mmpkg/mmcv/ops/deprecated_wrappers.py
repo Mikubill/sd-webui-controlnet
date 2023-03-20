@@ -12,7 +12,8 @@ class Conv2d_deprecated(Conv2d):
         super().__init__(*args, **kwargs)
         warnings.warn(
             'Importing Conv2d wrapper from "mmcv.ops" will be deprecated in'
-            ' the future. Please import them from "mmcv.cnn" instead')
+            ' the future. Please import them from "mmcv.cnn" instead',
+            DeprecationWarning)
 
 
 class ConvTranspose2d_deprecated(ConvTranspose2d):
@@ -22,7 +23,7 @@ class ConvTranspose2d_deprecated(ConvTranspose2d):
         warnings.warn(
             'Importing ConvTranspose2d wrapper from "mmcv.ops" will be '
             'deprecated in the future. Please import them from "mmcv.cnn" '
-            'instead')
+            'instead', DeprecationWarning)
 
 
 class MaxPool2d_deprecated(MaxPool2d):
@@ -31,7 +32,8 @@ class MaxPool2d_deprecated(MaxPool2d):
         super().__init__(*args, **kwargs)
         warnings.warn(
             'Importing MaxPool2d wrapper from "mmcv.ops" will be deprecated in'
-            ' the future. Please import them from "mmcv.cnn" instead')
+            ' the future. Please import them from "mmcv.cnn" instead',
+            DeprecationWarning)
 
 
 class Linear_deprecated(Linear):
@@ -40,4 +42,5 @@ class Linear_deprecated(Linear):
         super().__init__(*args, **kwargs)
         warnings.warn(
             'Importing Linear wrapper from "mmcv.ops" will be deprecated in'
-            ' the future. Please import them from "mmcv.cnn" instead')
+            ' the future. Please import them from "mmcv.cnn" instead',
+            DeprecationWarning)

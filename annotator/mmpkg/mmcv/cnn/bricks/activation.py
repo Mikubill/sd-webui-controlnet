@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Dict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +13,25 @@ for module in [
         nn.Sigmoid, nn.Tanh
 ]:
     ACTIVATION_LAYERS.register_module(module=module)
+
+if digit_version(torch.__version__) >= digit_version('1.7.0'):
+    ACTIVATION_LAYERS.register_module(module=nn.SiLU, name='SiLU')
+else:
+
+    class SiLU(nn.Module):
+        """Sigmoid Weighted Liner Unit."""
+
+        def __init__(self, inplace=False):
+            super().__init__()
+            self.inplace = inplace
+
+        def forward(self, inputs) -> torch.Tensor:
+            if self.inplace:
+                return inputs.mul_(torch.sigmoid(inputs))
+            else:
+                return inputs * torch.sigmoid(inputs)
+
+    ACTIVATION_LAYERS.register_module(module=SiLU, name='SiLU')
 
 
 @ACTIVATION_LAYERS.register_module(name='Clip')
@@ -28,12 +49,12 @@ class Clamp(nn.Module):
             Default to 1.
     """
 
-    def __init__(self, min=-1., max=1.):
-        super(Clamp, self).__init__()
+    def __init__(self, min: float = -1., max: float = 1.):
+        super().__init__()
         self.min = min
         self.max = max
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         """Forward function.
 
         Args:
@@ -67,7 +88,7 @@ class GELU(nn.Module):
         >>> output = m(input)
     """
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return F.gelu(input)
 
 
@@ -78,11 +99,12 @@ else:
     ACTIVATION_LAYERS.register_module(module=nn.GELU)
 
 
-def build_activation_layer(cfg):
+def build_activation_layer(cfg: Dict) -> nn.Module:
     """Build activation layer.
 
     Args:
         cfg (dict): The activation layer config, which should contain:
+
             - type (str): Layer type.
             - layer args: Args needed to instantiate an activation layer.
 

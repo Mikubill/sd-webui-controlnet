@@ -1,0 +1,747 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+
+#include "common_mlu_helper.hpp"
+
+#define ROI_OFFSET 7
+#define FLOAT_NRAM_BUFFER_NUM 14
+#define HALF_NRAM_BUFFER_NUM 25
+#define ALIGN_NUM 64
+
+__nram__ char data_nram[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelPtsIdxOfVoxels(
+    const int pool_method, const int boxes_num, const int pts_num,
+    const int max_pts_each_voxel, const int out_x, const int out_y,
+    const int out_z, const T *rois, const T *pts, int *pts_idx_of_voxels) {
+  // params (T)rois: (boxes_num, 7)
+  // params (T)pts: (3, pts_num)
+  // params (int)pts_idx_of_voxels: (boxes_num, out_x, out_y, out_z,
+  // max_pts_each_voxel)
+
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  int nram_pts_num = 0;
+  if (sizeof(T) == sizeof(float)) {
+    nram_pts_num = PAD_DOWN(
+        (MAX_NRAM_SIZE / sizeof(float) / FLOAT_NRAM_BUFFER_NUM), ALIGN_NUM);
+  } else {
+    nram_pts_num = PAD_DOWN(
+        (MAX_NRAM_SIZE / sizeof(half) / HALF_NRAM_BUFFER_NUM), ALIGN_NUM);
+  }
+
+  char *X = NULL;
+  char *Y = NULL;
+  char *Z = NULL;
+  char *local_X = NULL;
+  char *local_Y = NULL;
+  char *local_Z = NULL;
+  char *nram_pts_in_flag = NULL;
+  float *temp_buffer1 = NULL;
+  float *temp_buffer2 = NULL;
+  float *temp_buffer3 = NULL;
+  float *temp_buffer4 = NULL;
+  float *temp_buffer5 = NULL;
+  float *nram_voxel_offset = NULL;
+  int *nram_pts_idx_seq = NULL;
+  float *fp_local_X = NULL;
+  float *fp_local_Y = NULL;
+  float *fp_local_Z = NULL;
+  float *fp_nram_pts_in_flag = NULL;
+  if (sizeof(T) == sizeof(float)) {
+    X = (char *)((float *)data_nram);
+    Y = (char *)((float *)data_nram + nram_pts_num);
+    Z = (char *)((float *)data_nram + nram_pts_num * 2);
+    local_X = (char *)((float *)data_nram + nram_pts_num * 3);
+    local_Y = (char *)((float *)data_nram + nram_pts_num * 4);
+    local_Z = (char *)((float *)data_nram + nram_pts_num * 5);
+    nram_pts_in_flag = (char *)((float *)data_nram + nram_pts_num * 6);
+    temp_buffer1 = (float *)data_nram + nram_pts_num * 7;
+    temp_buffer2 = (float *)data_nram + nram_pts_num * 8;
+    temp_buffer3 = (float *)data_nram + nram_pts_num * 9;
+    temp_buffer4 = (float *)data_nram + nram_pts_num * 10;
+    temp_buffer5 = (float *)data_nram + nram_pts_num * 11;
+    nram_voxel_offset = (float *)data_nram + nram_pts_num * 12;
+    nram_pts_idx_seq = (int *)((float *)data_nram + nram_pts_num * 13);
+    fp_local_X = (float *)local_X;
+    fp_local_Y = (float *)local_Y;
+    fp_local_Z = (float *)local_Z;
+    fp_nram_pts_in_flag = (float *)nram_pts_in_flag;
+  } else {
+    X = (char *)((half *)data_nram);
+    Y = (char *)((half *)data_nram + nram_pts_num);
+    Z = (char *)((half *)data_nram + nram_pts_num * 2);
+    local_X = (char *)((half *)data_nram + nram_pts_num * 4);
+    local_Y = (char *)((half *)data_nram + nram_pts_num * 6);
+    local_Z = (char *)((half *)data_nram + nram_pts_num * 8);
+    nram_pts_in_flag = (char *)((half *)data_nram + nram_pts_num * 10);
+    temp_buffer1 = (float *)((half *)data_nram + nram_pts_num * 11);
+    temp_buffer2 = (float *)((half *)data_nram + nram_pts_num * 13);
+    temp_buffer3 = (float *)((half *)data_nram + nram_pts_num * 15);
+    temp_buffer4 = (float *)((half *)data_nram + nram_pts_num * 17);
+    temp_buffer5 = (float *)((half *)data_nram + nram_pts_num * 19);
+    nram_voxel_offset = (float *)((half *)data_nram + nram_pts_num * 21);
+    nram_pts_idx_seq = (int *)((half *)data_nram + nram_pts_num * 23);
+    fp_local_X = (float *)((half *)local_X - nram_pts_num);
+    fp_local_Y = (float *)((half *)local_Y - nram_pts_num);
+    fp_local_Z = (float *)((half *)local_Z - nram_pts_num);
+    fp_nram_pts_in_flag = (float *)((half *)nram_pts_in_flag - nram_pts_num);
+  }
+
+  for (int i = 0; i < nram_pts_num; i++) {
+    nram_pts_idx_seq[i] = i;
+  }
+
+  int nram_pts_loop_times = pts_num / nram_pts_num;
+  int rem_nram_num = pts_num % nram_pts_num;
+
+  for (int roi_index = taskId; roi_index < boxes_num; roi_index += taskDim) {
+    const T *cur_roi = rois + roi_index * ROI_OFFSET;
+    T cx = cur_roi[0];
+    T cy = cur_roi[1];
+    T cz = cur_roi[2];
+    T dx = cur_roi[3];
+    T dy = cur_roi[4];
+    T dz = cur_roi[5];
+    T rz = cur_roi[6];
+
+    T dx_2 = dx / 2.0;
+    T dy_2 = dy / 2.0;
+    T dz_2 = dz / 2.0;
+
+    for (int loop_idx = 0; loop_idx <= nram_pts_loop_times; loop_idx++) {
+      int load_pts_num =
+          (loop_idx == nram_pts_loop_times) ? rem_nram_num : nram_pts_num;
+      if (load_pts_num == 0) {
+        break;
+      }
+      int pts_offset_cur_loop = nram_pts_num * loop_idx;
+      int compute_pts_num = (loop_idx == nram_pts_loop_times)
+                                ? PAD_UP(rem_nram_num, ALIGN_NUM)
+                                : nram_pts_num;
+      // load pts
+      __memcpy((void *)X, (T *)pts + pts_offset_cur_loop,
+               load_pts_num * sizeof(T), GDRAM2NRAM);
+      __memcpy((void *)Y, (T *)pts + pts_num + pts_offset_cur_loop,
+               load_pts_num * sizeof(T), GDRAM2NRAM);
+      __memcpy((void *)Z, (T *)pts + pts_num * 2 + pts_offset_cur_loop,
+               load_pts_num * sizeof(T), GDRAM2NRAM);
+      // fabs(local_z)
+      __bang_sub_scalar((T *)local_Z, (T *)Z, (T)cz, compute_pts_num);
+      __bang_sub_scalar((T *)temp_buffer1, (T *)Z, (T)(cz + dz_2),
+                        compute_pts_num);
+      __bang_active_abs((T *)temp_buffer1, (T *)temp_buffer1, compute_pts_num);
+#if __BANG_ARCH__ >= 322
+      __bang_le_scalar((T *)nram_pts_in_flag, (T *)temp_buffer1, (T)(dz_2),
+                       compute_pts_num);
+#else
+      __bang_write_value((void *)temp_buffer2, compute_pts_num, (T)(dz_2));
+      __bang_le((T *)nram_pts_in_flag, (T *)temp_buffer1, (T *)temp_buffer2,
+                compute_pts_num);
+#endif
+      T cosa = std::cos(-rz);
+      T sina = std::sin(-rz);
+      __bang_sub_scalar((T *)temp_buffer3, (T *)X, (T)cx, compute_pts_num);
+      __bang_sub_scalar((T *)temp_buffer4, (T *)Y, (T)cy, compute_pts_num);
+      __bang_mul_scalar((T *)temp_buffer1, (T *)temp_buffer3, (T)cosa,
+                        compute_pts_num);
+      __bang_mul_scalar((T *)temp_buffer2, (T *)temp_buffer4, (T)sina,
+                        compute_pts_num);
+      // local_x
+      __bang_sub((T *)local_X, (T *)temp_buffer1, (T *)temp_buffer2,
+                 compute_pts_num);
+      // fabs(local_x)
+      __bang_active_abs((T *)temp_buffer1, (T *)local_X, compute_pts_num);
+      // fabs(local_x) < dx/2 ? 1 : 0
+#if __BANG_ARCH__ >= 322
+      __bang_lt_scalar((T *)temp_buffer1, (T *)temp_buffer1, (T)(dx_2),
+                       compute_pts_num);
+#else
+      __bang_write_value((void *)temp_buffer2, compute_pts_num, (T)(dx_2));
+      __bang_lt((T *)temp_buffer1, (T *)temp_buffer1, (T *)temp_buffer2,
+                compute_pts_num);
+#endif
+      __bang_and((T *)nram_pts_in_flag, (T *)nram_pts_in_flag,
+                 (T *)temp_buffer1,
+                 compute_pts_num);  // flush res
+
+      __bang_mul_scalar((T *)temp_buffer1, (T *)temp_buffer3, (T)sina,
+                        compute_pts_num);
+      __bang_mul_scalar((T *)temp_buffer2, (T *)temp_buffer4, (T)cosa,
+                        compute_pts_num);
+      // local_y
+      __bang_add((T *)local_Y, (T *)temp_buffer1, (T *)temp_buffer2,
+                 compute_pts_num);
+      // fabs(local_y)
+      __bang_active_abs((T *)temp_buffer1, (T *)local_Y, compute_pts_num);
+      // fabs(local_y) < dy/2 ? 1 : 0
+#if __BANG_ARCH__ >= 322
+      __bang_lt_scalar((T *)temp_buffer1, (T *)temp_buffer1, (T)(dy_2),
+                       compute_pts_num);
+#else
+      __bang_write_value((void *)temp_buffer2, compute_pts_num, (T)(dy_2));
+      __bang_lt((T *)temp_buffer1, (T *)temp_buffer1, (T *)temp_buffer2,
+                compute_pts_num);
+#endif
+      __bang_and((T *)nram_pts_in_flag, (T *)nram_pts_in_flag,
+                 (T *)temp_buffer1,
+                 compute_pts_num);  // flush res
+      T x_res = dx / out_x;
+      T y_res = dy / out_y;
+      T z_res = dz / out_z;
+      __bang_add_scalar((T *)local_X, (T *)local_X, (T)(dx_2), compute_pts_num);
+      __bang_add_scalar((T *)local_Y, (T *)local_Y, (T)(dy_2), compute_pts_num);
+      // local_Z do not need to add dz/2.0
+
+#if (__BANG_ARCH__ >= 322) && (__BANG_ARCH__ != 372)
+      __bang_div((T *)local_X, (T *)local_X, (T)x_res, compute_pts_num);
+      __bang_div((T *)local_Y, (T *)local_Y, (T)y_res, compute_pts_num);
+      __bang_div((T *)local_Z, (T *)local_Z, (T)z_res, compute_pts_num);
+#else
+      __bang_mul_scalar((T *)local_X, (T *)local_X, (T)(1 / x_res),
+                        compute_pts_num);
+      __bang_mul_scalar((T *)local_Y, (T *)local_Y, (T)(1 / y_res),
+                        compute_pts_num);
+      __bang_mul_scalar((T *)local_Z, (T *)local_Z, (T)(1 / z_res),
+                        compute_pts_num);
+#endif
+      // float = float2int + int2float, half = half2int + int2float
+      if (sizeof(T) == sizeof(float)) {
+#if __BANG_ARCH__ >= 322
+        __bang_float2int32_tz((int *)temp_buffer1, (float *)local_X,
+                              compute_pts_num, 0);
+        __bang_float2int32_tz((int *)temp_buffer2, (float *)local_Y,
+                              compute_pts_num, 0);
+        __bang_float2int32_tz((int *)temp_buffer3, (float *)local_Z,
+                              compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_X, (int *)temp_buffer1,
+                              compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_Y, (int *)temp_buffer2,
+                              compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_Z, (int *)temp_buffer3,
+                              compute_pts_num, 0);
+#else
+        convertFloat2Int((int *)temp_buffer1, (float *)temp_buffer2,
+                         (float *)fp_local_X, (float *)temp_buffer3,
+                         compute_pts_num);
+        convertFloat2Int((int *)temp_buffer2, (float *)temp_buffer3,
+                         (float *)fp_local_Y, (float *)temp_buffer4,
+                         compute_pts_num);
+        convertFloat2Int((int *)temp_buffer3, (float *)temp_buffer4,
+                         (float *)fp_local_Z, (float *)temp_buffer5,
+                         compute_pts_num);
+        convertInt2Float((float *)fp_local_X, (float *)temp_buffer4,
+                         (int *)temp_buffer1, (float *)temp_buffer5,
+                         compute_pts_num);
+        convertInt2Float((float *)fp_local_Y, (float *)temp_buffer4,
+                         (int *)temp_buffer2, (float *)temp_buffer5,
+                         compute_pts_num);
+        convertInt2Float((float *)fp_local_Z, (float *)temp_buffer4,
+                         (int *)temp_buffer3, (float *)temp_buffer5,
+                         compute_pts_num);
+#endif
+      } else {
+        __bang_half2float((float *)temp_buffer4, (half *)nram_pts_in_flag,
+                          compute_pts_num);
+        __bang_move((void *)fp_nram_pts_in_flag, (void *)temp_buffer4,
+                    compute_pts_num * sizeof(float));
+#if __BANG_ARCH__ >= 322
+        __bang_half2int32_tz((int *)temp_buffer1, (half *)local_X,
+                             compute_pts_num, 0);
+        __bang_half2int32_tz((int *)temp_buffer2, (half *)local_Y,
+                             compute_pts_num, 0);
+        __bang_half2int32_tz((int *)temp_buffer3, (half *)local_Z,
+                             compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_X, (int *)temp_buffer1,
+                              compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_Y, (int *)temp_buffer2,
+                              compute_pts_num, 0);
+        __bang_int322float_rn((float *)fp_local_Z, (int *)temp_buffer3,
+                              compute_pts_num, 0);
+#else
+        __bang_half2int16_tz((int16_t *)temp_buffer1, (half *)local_X,
+                             compute_pts_num, 0);
+        __bang_half2int16_tz((int16_t *)temp_buffer2, (half *)local_Y,
+                             compute_pts_num, 0);
+        __bang_half2int16_tz((int16_t *)temp_buffer3, (half *)local_Z,
+                             compute_pts_num, 0);
+        __bang_int162float((float *)fp_local_X, (int16_t *)temp_buffer1,
+                           compute_pts_num, 0);
+        __bang_int162float((float *)fp_local_Y, (int16_t *)temp_buffer2,
+                           compute_pts_num, 0);
+        __bang_int162float((float *)fp_local_Z, (int16_t *)temp_buffer3,
+                           compute_pts_num, 0);
+#endif
+      }
+      // process index >= 0
+      __bang_write_value((float *)temp_buffer4, compute_pts_num, (float)0.0f);
+      __bang_maxequal((float *)fp_local_X, (float *)fp_local_X,
+                      (float *)temp_buffer4, compute_pts_num);
+      __bang_maxequal((float *)fp_local_Y, (float *)fp_local_Y,
+                      (float *)temp_buffer4, compute_pts_num);
+      __bang_maxequal((float *)fp_local_Z, (float *)fp_local_Z,
+                      (float *)temp_buffer4, compute_pts_num);
+      // process index <= （out_x - 1)
+      __bang_write_value((float *)temp_buffer5, compute_pts_num,
+                         (float)(out_x - 1));
+      __bang_minequal((float *)fp_local_X, (float *)fp_local_X,
+                      (float *)temp_buffer5, compute_pts_num);
+      __bang_write_value((float *)temp_buffer5, compute_pts_num,
+                         (float)(out_y - 1));
+      __bang_minequal((float *)fp_local_Y, (float *)fp_local_Y,
+                      (float *)temp_buffer5, compute_pts_num);
+      __bang_write_value((float *)temp_buffer5, compute_pts_num,
+                         (float)(out_z - 1));
+      __bang_minequal((float *)fp_local_Z, (float *)fp_local_Z,
+                      (float *)temp_buffer5, compute_pts_num);
+      __bang_mul_scalar((float *)temp_buffer1, (float *)fp_local_X,
+                        (float)(out_y * out_z), compute_pts_num);
+      __bang_mul_scalar((float *)temp_buffer2, (float *)fp_local_Y,
+                        (float)out_z, compute_pts_num);
+      __bang_mul_scalar((float *)temp_buffer3, (float *)fp_local_Z, (float)1.0,
+                        compute_pts_num);
+      __bang_add((float *)nram_voxel_offset, (float *)temp_buffer1,
+                 (float *)temp_buffer2, compute_pts_num);
+      __bang_add((float *)nram_voxel_offset, (float *)nram_voxel_offset,
+                 (float *)temp_buffer3, compute_pts_num);
+      __bang_mul_scalar((float *)nram_voxel_offset, (float *)nram_voxel_offset,
+                        (float)max_pts_each_voxel, compute_pts_num);
+      if (compute_pts_num != load_pts_num) {
+        __memset_nram((float *)fp_nram_pts_in_flag + load_pts_num,
+                      compute_pts_num - load_pts_num, (float)0.0);
+      }
+      __bang_collect((float *)temp_buffer4, (float *)nram_pts_idx_seq,
+                     (float *)fp_nram_pts_in_flag, compute_pts_num);
+      int pts_num_in_cur_roi =
+          (int)__bang_count((float *)fp_nram_pts_in_flag, compute_pts_num);
+      int *pts_idx_cur_voxels =
+          (int *)pts_idx_of_voxels +
+          roi_index * out_x * out_y * out_z * max_pts_each_voxel;
+      for (int idx = 0; idx < pts_num_in_cur_roi; idx++) {
+        int cur_pts_idx = *((int *)temp_buffer4 + idx);
+        int offset = (int)(*((float *)nram_voxel_offset + cur_pts_idx));
+        int cnt = pts_idx_cur_voxels[offset];
+        if (cnt < max_pts_each_voxel - 1) {
+          pts_idx_cur_voxels[offset + cnt + 1] =
+              cur_pts_idx + loop_idx * nram_pts_num;
+          pts_idx_cur_voxels[offset]++;
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelRoiawarePool3dForward(
+    const int pool_method, const int boxes_num, const int pts_num,
+    const int channels, const int max_pts_each_voxel, const int out_x,
+    const int out_y, const int out_z, const T *pts_feature,
+    const int *pts_idx_of_voxels, T *pooled_features, int *argmax) {
+  // params (T)pts_feature: (channels, pts_num)
+  // params (int)pts_idx_of_voxels: (boxes_num, out_x, out_y, out_z,
+  // max_pts_each_voxel) params (int)argmax: (boxes_num, out_x, out_y, out_z,
+  // channels) params (T)pooled_features: (boxes_num, out_x, out_y, out_z,
+  // channels)
+
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  int align_num = NFU_ALIGN_SIZE / sizeof(T);
+  int align_max_pts_each_voxel = PAD_UP(max_pts_each_voxel, align_num);
+  int nram_channels_limit =
+      PAD_DOWN((MAX_NRAM_SIZE - 128 -
+                align_max_pts_each_voxel * (sizeof(int) + sizeof(T))) /
+                   ((align_max_pts_each_voxel + 1) * sizeof(T) + sizeof(int)),
+               align_num);
+  int *nram_pts_idx_cur_voxel = (int *)data_nram;
+  // nram_pts_idx_cur_voxel [align_max_pts_each_voxel]
+  T *nram_max_pts_feature_tmp =
+      (T *)((int *)nram_pts_idx_cur_voxel + align_max_pts_each_voxel);
+  // nram_max_pts_feature_tmp [align_max_pts_each_voxel]
+  T *nram_pts_feature_in_voxel =
+      ((T *)nram_max_pts_feature_tmp + align_max_pts_each_voxel);
+  // nram_pts_feature_in_voxel [nram_channels_limit, align_max_pts_each_voxel]
+  T *nram_pooled_features_cur_voxel =
+      ((T *)nram_pts_feature_in_voxel +
+       nram_channels_limit * align_max_pts_each_voxel);
+  // nram_pooled_features_cur_voxel [nram_channels_limit]
+  int *nram_argmax_cur_voxel =
+      (int *)((T *)nram_pooled_features_cur_voxel + nram_channels_limit);
+  // nram_argmax_cur_voxel [nram_channels_limit]
+  char *one_pooled_feature =
+      (char *)((int *)nram_argmax_cur_voxel + nram_channels_limit);
+  // one_pooled_feature [128]
+  int channels_loop_times = channels / nram_channels_limit;
+  int rem_channels = channels % nram_channels_limit;
+  for (int voxel_index = taskId;
+       voxel_index < boxes_num * out_x * out_y * out_z;
+       voxel_index += taskDim) {
+    int *pts_idx_cur_voxels =
+        (int *)pts_idx_of_voxels + voxel_index * max_pts_each_voxel;
+    __memcpy((void *)nram_pts_idx_cur_voxel, (void *)pts_idx_cur_voxels,
+             max_pts_each_voxel * sizeof(int), GDRAM2NRAM);
+    int pts_num_cur_voxel = nram_pts_idx_cur_voxel[0];
+    if (pts_num_cur_voxel == 0) {
+      continue;
+    }
+    for (int channels_loop_idx = 0; channels_loop_idx <= channels_loop_times;
+         channels_loop_idx++) {
+      int actual_channels_num = (channels_loop_idx == channels_loop_times)
+                                    ? rem_channels
+                                    : nram_channels_limit;
+      if (actual_channels_num == 0) {
+        break;
+      }
+      int channels_offset = nram_channels_limit * channels_loop_idx;
+
+#if ((__BANG_ARCH__ >= 200) && (__BANG_ARCH__ < 300))
+      int compute_channels_num = (channels_loop_idx == channels_loop_times)
+                                     ? PAD_UP(rem_channels, align_num)
+                                     : nram_channels_limit;
+      if (pool_method == 0) {
+        __bang_write_value((void *)nram_pts_feature_in_voxel,
+                           compute_channels_num * align_max_pts_each_voxel,
+                           (T)-INFINITY);
+      }
+#endif
+
+      T *pts_feature_cur_loop = (T *)pts_feature + channels_offset * pts_num;
+      for (int idx = 0; idx < pts_num_cur_voxel; idx++) {
+        __memcpy((T *)nram_pts_feature_in_voxel + idx,
+                 (T *)pts_feature_cur_loop + nram_pts_idx_cur_voxel[idx + 1],
+                 sizeof(T), GDRAM2NRAM, align_max_pts_each_voxel * sizeof(T),
+                 pts_num * sizeof(T), actual_channels_num - 1);
+      }
+      for (int channel_idx = 0; channel_idx < actual_channels_num;
+           channel_idx++) {
+        if (pool_method == 0) {
+#if __BANG_ARCH__ >= 322
+          __bang_argmax((T *)one_pooled_feature,
+                        (T *)nram_pts_feature_in_voxel +
+                            channel_idx * align_max_pts_each_voxel,
+                        pts_num_cur_voxel);
+          T max_val = ((T *)one_pooled_feature)[0];
+          int max_idx = (int)(*(uint32_t *)((T *)one_pooled_feature + 1));
+          nram_pooled_features_cur_voxel[channel_idx] =
+              (max_val == -INFINITY) ? 0 : max_val;
+          nram_argmax_cur_voxel[channel_idx] =
+              (max_val == -INFINITY) ? -1 : nram_pts_idx_cur_voxel[max_idx + 1];
+#else
+          // __bang_max need align num on mlu200 series
+          if (sizeof(T) == sizeof(float)) {
+            __bang_max((float *)one_pooled_feature,
+                       (float *)nram_pts_feature_in_voxel +
+                           channel_idx * align_max_pts_each_voxel,
+                       align_max_pts_each_voxel);
+            float max_val = ((float *)one_pooled_feature)[0];
+            __bang_write_value((void *)nram_max_pts_feature_tmp,
+                               align_max_pts_each_voxel, (float)max_val);
+            __bang_eq((float *)nram_max_pts_feature_tmp,
+                      (float *)nram_pts_feature_in_voxel +
+                          channel_idx * align_max_pts_each_voxel,
+                      (float *)nram_max_pts_feature_tmp,
+                      align_max_pts_each_voxel);
+            int max_idx = (int)__bang_findfirst1(
+                (float *)nram_max_pts_feature_tmp, align_max_pts_each_voxel);
+            nram_pooled_features_cur_voxel[channel_idx] =
+                (max_val == -INFINITY) ? 0 : max_val;
+            nram_argmax_cur_voxel[channel_idx] =
+                (max_val == -INFINITY) ? -1
+                                       : nram_pts_idx_cur_voxel[max_idx + 1];
+          } else {
+            int max_idx = -1;
+            float max_val = -INFINITY;
+            for (int k = 0; k < pts_num_cur_voxel; k++) {
+              float pts_feature_cur_channel = __half2float_rd(
+                  *((half *)nram_pts_feature_in_voxel +
+                    channel_idx * align_max_pts_each_voxel + k));
+              if (pts_feature_cur_channel > max_val) {
+                max_val = pts_feature_cur_channel;
+                max_idx = k;
+              }
+            }
+            nram_pooled_features_cur_voxel[channel_idx] =
+                (max_idx == -1) ? 0 : max_val;
+            nram_argmax_cur_voxel[channel_idx] =
+                (max_idx == -1) ? -1 : nram_pts_idx_cur_voxel[max_idx + 1];
+          }
+#endif
+        } else if (pool_method == 1) {
+          float sum_val_cur_channel = 0;
+          for (int k = 0; k < pts_num_cur_voxel; k++) {
+            sum_val_cur_channel += static_cast<float>(
+                ((T *)nram_pts_feature_in_voxel)[channel_idx *
+                                                     align_max_pts_each_voxel +
+                                                 k]);
+          }
+          nram_pooled_features_cur_voxel[channel_idx] =
+              (T)(sum_val_cur_channel / pts_num_cur_voxel);
+        }
+      }
+      // store
+      __memcpy((T *)pooled_features + voxel_index * channels + channels_offset,
+               (void *)nram_pooled_features_cur_voxel,
+               actual_channels_num * sizeof(T), NRAM2GDRAM);
+      if (pool_method == 0) {
+        __memcpy((int *)argmax + voxel_index * channels + channels_offset,
+                 (void *)nram_argmax_cur_voxel,
+                 actual_channels_num * sizeof(int), NRAM2GDRAM);
+      }
+    }
+  }
+}
+
+void KernelPtsIdxOfVoxels(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
+                          cnrtQueue_t queue, const cnrtDataType_t d_type,
+                          const int pool_method, const int boxes_num,
+                          const int pts_num, const int max_pts_each_voxel,
+                          const int out_x, const int out_y, const int out_z,
+                          const void *rois, const void *pts,
+                          int *pts_idx_of_voxels) {
+  switch (d_type) {
+    case CNRT_FLOAT32: {
+      MLUUnion1KernelPtsIdxOfVoxels<float><<<k_dim, k_type, queue>>>(
+          pool_method, boxes_num, pts_num, max_pts_each_voxel, out_x, out_y,
+          out_z, (float *)rois, (float *)pts, (int *)pts_idx_of_voxels);
+    }; break;
+    case CNRT_FLOAT16: {
+      MLUUnion1KernelPtsIdxOfVoxels<half><<<k_dim, k_type, queue>>>(
+          pool_method, boxes_num, pts_num, max_pts_each_voxel, out_x, out_y,
+          out_z, (half *)rois, (half *)pts, (int *)pts_idx_of_voxels);
+    }; break;
+    default: {
+      break;
+    }
+  }
+}
+
+void KernelRoiawarePool3dForward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const cnrtDataType_t d_type, const int pool_method, const int boxes_num,
+    const int pts_num, const int channels, const int max_pts_each_voxel,
+    const int out_x, const int out_y, const int out_z, const void *pts_feature,
+    const int *pts_idx_of_voxels, void *pooled_features, int *argmax) {
+  switch (d_type) {
+    case CNRT_FLOAT32: {
+      MLUUnion1KernelRoiawarePool3dForward<float><<<k_dim, k_type, queue>>>(
+          pool_method, boxes_num, pts_num, channels, max_pts_each_voxel, out_x,
+          out_y, out_z, (float *)pts_feature, (int *)pts_idx_of_voxels,
+          (float *)pooled_features, (int *)argmax);
+    }; break;
+    case CNRT_FLOAT16: {
+      MLUUnion1KernelRoiawarePool3dForward<half><<<k_dim, k_type, queue>>>(
+          pool_method, boxes_num, pts_num, channels, max_pts_each_voxel, out_x,
+          out_y, out_z, (half *)pts_feature, (int *)pts_idx_of_voxels,
+          (half *)pooled_features, (int *)argmax);
+    }; break;
+    default: {
+      break;
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelRoiawareMaxPool3dBackward(
+    const int boxes_num, const int out_x, const int out_y, const int out_z,
+    const int channels, const int *argmax, const T *grad_out, T *grad_in) {
+  // params (int)argmax: (boxes_num, out_x, out_y, out_z, channels)
+  // params (T)grad_out: (boxes_num, out_x, out_y, out_z, channels)
+  // params (T)grad_in: (pts_num, channels)
+
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  int nram_channels_limit =
+      (MAX_NRAM_SIZE - sizeof(T) * 1) / (sizeof(T) + sizeof(int));
+  int *nram_argmax_cur_loop = (int *)data_nram;
+  // nram_argmax_cur_loop [nram_channels_limit]
+  T *nram_grad_out_cur_loop =
+      (T *)((int *)nram_argmax_cur_loop + nram_channels_limit);
+  // nram_grad_out_cur_loop [nram_channels_limit]
+  T *nram_grad_in_cur_channel =
+      (T *)nram_grad_out_cur_loop + nram_channels_limit;
+  // nram_grad_in_cur_channel [1]
+  int channels_loop_times = channels / nram_channels_limit;
+  int rem_channels = channels % nram_channels_limit;
+  int voxels_num = boxes_num * out_x * out_y * out_z;
+
+  for (int voxel_index = taskId; voxel_index < voxels_num;
+       voxel_index += taskDim) {
+    const int *argmax_cur_voxel = argmax + voxel_index * channels;
+    const T *grad_out_cur_voxel = grad_out + voxel_index * channels;
+
+    for (int channels_loop_idx = 0; channels_loop_idx <= channels_loop_times;
+         channels_loop_idx++) {
+      int actual_channels_num = (channels_loop_idx == channels_loop_times)
+                                    ? rem_channels
+                                    : nram_channels_limit;
+      if (actual_channels_num == 0) {
+        break;
+      }
+      const int *argmax_cur_loop =
+          argmax_cur_voxel + nram_channels_limit * channels_loop_idx;
+      const T *grad_out_cur_loop =
+          grad_out_cur_voxel + nram_channels_limit * channels_loop_idx;
+      __memcpy((void *)nram_argmax_cur_loop, (void *)argmax_cur_loop,
+               actual_channels_num * sizeof(int), GDRAM2NRAM);
+      __memcpy((void *)nram_grad_out_cur_loop, (void *)grad_out_cur_loop,
+               actual_channels_num * sizeof(T), GDRAM2NRAM);
+
+      for (int channel_idx = 0; channel_idx < actual_channels_num;
+           channel_idx++) {
+        int *nram_argmax_cur_channel = nram_argmax_cur_loop + channel_idx;
+        T *nram_grad_out_cur_channel = nram_grad_out_cur_loop + channel_idx;
+        if (nram_argmax_cur_channel[0] == -1) {
+          continue;
+        }
+        T *grad_in_cur_channel =
+            grad_in + nram_argmax_cur_channel[0] * channels +
+            nram_channels_limit * channels_loop_idx + channel_idx;
+        __bang_atomic_add((T *)nram_grad_in_cur_channel,
+                          (T *)grad_in_cur_channel,
+                          (T *)(nram_grad_out_cur_channel), 1);
+      }
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelRoiawareAvgPool3dBackward(
+    const int boxes_num, const int out_x, const int out_y, const int out_z,
+    const int channels, const int max_pts_each_voxel,
+    const int *pts_idx_of_voxels, const T *grad_out, T *grad_in) {
+  // params (int)pts_idx_of_voxels: (boxes_num, out_x, out_y, out_z,
+  // max_pts_each_voxel) params (T)grad_out: (boxes_num, out_x, out_y, out_z,
+  // channels) params (T)grad_in: (pts_num, channels)
+
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  int align_num = NFU_ALIGN_SIZE / sizeof(T);
+  int align_max_pts_each_voxel = PAD_UP(max_pts_each_voxel, align_num);
+  int nram_channels_limit = PAD_DOWN(
+      (MAX_NRAM_SIZE - align_max_pts_each_voxel * sizeof(int)) / 2 / sizeof(T),
+      align_num);
+  int *nram_pts_idx_cur_voxel = (int *)data_nram;
+  // nram_pts_idx_cur_voxel [align_max_pts_each_voxel]
+  T *nram_grad_out_cur_loop =
+      (T *)((int *)nram_pts_idx_cur_voxel + align_max_pts_each_voxel);
+  // nram_grad_out_cur_loop [nram_channels_limit]
+  T *nram_grad_in_cur_loop = (T *)nram_grad_out_cur_loop + nram_channels_limit;
+  // nram_grad_in_cur_loop [nram_channels_limit]
+  int channels_loop_times = channels / nram_channels_limit;
+  int rem_channels = channels % nram_channels_limit;
+  int voxels_num = boxes_num * out_x * out_y * out_z;
+
+  for (int voxel_index = taskId; voxel_index < voxels_num;
+       voxel_index += taskDim) {
+    const T *grad_out_cur_voxel = grad_out + voxel_index * channels;
+    const int *pts_idx_cur_voxel =
+        pts_idx_of_voxels + voxel_index * max_pts_each_voxel;
+    __memcpy((void *)nram_pts_idx_cur_voxel, (void *)pts_idx_cur_voxel,
+             max_pts_each_voxel * sizeof(int), GDRAM2NRAM);
+    int total_pts_of_voxel = nram_pts_idx_cur_voxel[0];
+    if (total_pts_of_voxel <= 0) {
+      continue;
+    }
+    float cur_grad = 1.0 / ((float)total_pts_of_voxel);
+
+    for (int channels_loop_idx = 0; channels_loop_idx <= channels_loop_times;
+         channels_loop_idx++) {
+      int actual_channels_num = (channels_loop_idx == channels_loop_times)
+                                    ? rem_channels
+                                    : nram_channels_limit;
+      if (actual_channels_num == 0) {
+        break;
+      }
+      const T *grad_out_cur_loop =
+          grad_out_cur_voxel + nram_channels_limit * channels_loop_idx;
+      __memcpy((void *)nram_grad_in_cur_loop, (void *)grad_out_cur_loop,
+               actual_channels_num * sizeof(T), GDRAM2NRAM);
+
+      int align_actual_channels_num = PAD_UP(actual_channels_num, align_num);
+
+      if (sizeof(T) == sizeof(half)) {
+        __bang_half2float((float *)nram_grad_out_cur_loop,
+                          (half *)nram_grad_in_cur_loop,
+                          align_actual_channels_num);
+        __bang_mul_scalar((float *)nram_grad_out_cur_loop,
+                          (float *)nram_grad_out_cur_loop, (float)cur_grad,
+                          align_actual_channels_num);
+        convertFloat2half((half *)nram_grad_out_cur_loop,
+                          (float *)nram_grad_out_cur_loop,
+                          align_actual_channels_num);
+      } else {
+        __bang_mul_scalar((float *)nram_grad_out_cur_loop,
+                          (float *)nram_grad_in_cur_loop, (float)cur_grad,
+                          align_actual_channels_num);
+      }
+      for (int k = 1; k <= total_pts_of_voxel; k++) {
+        T *grad_in_cur_loop = grad_in + nram_pts_idx_cur_voxel[k] * channels +
+                              nram_channels_limit * channels_loop_idx;
+        __bang_atomic_add((T *)nram_grad_in_cur_loop, (T *)grad_in_cur_loop,
+                          (T *)nram_grad_out_cur_loop, actual_channels_num);
+      }
+    }
+  }
+}
+
+void KernelRoiawarePool3dBackward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const cnrtDataType_t d_type, const int pool_method, const int boxes_num,
+    const int out_x, const int out_y, const int out_z, const int channels,
+    const int max_pts_each_voxel, const int *pts_idx_of_voxels,
+    const int *argmax, const void *grad_out, void *grad_in) {
+  if (pool_method == 0) {
+    switch (d_type) {
+      case CNRT_FLOAT32: {
+        MLUUnion1KernelRoiawareMaxPool3dBackward<float>
+            <<<k_dim, k_type, queue>>>(boxes_num, out_x, out_y, out_z, channels,
+                                       (int *)argmax, (float *)grad_out,
+                                       (float *)grad_in);
+      }; break;
+      case CNRT_FLOAT16: {
+        MLUUnion1KernelRoiawareMaxPool3dBackward<half>
+            <<<k_dim, k_type, queue>>>(boxes_num, out_x, out_y, out_z, channels,
+                                       (int *)argmax, (half *)grad_out,
+                                       (half *)grad_in);
+      }; break;
+      default: {
+        break;
+      }
+    }
+  } else {
+    switch (d_type) {
+      case CNRT_FLOAT32: {
+        MLUUnion1KernelRoiawareAvgPool3dBackward<float>
+            <<<k_dim, k_type, queue>>>(
+                boxes_num, out_x, out_y, out_z, channels, max_pts_each_voxel,
+                (int *)pts_idx_of_voxels, (float *)grad_out, (float *)grad_in);
+      }; break;
+      case CNRT_FLOAT16: {
+        MLUUnion1KernelRoiawareAvgPool3dBackward<half>
+            <<<k_dim, k_type, queue>>>(
+                boxes_num, out_x, out_y, out_z, channels, max_pts_each_voxel,
+                (int *)pts_idx_of_voxels, (half *)grad_out, (half *)grad_in);
+      }; break;
+      default: {
+        break;
+      }
+    }
+  }
+}

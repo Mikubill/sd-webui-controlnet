@@ -113,7 +113,8 @@ class FusedBiasLeakyReLUFunctionBackward(Function):
     """
 
     @staticmethod
-    def forward(ctx, grad_output, out, negative_slope, scale):
+    def forward(ctx, grad_output: torch.Tensor, out: torch.Tensor,
+                negative_slope: float, scale: float) -> tuple:
         ctx.save_for_backward(out)
         ctx.negative_slope = negative_slope
         ctx.scale = scale
@@ -139,7 +140,8 @@ class FusedBiasLeakyReLUFunctionBackward(Function):
         return grad_input, grad_bias
 
     @staticmethod
-    def backward(ctx, gradgrad_input, gradgrad_bias):
+    def backward(ctx, gradgrad_input: torch.Tensor,
+                 gradgrad_bias: nn.Parameter) -> tuple:
         out, = ctx.saved_tensors
 
         # The second order deviation, in fact, contains two parts, while the
@@ -160,7 +162,8 @@ class FusedBiasLeakyReLUFunctionBackward(Function):
 class FusedBiasLeakyReLUFunction(Function):
 
     @staticmethod
-    def forward(ctx, input, bias, negative_slope, scale):
+    def forward(ctx, input: torch.Tensor, bias: nn.Parameter,
+                negative_slope: float, scale: float) -> torch.Tensor:
         empty = input.new_empty(0)
 
         out = ext_module.fused_bias_leakyrelu(
@@ -178,7 +181,7 @@ class FusedBiasLeakyReLUFunction(Function):
         return out
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, grad_output: torch.Tensor) -> tuple:
         out, = ctx.saved_tensors
 
         grad_input, grad_bias = FusedBiasLeakyReLUFunctionBackward.apply(
@@ -188,51 +191,59 @@ class FusedBiasLeakyReLUFunction(Function):
 
 
 class FusedBiasLeakyReLU(nn.Module):
-    """Fused bias leaky ReLU.
+    r"""Fused bias leaky ReLU.
 
     This function is introduced in the StyleGAN2:
-    http://arxiv.org/abs/1912.04958
+    `Analyzing and Improving the Image Quality of StyleGAN
+    <http://arxiv.org/abs/1912.04958>`_
 
     The bias term comes from the convolution operation. In addition, to keep
     the variance of the feature map or gradients unchanged, they also adopt a
     scale similarly with Kaiming initialization. However, since the
-    :math:`1+{alpha}^2` : is too small, we can just ignore it. Therefore, the
-    final scale is just :math:`\sqrt{2}`:. Of course, you may change it with # noqa: W605, E501
+    :math:`1+{alpha}^2` is too small, we can just ignore it. Therefore, the
+    final scale is just :math:`\sqrt{2}`. Of course, you may change it with
     your own scale.
 
     TODO: Implement the CPU version.
 
     Args:
-        channel (int): The channel number of the feature map.
+        num_channels (int): The channel number of the feature map.
         negative_slope (float, optional): Same as nn.LeakyRelu.
             Defaults to 0.2.
         scale (float, optional): A scalar to adjust the variance of the feature
             map. Defaults to 2**0.5.
     """
 
-    def __init__(self, num_channels, negative_slope=0.2, scale=2**0.5):
-        super(FusedBiasLeakyReLU, self).__init__()
+    def __init__(self,
+                 num_channels: int,
+                 negative_slope: float = 0.2,
+                 scale: float = 2**0.5):
+        super().__init__()
 
         self.bias = nn.Parameter(torch.zeros(num_channels))
         self.negative_slope = negative_slope
         self.scale = scale
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return fused_bias_leakyrelu(input, self.bias, self.negative_slope,
                                     self.scale)
 
 
-def fused_bias_leakyrelu(input, bias, negative_slope=0.2, scale=2**0.5):
-    """Fused bias leaky ReLU function.
+def fused_bias_leakyrelu(input: torch.Tensor,
+                         bias: nn.Parameter,
+                         negative_slope: float = 0.2,
+                         scale: float = 2**0.5) -> torch.Tensor:
+    r"""Fused bias leaky ReLU function.
 
     This function is introduced in the StyleGAN2:
-    http://arxiv.org/abs/1912.04958
+    `Analyzing and Improving the Image Quality of StyleGAN
+    <http://arxiv.org/abs/1912.04958>`_
 
     The bias term comes from the convolution operation. In addition, to keep
     the variance of the feature map or gradients unchanged, they also adopt a
     scale similarly with Kaiming initialization. However, since the
-    :math:`1+{alpha}^2` : is too small, we can just ignore it. Therefore, the
-    final scale is just :math:`\sqrt{2}`:. Of course, you may change it with # noqa: W605, E501
+    :math:`1+{alpha}^2` is too small, we can just ignore it. Therefore, the
+    final scale is just :math:`\sqrt{2}`. Of course, you may change it with
     your own scale.
 
     Args:
@@ -246,15 +257,18 @@ def fused_bias_leakyrelu(input, bias, negative_slope=0.2, scale=2**0.5):
     Returns:
         torch.Tensor: Feature map after non-linear activation.
     """
-
-    if not input.is_cuda:
+    assert scale > 0, 'The scale should be greater than 0'
+    if not input.is_cuda and input.device.type != 'npu':
         return bias_leakyrelu_ref(input, bias, negative_slope, scale)
 
     return FusedBiasLeakyReLUFunction.apply(input, bias.to(input.dtype),
                                             negative_slope, scale)
 
 
-def bias_leakyrelu_ref(x, bias, negative_slope=0.2, scale=2**0.5):
+def bias_leakyrelu_ref(x: torch.Tensor,
+                       bias: nn.Parameter,
+                       negative_slope: float = 0.2,
+                       scale: float = 2**0.5) -> torch.Tensor:
 
     if bias is not None:
         assert bias.ndim == 1

@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import List, Sequence, Tuple
+
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -7,18 +9,18 @@ from torch._utils import (_flatten_dense_tensors, _take_tensors,
 
 from annotator.mmpkg.mmcv.utils import TORCH_VERSION, digit_version
 from .registry import MODULE_WRAPPERS
-from .scatter_gather import scatter_kwargs
+from .scatter_gather import ScatterInputs, scatter_kwargs
 
 
 @MODULE_WRAPPERS.register_module()
 class MMDistributedDataParallel(nn.Module):
 
     def __init__(self,
-                 module,
-                 dim=0,
-                 broadcast_buffers=True,
-                 bucket_cap_mb=25):
-        super(MMDistributedDataParallel, self).__init__()
+                 module: nn.Module,
+                 dim: int = 0,
+                 broadcast_buffers: bool = True,
+                 bucket_cap_mb: int = 25):
+        super().__init__()
         self.module = module
         self.dim = dim
         self.broadcast_buffers = broadcast_buffers
@@ -26,7 +28,8 @@ class MMDistributedDataParallel(nn.Module):
         self.broadcast_bucket_size = bucket_cap_mb * 1024 * 1024
         self._sync_params()
 
-    def _dist_broadcast_coalesced(self, tensors, buffer_size):
+    def _dist_broadcast_coalesced(self, tensors: Sequence[torch.Tensor],
+                                  buffer_size: int) -> None:
         for tensors in _take_tensors(tensors, buffer_size):
             flat_tensors = _flatten_dense_tensors(tensors)
             dist.broadcast(flat_tensors, 0)
@@ -34,7 +37,7 @@ class MMDistributedDataParallel(nn.Module):
                     tensors, _unflatten_dense_tensors(flat_tensors, tensors)):
                 tensor.copy_(synced)
 
-    def _sync_params(self):
+    def _sync_params(self) -> None:
         module_states = list(self.module.state_dict().values())
         if len(module_states) > 0:
             self._dist_broadcast_coalesced(module_states,
@@ -49,7 +52,8 @@ class MMDistributedDataParallel(nn.Module):
                 self._dist_broadcast_coalesced(buffers,
                                                self.broadcast_bucket_size)
 
-    def scatter(self, inputs, kwargs, device_ids):
+    def scatter(self, inputs: ScatterInputs, kwargs: ScatterInputs,
+                device_ids: List[int]) -> Tuple[tuple, tuple]:
         return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
     def forward(self, *inputs, **kwargs):

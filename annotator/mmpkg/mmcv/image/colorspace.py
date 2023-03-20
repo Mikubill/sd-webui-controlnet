@@ -1,9 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Callable, Union
+
 import cv2
 import numpy as np
 
 
-def imconvert(img, src, dst):
+def imconvert(img: np.ndarray, src: str, dst: str) -> np.ndarray:
     """Convert an image from the src colorspace to dst colorspace.
 
     Args:
@@ -19,7 +21,7 @@ def imconvert(img, src, dst):
     return out_img
 
 
-def bgr2gray(img, keepdim=False):
+def bgr2gray(img: np.ndarray, keepdim: bool = False) -> np.ndarray:
     """Convert a BGR image to grayscale image.
 
     Args:
@@ -36,7 +38,7 @@ def bgr2gray(img, keepdim=False):
     return out_img
 
 
-def rgb2gray(img, keepdim=False):
+def rgb2gray(img: np.ndarray, keepdim: bool = False) -> np.ndarray:
     """Convert a RGB image to grayscale image.
 
     Args:
@@ -53,7 +55,7 @@ def rgb2gray(img, keepdim=False):
     return out_img
 
 
-def gray2bgr(img):
+def gray2bgr(img: np.ndarray) -> np.ndarray:
     """Convert a grayscale image to BGR image.
 
     Args:
@@ -67,7 +69,7 @@ def gray2bgr(img):
     return out_img
 
 
-def gray2rgb(img):
+def gray2rgb(img: np.ndarray) -> np.ndarray:
     """Convert a grayscale image to RGB image.
 
     Args:
@@ -81,7 +83,7 @@ def gray2rgb(img):
     return out_img
 
 
-def _convert_input_type_range(img):
+def _convert_input_type_range(img: np.ndarray) -> np.ndarray:
     """Convert the type and range of the input image.
 
     It converts the input image to np.float32 type and range of [0, 1].
@@ -109,7 +111,8 @@ def _convert_input_type_range(img):
     return img
 
 
-def _convert_output_type_range(img, dst_type):
+def _convert_output_type_range(
+        img: np.ndarray, dst_type: Union[np.uint8, np.float32]) -> np.ndarray:
     """Convert the type and range of the image according to dst_type.
 
     It converts the image to desired type and range. If `dst_type` is np.uint8,
@@ -140,7 +143,7 @@ def _convert_output_type_range(img, dst_type):
     return img.astype(dst_type)
 
 
-def rgb2ycbcr(img, y_only=False):
+def rgb2ycbcr(img: np.ndarray, y_only: bool = False) -> np.ndarray:
     """Convert a RGB image to YCbCr image.
 
     This function produces the same results as Matlab's `rgb2ycbcr` function.
@@ -160,7 +163,7 @@ def rgb2ycbcr(img, y_only=False):
 
     Returns:
         ndarray: The converted YCbCr image. The output image has the same type
-            and range as input image.
+        and range as input image.
     """
     img_type = img.dtype
     img = _convert_input_type_range(img)
@@ -174,7 +177,7 @@ def rgb2ycbcr(img, y_only=False):
     return out_img
 
 
-def bgr2ycbcr(img, y_only=False):
+def bgr2ycbcr(img: np.ndarray, y_only: bool = False) -> np.ndarray:
     """Convert a BGR image to YCbCr image.
 
     The bgr version of rgb2ycbcr.
@@ -194,7 +197,7 @@ def bgr2ycbcr(img, y_only=False):
 
     Returns:
         ndarray: The converted YCbCr image. The output image has the same type
-            and range as input image.
+        and range as input image.
     """
     img_type = img.dtype
     img = _convert_input_type_range(img)
@@ -208,7 +211,7 @@ def bgr2ycbcr(img, y_only=False):
     return out_img
 
 
-def ycbcr2rgb(img):
+def ycbcr2rgb(img: np.ndarray) -> np.ndarray:
     """Convert a YCbCr image to RGB image.
 
     This function produces the same results as Matlab's ycbcr2rgb function.
@@ -227,7 +230,7 @@ def ycbcr2rgb(img):
 
     Returns:
         ndarray: The converted RGB image. The output image has the same type
-            and range as input image.
+        and range as input image.
     """
     img_type = img.dtype
     img = _convert_input_type_range(img) * 255
@@ -240,7 +243,7 @@ def ycbcr2rgb(img):
     return out_img
 
 
-def ycbcr2bgr(img):
+def ycbcr2bgr(img: np.ndarray) -> np.ndarray:
     """Convert a YCbCr image to BGR image.
 
     The bgr version of ycbcr2rgb.
@@ -259,7 +262,7 @@ def ycbcr2bgr(img):
 
     Returns:
         ndarray: The converted BGR image. The output image has the same type
-            and range as input image.
+        and range as input image.
     """
     img_type = img.dtype
     img = _convert_input_type_range(img) * 255
@@ -272,11 +275,10 @@ def ycbcr2bgr(img):
     return out_img
 
 
-def convert_color_factory(src, dst):
-
+def convert_color_factory(src: str, dst: str) -> Callable:
     code = getattr(cv2, f'COLOR_{src.upper()}2{dst.upper()}')
 
-    def convert_color(img):
+    def convert_color(img: np.ndarray) -> np.ndarray:
         out_img = cv2.cvtColor(img, code)
         return out_img
 

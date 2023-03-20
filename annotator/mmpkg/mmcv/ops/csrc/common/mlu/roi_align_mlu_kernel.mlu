@@ -1,0 +1,493 @@
+/*************************************************************************
+ * Copyright (C) 2021 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include "common_mlu_helper.hpp"
+
+#define ROI_OFFSET 5
+
+__nram__ char buffer[MAX_NRAM_SIZE];
+
+namespace forward {
+template <typename T>
+__mlu_func__ void bilinearInterpolate(const int input_height,
+                                      const int input_width, T y, T x, T *w1,
+                                      T *w2, T *w3, T *w4, int *x_low,
+                                      int *x_high, int *y_low, int *y_high,
+                                      bool *empty) {
+  // deal with cases that inverse elements are of feature map boundary
+  if (y < -1.0 || y > input_height || x < -1.0 || x > input_width) {
+    *empty = true;
+    return;
+  }
+
+  if (y <= 0) y = 0;
+  if (x <= 0) x = 0;
+
+  int y_low_ = int(y);
+  int x_low_ = int(x);
+
+  if (y_low_ >= input_height - 1) {
+    *y_high = y_low_ = input_height - 1;
+    y = (T)y_low_;
+  } else {
+    *y_high = y_low_ + 1;
+  }
+
+  if (x_low_ >= input_width - 1) {
+    *x_high = x_low_ = input_width - 1;
+    x = T(x_low_);
+  } else {
+    *x_high = x_low_ + 1;
+  }
+
+  *y_low = y_low_;
+  *x_low = x_low_;
+
+  T ly = y - y_low_;
+  T lx = x - x_low_;
+  T hy = 1.0 - ly;
+  T hx = 1.0 - lx;
+  *w1 = hy * hx, *w2 = hy * lx, *w3 = ly * hx, *w4 = ly * lx;
+  return;
+}
+
+template <typename T>
+__mlu_func__ void computeChannel(T *input_core, T *nram_in, T *output_core,
+                                 T *nram_out, const int roi_bin_grid_h,
+                                 const int roi_bin_grid_w, const T roi_start_h,
+                                 const T roi_start_w, const int ph,
+                                 const int pw, const T bin_size_h,
+                                 const T bin_size_w, const float count,
+                                 const int input_height, const int input_width,
+                                 const int channels, const int cyc_num,
+                                 const int max_elements) {
+  int cyc_channel = max_elements;
+
+  for (int i = 0; i < cyc_num; i++) {
+    int real_channel =
+        (i == cyc_num - 1) ? channels - i * cyc_channel : cyc_channel;
+    int align_channel = PAD_UP(real_channel, NFU_ALIGN_SIZE / sizeof(T));
+    __bang_write_zero(nram_out, align_channel);
+    uint32_t real_size = real_channel * sizeof(T);
+
+    int iy, ix;
+    for (iy = 0; iy < roi_bin_grid_h; iy++) {
+      // 1. compute the coordinates of the y axis in the current roi_bin_grid_h
+      T y = roi_start_h + ph * bin_size_h +
+            (T)(iy + 0.5) * bin_size_h / (T)(roi_bin_grid_h);
+      for (ix = 0; ix < roi_bin_grid_w; ix++) {
+        // 2. compute the coordinates of the x axis in the current
+        //    roi_bin_grid_w
+        T x = roi_start_w + pw * bin_size_w +
+              (T)(ix + 0.5) * bin_size_w / (T)(roi_bin_grid_w);
+
+        // 3. compute the four weights (w1, w2, w3 and w4), the height (y_low
+        //    and y_high) and weight (x_low and x_high) of input feature map in
+        //    the current roi bin grid, and the flag (empty) which shows if x, y
+        //    are out of input feature map ranges
+        T w1, w2, w3, w4;
+        int x_low, x_high, y_low, y_high;
+        bool empty = false;
+
+        bilinearInterpolate(input_height, input_width, y, x, &w1, &w2, &w3, &w4,
+                            &x_low, &x_high, &y_low, &y_high, &empty);
+
+        // 4. compute interpolation of the current roi bin grid
+        //    tmp_cyc1, temp_cyc2, tmp_cyc3 and tmp_cyc4 store the input values
+        //    to compute the interpolation, and then reused to compute
+        //    the argmax_x and argmax_y.
+        T *tmp_cyc1 = nram_in + cyc_channel;
+        T *tmp_cyc2 = nram_in + cyc_channel * 2;
+        T *tmp_cyc3 = nram_in + cyc_channel * 3;
+        T *tmp_cyc4 = nram_in + cyc_channel * 4;
+
+        if (empty) {  // exits abnormal values
+          __bang_write_zero(nram_in, align_channel);
+        } else {
+          __bang_write_zero(nram_in, align_channel);
+          uint32_t offset1 = (y_low * input_width + x_low) * channels;
+          uint32_t offset2 = (y_low * input_width + x_high) * channels;
+          uint32_t offset3 = (y_high * input_width + x_low) * channels;
+          uint32_t offset4 = (y_high * input_width + x_high) * channels;
+          T *input1 = (T *)input_core + offset1 + i * cyc_channel;
+          T *input2 = (T *)input_core + offset2 + i * cyc_channel;
+          T *input3 = (T *)input_core + offset3 + i * cyc_channel;
+          T *input4 = (T *)input_core + offset4 + i * cyc_channel;
+
+          // load the four pixels (p1, p2, p3 and p4) of input feature map to
+          // compute interpolation
+          __memcpy(tmp_cyc1, input1, real_size, GDRAM2NRAM);
+          __memcpy(tmp_cyc2, input2, real_size, GDRAM2NRAM);
+          __memcpy(tmp_cyc3, input3, real_size, GDRAM2NRAM);
+          __memcpy(tmp_cyc4, input4, real_size, GDRAM2NRAM);
+
+          // interpolation value = w1 * p1 + w2 * p2 + w3 * p3 + w4 * p4
+          __bang_mul_scalar(tmp_cyc1, tmp_cyc1, w1, align_channel);
+          __bang_mul_scalar(tmp_cyc2, tmp_cyc2, w2, align_channel);
+          __bang_mul_scalar(tmp_cyc3, tmp_cyc3, w3, align_channel);
+          __bang_mul_scalar(tmp_cyc4, tmp_cyc4, w4, align_channel);
+
+          __bang_add(nram_in, tmp_cyc1, nram_in, align_channel);
+          __bang_add(nram_in, tmp_cyc2, nram_in, align_channel);
+          __bang_add(nram_in, tmp_cyc3, nram_in, align_channel);
+          __bang_add(nram_in, tmp_cyc4, nram_in, align_channel);
+        }
+        // 5. compute sum value and corresponding coordinates of x axis and y
+        //    axis. Update the sum value.
+        __bang_add(nram_out, nram_in, nram_out, align_channel);
+      }  // loop_roi_grid_w
+    }    // loop_roi_grid_h
+    T count_value = (T)(1.0 / count);
+    __bang_mul_scalar(nram_out, nram_out, count_value, align_channel);
+    __memcpy(output_core + i * cyc_channel, nram_out, real_size, NRAM2GDRAM);
+  }  // loop_cyc_num
+}
+
+template <typename T>
+__mlu_func__ void roialignForwardAvg(
+    T *input, T *rois, T *output, const bool aligned, const int channels,
+    const int pooled_height, const int pooled_width, const int input_height,
+    const int input_width, const int sampling_ratio, const T spatial_scale,
+    const int num_rois) {
+  // find limit for channel, the nram space is divided to 6 parts that are
+  // input, 4 weights to compute the interpolation (w1, w2, w3, w4), output
+
+  // max_elements : 300 : float datatype : 27296, half datatype : 54592
+  // max_elements : 200 : float datatype : 16384, half datatype : 32768
+  int max_elements = (PAD_DOWN(MAX_NRAM_SIZE / 6, NFU_ALIGN_SIZE)) / sizeof(T);
+  int cyc_num = channels / max_elements + (int)(channels % max_elements != 0);
+  T offset = aligned ? (T)0.5 : (T)0.0;
+  int task_num = num_rois * pooled_height * pooled_width;
+  T *nram_out = (T *)buffer;
+  T *nram_in = nram_out + max_elements;
+  if (task_num < taskDim) {
+    if (taskId >= task_num) {
+      return;
+    }
+  }
+
+  for (int bin_idx = taskId; bin_idx < task_num; bin_idx = bin_idx + taskDim) {
+    if (bin_idx >= task_num) {
+      return;
+    }
+
+    // (n,ph.pw) is a c in the pooled output
+    int pw = bin_idx % pooled_width;
+    int ph = (bin_idx / pooled_width) % pooled_height;
+    int n = bin_idx / pooled_width / pooled_height;
+
+    T *roi_id_tmp = rois + n * ROI_OFFSET;
+    // 1. compute width and height of roi region.
+    int batch_idx = (int)roi_id_tmp[0];
+    T roi_x1 = roi_id_tmp[1];
+    T roi_y1 = roi_id_tmp[2];
+    T roi_x2 = roi_id_tmp[3];
+    T roi_y2 = roi_id_tmp[4];
+    T roi_start_w = roi_x1 * spatial_scale - offset;
+    T roi_start_h = roi_y1 * spatial_scale - offset;
+    T roi_end_w = roi_x2 * spatial_scale - offset;
+    T roi_end_h = roi_y2 * spatial_scale - offset;
+    T roi_width = roi_end_w - roi_start_w;
+    T roi_height = roi_end_h - roi_start_h;
+
+    if (!aligned) {
+      roi_width = roi_width > (T)(1.0) ? roi_width : (T)(1.0);
+      roi_height = roi_height > (T)(1.0) ? roi_height : (T)(1.0);
+    }
+
+    // 2. compute float-type width and height of roi bin region.
+    T bin_size_w = (T)roi_width / (T)pooled_width;
+    T bin_size_h = (T)roi_height / (T)pooled_height;
+
+    // 3. compute int-type width and height of roi bin region.
+    int roi_bin_grid_h, roi_bin_grid_w;
+    roi_bin_grid_h = (sampling_ratio > 0)
+                         ? sampling_ratio
+                         : int(ceilf(roi_height / pooled_height));
+    roi_bin_grid_w = (sampling_ratio > 0)
+                         ? sampling_ratio
+                         : int(ceilf(roi_width / pooled_width));
+    float count = (float)((roi_bin_grid_h * roi_bin_grid_w) > 1
+                              ? roi_bin_grid_h * roi_bin_grid_w
+                              : 1.0);
+    T *input_core = input + batch_idx * channels * input_width * input_height;
+    T *output_core = output + bin_idx * channels;
+    // 4. compute avg value and corresponding coordinates of x axis and y axis.
+    computeChannel(input_core, nram_in, output_core, nram_out, roi_bin_grid_h,
+                   roi_bin_grid_w, roi_start_h, roi_start_w, ph, pw, bin_size_h,
+                   bin_size_w, count, input_height, input_width, channels,
+                   cyc_num, max_elements);
+  }
+}
+
+__mlu_global__ void MLUUnion1KernelRoiAlignAvg(
+    const void *input, const void *rois, const int channels, const bool aligned,
+    const int pooled_height, const int pooled_width, const int input_height,
+    const int input_width, const int sampling_ratio, const float spatial_scale,
+    const int num_rois, const cnrtDataType_t data_type, void *output) {
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+
+  switch (data_type) {
+    case CNRT_FLOAT16: {
+      roialignForwardAvg((half *)input, (half *)rois, (half *)output, aligned,
+                         channels, pooled_height, pooled_width, input_height,
+                         input_width, sampling_ratio, (half)spatial_scale,
+                         num_rois);
+    }; break;
+    case CNRT_FLOAT32: {
+      roialignForwardAvg((float *)input, (float *)rois, (float *)output,
+                         aligned, channels, pooled_height, pooled_width,
+                         input_height, input_width, sampling_ratio,
+                         (float)spatial_scale, num_rois);
+    }; break;
+    default:
+      break;
+  }
+
+  return;
+}
+}  // namespace forward
+
+namespace backward {
+__mlu_func__ void bilinearInterpolateGradient(int height, int width, float y,
+                                              float x, float *w1, float *w2,
+                                              float *w3, float *w4, int *x_low,
+                                              int *x_high, int *y_low,
+                                              int *y_high) {
+  if (y < -1.0 || y > height || x < -1.0 || x > width) {
+    *w1 = 0.0, *w2 = 0.0, *w3 = 0.0, *w4 = 0.0;
+    *x_low = -1, *x_high = -1, *y_low = -1, *y_high = -1;
+    return;
+  }
+  if (y <= 0) {
+    y = 0;
+  }
+  if (x <= 0) {
+    x = 0;
+  }
+  *y_low = (int)y;
+  *x_low = (int)x;
+  if (*y_low >= height - 1) {
+    *y_high = height - 1, *y_low = height - 1;
+    y = (float)(*y_low);
+  } else {
+    *y_high = *y_low + 1;
+  }
+  if (*x_low >= width - 1) {
+    *x_high = width - 1, *x_low = width - 1;
+    x = (float)(*x_low);
+  } else {
+    *x_high = *x_low + 1;
+  }
+  float ly = y - *y_low, lx = x - *x_low;
+  float hy = 1.0 - ly, hx = 1.0 - lx;
+  *w1 = hy * hx, *w2 = hy * lx, *w3 = ly * hx, *w4 = ly * lx;
+  return;
+}
+
+template <typename T>
+__mlu_func__ void unionRoiAlignBp(
+    T *grads, T *boxes, T *grads_image, const int boxes_num, const int hi,
+    const int wi, const int c, const int no, const int ho, const int wo,
+    const float spatial_scale, const int sampling_ratio, const bool aligned) {
+  int c_align = PAD_UP(c, NFU_ALIGN_SIZE / sizeof(T));
+  int deal_all = boxes_num * hi * wi;
+  int deal_this_core = deal_all / taskDim + (int)(taskId < deal_all % taskDim);
+  for (int i = 0; i < deal_this_core; ++i) {
+    int bhw_id = i * taskDim + taskId;
+    int box_id = bhw_id / (hi * wi);
+    int ih = (bhw_id / wi) % hi;
+    int iw = bhw_id % wi;
+    T *box = boxes + box_id * 5;
+    int image_id = (int)box[0];
+    T *image_offset = grads_image + image_id * ho * wo * c;
+    T *grads_ = grads + box_id * hi * wi * c + ih * wi * c + iw * c;
+
+    float offset = aligned ? 0.5 : 0.0;
+    float x1 = box[1] * spatial_scale - offset;
+    float y1 = box[2] * spatial_scale - offset;
+    float x2 = box[3] * spatial_scale - offset;
+    float y2 = box[4] * spatial_scale - offset;
+    float roi_width = x2 - x1;
+    float roi_height = y2 - y1;
+    if (!aligned) {
+      roi_width = (roi_width > 1.0) ? roi_width : 1.0;
+      roi_height = (roi_height > 1.0) ? roi_height : 1.0;
+    }
+    float bin_size_h = roi_height / hi;
+    float bin_size_w = roi_width / wi;
+
+    int roi_grid_h =
+        (sampling_ratio > 0) ? sampling_ratio : std::ceil(roi_height / hi);
+    int roi_grid_w =
+        (sampling_ratio > 0) ? sampling_ratio : std::ceil(roi_width / wi);
+    const T count = roi_grid_h * roi_grid_w;
+    if (c_align * sizeof(T) * 2 <= MAX_NRAM_SIZE) {
+      for (int iy = 0; iy < roi_grid_h; ++iy) {
+        const float y =
+            y1 + ih * bin_size_h + (iy + 0.5) * bin_size_h / roi_grid_h;
+        for (int ix = 0; ix < roi_grid_w; ++ix) {
+          const float x =
+              x1 + iw * bin_size_w + (ix + 0.5) * bin_size_w / roi_grid_w;
+          float w1, w2, w3, w4;
+          int x_low, x_high, y_low, y_high;
+          bilinearInterpolateGradient(ho, wo, y, x, &w1, &w2, &w3, &w4, &x_low,
+                                      &x_high, &y_low, &y_high);
+          if (x_low >= 0 && y_low >= 0) {
+            __memcpy(buffer, grads_, c * sizeof(T), GDRAM2NRAM);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer, (T)w1,
+                              c_align);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer + c_align,
+                              1 / count, c_align);
+            __bang_atomic_add((T *)buffer + c_align,
+                              image_offset + y_low * wo * c + x_low * c,
+                              (T *)buffer + c_align, c);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer, (T)w2,
+                              c_align);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer + c_align,
+                              1 / count, c_align);
+            __bang_atomic_add((T *)buffer + c_align,
+                              image_offset + y_low * wo * c + x_high * c,
+                              (T *)buffer + c_align, c);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer, (T)w3,
+                              c_align);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer + c_align,
+                              1 / count, c_align);
+            __bang_atomic_add((T *)buffer + c_align,
+                              image_offset + y_high * wo * c + x_low * c,
+                              (T *)buffer + c_align, c);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer, (T)w4,
+                              c_align);
+            __bang_mul_scalar((T *)buffer + c_align, (T *)buffer + c_align,
+                              1 / count, c_align);
+            __bang_atomic_add((T *)buffer + c_align,
+                              image_offset + y_high * wo * c + x_high * c,
+                              (T *)buffer + c_align, c);
+          }  // x_low && y_low
+        }    // ix
+      }      // iy
+    } else {
+      for (int iy = 0; iy < roi_grid_h; ++iy) {
+        const float y =
+            y1 + ih * bin_size_h + (iy + 0.5) * bin_size_h / roi_grid_h;
+        for (int ix = 0; ix < roi_grid_w; ++ix) {
+          const float x =
+              x1 + iw * bin_size_w + (ix + 0.5) * bin_size_w / roi_grid_w;
+          float w1, w2, w3, w4;
+          int x_low, x_high, y_low, y_high;
+          bilinearInterpolateGradient(ho, wo, y, x, &w1, &w2, &w3, &w4, &x_low,
+                                      &x_high, &y_low, &y_high);
+          if (x_low >= 0 && y_low >= 0) {
+            int deal_once =
+                PAD_DOWN(MAX_NRAM_SIZE / 2, NFU_ALIGN_SIZE) / sizeof(T);
+            int c_repeat = c / deal_once + (int)(c % deal_once != 0);
+            for (int i = 0; i < c_repeat; ++i) {
+              int deal_c = deal_once;
+              int align_c = deal_once;
+              if (i == c_repeat - 1) {
+                deal_c = c - i * deal_once;
+                align_c = c_align - i * deal_once;
+              }
+              __memcpy(buffer, grads_ + i * deal_once, deal_c * sizeof(T),
+                       GDRAM2NRAM);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer, (T)w1,
+                                align_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer + align_c,
+                                1 / count, align_c);
+              __bang_atomic_add(
+                  (T *)buffer + align_c,
+                  image_offset + y_low * wo * c + x_low * c + i * deal_once,
+                  (T *)buffer + align_c, deal_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer, (T)w2,
+                                align_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer + align_c,
+                                1 / count, align_c);
+              __bang_atomic_add(
+                  (T *)buffer + align_c,
+                  image_offset + y_low * wo * c + x_high * c + i * deal_once,
+                  (T *)buffer + align_c, deal_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer, (T)w3,
+                                align_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer + align_c,
+                                1 / count, align_c);
+              __bang_atomic_add(
+                  (T *)buffer + align_c,
+                  image_offset + y_high * wo * c + x_low * c + i * deal_once,
+                  (T *)buffer + align_c, deal_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer, (T)w4,
+                                align_c);
+              __bang_mul_scalar((T *)buffer + align_c, (T *)buffer + align_c,
+                                1 / count, align_c);
+              __bang_atomic_add(
+                  (T *)buffer + align_c,
+                  image_offset + y_high * wo * c + x_high * c + i * deal_once,
+                  (T *)buffer + align_c, deal_c);
+            }  // for c_repeat
+          }    // x_low >= 0 && y_low >= 0
+        }      // ix
+      }        // iy
+    }          // if c
+  }            // i
+}
+
+__mlu_global__ void MLUUnion1KernelRoiAlignBackward(
+    const void *grads, const void *boxes, void *grads_image,
+    const cnrtDataType_t dtype, const int boxes_num, const int hi, const int wi,
+    const int c, const int no, const int ho, const int wo,
+    const float spatial_scale, const int sampling_ratio, const bool aligned) {
+  // make sure that memcore is not used
+  if (coreId == 0x80) {
+    return;
+  }
+  switch (dtype) {
+    case CNRT_FLOAT16: {
+      unionRoiAlignBp((half *)grads, (half *)boxes, (half *)grads_image,
+                      boxes_num, hi, wi, c, no, ho, wo, spatial_scale,
+                      sampling_ratio, aligned);
+    }; break;
+    case CNRT_FLOAT32: {
+      unionRoiAlignBp((float *)grads, (float *)boxes, (float *)grads_image,
+                      boxes_num, hi, wi, c, no, ho, wo, spatial_scale,
+                      sampling_ratio, aligned);
+    }; break;
+    default: { return; }
+  }
+}
+}  // namespace backward
+
+void KernelRoiAlign(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
+                    cnrtQueue_t queue, const cnrtDataType_t d_type,
+                    const void *input, const void *rois, const int channels,
+                    const bool aligned, const int pooled_height,
+                    const int pooled_width, const int input_height,
+                    const int input_width, const int sampling_ratio,
+                    const float spatial_scale, const int num_rois,
+                    void *output) {
+  forward::MLUUnion1KernelRoiAlignAvg<<<k_dim, k_type, queue>>>(
+      input, rois, channels, aligned, pooled_height, pooled_width, input_height,
+      input_width, sampling_ratio, spatial_scale, num_rois, d_type, output);
+}
+
+void KernelRoiAlignBackward(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
+                            cnrtQueue_t queue, const cnrtDataType_t dtype,
+                            const void *grads, const void *boxes,
+                            void *grads_image, const int boxes_num,
+                            const int hi, const int wi, const int c,
+                            const int no, const int ho, const int wo,
+                            const float spatial_scale, const int sampling_ratio,
+                            const bool aligned) {
+  backward::MLUUnion1KernelRoiAlignBackward<<<k_dim, k_type, queue>>>(
+      grads, boxes, grads_image, dtype, boxes_num, hi, wi, c, no, ho, wo,
+      spatial_scale, sampling_ratio, aligned);
+}

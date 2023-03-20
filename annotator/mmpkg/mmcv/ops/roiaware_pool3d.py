@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Any, Tuple, Union
+
 import torch
 from torch import nn as nn
 from torch.autograd import Function
@@ -25,7 +27,10 @@ class RoIAwarePool3d(nn.Module):
             Default: 'max'.
     """
 
-    def __init__(self, out_size, max_pts_per_voxel=128, mode='max'):
+    def __init__(self,
+                 out_size: Union[int, tuple],
+                 max_pts_per_voxel: int = 128,
+                 mode: str = 'max'):
         super().__init__()
 
         self.out_size = out_size
@@ -34,7 +39,8 @@ class RoIAwarePool3d(nn.Module):
         pool_mapping = {'max': 0, 'avg': 1}
         self.mode = pool_mapping[mode]
 
-    def forward(self, rois, pts, pts_feature):
+    def forward(self, rois: torch.Tensor, pts: torch.Tensor,
+                pts_feature: torch.Tensor) -> torch.Tensor:
         """
         Args:
             rois (torch.Tensor): [N, 7], in LiDAR coordinate,
@@ -43,7 +49,8 @@ class RoIAwarePool3d(nn.Module):
             pts_feature (torch.Tensor): [npoints, C], features of input points.
 
         Returns:
-            pooled_features (torch.Tensor): [N, out_x, out_y, out_z, C]
+            torch.Tensor: Pooled features whose shape is
+            [N, out_x, out_y, out_z, C].
         """
 
         return RoIAwarePool3dFunction.apply(rois, pts, pts_feature,
@@ -54,8 +61,9 @@ class RoIAwarePool3d(nn.Module):
 class RoIAwarePool3dFunction(Function):
 
     @staticmethod
-    def forward(ctx, rois, pts, pts_feature, out_size, max_pts_per_voxel,
-                mode):
+    def forward(ctx: Any, rois: torch.Tensor, pts: torch.Tensor,
+                pts_feature: torch.Tensor, out_size: Union[int, tuple],
+                max_pts_per_voxel: int, mode: int) -> torch.Tensor:
         """
         Args:
             rois (torch.Tensor): [N, 7], in LiDAR coordinate,
@@ -70,8 +78,8 @@ class RoIAwarePool3dFunction(Function):
                 pool).
 
         Returns:
-            pooled_features (torch.Tensor): [N, out_x, out_y, out_z, C], output
-                pooled features.
+            torch.Tensor: Pooled features whose shape is
+            [N, out_x, out_y, out_z, C].
         """
 
         if isinstance(out_size, int):
@@ -93,22 +101,32 @@ class RoIAwarePool3dFunction(Function):
             (num_rois, out_x, out_y, out_z, max_pts_per_voxel),
             dtype=torch.int)
 
-        ext_module.roiaware_pool3d_forward(rois, pts, pts_feature, argmax,
-                                           pts_idx_of_voxels, pooled_features,
-                                           mode)
+        ext_module.roiaware_pool3d_forward(
+            rois,
+            pts,
+            pts_feature,
+            argmax,
+            pts_idx_of_voxels,
+            pooled_features,
+            pool_method=mode)
 
         ctx.roiaware_pool3d_for_backward = (pts_idx_of_voxels, argmax, mode,
                                             num_pts, num_channels)
         return pooled_features
 
     @staticmethod
-    def backward(ctx, grad_out):
+    def backward(
+        ctx: Any, grad_out: torch.Tensor
+    ) -> Tuple[None, None, torch.Tensor, None, None, None]:
         ret = ctx.roiaware_pool3d_for_backward
         pts_idx_of_voxels, argmax, mode, num_pts, num_channels = ret
 
         grad_in = grad_out.new_zeros((num_pts, num_channels))
-        ext_module.roiaware_pool3d_backward(pts_idx_of_voxels, argmax,
-                                            grad_out.contiguous(), grad_in,
-                                            mode)
+        ext_module.roiaware_pool3d_backward(
+            pts_idx_of_voxels,
+            argmax,
+            grad_out.contiguous(),
+            grad_in,
+            pool_method=mode)
 
         return None, None, grad_in, None, None, None

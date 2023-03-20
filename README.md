@@ -33,6 +33,8 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 
 Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
+Face landmark model: https://huggingface.co/georgefen/Face-Landmark-ControlNet
+
 ### Extraction
 
 Two methods can be used to reduce the model's filesize:
@@ -46,6 +48,8 @@ All type of models can be correctly recognized and loaded. The results of differ
 Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
+
+Pre-extracted difference face landmark model: https://huggingface.co/OedoSoldier/Face-Landmark-ControlNet-diff
 
 ### Tips 
 
@@ -63,6 +67,7 @@ Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-source.jpg?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-pose.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-gen.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-dep.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-out.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-gen.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-out.png?raw=true"> |
+|<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/smile_face.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/smile_face_prepro.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/smile_face_gen.png?raw=true"> |
 
 ### T2I-Adapter Support
 

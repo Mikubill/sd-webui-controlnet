@@ -1,0 +1,615 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include "common_mlu_helper.hpp"
+#include "psamask_utils.hpp"
+
+#define COMPUTE_COUNT_ALIGN 64
+
+__nram__ char buf[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_func__ void swap(T &a, T &b) {
+  T tmp = a;
+  a = b;
+  b = tmp;
+}
+
+template <typename T>
+__mlu_func__ void storeDataFromNramToDram(T *dst, const T *src,
+                                          const PositionInCore &position,
+                                          const Shape &shape_full) {
+  int n_offset = shape_full.h * shape_full.w * shape_full.c;
+  int h_offset = shape_full.w * shape_full.c;
+  int w_offset = shape_full.c;
+  int n_seg = position.n_end - position.n_start;
+  int h_seg = position.h_end - position.h_start;
+  int w_seg = position.w_end - position.w_start;
+  int size = h_seg * w_seg * shape_full.c;
+
+  __memcpy(dst + position.n_start * n_offset + position.h_start * h_offset +
+               position.w_start * w_offset,
+           src, size * sizeof(T), NRAM2GDRAM, n_offset * sizeof(T),
+           size * sizeof(T), n_seg - 1);
+}
+
+template <typename T>
+__mlu_func__ void loadDataFromDramToNram(T *dst, const T *src,
+                                         const PositionInCore &position,
+                                         const Shape &shape_full) {
+  int n_offset = shape_full.h * shape_full.w * shape_full.c;
+  int h_offset = shape_full.w * shape_full.c;
+  int w_offset = shape_full.c;
+  int n_seg = position.n_end - position.n_start;
+  int h_seg = position.h_end - position.h_start;
+  int w_seg = position.w_end - position.w_start;
+  int size = h_seg * w_seg * shape_full.c;
+
+  __memcpy(dst, src + position.n_start * n_offset +
+                    position.h_start * h_offset + position.w_start * w_offset,
+           size * sizeof(T), GDRAM2NRAM, size * sizeof(T), n_offset * sizeof(T),
+           n_seg - 1);
+}
+
+// transpose the data from A*B*C*(D*E) to A*D*E*(B*C)
+template <typename T>
+__mlu_func__ void transposeData(T *dst, T *src, const Shape &shape_seg) {
+  int align_c = CEIL_ALIGN(shape_seg.c, COMPUTE_COUNT_ALIGN / sizeof(T));
+  int align_hw =
+      CEIL_ALIGN(shape_seg.h * shape_seg.w, COMPUTE_COUNT_ALIGN / sizeof(T));
+  for (int i = 0; i < shape_seg.n; ++i) {
+    __bang_transpose(dst, src, align_hw, align_c);
+    dst += align_hw * align_c;
+    src += align_hw * align_c;
+  }
+}
+
+template <typename T>
+__mlu_func__ void psamaskCollectForward(
+    const T *x_dram, T *y_dram, const PositionInCore &position,
+    const Shape &x_full, const Shape &y_full, const Shape &shape_seg,
+    const int h_mask, const int w_mask, const int half_h_mask,
+    const int half_w_mask) {
+  T *x_nram = (T *)buf;
+  T *y_nram =
+      x_nram + CEIL_ALIGN(shape_seg.n * shape_seg.h * shape_seg.w * x_full.c,
+                          COMPUTE_COUNT_ALIGN / sizeof(T));
+  loadDataFromDramToNram(x_nram, x_dram, position, x_full);
+
+  // fill zeros to output
+  int elem_count =
+      CEIL_ALIGN(shape_seg.n * shape_seg.h * shape_seg.w * y_full.c,
+                 NFU_ALIGN_SIZE / sizeof(T));
+  __bang_write_value(y_nram, elem_count, (T)0);
+
+  int y_n_offset = shape_seg.h * shape_seg.w * shape_seg.c;
+  int y_h_offset = shape_seg.w * shape_seg.c;
+  int y_w_offset = shape_seg.c;
+  int x_n_offset = shape_seg.h * shape_seg.w * x_full.c;
+  int y_c_offset = 1;
+  int x_h_offset = shape_seg.w * x_full.c;
+  int x_w_offset = x_full.c;
+  int x_c_offset = 1;
+  int x_start = 0;
+  int y_start = 0;
+  for (int nidx = 0; nidx < shape_seg.n; ++nidx) {
+    for (int hidx = 0; hidx < shape_seg.h; ++hidx) {
+      for (int widx = 0; widx < shape_seg.w; ++widx) {
+        int h_abs = hidx + position.h_start;
+        int w_abs = widx + position.w_start;
+        int y_offset = y_start;
+        int x_offset = x_start;
+        y_offset += hidx * y_h_offset + widx * y_w_offset;
+        x_offset += hidx * x_h_offset + widx * x_w_offset;
+
+        const int hstart = half_h_mask - h_abs > 0 ? half_h_mask - h_abs : 0;
+        const int hend = x_full.h + half_h_mask - h_abs < h_mask
+                             ? x_full.h + half_h_mask - h_abs
+                             : h_mask;
+        const int wstart = half_w_mask - w_abs > 0 ? half_w_mask - w_abs : 0;
+        const int wend = x_full.w + half_w_mask - w_abs < w_mask
+                             ? x_full.w + half_w_mask - w_abs
+                             : w_mask;
+        // (h,                      w                  ) with mask-indexed
+        // (h + hidx - half_h_mask, w + widx - half_w_mask) with feature-indexed
+        y_offset += ((hstart + h_abs - half_h_mask) * x_full.w + wstart +
+                     w_abs - half_w_mask) *
+                    y_c_offset;
+        x_offset += (hstart * w_mask + wstart) * x_c_offset;
+        int count = wend - wstart;
+        __memcpy(y_nram + y_offset, x_nram + x_offset, count * sizeof(T),
+                 NRAM2NRAM, y_c_offset * x_full.w * sizeof(T),
+                 x_c_offset * w_mask * sizeof(T), hend - hstart - 1);
+      }
+    }
+    y_start += y_n_offset;
+    x_start += x_n_offset;
+  }
+  storeDataFromNramToDram(y_dram, y_nram, position, y_full);
+}
+
+template <typename T>
+__mlu_func__ void psamaskDistributeForward(
+    const T *x_dram, T *y_dram, const PositionInCore &position,
+    const Shape &x_full, const Shape &y_full, const Shape &shape_seg,
+    const int h_mask, const int w_mask, const int half_h_mask,
+    const int half_w_mask) {
+  T *x_nram = (T *)buf;
+  T *y_nram_temp =
+      x_nram + CEIL_ALIGN(shape_seg.n * shape_seg.h * shape_seg.w * x_full.c,
+                          COMPUTE_COUNT_ALIGN / sizeof(T));
+  loadDataFromDramToNram(x_nram, x_dram, position, x_full);
+
+  // fill zeros to output
+  int align_c = CEIL_ALIGN(y_full.c, COMPUTE_COUNT_ALIGN / sizeof(T));
+  int align_hw =
+      CEIL_ALIGN(shape_seg.h * shape_seg.w, COMPUTE_COUNT_ALIGN / sizeof(T));
+  int elem_count =
+      CEIL_ALIGN(shape_seg.n * align_c * align_hw, NFU_ALIGN_SIZE / sizeof(T));
+  __bang_write_value(y_nram_temp, elem_count, (T)0);
+
+  int y_n_offset = align_hw * align_c;
+  int y_h_offset = shape_seg.w * align_c;
+  int y_w_offset = align_c;
+  int y_c_offset = 1;
+  int x_n_offset = shape_seg.h * shape_seg.w * x_full.c;
+  int x_h_offset = shape_seg.w * x_full.c;
+  int x_w_offset = x_full.c;
+  int x_c_offset = 1;
+  int h_feature = y_full.h;
+  int w_feature = y_full.w;
+
+  int y_start = 0;
+  int x_start = 0;
+  for (int nidx = 0; nidx < shape_seg.n; ++nidx) {
+    for (int hidx = 0; hidx < shape_seg.h; ++hidx) {
+      for (int widx = 0; widx < shape_seg.w; ++widx) {
+        int h_abs = hidx + position.h_start;
+        int w_abs = widx + position.w_start;
+        int y_offset = y_start;
+        int x_offset = x_start;
+        y_offset += hidx * y_h_offset + widx * y_w_offset;
+        x_offset += hidx * x_h_offset + widx * x_w_offset;
+        const int hstart = half_h_mask - h_abs > 0 ? half_h_mask - h_abs : 0;
+        const int hend = h_feature + half_h_mask - h_abs < h_mask
+                             ? h_feature + half_h_mask - h_abs
+                             : h_mask;
+        const int wstart = half_w_mask - w_abs > 0 ? half_w_mask - w_abs : 0;
+        const int wend = w_feature + half_w_mask - w_abs < w_mask
+                             ? w_feature + half_w_mask - w_abs
+                             : w_mask;
+        // (h,                      w                     ) with mask-indexed
+        // (h + hidx - half_h_mask, w + widx - half_w_mask) with feature-indexed
+        y_offset += ((hstart + h_abs - half_h_mask) * x_full.w + wstart +
+                     w_abs - half_w_mask) *
+                    y_c_offset;
+        x_offset += (hstart * w_mask + wstart) * x_c_offset;
+        int count = wend - wstart;
+        __memcpy(y_nram_temp + y_offset, x_nram + x_offset, count * sizeof(T),
+                 NRAM2NRAM, y_c_offset * w_feature * sizeof(T),
+                 x_c_offset * w_mask * sizeof(T), hend - hstart - 1);
+      }
+    }
+    y_start += y_n_offset;
+    x_start += x_n_offset;
+  }
+  // transpose y
+  T *y_nram = y_nram_temp + shape_seg.n * align_hw * align_c;
+  Shape y_seg{shape_seg.n, shape_seg.h, shape_seg.w, y_full.c};
+  transposeData(y_nram, y_nram_temp, y_seg);
+  swap(align_c, align_hw);
+  // store y from nram to dram
+  int y_n_offset_full = y_full.h * y_full.w * y_full.c;
+  int y_w_offset_full = y_full.c;
+  int y_c_offset_full = 1;
+
+  int y_dram_start =
+      position.n_start * y_n_offset_full +
+      (position.h_start * y_full.w + position.w_start) * y_c_offset_full;
+  int y_nram_start = 0;
+  for (int nidx = 0; nidx < shape_seg.n; ++nidx) {
+    int y_dram_offset = y_dram_start + nidx * y_n_offset_full;
+    int y_nram_offset = y_nram_start + nidx * align_hw * align_c;
+    __memcpy(y_dram + y_dram_offset, y_nram + y_nram_offset,
+             shape_seg.h * shape_seg.w * sizeof(T), NRAM2GDRAM,
+             y_w_offset_full * sizeof(T), align_c * sizeof(T),
+             h_feature * w_feature - 1);
+  }
+}
+
+template <typename T>
+__mlu_func__ void psamaskCollectBackward(
+    const T *dy_dram, T *dx_dram, const PositionInCore &position,
+    const Shape &dy_full, const Shape &dx_full, const Shape &shape_seg,
+    const int h_mask, const int w_mask, const int half_h_mask,
+    const int half_w_mask) {
+  T *dy_nram = (T *)buf;
+  T *dx_nram =
+      dy_nram + CEIL_ALIGN(shape_seg.n * shape_seg.h * shape_seg.w * dy_full.c,
+                           COMPUTE_COUNT_ALIGN / sizeof(T));
+  loadDataFromDramToNram(dy_nram, dy_dram, position, dy_full);
+
+  // fill zeros to output
+  int elem_count =
+      CEIL_ALIGN(shape_seg.n * shape_seg.h * shape_seg.w * shape_seg.c,
+                 NFU_ALIGN_SIZE / sizeof(T));
+  __bang_write_value(dx_nram, elem_count, (T)0);
+
+  int dy_n_offset = shape_seg.h * shape_seg.w * dy_full.c;
+  int dy_h_offset = shape_seg.w * dy_full.c;
+  int dy_w_offset = dy_full.c;
+  int dy_c_offset = 1;
+  int dx_n_offset = shape_seg.h * shape_seg.w * dx_full.c;
+  int dx_h_offset = shape_seg.w * dx_full.c;
+  int dx_w_offset = dx_full.c;
+  int dx_c_offset = 1;
+  int h_feature = dy_full.h;
+  int w_feature = dy_full.w;
+
+  int dy_start = 0;
+  int dx_start = 0;
+  for (int nidx = 0; nidx < shape_seg.n; ++nidx) {
+    for (int hidx = 0; hidx < shape_seg.h; ++hidx) {
+      for (int widx = 0; widx < shape_seg.w; ++widx) {
+        int h_abs = hidx + position.h_start;
+        int w_abs = widx + position.w_start;
+        int dy_offset = dy_start;
+        int dx_offset = dx_start;
+        dy_offset += hidx * dy_h_offset + widx * dy_w_offset;
+        dx_offset += hidx * dx_h_offset + widx * dx_w_offset;
+
+        const int hstart = half_h_mask - h_abs > 0 ? half_h_mask - h_abs : 0;
+        const int hend = h_feature + half_h_mask - h_abs < h_mask
+                             ? h_feature + half_h_mask - h_abs
+                             : h_mask;
+        const int wstart = half_w_mask - w_abs > 0 ? half_w_mask - w_abs : 0;
+        const int wend = w_feature + half_w_mask - w_abs < w_mask
+                             ? w_feature + half_w_mask - w_abs
+                             : w_mask;
+        // (h,                       w                      ) with mask-indexed
+        // (h + h_abs - half_h_mask, w + w_abs - half_w_mask) with
+        // feature-indexed
+        dy_offset += ((hstart + h_abs - half_h_mask) * w_feature + wstart +
+                      w_abs - half_w_mask) *
+                     dy_c_offset;
+        dx_offset += (hstart * w_mask + wstart) * dx_c_offset;
+        int count = wend - wstart;
+        __memcpy(dx_nram + dx_offset, dy_nram + dy_offset, count * sizeof(T),
+                 NRAM2NRAM, dx_c_offset * w_mask * sizeof(T),
+                 dy_c_offset * w_feature * sizeof(T), hend - hstart - 1);
+      }
+    }
+    dy_start += dy_n_offset;
+    dx_start += dx_n_offset;
+  }
+  storeDataFromNramToDram(dx_dram, dx_nram, position, dx_full);
+}
+
+template <typename T>
+__mlu_func__ void psamaskDistributeBackward(
+    const T *dy_dram, T *dx_dram, const PositionInCore &position,
+    const Shape &dy_full, const Shape &dx_full, const Shape &shape_seg,
+    const int h_mask, const int w_mask, const int half_h_mask,
+    const int half_w_mask) {
+  // load dy from dram to nram
+  T *dy_nram_temp = (T *)buf;
+  int dy_n_offset_full = dy_full.h * dy_full.w * dy_full.c;
+  int dy_c_offset_full = 1;
+  int h_feature = dy_full.h;
+  int w_feature = dy_full.w;
+  int align_c =
+      CEIL_ALIGN(shape_seg.h * shape_seg.w, COMPUTE_COUNT_ALIGN / sizeof(T));
+  int align_hw =
+      CEIL_ALIGN(h_feature * w_feature, COMPUTE_COUNT_ALIGN / sizeof(T));
+
+  int dy_dram_start =
+      position.n_start * dy_n_offset_full +
+      (position.h_start * w_feature + position.w_start) * dy_c_offset_full;
+  int dy_nram_start = 0;
+  for (int i = 0; i < shape_seg.n; ++i) {
+    int dy_nram_offset = dy_nram_start + i * (align_hw * align_c);
+    int dy_dram_offset = dy_dram_start + i * dy_n_offset_full;
+    __memcpy(dy_nram_temp + dy_nram_offset, dy_dram + dy_dram_offset,
+             shape_seg.h * shape_seg.w * sizeof(T), GDRAM2NRAM,
+             align_c * sizeof(T), dy_full.c * sizeof(T),
+             h_feature * w_feature - 1);
+  }
+  T *dy_nram = dy_nram_temp + shape_seg.n * align_hw * align_c;
+  Shape dy_seg{shape_seg.n, h_feature, w_feature, shape_seg.h * shape_seg.w};
+  transposeData(dy_nram, dy_nram_temp, dy_seg);
+  swap(align_c, align_hw);
+
+  // fill zeros to dx
+  T *dx_nram = dy_nram + shape_seg.n * align_hw * align_c;
+  int dx_size = shape_seg.n * shape_seg.h * shape_seg.w * dx_full.c;
+  __bang_write_value(dx_nram, CEIL_ALIGN(dx_size, NFU_ALIGN_SIZE / sizeof(T)),
+                     (T)0);
+
+  int dy_n_offset_seg = align_hw * align_c;
+  int dy_h_offset_seg = shape_seg.w * align_c;
+  int dy_w_offset_seg = align_c;
+  int dy_c_offset_seg = 1;
+  int dx_n_offset_seg = shape_seg.h * shape_seg.w * shape_seg.c;
+  int dx_h_offset_seg = shape_seg.w * shape_seg.c;
+  int dx_w_offset_seg = shape_seg.c;
+  int dx_c_offset_seg = 1;
+
+  int dy_start = 0;
+  int dx_start = 0;
+  for (int nidx = 0; nidx < shape_seg.n; ++nidx) {
+    for (int hidx = 0; hidx < shape_seg.h; ++hidx) {
+      for (int widx = 0; widx < shape_seg.w; ++widx) {
+        int h_abs = hidx + position.h_start;
+        int w_abs = widx + position.w_start;
+        int dy_offset = dy_start;
+        int dx_offset = dx_start;
+        dy_offset += hidx * dy_h_offset_seg + widx * dy_w_offset_seg;
+        dx_offset += hidx * dx_h_offset_seg + widx * dx_w_offset_seg;
+        const int hstart = half_h_mask - h_abs > 0 ? half_h_mask - h_abs : 0;
+        const int hend = h_feature + half_h_mask - h_abs < h_mask
+                             ? h_feature + half_h_mask - h_abs
+                             : h_mask;
+        const int wstart = half_w_mask - w_abs > 0 ? half_w_mask - w_abs : 0;
+        const int wend = w_feature + half_w_mask - w_abs < w_mask
+                             ? w_feature + half_w_mask - w_abs
+                             : w_mask;
+        // (h,                       w                      ) with mask-indexed
+        // (h + h_abs - half_h_mask, w + w_abs - half_w_mask) with
+        // feature-indexed
+        dy_offset += ((hstart + h_abs - half_h_mask) * w_feature + wstart +
+                      w_abs - half_w_mask) *
+                     dy_c_offset_seg;
+        dx_offset += (hstart * w_mask + wstart) * dx_c_offset_seg;
+        int count = wend - wstart;
+        __memcpy(dx_nram + dx_offset, dy_nram + dy_offset, count * sizeof(T),
+                 NRAM2NRAM, w_mask * dx_c_offset_seg * sizeof(T),
+                 w_feature * dy_c_offset_seg * sizeof(T), hend - hstart - 1);
+      }
+    }
+    dy_start += dy_n_offset_seg;
+    dx_start += dx_n_offset_seg;
+  }
+  storeDataFromNramToDram(dx_dram, dx_nram, position, dx_full);
+}
+
+template <typename T>
+__mlu_func__ void psamaskBase(const T *input_dram, T *output_dram,
+                              const Shape &input_full, const Shape &output_full,
+                              LimitParam &limit, const PsamaskType psa_type,
+                              const DimPartitionType core_partition,
+                              const DimPartitionType cluster_partition,
+                              const bool is_forward, const int h_mask,
+                              const int w_mask, const int half_h_mask,
+                              const int half_w_mask, const int n_per_core,
+                              const int h_per_core, const int n_per_cluster,
+                              const int h_per_cluster) {
+  PositionInCore position_full;
+  PositionInCore position_seg;
+  position_full.w_start = 0;
+  position_full.w_end = output_full.w;
+  int n_num_in_cluster = n_per_cluster;
+  int h_num_in_cluster = h_per_cluster;
+
+  switch (cluster_partition) {
+    case PARTITION_N: {
+      position_full.h_start = 0;
+      position_full.h_end = input_full.h;
+      position_full.n_start = taskIdY * n_per_cluster;
+      int cluster_need = (input_full.n + n_per_cluster - 1) / n_per_cluster;
+      if (taskIdY >= cluster_need) return;
+      int n_remainder = input_full.n - (cluster_need - 1) * n_per_cluster;
+      n_num_in_cluster =
+          (taskIdY == cluster_need - 1) ? n_remainder : n_per_cluster;
+      position_full.n_end = position_full.n_start + n_num_in_cluster;
+    }; break;
+    case PARTITION_H: {
+      position_full.n_start = 0;
+      position_full.n_end = input_full.n;
+      position_full.h_start = taskIdY * h_per_cluster;
+      int cluster_need = (input_full.h + h_per_cluster - 1) / h_per_cluster;
+      if (taskIdY >= cluster_need) return;
+      int h_remainder = input_full.h - (cluster_need - 1) * h_per_cluster;
+      h_num_in_cluster =
+          (taskIdY == cluster_need - 1) ? h_remainder : h_per_cluster;
+      position_full.h_end = position_full.h_start + h_num_in_cluster;
+    }; break;
+  }
+  switch (core_partition) {
+    case PARTITION_N: {
+      position_full.n_start += taskIdX * n_per_core;
+      int core_need = (n_num_in_cluster + n_per_core - 1) / n_per_core;
+      if (taskIdX >= core_need) return;
+      int n_remainder = n_num_in_cluster - (core_need - 1) * n_per_core;
+      position_full.n_end =
+          position_full.n_start +
+          ((taskIdX == core_need - 1) ? n_remainder : n_per_core);
+    }; break;
+    case PARTITION_H: {
+      position_full.h_start += taskIdX * h_per_core;
+      int core_need = (h_num_in_cluster + h_per_core - 1) / h_per_core;
+      if (taskIdX >= core_need) return;
+      int h_remainder = h_num_in_cluster - (core_need - 1) * h_per_core;
+      position_full.h_end =
+          position_full.h_start +
+          ((taskIdX == core_need - 1) ? h_remainder : h_per_core);
+    }; break;
+  }
+  // the count of n ,h and w need to be processed in the current core
+  int shape_core_n = position_full.n_end - position_full.n_start;
+  int shape_core_h = position_full.h_end - position_full.h_start;
+  int shape_core_w = input_full.w;
+
+  limit.n = limit.n < shape_core_n ? limit.n : shape_core_n;
+  limit.h = limit.h < shape_core_h ? limit.h : shape_core_h;
+  limit.w = limit.w < shape_core_w ? limit.w : shape_core_w;
+
+  // load the data to nram according to the limit
+  for (int nidx = position_full.n_start; nidx < position_full.n_end;
+       nidx += limit.n) {
+    position_seg.n_start = nidx;
+    position_seg.n_end =
+        position_seg.n_start + (position_full.n_end - nidx < limit.n
+                                    ? position_full.n_end - nidx
+                                    : limit.n);
+    for (int hidx = position_full.h_start; hidx < position_full.h_end;
+         hidx += limit.h) {
+      position_seg.h_start = hidx;
+      position_seg.h_end =
+          position_seg.h_start + (position_full.h_end - hidx < limit.h
+                                      ? position_full.h_end - hidx
+                                      : limit.h);
+      for (int widx = position_full.w_start; widx < position_full.w_end;
+           widx += limit.w) {
+        position_seg.w_start = widx;
+        position_seg.w_end =
+            position_seg.w_start + (position_full.w_end - widx < limit.w
+                                        ? position_full.w_end - widx
+                                        : limit.w);
+
+        // record the segment of output except the size of channel
+        // channel segments of output and input are the same
+        Shape shape_seg;
+        shape_seg.n = position_seg.n_end - position_seg.n_start;
+        shape_seg.h = position_seg.h_end - position_seg.h_start;
+        shape_seg.w = position_seg.w_end - position_seg.w_start;
+        shape_seg.c = output_full.c;
+
+        switch (psa_type) {
+          case COLLECT: {
+            if (is_forward) {
+              psamaskCollectForward(input_dram, output_dram, position_seg,
+                                    input_full, output_full, shape_seg, h_mask,
+                                    w_mask, half_h_mask, half_w_mask);
+            } else {
+              psamaskCollectBackward(input_dram, output_dram, position_seg,
+                                     input_full, output_full, shape_seg, h_mask,
+                                     w_mask, half_h_mask, half_w_mask);
+            }
+          } break;
+          case DISTRIBUTE: {
+            if (is_forward) {
+              psamaskDistributeForward(input_dram, output_dram, position_seg,
+                                       input_full, output_full, shape_seg,
+                                       h_mask, w_mask, half_h_mask,
+                                       half_w_mask);
+            } else {
+              psamaskDistributeBackward(input_dram, output_dram, position_seg,
+                                        input_full, output_full, shape_seg,
+                                        h_mask, w_mask, half_h_mask,
+                                        half_w_mask);
+            }
+          } break;
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelPsamaskForward(
+    const T *x, T *y, const PsamaskType psa_type,
+    const DimPartitionType core_partition,
+    const DimPartitionType cluster_partition, const int batch,
+    const int h_feature, const int w_feature, const int h_mask,
+    const int w_mask, const int x_c, const int y_c, const int half_h_mask,
+    const int half_w_mask, const int n_per_core, const int h_per_core,
+    const int n_per_cluster, const int h_per_cluster, const int limit_n_seg,
+    const int limit_h_seg, const int limit_w_seg) {
+  if (coreId == 0x80) {
+    return;
+  }
+  Shape x_full, y_full;
+  x_full.n = batch;
+  x_full.h = h_feature;
+  x_full.w = w_feature;
+  x_full.c = x_c;
+  y_full.n = batch;
+  y_full.h = h_feature;
+  y_full.w = w_feature;
+  y_full.c = y_c;
+
+  LimitParam limit;
+  limit.n = limit_n_seg;
+  limit.h = limit_h_seg;
+  limit.w = limit_w_seg;
+
+  psamaskBase(x, y, x_full, y_full, limit, psa_type, core_partition,
+              cluster_partition, true, h_mask, w_mask, half_h_mask, half_w_mask,
+              n_per_core, h_per_core, n_per_cluster, h_per_cluster);
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelPsamaskBackward(
+    const T *dy, T *dx, const PsamaskType psa_type,
+    const DimPartitionType core_partition,
+    const DimPartitionType cluster_partition, const int batch,
+    const int h_feature, const int w_feature, const int h_mask,
+    const int w_mask, const int dx_c, const int dy_c, const int half_h_mask,
+    const int half_w_mask, const int n_per_core, const int h_per_core,
+    const int n_per_cluster, const int h_per_cluster, const int limit_n_seg,
+    const int limit_h_seg, const int limit_w_seg) {
+  if (coreId == 0x80) {
+    return;
+  }
+  Shape dy_full, dx_full;
+  dx_full.n = batch;
+  dx_full.h = h_feature;
+  dx_full.w = w_feature;
+  dx_full.c = dx_c;
+  dy_full.n = batch;
+  dy_full.h = h_feature;
+  dy_full.w = w_feature;
+  dy_full.c = dy_c;
+
+  LimitParam limit;
+  limit.n = limit_n_seg;
+  limit.h = limit_h_seg;
+  limit.w = limit_w_seg;
+
+  psamaskBase(dy, dx, dy_full, dx_full, limit, psa_type, core_partition,
+              cluster_partition, false, h_mask, w_mask, half_h_mask,
+              half_w_mask, n_per_core, h_per_core, n_per_cluster,
+              h_per_cluster);
+}
+
+void KernelPsamaskForward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const void *x, void *y, const PsamaskType psa_type,
+    const DimPartitionType core_partition,
+    const DimPartitionType cluster_partition, const int batch,
+    const int h_feature, const int w_feature, const int h_mask,
+    const int w_mask, const int x_c, const int y_c, const int half_h_mask,
+    const int half_w_mask, const int n_per_core, const int h_per_core,
+    const int n_per_cluster, const int h_per_cluster, const int limit_n_seg,
+    const int limit_h_seg, const int limit_w_seg) {
+  MLUUnion1KernelPsamaskForward<<<k_dim, k_type, queue>>>(
+      static_cast<const float *>(x), static_cast<float *>(y), psa_type,
+      core_partition, cluster_partition, batch, h_feature, w_feature, h_mask,
+      w_mask, x_c, y_c, half_h_mask, half_w_mask, n_per_core, h_per_core,
+      n_per_cluster, h_per_cluster, limit_n_seg, limit_h_seg, limit_w_seg);
+}
+
+void KernelPsamaskBackward(
+    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+    const void *dy, void *dx, const PsamaskType psa_type,
+    const DimPartitionType core_partition,
+    const DimPartitionType cluster_partition, const int batch,
+    const int h_feature, const int w_feature, const int h_mask,
+    const int w_mask, const int dx_c, const int dy_c, const int half_h_mask,
+    const int half_w_mask, const int n_per_core, const int h_per_core,
+    const int n_per_cluster, const int h_per_cluster, const int limit_n_seg,
+    const int limit_h_seg, const int limit_w_seg) {
+  MLUUnion1KernelPsamaskBackward<<<k_dim, k_type, queue>>>(
+      static_cast<const float *>(dy), static_cast<float *>(dx), psa_type,
+      core_partition, cluster_partition, batch, h_feature, w_feature, h_mask,
+      w_mask, dx_c, dy_c, half_h_mask, half_w_mask, n_per_core, h_per_core,
+      n_per_cluster, h_per_cluster, limit_n_seg, limit_h_seg, limit_w_seg);
+}

@@ -6,33 +6,32 @@ class TimerError(Exception):
 
     def __init__(self, message):
         self.message = message
-        super(TimerError, self).__init__(message)
+        super().__init__(message)
 
 
 class Timer:
     """A flexible Timer class.
 
-    :Example:
-
-    >>> import time
-    >>> import annotator.mmpkg.mmcv as mmcv
-    >>> with mmcv.Timer():
-    >>>     # simulate a code block that will run for 1s
-    >>>     time.sleep(1)
-    1.000
-    >>> with mmcv.Timer(print_tmpl='it takes {:.1f} seconds'):
-    >>>     # simulate a code block that will run for 1s
-    >>>     time.sleep(1)
-    it takes 1.0 seconds
-    >>> timer = mmcv.Timer()
-    >>> time.sleep(0.5)
-    >>> print(timer.since_start())
-    0.500
-    >>> time.sleep(0.5)
-    >>> print(timer.since_last_check())
-    0.500
-    >>> print(timer.since_start())
-    1.000
+    Examples:
+        >>> import time
+        >>> import annotator.mmpkg.mmcv as mmcv
+        >>> with mmcv.Timer():
+        >>>     # simulate a code block that will run for 1s
+        >>>     time.sleep(1)
+        1.000
+        >>> with mmcv.Timer(print_tmpl='it takes {:.1f} seconds'):
+        >>>     # simulate a code block that will run for 1s
+        >>>     time.sleep(1)
+        it takes 1.0 seconds
+        >>> timer = mmcv.Timer()
+        >>> time.sleep(0.5)
+        >>> print(timer.since_start())
+        0.500
+        >>> time.sleep(0.5)
+        >>> print(timer.since_last_check())
+        0.500
+        >>> print(timer.since_start())
+        1.000
     """
 
     def __init__(self, start=True, print_tmpl=None):
@@ -64,7 +63,8 @@ class Timer:
     def since_start(self):
         """Total time since the timer is started.
 
-        Returns (float): Time in seconds.
+        Returns:
+            float: Time in seconds.
         """
         if not self._is_running:
             raise TimerError('timer is not running')
@@ -77,7 +77,8 @@ class Timer:
         Either :func:`since_start` or :func:`since_last_check` is a checking
         operation.
 
-        Returns (float): Time in seconds.
+        Returns:
+            float: Time in seconds.
         """
         if not self._is_running:
             raise TimerError('timer is not running')
@@ -95,21 +96,20 @@ def check_time(timer_id):
     This method is suitable for running a task on a list of items. A timer will
     be registered when the method is called for the first time.
 
-    :Example:
-
-    >>> import time
-    >>> import annotator.mmpkg.mmcv as mmcv
-    >>> for i in range(1, 6):
-    >>>     # simulate a code block
-    >>>     time.sleep(i)
-    >>>     mmcv.check_time('task1')
-    2.000
-    3.000
-    4.000
-    5.000
+    Examples:
+        >>> import time
+        >>> import annotator.mmpkg.mmcv as mmcv
+        >>> for i in range(1, 6):
+        >>>     # simulate a code block
+        >>>     time.sleep(i)
+        >>>     mmcv.check_time('task1')
+        2.000
+        3.000
+        4.000
+        5.000
 
     Args:
-        timer_id (str): Timer identifier.
+        str: Timer identifier.
     """
     if timer_id not in _g_timers:
         _g_timers[timer_id] = Timer()

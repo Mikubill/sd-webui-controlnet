@@ -1,5 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-__version__ = '1.3.17'
+__version__ = '1.7.1'
 
 
 def parse_version_info(version_str: str, length: int = 4) -> tuple:
@@ -22,9 +22,9 @@ def parse_version_info(version_str: str, length: int = 4) -> tuple:
     if len(release) < length:
         release = release + [0] * (length - len(release))
     if version.is_prerelease:
-        release.extend(list(version.pre))
+        release.extend(list(version.pre))  # type: ignore
     elif version.is_postrelease:
-        release.extend(list(version.post))
+        release.extend(list(version.post))  # type: ignore
     else:
         release.extend([0, 0])
     return tuple(release)

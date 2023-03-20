@@ -40,7 +40,7 @@ def scandir(dir_path, suffix=None, recursive=False, case_sensitive=True):
     """Scan a directory to find the interested files.
 
     Args:
-        dir_path (str | obj:`Path`): Path of the directory.
+        dir_path (str | :obj:`Path`): Path of the directory.
         suffix (str | tuple(str), optional): File suffix that we are
             interested in. Default: None.
         recursive (bool, optional): If set to True, recursively scan the

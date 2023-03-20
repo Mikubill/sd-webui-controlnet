@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Tuple
 
 import torch
 from torch.autograd import Function
@@ -16,26 +16,26 @@ class ThreeNN(Function):
     """
 
     @staticmethod
-    def forward(ctx, target: torch.Tensor,
+    def forward(ctx: Any, target: torch.Tensor,
                 source: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
-            target (Tensor): shape (B, N, 3), points set that needs to
+            target (torch.Tensor): shape (B, N, 3), points set that needs to
                 find the nearest neighbors.
-            source (Tensor): shape (B, M, 3), points set that is used
+            source (torch.Tensor): shape (B, M, 3), points set that is used
                 to find the nearest neighbors of points in target set.
 
         Returns:
-            Tensor: shape (B, N, 3), L2 distance of each point in target
-                set to their corresponding nearest neighbors.
+            torch.Tensor: shape (B, N, 3), L2 distance of each point in target
+            set to their corresponding top three nearest neighbors.
         """
         target = target.contiguous()
         source = source.contiguous()
 
         B, N, _ = target.size()
         m = source.size(1)
-        dist2 = torch.cuda.FloatTensor(B, N, 3)
-        idx = torch.cuda.IntTensor(B, N, 3)
+        dist2 = target.new_empty(B, N, 3)
+        idx = target.new_empty(B, N, 3, dtype=torch.int32)
 
         ext_module.three_nn_forward(target, source, dist2, idx, b=B, n=N, m=m)
         if torch.__version__ != 'parrots':

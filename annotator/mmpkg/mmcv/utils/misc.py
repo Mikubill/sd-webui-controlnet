@@ -315,7 +315,7 @@ def deprecated_api_warning(name_dict, cls_name=None):
                         warnings.warn(
                             f'"{src_arg_name}" is deprecated in '
                             f'`{func_name}`, please use "{dst_arg_name}" '
-                            'instead')
+                            'instead', DeprecationWarning)
                         arg_names[arg_names.index(src_arg_name)] = dst_arg_name
             if kwargs:
                 for src_arg_name, dst_arg_name in name_dict.items():
@@ -333,7 +333,7 @@ def deprecated_api_warning(name_dict, cls_name=None):
                         warnings.warn(
                             f'"{src_arg_name}" is deprecated in '
                             f'`{func_name}`, please use "{dst_arg_name}" '
-                            'instead')
+                            'instead', DeprecationWarning)
                         kwargs[dst_arg_name] = kwargs.pop(src_arg_name)
 
             # apply converted arguments to the decorated method

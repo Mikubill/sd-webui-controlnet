@@ -1,0 +1,483 @@
+/*************************************************************************
+ * Copyright (C) 2021 Cambricon.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+#include "nms_utils.hpp"
+
+#define COORD_DIM (4)
+
+#define SIZE_NRAM_BUF (MAX_NRAM_SIZE + REM_FOR_STACK - 62 * 1024)
+#define SIZE_SRAM_BUF (MAX_SRAM_SIZE)
+
+__nram__ int8_t nram_buffer[SIZE_NRAM_BUF];
+__mlu_shared__ int8_t sram_buffer[SIZE_SRAM_BUF];
+
+enum Addr { SRAM, GDRAM };
+
+template <typename IN_DT, typename OUT_DT>
+__mlu_func__ void nms_detection(
+    uint32_t &output_box_num, const int output_mode, OUT_DT *output_dram,
+    IN_DT *input_data_score, const IN_DT *input_data_box, const Addr input_ram,
+    IN_DT *sram, const int core_limit, const int input_num_boxes,
+    const int max_output_size, const float thresh_iou, const float thresh_score,
+    const float offset, const int algo) {
+  // global value
+  int32_t *exit_flag = (int32_t *)(sram + 28);
+  exit_flag[0] = 0;
+  // score, x1, y1, x2, y2, inter_x1, inter_y1, inter_x2, inter_y2
+  int nms_buffer_count1 = 9;
+  // temp nram buffer to store selected target.
+  int nram_save_limit_count = 256;
+  float div_thresh_iou = 1.0 / thresh_iou;
+
+  // input data ptr
+  const IN_DT *input_x1_ptr = input_data_box;
+  const IN_DT *input_y1_ptr = input_x1_ptr + input_num_boxes;
+  const IN_DT *input_x2_ptr = input_y1_ptr + input_num_boxes;
+  const IN_DT *input_y2_ptr = input_x2_ptr + input_num_boxes;
+
+  int limit = 0;        // find limit when GDRAM or SRAM
+  int max_seg_pad = 0;  // the max length every repeat
+  int repeat = 0;
+  int remain = 0;
+  int remain_pad = 0;
+  int input_offset = 0;  // offset of input_data for current core
+  int nram_save_count = 0;
+
+  if (output_mode == 0) {
+    limit = (SIZE_NRAM_BUF - NFU_ALIGN_SIZE /*for max_box*/ * sizeof(IN_DT) -
+             nram_save_limit_count * sizeof(OUT_DT)) /
+            (nms_buffer_count1 * sizeof(IN_DT));
+  } else {
+    // 5 maens: score, x1, y1, x2, y2
+    limit = (SIZE_NRAM_BUF - NFU_ALIGN_SIZE /*for max_box*/ * sizeof(IN_DT) -
+             nram_save_limit_count * 5 * sizeof(OUT_DT)) /
+            (nms_buffer_count1 * sizeof(IN_DT));
+  }
+
+  int max_seg_iou_compute = 0;
+  int repeat_iou_compute = 0;
+  int remain_iou_compute = 0;
+  int remain_pad_iou_compute = 0;
+
+  getComputeParamsBlockOrU1(sizeof(IN_DT), input_num_boxes, limit, core_limit,
+                            input_offset, max_seg_pad, repeat, remain,
+                            remain_pad, max_seg_iou_compute, repeat_iou_compute,
+                            remain_iou_compute, remain_pad_iou_compute);
+
+  // init the data ptr
+  IN_DT *score = (IN_DT *)nram_buffer;
+  IN_DT *x1 = score + max_seg_pad;
+  IN_DT *y1 = x1 + max_seg_pad;
+  IN_DT *x2 = y1 + max_seg_pad;
+  IN_DT *y2 = x2 + max_seg_pad;
+  IN_DT *inter_x1 = y2 + max_seg_pad;
+  IN_DT *inter_y1 = inter_x1 + max_seg_pad;
+  IN_DT *inter_x2 = inter_y1 + max_seg_pad;
+  IN_DT *inter_y2 = inter_x2 + max_seg_pad;
+  IN_DT *max_box = inter_y2 + max_seg_pad;  // the max score, x1, y1, x2, y2
+  OUT_DT *nram_save =
+      (OUT_DT *)((char *)max_box +
+                 NFU_ALIGN_SIZE);  // offset two line from max_box
+
+#if __BANG_ARCH__ >= 300
+  float max_box_x1 = 0;
+  float max_box_y1 = 0;
+  float max_box_x2 = 0;
+  float max_box_y2 = 0;
+#endif
+  mluMemcpyDirection_t load_dir = SRAM2NRAM;
+  mluMemcpyDirection_t store_dir = NRAM2SRAM;
+  load_dir = (input_ram == SRAM) ? SRAM2NRAM : GDRAM2NRAM;
+  store_dir = (input_ram == SRAM) ? NRAM2SRAM : NRAM2GDRAM;
+
+  for (int keep = 0; keep < max_output_size;
+       keep++) {  // loop until the max_score <= 0
+    if (core_limit != 1) {
+      __sync_cluster();  // sync before current loop
+    }
+
+    /******FIND MAX START******/
+    int max_index = 0;         // the max score index
+    int global_max_index = 0;  // for U1
+    float max_area = 0;        // the max socre area
+    max_box[0] = 0;            // init 0
+    findCoreMaxBox(input_data_score, score, inter_x1, max_box, input_x1_ptr,
+                   input_y1_ptr, input_x2_ptr, input_y2_ptr, load_dir,
+                   input_offset, repeat, remain, remain_pad, max_seg_pad,
+                   max_index);
+
+    if (core_limit == 1) {
+#if __BANG_ARCH__ >= 300
+      calMaxArea(max_box, algo, offset, max_area, max_box_x1, max_box_y1,
+                 max_box_x2, max_box_y2);
+#else
+      calMaxArea(max_box, algo, offset, max_area);
+#endif
+      input_data_score[max_index] = 0;
+      global_max_index = max_index;
+    } else if (core_limit == 4) {
+      __sync_cluster();
+      findClusterMaxBox(sram, max_box, inter_x1, input_data_score, core_limit);
+
+#if __BANG_ARCH__ >= 300
+      calMaxArea(max_box, algo, offset, max_area, max_box_x1, max_box_y1,
+                 max_box_x2, max_box_y2);
+#else
+      calMaxArea(max_box, algo, offset, max_area);
+#endif
+      global_max_index = ((uint32_t *)(max_box + 5))[0];
+      input_data_score[global_max_index] = 0;
+    }
+    // by now, we get: max_score|max_index|max_box|max_area
+    /******FIND MAX END******/
+
+    storeResult(max_box, nram_save, output_dram, keep, nram_save_limit_count,
+                max_output_size, thresh_score, output_mode, nram_save_count,
+                output_box_num);
+
+    // if the max score <= 0, end
+    if (core_limit == 1) {
+      if (float(max_box[0]) <= thresh_score) {
+        break;
+      }
+    } else {
+      if (float(max_box[0]) <= thresh_score) {
+        if (coreId == 0) {
+          exit_flag[0] = 1;
+        }
+      }
+      __sync_cluster();
+      if (exit_flag[0] == 1) {
+        break;
+      }
+    }
+/******NMS STORE END******/
+#if __BANG_ARCH__ >= 300
+    scoreUpdate(input_data_score, load_dir, store_dir, input_x1_ptr,
+                input_y1_ptr, input_x2_ptr, input_y2_ptr, x1, y1, x2, y2, score,
+                inter_x1, inter_y1, inter_x2, inter_y2, max_box, max_box_x1,
+                max_box_y1, max_box_x2, max_box_y2, nram_save,
+                repeat_iou_compute, remain_iou_compute, remain_pad_iou_compute,
+                max_seg_iou_compute, max_seg_pad, thresh_iou, div_thresh_iou,
+                input_offset, offset, max_area, input_num_boxes, algo);
+#else
+    scoreUpdate(input_data_score, load_dir, store_dir, input_x1_ptr,
+                input_y1_ptr, input_x2_ptr, input_y2_ptr, x1, y1, x2, y2, score,
+                inter_x1, inter_y1, inter_x2, inter_y2, max_box, max_box[1],
+                max_box[2], max_box[3], max_box[4], nram_save,
+                repeat_iou_compute, remain_iou_compute, remain_pad_iou_compute,
+                max_seg_iou_compute, max_seg_pad, thresh_iou, div_thresh_iou,
+                input_offset, offset, max_area, input_num_boxes, algo);
+#endif
+  }  // for max_output_size
+}
+
+__mlu_global__ void MLUUnion1KernelNMS(
+    const void *input_boxes, const void *input_confidence,
+    const int input_num_boxes, const int max_output_size,
+    const float iou_threshold, const float confidence_threshold,
+    const int output_mode, void *workspace, void *result_num, void *output,
+    const cnrtDataType_t data_type_input, const float offset, const int algo) {
+  if (data_type_input == CNRT_FLOAT16) {
+    __memcpy(workspace, input_confidence, input_num_boxes * sizeof(half),
+             GDRAM2GDRAM);
+  } else if (data_type_input == CNRT_FLOAT32) {
+    __memcpy(workspace, input_confidence, input_num_boxes * sizeof(float),
+             GDRAM2GDRAM);
+  } else {
+  }
+
+  uint32_t output_box_num = 0;
+  float *score_data = (float *)workspace;
+  float *boxes_data = (float *)input_boxes;
+  float *sram = (float *)sram_buffer;
+
+  if (output_mode == 0) {
+    if (data_type_input == CNRT_FLOAT32) {
+      nms_detection(output_box_num, output_mode, (uint32_t *)output, score_data,
+                    boxes_data, GDRAM, sram, taskDim, input_num_boxes,
+                    max_output_size, iou_threshold, confidence_threshold,
+                    offset, algo);
+    } else {
+      nms_detection(output_box_num, output_mode, (uint32_t *)output,
+                    (half *)score_data, (half *)boxes_data, GDRAM, (half *)sram,
+                    taskDim, input_num_boxes, max_output_size, iou_threshold,
+                    confidence_threshold, offset, algo);
+    }
+  } else {
+    if (data_type_input == CNRT_FLOAT32) {
+      nms_detection(output_box_num, output_mode, (float *)output, score_data,
+                    boxes_data, GDRAM, sram, taskDim, input_num_boxes,
+                    max_output_size, iou_threshold, confidence_threshold,
+                    offset, algo);
+    } else {
+      nms_detection(output_box_num, output_mode, (half *)output,
+                    (half *)score_data, (half *)boxes_data, GDRAM, (half *)sram,
+                    taskDim, input_num_boxes, max_output_size, iou_threshold,
+                    confidence_threshold, offset, algo);
+    }
+  }
+  ((uint32_t *)result_num)[0] = output_box_num;
+}
+
+template <typename IN_DT, typename OUT_DT>
+__mlu_func__ void nms_detection_ux(
+    int32_t *exit_flag, uint32_t &output_box_num, OUT_DT *output_dram,
+    IN_DT *score_data, const IN_DT *boxes_data, const Addr input_ram,
+    const int input_num_boxes, const int max_output_size,
+    const float thresh_iou, const float thresh_score, const float offset,
+    const int output_mode, const int algo, char *cdma_gdram) {
+  exit_flag[0] = 0;
+
+  IN_DT *sram = (IN_DT *)sram_buffer;
+
+  // score, x1, y1, x2, y2, inter_x1, inter_y1, inter_x2, inter_y2
+  int nms_buffer_count1 = 9;
+  // temp nram buffer to store selected target.
+  int nram_save_limit_count = 256;
+  float div_thresh_iou = 1.0 / thresh_iou;
+
+  // input data ptr
+  const IN_DT *input_x1_ptr = boxes_data;
+  const IN_DT *input_y1_ptr = input_x1_ptr + input_num_boxes;
+  const IN_DT *input_x2_ptr = input_y1_ptr + input_num_boxes;
+  const IN_DT *input_y2_ptr = input_x2_ptr + input_num_boxes;
+
+  int limit = 0;        // find limit when GDRAM or SRAM
+  int max_seg_pad = 0;  // the max length every repeat
+  int repeat = 0;
+  int remain = 0;
+  int remain_pad = 0;
+  int nram_save_count = 0;
+
+  if (output_mode == 0) {
+    limit = (SIZE_NRAM_BUF - NFU_ALIGN_SIZE /*for max_box*/ * sizeof(IN_DT) -
+             nram_save_limit_count * sizeof(OUT_DT)) /
+            (nms_buffer_count1 * sizeof(IN_DT));
+  } else {
+    limit = (SIZE_NRAM_BUF - NFU_ALIGN_SIZE /*for max_box*/ * sizeof(IN_DT) -
+             nram_save_limit_count * INFO_NUM * sizeof(OUT_DT)) /
+            (nms_buffer_count1 * sizeof(IN_DT));
+  }
+
+  int input_offset = 0;
+  int max_seg_iou_compute = 0;
+  int repeat_iou_compute = 0;
+  int remain_iou_compute = 0;
+  int remain_pad_iou_compute = 0;
+
+  getComputeParamsUx(sizeof(IN_DT), input_num_boxes, limit, input_offset,
+                     max_seg_pad, repeat, remain, remain_pad,
+                     max_seg_iou_compute, repeat_iou_compute,
+                     remain_iou_compute, remain_pad_iou_compute);
+  // init the nram ptr
+  IN_DT *score = (IN_DT *)nram_buffer;
+  IN_DT *x1 = score + max_seg_pad;
+  IN_DT *y1 = x1 + max_seg_pad;
+  IN_DT *x2 = y1 + max_seg_pad;
+  IN_DT *y2 = x2 + max_seg_pad;
+  IN_DT *inter_x1 = y2 + max_seg_pad;
+  IN_DT *inter_y1 = inter_x1 + max_seg_pad;
+  IN_DT *inter_x2 = inter_y1 + max_seg_pad;
+  IN_DT *inter_y2 = inter_x2 + max_seg_pad;
+  IN_DT *max_box = inter_y2 + max_seg_pad;  // the max score, x1, y1, x2, y2
+  OUT_DT *nram_save =
+      (OUT_DT *)((char *)max_box +
+                 NFU_ALIGN_SIZE);  // offset two line from max_box
+#if __BANG_ARCH__ >= 300
+  float max_box_x1 = 0;
+  float max_box_y1 = 0;
+  float max_box_x2 = 0;
+  float max_box_y2 = 0;
+#endif
+  mluMemcpyDirection_t load_dir = SRAM2NRAM;
+  mluMemcpyDirection_t store_dir = NRAM2SRAM;
+  load_dir = (input_ram == SRAM) ? SRAM2NRAM : GDRAM2NRAM;
+  store_dir = (input_ram == SRAM) ? NRAM2SRAM : NRAM2GDRAM;
+
+  for (int keep = 0; keep < max_output_size;
+       keep++) {  // loop until the max_score <= 0
+    __sync_all();
+
+    int max_index = 0;
+    int global_max_index = 0;  // for Ux
+    float max_area = 0;        // the max socre area
+    max_box[0] = 0;            // init 0
+
+    if (coreId == 0) {
+      findCoreMaxBox(score_data, score, inter_x1, max_box, input_x1_ptr,
+                     input_y1_ptr, input_x2_ptr, input_y2_ptr, load_dir,
+                     input_offset, repeat, remain, remain_pad, max_seg_pad,
+                     max_index);
+      // copy max box info to sram
+      __memcpy(sram, max_box, REDUCE_NUM * sizeof(IN_DT), NRAM2SRAM);
+    }
+    __sync_all();
+#if __BANG_ARCH__ >= 590
+    __memcpy((char *)cdma_gdram + REDUCE_NUM * clusterId * sizeof(IN_DT), sram,
+             REDUCE_NUM * sizeof(IN_DT), SRAM2GDRAM);
+    __sync_all();
+    if (clusterId == 0 && coreId == 0) {
+      __bang_write_zero(inter_x1, NMS_SIZE);
+      __memcpy((char *)inter_x1, (char *)cdma_gdram, sizeof(IN_DT), GDRAM2NRAM,
+               sizeof(IN_DT), REDUCE_NUM * sizeof(IN_DT), clusterDim - 1);
+      __bang_max(max_box, inter_x1, NMS_SIZE);
+      int max_cluster = (sizeof(IN_DT) == sizeof(half))
+                            ? ((uint16_t *)max_box)[1]
+                            : ((uint32_t *)max_box)[1];
+      __memcpy((char *)cdma_gdram,
+               (char *)cdma_gdram + max_cluster * REDUCE_NUM * sizeof(IN_DT),
+               REDUCE_NUM * sizeof(IN_DT), GDRAM2GDRAM);
+    }
+    __sync_all();
+    __memcpy(max_box, cdma_gdram, REDUCE_NUM * sizeof(IN_DT), GDRAM2NRAM);
+#else
+    findGlobalMaxBox(max_box, sram, inter_x1);
+#endif
+
+#if __BANG_ARCH__ >= 300
+    calMaxArea(max_box, algo, offset, max_area, max_box_x1, max_box_y1,
+               max_box_x2, max_box_y2);
+#else
+    calMaxArea(max_box, algo, offset, max_area);
+#endif
+    global_max_index = ((uint32_t *)(max_box + 5))[0];
+    if (coreId != MEMORY_CORE) {
+      score_data[global_max_index] = 0;
+    }
+
+    storeResult(max_box, nram_save, output_dram, keep, nram_save_limit_count,
+                max_output_size, thresh_score, output_mode, nram_save_count,
+                output_box_num);
+
+    if (float(max_box[0]) <= thresh_score) {
+      if (clusterId == 0 && coreId == 0) {
+        exit_flag[0] = 1;  // dram
+      }
+    }
+    __sync_all();
+    if (exit_flag[0] == 1) {
+      break;
+    }
+/******NMS STORE END******/
+#if __BANG_ARCH__ >= 300
+    scoreUpdate(score_data, load_dir, store_dir, input_x1_ptr, input_y1_ptr,
+                input_x2_ptr, input_y2_ptr, x1, y1, x2, y2, score, inter_x1,
+                inter_y1, inter_x2, inter_y2, max_box, max_box_x1, max_box_y1,
+                max_box_x2, max_box_y2, nram_save, repeat_iou_compute,
+                remain_iou_compute, remain_pad_iou_compute, max_seg_iou_compute,
+                max_seg_pad, thresh_iou, div_thresh_iou, input_offset, offset,
+                max_area, input_num_boxes, algo);
+#else
+    scoreUpdate(score_data, load_dir, store_dir, input_x1_ptr, input_y1_ptr,
+                input_x2_ptr, input_y2_ptr, x1, y1, x2, y2, score, inter_x1,
+                inter_y1, inter_x2, inter_y2, max_box, max_box[1], max_box[2],
+                max_box[3], max_box[4], nram_save, repeat_iou_compute,
+                remain_iou_compute, remain_pad_iou_compute, max_seg_iou_compute,
+                max_seg_pad, thresh_iou, div_thresh_iou, input_offset, offset,
+                max_area, input_num_boxes, algo);
+#endif
+  }  // for max_output_size
+}
+
+__mlu_global__ void MLUUionXKernelNMS(
+    const void *input_boxes, const void *input_confidence,
+    const int input_num_boxes, const int max_output_size,
+    const float iou_threshold, const float confidence_threshold,
+    const float offset, const cnrtDataType_t data_type_input,
+    const int output_mode, const int algo, void *workspace, void *result_num,
+    void *output) {
+  int input_dwidth = (data_type_input == CNRT_FLOAT32) ? 4 : 2;
+  int32_t *exit_flag = (int32_t *)((char *)workspace +
+                                   INFO_NUM * input_num_boxes * input_dwidth);
+  char *cdma_addr = (char *)exit_flag + sizeof(int32_t);
+  int reduce_sram_size = NFU_ALIGN_SIZE * REDUCE_NUM * input_dwidth;
+  int availbale_sram_size = SIZE_SRAM_BUF - reduce_sram_size;
+
+  int cluster_score_size = input_num_boxes * input_dwidth;
+  int cluster_boxes_size = input_num_boxes * 4 * input_dwidth;
+  char *sram_score = (char *)sram_buffer + reduce_sram_size;
+  char *sram_boxes =
+      (char *)sram_buffer + reduce_sram_size + cluster_score_size;
+  Addr input_ram = GDRAM;
+  if ((cluster_score_size + cluster_boxes_size) < availbale_sram_size) {
+    input_ram = SRAM;
+    __memcpy(sram_score, input_confidence, cluster_score_size, GDRAM2SRAM);
+    __memcpy(sram_boxes, input_boxes, cluster_boxes_size, GDRAM2SRAM);
+  } else {
+    __memcpy(workspace, input_confidence, cluster_score_size, GDRAM2GDRAM);
+  }
+  __sync_cluster();
+
+  uint32_t output_box_num = 0;
+  float *score_data;
+  float *boxes_data;
+  score_data = (input_ram == SRAM) ? (float *)sram_score : (float *)workspace;
+  boxes_data = (input_ram == SRAM) ? (float *)sram_boxes : (float *)input_boxes;
+
+  if (output_mode == 0) {
+    if (data_type_input == CNRT_FLOAT32) {
+      nms_detection_ux(exit_flag, output_box_num, (uint32_t *)output,
+                       score_data, boxes_data, input_ram, input_num_boxes,
+                       max_output_size, iou_threshold, confidence_threshold,
+                       offset, output_mode, algo, cdma_addr);
+    } else {
+      nms_detection_ux(exit_flag, output_box_num, (uint32_t *)output,
+                       (half *)score_data, (half *)boxes_data, input_ram,
+                       input_num_boxes, max_output_size, iou_threshold,
+                       confidence_threshold, offset, output_mode, algo,
+                       cdma_addr);
+    }
+  } else {
+    if (data_type_input == CNRT_FLOAT32) {
+      nms_detection_ux(exit_flag, output_box_num, (float *)output, score_data,
+                       boxes_data, input_ram, input_num_boxes, max_output_size,
+                       iou_threshold, confidence_threshold, offset, output_mode,
+                       algo, cdma_addr);
+    } else {
+      nms_detection_ux(exit_flag, output_box_num, (half *)output,
+                       (half *)score_data, (half *)boxes_data, input_ram,
+                       input_num_boxes, max_output_size, iou_threshold,
+                       confidence_threshold, offset, output_mode, algo,
+                       cdma_addr);
+    }
+  }
+  ((uint32_t *)result_num)[0] = output_box_num;
+}
+
+void KernelNms(cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
+               const cnrtDataType_t data_type_input, const void *boxes_ptr,
+               const void *scores_ptr, const int input_num_boxes,
+               const int max_output_boxes, const float iou_threshold,
+               const float offset, void *workspace_ptr, void *output_size_ptr,
+               void *output_ptr) {
+  switch (k_type) {
+    default: { return; }
+    case CNRT_FUNC_TYPE_BLOCK:
+    case CNRT_FUNC_TYPE_UNION1: {
+      MLUUnion1KernelNMS<<<k_dim, k_type, queue>>>(
+          (void *)boxes_ptr, (void *)scores_ptr, input_num_boxes,
+          max_output_boxes, iou_threshold, /*confidence_threshold=*/0.0,
+          /*output_mode=*/0, workspace_ptr, output_size_ptr, output_ptr,
+          data_type_input, offset, /*algo=*/1);
+    }; break;
+    case CNRT_FUNC_TYPE_UNION2:
+    case CNRT_FUNC_TYPE_UNION4:
+    case CNRT_FUNC_TYPE_UNION8:
+    case CNRT_FUNC_TYPE_UNION16: {
+      MLUUionXKernelNMS<<<k_dim, k_type, queue>>>(
+          (void *)boxes_ptr, (void *)scores_ptr, input_num_boxes,
+          max_output_boxes, iou_threshold, /*confidence_threshold=*/0.0, offset,
+          data_type_input, /*output_mode=*/0, /*algo=*/1, workspace_ptr,
+          output_size_ptr, output_ptr);
+    }; break;
+  }
+}

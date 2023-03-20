@@ -4,15 +4,18 @@ import pickle
 import shutil
 import tempfile
 import time
+from typing import Optional
 
 import torch
 import torch.distributed as dist
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 import annotator.mmpkg.mmcv as mmcv
 from annotator.mmpkg.mmcv.runner import get_dist_info
 
 
-def single_gpu_test(model, data_loader):
+def single_gpu_test(model: nn.Module, data_loader: DataLoader) -> list:
     """Test model with a single gpu.
 
     This method tests model with a single gpu and displays test progress bar.
@@ -41,7 +44,10 @@ def single_gpu_test(model, data_loader):
     return results
 
 
-def multi_gpu_test(model, data_loader, tmpdir=None, gpu_collect=False):
+def multi_gpu_test(model: nn.Module,
+                   data_loader: DataLoader,
+                   tmpdir: Optional[str] = None,
+                   gpu_collect: bool = False) -> Optional[list]:
     """Test model with multiple gpus.
 
     This method tests model with multiple gpus and collects the results
@@ -82,13 +88,15 @@ def multi_gpu_test(model, data_loader, tmpdir=None, gpu_collect=False):
 
     # collect results from all ranks
     if gpu_collect:
-        results = collect_results_gpu(results, len(dataset))
+        result_from_ranks = collect_results_gpu(results, len(dataset))
     else:
-        results = collect_results_cpu(results, len(dataset), tmpdir)
-    return results
+        result_from_ranks = collect_results_cpu(results, len(dataset), tmpdir)
+    return result_from_ranks
 
 
-def collect_results_cpu(result_part, size, tmpdir=None):
+def collect_results_cpu(result_part: list,
+                        size: int,
+                        tmpdir: Optional[str] = None) -> Optional[list]:
     """Collect results under cpu mode.
 
     On cpu mode, this function will save the results on different gpus to
@@ -126,7 +134,8 @@ def collect_results_cpu(result_part, size, tmpdir=None):
     else:
         mmcv.mkdir_or_exist(tmpdir)
     # dump the part result to the dir
-    mmcv.dump(result_part, osp.join(tmpdir, f'part_{rank}.pkl'))
+    part_file = osp.join(tmpdir, f'part_{rank}.pkl')  # type: ignore
+    mmcv.dump(result_part, part_file)
     dist.barrier()
     # collect all parts
     if rank != 0:
@@ -135,7 +144,7 @@ def collect_results_cpu(result_part, size, tmpdir=None):
         # load results of all parts from tmp dir
         part_list = []
         for i in range(world_size):
-            part_file = osp.join(tmpdir, f'part_{i}.pkl')
+            part_file = osp.join(tmpdir, f'part_{i}.pkl')  # type: ignore
             part_result = mmcv.load(part_file)
             # When data is severely insufficient, an empty part_result
             # on a certain gpu could makes the overall outputs empty.
@@ -148,11 +157,11 @@ def collect_results_cpu(result_part, size, tmpdir=None):
         # the dataloader may pad some samples
         ordered_results = ordered_results[:size]
         # remove tmp dir
-        shutil.rmtree(tmpdir)
+        shutil.rmtree(tmpdir)  # type: ignore
         return ordered_results
 
 
-def collect_results_gpu(result_part, size):
+def collect_results_gpu(result_part: list, size: int) -> Optional[list]:
     """Collect results under gpu mode.
 
     On gpu mode, this function will encode results to gpu tensors and use gpu
@@ -200,3 +209,5 @@ def collect_results_gpu(result_part, size):
         # the dataloader may pad some samples
         ordered_results = ordered_results[:size]
         return ordered_results
+    else:
+        return None

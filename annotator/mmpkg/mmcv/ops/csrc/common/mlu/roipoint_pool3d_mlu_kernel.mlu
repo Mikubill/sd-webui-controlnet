@@ -1,0 +1,544 @@
+/*************************************************************************
+ * Copyright (C) 2022 Cambricon.
+ *
+ * OR IMPLIED, INCLUDING BUvoid NOKType LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENvoid SHALL THE AUTHORS OR COPYRIGHKType HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORvoid OR OTHERWISE, ARISING FROM, OUKType OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *************************************************************************/
+
+#include "common_mlu_helper.hpp"
+
+/**************************************************************************************
+ *
+ * NRAM partition:
+ * | boxes3d                   | cnt                      |
+ * | boxes_num * 7 * sizeof(T) | boxes_num * sizeof(int)  |
+ *
+ * | ping points               | pong points              | aux_a ~ aux_f            |
+ * | 3 * deal_num * sizeof(T)  | 3 * deal_num * sizeof(T) | 6 * deal_num * sizeof(T) |
+ *
+ ***************************************************************************************/
+#define TWELVE_SPLIT 12
+
+__nram__ char nram_buffer[MAX_NRAM_SIZE];
+
+template <typename T>
+__mlu_func__ void checkPointsInBox3d(const T *boxes3d,
+                                     const size_t deal_num,
+                                     T *x,
+                                     T *y,
+                                     T *z,
+                                     T *auxiliary_a,
+                                     T *auxiliary_b,
+                                     T *auxiliary_c,
+                                     T *auxiliary_d,
+                                     T *auxiliary_e,
+                                     T *auxiliary_f,
+                                     T *pts_assign) {
+  // param box3d: (cx, cy, cz, dx, dy, dz, rz) in LiDAR coordinate
+  T cx = boxes3d[0];
+  T cy = boxes3d[1];
+  T cz = boxes3d[2];
+  T dx = boxes3d[3];
+  T dy = boxes3d[4];
+  T dz = boxes3d[5];
+  T rz = boxes3d[6];
+  // shift to the center since cz in box3d is the bottom center
+  cz += 0.5 * dz;
+
+  T cosa = (T)std::cos(-rz);
+  T sina = (T)std::sin(-rz);
+
+  // x - cx
+  __bang_sub_scalar((T *)auxiliary_a, (T *)x, (T)cx, deal_num);
+  // y - cy
+  __bang_sub_scalar((T *)auxiliary_b, (T *)y, (T)cy, deal_num);
+  // z - cz
+  __bang_sub_scalar((T *)auxiliary_c, (T *)z, (T)cz, deal_num);
+  // |z - cz|
+  __bang_active_abs((T *)auxiliary_c, (T *)auxiliary_c, deal_num);
+  // |z - cz| > dz / 2.0
+#if __BANG_ARCH__ >= 322
+  __bang_gt_scalar((T *)auxiliary_c, (T *)auxiliary_c, (T)(0.5 * dz), deal_num);
+#else
+  __bang_write_value((T *)auxiliary_d, deal_num, (T)(0.5 * dz));
+  __bang_lt((T *)auxiliary_c, (T *)auxiliary_d, (T *)auxiliary_c, deal_num);
+#endif
+  // !(|z - cz| > dz / 2.0)
+  __bang_not((T *)auxiliary_c, (T *)auxiliary_c, deal_num);
+  // (x - cx) * cos(-rz)
+  __bang_mul_scalar((T *)auxiliary_d, (T *)auxiliary_a, (T)cosa, deal_num);
+  // (y - cy) * sin(-rz)
+  __bang_mul_scalar((T *)auxiliary_e, (T *)auxiliary_b, (T)sina, deal_num);
+  // local_x = (x - cx) * cos(-rz) + (y - cy) * -sin(-rz)
+  __bang_sub((T *)auxiliary_d, (T *)auxiliary_d, (T *)auxiliary_e, deal_num);
+  // |local_x|
+  __bang_active_abs((T *)auxiliary_d, (T *)auxiliary_d, deal_num);
+  // |local_x| < dx / 2.0
+#if __BANG_ARCH__ >= 322
+  __bang_lt_scalar(auxiliary_d, auxiliary_d, (T)(0.5 * dx), deal_num);
+#else
+  __bang_write_value((T *)auxiliary_e, deal_num, (T)(0.5 * dx));
+  __bang_gt((T *)auxiliary_d, (T *)auxiliary_e, (T *)auxiliary_d, deal_num);
+#endif
+  // (x - cx) * sin(-rz)
+  __bang_mul_scalar((T *)auxiliary_e, (T *)auxiliary_a, (T)sina, deal_num);
+  // (y - cy) * cos(-rz)
+  __bang_mul_scalar((T *)auxiliary_f, (T *)auxiliary_b, (T)cosa, deal_num);
+  // local_y = (x - cx) * sin(-rz) + (y - cy) * cos(-rz)
+  __bang_add((T *)auxiliary_e, (T *)auxiliary_e, (T *)auxiliary_f, deal_num);
+  // |local_y|
+  __bang_active_abs((T *)auxiliary_e, (T *)auxiliary_e, deal_num);
+  // |local_y| < dy / 2.0
+#if __BANG_ARCH__ >= 322
+  __bang_lt_scalar(auxiliary_e, auxiliary_e, (T)(0.5 * dy), deal_num);
+#else
+  __bang_write_value((T *)auxiliary_f, deal_num, (T)(0.5 * dy));
+  __bang_gt((T *)auxiliary_e, (T *)auxiliary_f, (T *)auxiliary_e, deal_num);
+#endif
+  // pts_assign = |x - cx| < dx / 2.0 && |y - cy| < dy / 2.0 && |z - cz| <= dz / 2.0
+  __bang_mul((T *)pts_assign, (T *)auxiliary_c, (T *)auxiliary_d, deal_num);
+  __bang_mul((T *)pts_assign, (T *)pts_assign, (T *)auxiliary_e, deal_num);
+}
+
+template <typename T>
+__mlu_func__ void computeStoreRoipointPool3d(char *boxes3d,
+                                             int  *cnt,
+                                             char *points_x,
+                                             char *points_y,
+                                             char *points_z,
+                                             const char *point_features,
+                                             char *auxiliary_a,
+                                             char *auxiliary_b,
+                                             char *auxiliary_c,
+                                             char *auxiliary_d,
+                                             char *auxiliary_e,
+                                             char *auxiliary_f,
+                                             const int box_idx,
+                                             const int pts_num,
+                                             const int feature_in_len,
+                                             const int sampled_pts_num,
+                                             const size_t span_num_deal,
+                                             char *pooled_features_gdram,
+                                             char *pooled_empty_flag_gdram) {
+  char *pts_assign = auxiliary_a;
+  if (cnt[box_idx] >= sampled_pts_num) {
+    return;
+  }
+  checkPointsInBox3d((T *)(boxes3d + box_idx * 7 * sizeof(T)), span_num_deal, (T *)points_x,
+                     (T *)points_y, (T *)points_z, (T *)auxiliary_a, (T *)auxiliary_b,
+                     (T *)auxiliary_c, (T *)auxiliary_d, (T *)auxiliary_e, (T *)auxiliary_f,
+                     (T *)pts_assign);
+
+  // __bang_select returns selected elements vector and the number of selected elements
+  __bang_select((T *)auxiliary_b, (T *)points_x, (T *)pts_assign, span_num_deal);
+  uint32_t select_num = *((uint32_t *)auxiliary_b);
+
+  if (select_num == 0) {
+    return;
+  }
+  int sampled_pts_num_rem = sampled_pts_num - cnt[box_idx];
+  int segnum = min((int)select_num, sampled_pts_num_rem) - 1;
+
+  // copy x to pooled_features_gdram
+  // The result of __bang_select is composed of three parts:
+  // The first 4-byte is the number of selected element, whose data type is unsigned int.
+  // The next 124-byte is zero. The rest bytes are the selected elements.
+  int select_num_size = 128;
+  __memcpy(pooled_features_gdram +
+               (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T),
+           (T *)((int8_t *)auxiliary_b + select_num_size), sizeof(T), NRAM2GDRAM,
+           (3 + feature_in_len) * sizeof(T), sizeof(T), segnum);
+
+  // copy y to pooled_features_gdram
+  __bang_collect((T *)auxiliary_d, (T *)points_y, (T *)pts_assign, span_num_deal);
+  __memcpy(pooled_features_gdram +
+               (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+               1 * sizeof(T),
+           (T *)auxiliary_d, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+           segnum);
+
+  // copy z to pooled_features_gdram
+  __bang_collect((T *)auxiliary_e, (T *)points_z, (T *)pts_assign, span_num_deal);
+  __memcpy(pooled_features_gdram +
+               (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+               2 * sizeof(T),
+           (T *)auxiliary_e, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+           segnum);
+
+  // copy features to pooled_features_gdram
+  for (int c_idx = 0; c_idx < feature_in_len; c_idx++) {
+    __memcpy(auxiliary_d, point_features + c_idx * pts_num * sizeof(T), span_num_deal * sizeof(T),
+             GDRAM2NRAM);
+    __bang_collect((T *)auxiliary_e, (T *)auxiliary_d, (T *)pts_assign, span_num_deal);
+    __memcpy(pooled_features_gdram +
+                 (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+                 (3 + c_idx) * sizeof(T),
+             auxiliary_e, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+             segnum);
+  }
+
+  cnt[box_idx] += select_num;
+}
+
+template <typename T>
+__mlu_func__ void computeStoreLastBlockRoipointPool3d(char *boxes3d,
+                                                      int  *cnt,
+                                                      char *points_x,
+                                                      char *points_y,
+                                                      char *points_z,
+                                                      const char *point_features,
+                                                      char *auxiliary_a,
+                                                      char *auxiliary_b,
+                                                      char *auxiliary_c,
+                                                      char *auxiliary_d,
+                                                      char *auxiliary_e,
+                                                      char *auxiliary_f,
+                                                      const int box_idx,
+                                                      const int pts_num,
+                                                      const int feature_in_len,
+                                                      const int sampled_pts_num,
+                                                      const size_t span_num_deal,
+                                                      const size_t auxiliary_num_deal,
+                                                      char *pooled_features_gdram,
+                                                      char *pooled_empty_flag_gdram) {
+  char *pts_assign = auxiliary_a;
+  if (cnt[box_idx] >= sampled_pts_num) {
+    // pooled_empty_flag_gdram set 0
+    *((int *)auxiliary_a) = 0;
+    __memcpy(pooled_empty_flag_gdram + box_idx * sizeof(int), auxiliary_a, sizeof(int), NRAM2GDRAM);
+    return;
+  }
+  checkPointsInBox3d((T *)(boxes3d + box_idx * 7 * sizeof(T)), span_num_deal, (T *)points_x,
+                     (T *)points_y, (T *)points_z, (T *)auxiliary_a, (T *)auxiliary_b,
+                     (T *)auxiliary_c, (T *)auxiliary_d, (T *)auxiliary_e, (T *)auxiliary_f,
+                     (T *)pts_assign);
+
+  // __bang_select returns selected elements vector and the number of selected elements
+  __bang_select((T *)auxiliary_b, (T *)points_x, (T *)pts_assign, span_num_deal);
+  uint32_t select_num = *((uint32_t *)auxiliary_b);
+
+  if (cnt[box_idx] + select_num == 0) {
+    // pooled_empty_flag_gdram set 1
+    *((int *)auxiliary_a) = 1;
+    __memcpy(pooled_empty_flag_gdram + box_idx * sizeof(int), auxiliary_a, sizeof(int), NRAM2GDRAM);
+
+    // pooled_features_gdram set 0
+    int repeat = (sampled_pts_num * (3 + feature_in_len)) / (auxiliary_num_deal * 6);
+    int rem = (sampled_pts_num * (3 + feature_in_len)) % (auxiliary_num_deal * 6);
+    // use auxiliary_a to auxiliary_f
+    __bang_write_zero((T *)auxiliary_a, PAD_UP(auxiliary_num_deal * 6, NFU_ALIGN_SIZE));
+    if (repeat > 0) {
+      __memcpy(pooled_features_gdram + box_idx * sampled_pts_num * (3 + feature_in_len) * sizeof(T),
+               auxiliary_a, auxiliary_num_deal * 6 * sizeof(T), NRAM2GDRAM,
+               auxiliary_num_deal * 6 * sizeof(T), 0, repeat - 1);
+    }
+    if (rem > 0) {
+      __memcpy(pooled_features_gdram +
+                   box_idx * sampled_pts_num * (3 + feature_in_len) * sizeof(T) +
+                   repeat * auxiliary_num_deal * 6 * sizeof(T),
+               auxiliary_a, rem * sizeof(T), NRAM2GDRAM);
+    }
+    return;
+  }
+
+  if (select_num > 0) {
+    int sampled_pts_num_rem = sampled_pts_num - cnt[box_idx];
+    int segnum = min((int)select_num, sampled_pts_num_rem) - 1;
+
+    // copy x to pooled_features_gdram
+    // The result of __bang_select is composed of three parts:
+    // The first 4-byte is the number of selected element, whose data type is unsigned int.
+    // The next 124-byte is zero. The rest bytes are the selected elements.
+    int select_num_size = 128;
+    __memcpy(pooled_features_gdram +
+                 (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T),
+             (T *)((int8_t *)auxiliary_b + select_num_size), sizeof(T), NRAM2GDRAM,
+             (3 + feature_in_len) * sizeof(T), sizeof(T), segnum);
+
+    // copy y to pooled_features_gdram
+    __bang_collect((T *)auxiliary_d, (T *)points_y, (T *)pts_assign, span_num_deal);
+    __memcpy(pooled_features_gdram +
+                 (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+                 1 * sizeof(T),
+             (T *)auxiliary_d, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+             segnum);
+
+    // copy z to pooled_features_gdram
+    __bang_collect((T *)auxiliary_e, (T *)points_z, (T *)pts_assign, span_num_deal);
+    __memcpy(pooled_features_gdram +
+                 (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+                 2 * sizeof(T),
+             (T *)auxiliary_e, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+             segnum);
+
+    // copy features to pooled_features_gdram
+    for (int c_idx = 0; c_idx < feature_in_len; c_idx++) {
+      __memcpy(auxiliary_d, point_features + c_idx * pts_num * sizeof(T), span_num_deal * sizeof(T),
+               GDRAM2NRAM);
+      __bang_collect((T *)auxiliary_e, (T *)auxiliary_d, (T *)pts_assign, span_num_deal);
+      __memcpy(pooled_features_gdram +
+                   (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T) +
+                   (3 + c_idx) * sizeof(T),
+               auxiliary_e, sizeof(T), NRAM2GDRAM, (3 + feature_in_len) * sizeof(T), sizeof(T),
+               segnum);
+    }
+  }
+
+  // pooled_empty_flag_gdram set 0
+  *((int *)auxiliary_a) = 0;
+  __memcpy(pooled_empty_flag_gdram + box_idx * sizeof(int), auxiliary_a, sizeof(int), NRAM2GDRAM);
+
+  cnt[box_idx] += select_num;
+  if (cnt[box_idx] < sampled_pts_num) {
+    // duplicate same points for sampling
+    int repeat = sampled_pts_num / cnt[box_idx] - 1;
+    int rem = sampled_pts_num % cnt[box_idx];
+    if (repeat > 0) {
+      __memcpy(pooled_features_gdram +
+                   (box_idx * sampled_pts_num + cnt[box_idx]) * (3 + feature_in_len) * sizeof(T),
+               pooled_features_gdram + box_idx * sampled_pts_num * (3 + feature_in_len) * sizeof(T),
+               cnt[box_idx] * (3 + feature_in_len) * sizeof(T), GDRAM2GDRAM,
+               cnt[box_idx] * (3 + feature_in_len) * sizeof(T), 0, repeat - 1);
+    }
+    if (rem > 0) {
+      __memcpy(pooled_features_gdram + (box_idx * sampled_pts_num + (repeat + 1) * cnt[box_idx]) *
+                   (3 + feature_in_len) * sizeof(T),
+               pooled_features_gdram + box_idx * sampled_pts_num * (3 + feature_in_len) * sizeof(T),
+               rem * (3 + feature_in_len) * sizeof(T), GDRAM2GDRAM);
+    }
+  }
+}
+
+template <typename T>
+__mlu_global__ void MLUUnion1KernelRoiPointPool3dForward(
+    const int batch_size,
+    const int pts_num,
+    const int boxes_num,
+    const int feature_in_len,
+    const int sampled_pts_num,
+    const char *points_xyz_gdram,
+    const char *point_features_gdram,
+    const char *boxes3d_gdram,
+    char *pooled_features_gdram,
+    char *pooled_empty_flag_gdram) {
+  if (coreId == 0x80) {
+    return;
+  }
+  size_t boxes_per_core = (batch_size * boxes_num) / taskDim;
+  size_t boxes_rem = (batch_size * boxes_num) % taskDim;
+  // calc batch_start, batch_end, first_batch_box_start, last batch_box_end for each core
+  int32_t batch_start = taskId < (boxes_rem + 1) ?
+                        (taskId * (boxes_per_core + 1)) / boxes_num :
+                        (taskId * boxes_per_core + boxes_rem) / boxes_num;
+  int32_t batch_end = taskId < boxes_rem ?
+                      ((taskId + 1) * (boxes_per_core + 1) - 1) / boxes_num :
+                      ((taskId + 1) * boxes_per_core + boxes_rem - 1) / boxes_num;
+  size_t first_batch_box_start = taskId < (boxes_rem + 1) ?
+                                 (taskId * (boxes_per_core + 1)) - batch_start * boxes_num :
+                                 taskId * boxes_per_core + boxes_rem - batch_start * boxes_num;
+  size_t last_batch_box_end = taskId < boxes_rem ?
+                              (taskId + 1) * (boxes_per_core + 1) - batch_end * boxes_num :
+                              ((taskId + 1) * boxes_per_core + boxes_rem) - batch_end * boxes_num;
+
+  // points_xyz : [3, B, N]
+  const char *points_x_gdram = points_xyz_gdram;
+  const char *points_y_gdram = points_xyz_gdram + (1 * batch_size * pts_num) * sizeof(T);
+  const char *points_z_gdram = points_xyz_gdram + (2 * batch_size * pts_num) * sizeof(T);
+
+  size_t boxes3d_size = PAD_UP(boxes_num * 7, NFU_ALIGN_SIZE) * sizeof(T);
+  size_t cnt_size = PAD_UP(boxes_num, NFU_ALIGN_SIZE) * sizeof(int);
+  size_t span_num_deal = PAD_DOWN(
+      (MAX_NRAM_SIZE - boxes3d_size - cnt_size) / TWELVE_SPLIT / sizeof(T), NFU_ALIGN_SIZE);
+  size_t align_num = NFU_ALIGN_SIZE;
+  int32_t repeat = pts_num / span_num_deal;
+  size_t rem = pts_num % span_num_deal;
+  size_t align_rem = CEIL_ALIGN(rem, align_num);
+  char *boxes3d = nram_buffer;
+  char *cnt = nram_buffer + boxes3d_size;
+  char *ping_points_x = cnt + cnt_size;
+  char *ping_points_y = ping_points_x + span_num_deal * sizeof(T);
+  char *ping_points_z = ping_points_y + span_num_deal * sizeof(T);
+  size_t ping_pong_gap = 3 * span_num_deal * sizeof(T);
+  char *auxiliary_a = ping_points_x + 2 * ping_pong_gap;
+  char *auxiliary_b = auxiliary_a + span_num_deal * sizeof(T);
+  char *auxiliary_c = auxiliary_b + span_num_deal * sizeof(T);
+  char *auxiliary_d = auxiliary_c + span_num_deal * sizeof(T);
+  char *auxiliary_e = auxiliary_d + span_num_deal * sizeof(T);
+  char *auxiliary_f = auxiliary_e + span_num_deal * sizeof(T);
+  size_t span_load_input1_size = span_num_deal * sizeof(T);
+  size_t span_load_input2_size = span_num_deal * sizeof(T);
+  size_t span_load_input3_size = span_num_deal * sizeof(T);
+  size_t span_load_input4_size = span_num_deal * sizeof(T);
+
+  for (int bs_idx = batch_start; bs_idx <= batch_end; bs_idx++) {
+    __memcpy_async(boxes3d, boxes3d_gdram + bs_idx * boxes_num * 7 * sizeof(T),
+                   boxes_num * 7 * sizeof(T), GDRAM2NRAM);
+    __bang_write_zero((int *)cnt, PAD_UP(boxes_num, NFU_ALIGN_SIZE));
+
+    const char *points_x_start = points_x_gdram + bs_idx * pts_num * sizeof(T);
+    const char *points_y_start = points_y_gdram + bs_idx * pts_num * sizeof(T);
+    const char *points_z_start = points_z_gdram + bs_idx * pts_num * sizeof(T);
+    const char *point_features_start =
+        point_features_gdram + bs_idx * feature_in_len * pts_num * sizeof(T);
+    char *pooled_features_start =
+        pooled_features_gdram +
+        (bs_idx * boxes_num * sampled_pts_num * (3 + feature_in_len)) * sizeof(T);
+    char *pooled_empty_flag_start = pooled_empty_flag_gdram + bs_idx * boxes_num * sizeof(int);
+    size_t box_start = bs_idx == batch_start ? first_batch_box_start : 0;
+    size_t box_end = bs_idx == batch_end ? last_batch_box_end : boxes_num;
+
+    if (repeat > 0) {
+      __memcpy_async(ping_points_x, points_x_start, span_load_input1_size, GDRAM2NRAM);
+      __memcpy_async(ping_points_y, points_y_start, span_load_input2_size, GDRAM2NRAM);
+      __memcpy_async(ping_points_z, points_z_start, span_load_input3_size, GDRAM2NRAM);
+      __asm__ volatile("sync;");
+    }
+
+    for (int i = 0; i < repeat - 1; i++) {
+      __memcpy_async(ping_points_x + ((i + 1) % 2) * ping_pong_gap,
+                     points_x_start + (i + 1) * span_load_input1_size, span_load_input1_size,
+                     GDRAM2NRAM);
+      __memcpy_async(ping_points_y + ((i + 1) % 2) * ping_pong_gap,
+                     points_y_start + (i + 1) * span_load_input2_size, span_load_input2_size,
+                     GDRAM2NRAM);
+      __memcpy_async(ping_points_z + ((i + 1) % 2) * ping_pong_gap,
+                     points_z_start + (i + 1) * span_load_input3_size, span_load_input3_size,
+                     GDRAM2NRAM);
+      for (int box_idx = box_start; box_idx < box_end; box_idx++) {
+        computeStoreRoipointPool3d<T>(
+            boxes3d, (int *)cnt, ping_points_x + (i % 2) * ping_pong_gap,
+            ping_points_y + (i % 2) * ping_pong_gap, ping_points_z + (i % 2) * ping_pong_gap,
+            point_features_start + i * span_load_input4_size, auxiliary_a, auxiliary_b, auxiliary_c,
+            auxiliary_d, auxiliary_e, auxiliary_f, box_idx, pts_num, feature_in_len,
+            sampled_pts_num, span_num_deal, pooled_features_start, pooled_empty_flag_start);
+      }
+      __asm__ volatile("sync;");
+    }
+
+    if (rem > 0) {
+      if (sizeof(T) == sizeof(float)) {
+        __bang_write_value((T *)(ping_points_x + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+        __bang_write_value((T *)(ping_points_y + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+        __bang_write_value((T *)(ping_points_z + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+      } else {
+        __bang_write_value((T *)(ping_points_x + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+        __bang_write_value((T *)(ping_points_y + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+        __bang_write_value((T *)(ping_points_z + (repeat % 2) * ping_pong_gap +
+                                 PAD_DOWN(rem, NFU_ALIGN_SIZE) * sizeof(T)),
+                           NFU_ALIGN_SIZE, (T)NAN);
+      }
+      __memcpy_async(ping_points_x + (repeat % 2) * ping_pong_gap,
+                     points_x_start + repeat * span_load_input1_size, rem * sizeof(T), GDRAM2NRAM);
+      __memcpy_async(ping_points_y + (repeat % 2) * ping_pong_gap,
+                     points_y_start + repeat * span_load_input2_size, rem * sizeof(T), GDRAM2NRAM);
+      __memcpy_async(ping_points_z + (repeat % 2) * ping_pong_gap,
+                     points_z_start + repeat * span_load_input3_size, rem * sizeof(T), GDRAM2NRAM);
+    }
+
+    if (repeat > 0 && rem > 0) {
+      for (int box_idx = box_start; box_idx < box_end; box_idx++) {
+        computeStoreRoipointPool3d<T>(
+            boxes3d, (int *)cnt, ping_points_x + ((repeat - 1) % 2) * ping_pong_gap,
+            ping_points_y + ((repeat - 1) % 2) * ping_pong_gap,
+            ping_points_z + ((repeat - 1) % 2) * ping_pong_gap,
+            point_features_start + (repeat - 1) * span_load_input4_size, auxiliary_a, auxiliary_b,
+            auxiliary_c, auxiliary_d, auxiliary_e, auxiliary_f, box_idx, pts_num, feature_in_len,
+            sampled_pts_num, span_num_deal, pooled_features_start, pooled_empty_flag_start);
+      }
+    } else if (repeat > 0 && rem == 0) {
+      for (int box_idx = box_start; box_idx < box_end; box_idx++) {
+        computeStoreLastBlockRoipointPool3d<T>(
+            boxes3d, (int *)cnt, ping_points_x + ((repeat - 1) % 2) * ping_pong_gap,
+            ping_points_y + ((repeat - 1) % 2) * ping_pong_gap,
+            ping_points_z + ((repeat - 1) % 2) * ping_pong_gap,
+            point_features_start + (repeat - 1) * span_load_input4_size, auxiliary_a, auxiliary_b,
+            auxiliary_c, auxiliary_d, auxiliary_e, auxiliary_f, box_idx, pts_num, feature_in_len,
+            sampled_pts_num, span_num_deal, span_num_deal, pooled_features_start,
+            pooled_empty_flag_start);
+      }
+    }
+
+    if (rem > 0) {
+      __asm__ volatile("sync;");
+      for (int box_idx = box_start; box_idx < box_end; box_idx++) {
+        computeStoreLastBlockRoipointPool3d<T>(
+            boxes3d, (int *)cnt, ping_points_x + (repeat % 2) * ping_pong_gap,
+            ping_points_y + (repeat % 2) * ping_pong_gap,
+            ping_points_z + (repeat % 2) * ping_pong_gap,
+            point_features_start + repeat * span_load_input4_size, auxiliary_a, auxiliary_b,
+            auxiliary_c, auxiliary_d, auxiliary_e, auxiliary_f, box_idx, pts_num, feature_in_len,
+            sampled_pts_num, align_rem, span_num_deal, pooled_features_start,
+            pooled_empty_flag_start);
+      }
+    }
+  }
+}
+
+template __mlu_global__ void MLUUnion1KernelRoiPointPool3dForward<float>(
+    const int batch_size,
+    const int pts_num,
+    const int boxes_num,
+    const int feature_in_len,
+    const int sampled_pts_num,
+    const char *points_xyz_gdram,
+    const char *point_features_gdram,
+    const char *boxes3d_gdram,
+    char *pooled_features_gdram,
+    char *pooled_empty_flag_gdram);
+
+template __mlu_global__ void MLUUnion1KernelRoiPointPool3dForward<half>(
+    const int batch_size,
+    const int pts_num,
+    const int boxes_num,
+    const int feature_in_len,
+    const int sampled_pts_num,
+    const char *points_xyz_gdram,
+    const char *point_features_gdram,
+    const char *boxes3d_gdram,
+    char *pooled_features_gdram,
+    char *pooled_empty_flag_gdram);
+
+void KernelRoiPointPool3dForward(cnrtDim3_t k_dim,
+                                 cnrtFunctionType_t k_type,
+                                 cnrtQueue_t queue,
+                                 const cnrtDataType_t d_type,
+                                 const int batch_size,
+                                 const int pts_num,
+                                 const int boxes_num,
+                                 const int feature_in_len,
+                                 const int sampled_pts_num,
+                                 const void *points_xyz,
+                                 const void *boxes3d,
+                                 const void *point_features,
+                                 void *pooled_features,
+                                 int *pooled_empty_flag) {
+  switch (d_type) {
+    default: { break; }
+    case CNRT_FLOAT32: {
+      MLUUnion1KernelRoiPointPool3dForward<float><<<k_dim, k_type, queue>>>(
+          batch_size, pts_num, boxes_num, feature_in_len, sampled_pts_num,
+          (char *)points_xyz, (char *)point_features, (char *)boxes3d,
+          (char *)pooled_features, (char *)pooled_empty_flag);
+    }; break;
+    case CNRT_FLOAT16: {
+      MLUUnion1KernelRoiPointPool3dForward<half><<<k_dim, k_type, queue>>>(
+          batch_size, pts_num, boxes_num, feature_in_len, sampled_pts_num,
+          (char *)points_xyz, (char *)point_features, (char *)boxes3d,
+          (char *)pooled_features, (char *)pooled_empty_flag);
+    }; break;
+  }
+}

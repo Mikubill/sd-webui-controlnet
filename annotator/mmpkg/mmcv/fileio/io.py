@@ -1,10 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from io import BytesIO, StringIO
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
-from ..utils import is_list_of, is_str
+from ..utils import is_list_of
 from .file_client import FileClient
 from .handlers import BaseFileHandler, JsonHandler, PickleHandler, YamlHandler
+
+FileLikeObject = Union[TextIO, StringIO, BytesIO]
 
 file_handlers = {
     'json': JsonHandler(),
@@ -15,7 +18,10 @@ file_handlers = {
 }
 
 
-def load(file, file_format=None, file_client_args=None, **kwargs):
+def load(file: Union[str, Path, FileLikeObject],
+         file_format: Optional[str] = None,
+         file_client_args: Optional[Dict] = None,
+         **kwargs):
     """Load data from json/yaml/pickle files.
 
     This method provides a unified api for loading data from serialized files.
@@ -45,13 +51,14 @@ def load(file, file_format=None, file_client_args=None, **kwargs):
     """
     if isinstance(file, Path):
         file = str(file)
-    if file_format is None and is_str(file):
+    if file_format is None and isinstance(file, str):
         file_format = file.split('.')[-1]
     if file_format not in file_handlers:
         raise TypeError(f'Unsupported format: {file_format}')
 
     handler = file_handlers[file_format]
-    if is_str(file):
+    f: FileLikeObject
+    if isinstance(file, str):
         file_client = FileClient.infer_client(file_client_args, file)
         if handler.str_like:
             with StringIO(file_client.get_text(file)) as f:
@@ -66,7 +73,11 @@ def load(file, file_format=None, file_client_args=None, **kwargs):
     return obj
 
 
-def dump(obj, file=None, file_format=None, file_client_args=None, **kwargs):
+def dump(obj: Any,
+         file: Optional[Union[str, Path, FileLikeObject]] = None,
+         file_format: Optional[str] = None,
+         file_client_args: Optional[Dict] = None,
+         **kwargs):
     """Dump data to json/yaml/pickle strings or files.
 
     This method provides a unified api for dumping data as strings or to files,
@@ -96,18 +107,18 @@ def dump(obj, file=None, file_format=None, file_client_args=None, **kwargs):
     if isinstance(file, Path):
         file = str(file)
     if file_format is None:
-        if is_str(file):
+        if isinstance(file, str):
             file_format = file.split('.')[-1]
         elif file is None:
             raise ValueError(
                 'file_format must be specified since file is None')
     if file_format not in file_handlers:
         raise TypeError(f'Unsupported format: {file_format}')
-
+    f: FileLikeObject
     handler = file_handlers[file_format]
     if file is None:
         return handler.dump_to_str(obj, **kwargs)
-    elif is_str(file):
+    elif isinstance(file, str):
         file_client = FileClient.infer_client(file_client_args, file)
         if handler.str_like:
             with StringIO() as f:
@@ -123,7 +134,8 @@ def dump(obj, file=None, file_format=None, file_client_args=None, **kwargs):
         raise TypeError('"file" must be a filename str or a file-object')
 
 
-def _register_handler(handler, file_formats):
+def _register_handler(handler: BaseFileHandler,
+                      file_formats: Union[str, List[str]]) -> None:
     """Register a handler for some file extensions.
 
     Args:
@@ -142,7 +154,7 @@ def _register_handler(handler, file_formats):
         file_handlers[ext] = handler
 
 
-def register_handler(file_formats, **kwargs):
+def register_handler(file_formats: Union[str, list], **kwargs) -> Callable:
 
     def wrap(cls):
         _register_handler(cls(**kwargs), file_formats)

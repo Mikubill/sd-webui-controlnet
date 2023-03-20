@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from annotator.mmpkg.mmcv.cnn import PLUGIN_LAYERS, Scale
 
 
-def NEG_INF_DIAG(n, device):
+def NEG_INF_DIAG(n: int, device: torch.device) -> torch.Tensor:
     """Returns a diagonal matrix of size [n, n].
 
     The diagonal are all "-inf". This is for avoiding calculating the
@@ -41,7 +41,7 @@ class CrissCrossAttention(nn.Module):
         in_channels (int): Channels of the input feature map.
     """
 
-    def __init__(self, in_channels):
+    def __init__(self, in_channels: int) -> None:
         super().__init__()
         self.query_conv = nn.Conv2d(in_channels, in_channels // 8, 1)
         self.key_conv = nn.Conv2d(in_channels, in_channels // 8, 1)
@@ -49,14 +49,15 @@ class CrissCrossAttention(nn.Module):
         self.gamma = Scale(0.)
         self.in_channels = in_channels
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """forward function of Criss-Cross Attention.
 
         Args:
-            x (Tensor): Input feature. \
-                shape (batch_size, in_channels, height, width)
+            x (torch.Tensor): Input feature with the shape of
+                (batch_size, in_channels, height, width).
+
         Returns:
-            Tensor: Output of the layer, with shape of \
+            torch.Tensor: Output of the layer, with the shape of
             (batch_size, in_channels, height, width)
         """
         B, C, H, W = x.size()
@@ -77,7 +78,7 @@ class CrissCrossAttention(nn.Module):
 
         return out
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = self.__class__.__name__
         s += f'(in_channels={self.in_channels})'
         return s

@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Union
+
 import numpy as np
 import torch
 
@@ -7,21 +9,22 @@ from ..utils import ext_loader
 ext_module = ext_loader.load_ext('_ext', ['contour_expand'])
 
 
-def contour_expand(kernel_mask, internal_kernel_label, min_kernel_area,
-                   kernel_num):
+def contour_expand(kernel_mask: Union[np.array, torch.Tensor],
+                   internal_kernel_label: Union[np.array, torch.Tensor],
+                   min_kernel_area: int, kernel_num: int) -> list:
     """Expand kernel contours so that foreground pixels are assigned into
     instances.
 
-    Arguments:
-        kernel_mask (np.array or Tensor): The instance kernel mask with
+    Args:
+        kernel_mask (np.array or torch.Tensor): The instance kernel mask with
             size hxw.
-        internal_kernel_label (np.array or Tensor): The instance internal
+        internal_kernel_label (np.array or torch.Tensor): The instance internal
             kernel label with size hxw.
         min_kernel_area (int): The minimum kernel area.
         kernel_num (int): The instance kernel number.
 
     Returns:
-        label (list): The instance index map with size hxw.
+        list: The instance index map with size hxw.
     """
     assert isinstance(kernel_mask, (torch.Tensor, np.ndarray))
     assert isinstance(internal_kernel_label, (torch.Tensor, np.ndarray))
@@ -42,7 +45,7 @@ def contour_expand(kernel_mask, internal_kernel_label, min_kernel_area,
                 internal_kernel_label,
                 min_kernel_area=min_kernel_area,
                 kernel_num=kernel_num)
-            label = label.tolist()
+            label = label.tolist()  # type: ignore
     else:
         label = ext_module.contour_expand(kernel_mask, internal_kernel_label,
                                           min_kernel_area, kernel_num)

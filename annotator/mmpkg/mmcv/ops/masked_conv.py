@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -27,7 +28,13 @@ class MaskedConv2dFunction(Function):
             stride_i=stride)
 
     @staticmethod
-    def forward(ctx, features, mask, weight, bias, padding=0, stride=1):
+    def forward(ctx,
+                features: torch.Tensor,
+                mask: torch.Tensor,
+                weight: torch.nn.Parameter,
+                bias: torch.nn.Parameter,
+                padding: int = 0,
+                stride: int = 1) -> torch.Tensor:
         assert mask.dim() == 3 and mask.size(0) == 1
         assert features.dim() == 4 and features.size(0) == 1
         assert features.size()[2:] == mask.size()[1:]
@@ -38,13 +45,33 @@ class MaskedConv2dFunction(Function):
                 'Stride could not only be 1 in masked_conv2d currently.')
         out_channel, in_channel, kernel_h, kernel_w = weight.size()
 
+        if features.device.type == 'npu':
+            import torch_npu
+            output = torch_npu.npu_conv2d(
+                features,
+                weight,
+                bias,
+                stride=(stride_h, stride_w),
+                padding=(pad_h, pad_w),
+                dilation=(1, 1),
+                groups=1)
+            if mask.size()[1:] != output.size()[2:]:
+                raise ValueError(
+                    'The mask is inconsistent with the shape of output_conv.')
+            mask = mask > 0
+            mask = mask.type(output.dtype)
+            output = output * mask
+            return output
+
         batch_size = features.size(0)
         out_h = int(
-            math.floor((features.size(2) + 2 * pad_h -
-                        (kernel_h - 1) - 1) / stride_h + 1))
+            math.floor(
+                torch.true_divide((features.size(2) + 2 * pad_h -
+                                   (kernel_h - 1) - 1), stride_h) + 1))
         out_w = int(
-            math.floor((features.size(3) + 2 * pad_w -
-                        (kernel_h - 1) - 1) / stride_w + 1))
+            math.floor(
+                torch.true_divide((features.size(3) + 2 * pad_w -
+                                   (kernel_w - 1) - 1), stride_w) + 1))
         mask_inds = torch.nonzero(mask[0] > 0, as_tuple=False)
         output = features.new_zeros(batch_size, out_channel, out_h, out_w)
         if mask_inds.numel() > 0:
@@ -61,7 +88,6 @@ class MaskedConv2dFunction(Function):
                 kernel_w=kernel_w,
                 pad_h=pad_h,
                 pad_w=pad_w)
-
             masked_output = torch.addmm(1, bias[:, None], 1,
                                         weight.view(out_channel, -1), data_col)
             ext_module.masked_col2im_forward(
@@ -76,7 +102,7 @@ class MaskedConv2dFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(ctx, grad_output):
+    def backward(ctx, grad_output: torch.Tensor) -> tuple:
         return (None, ) * 5
 
 
@@ -91,21 +117,22 @@ class MaskedConv2d(nn.Conv2d):
     """
 
     def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride=1,
-                 padding=0,
-                 dilation=1,
-                 groups=1,
-                 bias=True):
-        super(MaskedConv2d,
-              self).__init__(in_channels, out_channels, kernel_size, stride,
-                             padding, dilation, groups, bias)
+                 in_channels: int,
+                 out_channels: int,
+                 kernel_size: Union[int, Tuple[int, ...]],
+                 stride: int = 1,
+                 padding: int = 0,
+                 dilation: int = 1,
+                 groups: int = 1,
+                 bias: bool = True):
+        super().__init__(in_channels, out_channels, kernel_size, stride,
+                         padding, dilation, groups, bias)
 
-    def forward(self, input, mask=None):
+    def forward(self,
+                input: torch.Tensor,
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         if mask is None:  # fallback to the normal Conv2d
-            return super(MaskedConv2d, self).forward(input)
+            return super().forward(input)
         else:
             return masked_conv2d(input, mask, self.weight, self.bias,
                                  self.padding)

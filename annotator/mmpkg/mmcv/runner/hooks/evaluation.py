@@ -2,6 +2,7 @@
 import os.path as osp
 import warnings
 from math import inf
+from typing import Callable, List, Optional
 
 import torch.distributed as dist
 from torch.nn.modules.batchnorm import _BatchNorm
@@ -22,10 +23,10 @@ class EvalHook(Hook):
     Args:
         dataloader (DataLoader): A PyTorch dataloader, whose dataset has
             implemented ``evaluate`` function.
-        start (int | None, optional): Evaluation starting epoch. It enables
-            evaluation before the training starts if ``start`` <= the resuming
-            epoch. If None, whether to evaluate is merely decided by
-            ``interval``. Default: None.
+        start (int | None, optional): Evaluation starting epoch or iteration.
+            It enables evaluation before the training starts if ``start`` <=
+            the resuming epoch or iteration. If None, whether to evaluate is
+            merely decided by ``interval``. Default: None.
         interval (int): Evaluation interval. Default: 1.
         by_epoch (bool): Determine perform evaluation by epoch or by iteration.
             If set to True, it will perform by epoch. Otherwise, by iteration.
@@ -65,7 +66,7 @@ class EvalHook(Hook):
         **eval_kwargs: Evaluation arguments fed into the evaluate function of
             the dataset.
 
-    Notes:
+    Note:
         If new arguments are added for EvalHook, tools/test.py,
         tools/eval_metric.py may be affected.
     """
@@ -83,17 +84,17 @@ class EvalHook(Hook):
     _default_less_keys = ['loss']
 
     def __init__(self,
-                 dataloader,
-                 start=None,
-                 interval=1,
-                 by_epoch=True,
-                 save_best=None,
-                 rule=None,
-                 test_fn=None,
-                 greater_keys=None,
-                 less_keys=None,
-                 out_dir=None,
-                 file_client_args=None,
+                 dataloader: DataLoader,
+                 start: Optional[int] = None,
+                 interval: int = 1,
+                 by_epoch: bool = True,
+                 save_best: Optional[str] = None,
+                 rule: Optional[str] = None,
+                 test_fn: Optional[Callable] = None,
+                 greater_keys: Optional[List[str]] = None,
+                 less_keys: Optional[List[str]] = None,
+                 out_dir: Optional[str] = None,
+                 file_client_args: Optional[dict] = None,
                  **eval_kwargs):
         if not isinstance(dataloader, DataLoader):
             raise TypeError(f'dataloader must be a pytorch DataLoader, '
@@ -131,6 +132,7 @@ class EvalHook(Hook):
             self.greater_keys = self._default_greater_keys
         else:
             if not isinstance(greater_keys, (list, tuple)):
+                assert isinstance(greater_keys, str)
                 greater_keys = (greater_keys, )
             assert is_seq_of(greater_keys, str)
             self.greater_keys = greater_keys
@@ -139,6 +141,7 @@ class EvalHook(Hook):
             self.less_keys = self._default_less_keys
         else:
             if not isinstance(less_keys, (list, tuple)):
+                assert isinstance(greater_keys, str)
                 less_keys = (less_keys, )
             assert is_seq_of(less_keys, str)
             self.less_keys = less_keys
@@ -150,7 +153,7 @@ class EvalHook(Hook):
         self.out_dir = out_dir
         self.file_client_args = file_client_args
 
-    def _init_rule(self, rule, key_indicator):
+    def _init_rule(self, rule: Optional[str], key_indicator: str):
         """Initialize rule, key_indicator, comparison_func, and best score.
 
         Here is the rule to determine which rule is used for key indicator
@@ -160,10 +163,10 @@ class EvalHook(Hook):
            specified as 'greater'.
         2. Or if the key indicator is in ``self.less_keys``, the rule will be
            specified as 'less'.
-        3. Or if the key indicator is equal to the substring in any one item
-           in ``self.greater_keys``, the rule will be specified as 'greater'.
-        4. Or if the key indicator is equal to the substring in any one item
-           in ``self.less_keys``, the rule will be specified as 'less'.
+        3. Or if any one item in ``self.greater_keys`` is a substring of
+            key_indicator , the rule will be specified as 'greater'.
+        4. Or if any one item in ``self.less_keys`` is a substring of
+            key_indicator , the rule will be specified as 'less'.
 
         Args:
             rule (str | None): Comparison rule for best score.
@@ -178,6 +181,7 @@ class EvalHook(Hook):
             if key_indicator != 'auto':
                 # `_lc` here means we use the lower case of keys for
                 # case-insensitive matching
+                assert isinstance(key_indicator, str)
                 key_indicator_lc = key_indicator.lower()
                 greater_keys = [key.lower() for key in self.greater_keys]
                 less_keys = [key.lower() for key in self.less_keys]
@@ -214,8 +218,8 @@ class EvalHook(Hook):
             basename = osp.basename(runner.work_dir.rstrip(osp.sep))
             self.out_dir = self.file_client.join_path(self.out_dir, basename)
             runner.logger.info(
-                (f'The best checkpoint will be saved to {self.out_dir} by '
-                 f'{self.file_client.name}'))
+                f'The best checkpoint will be saved to {self.out_dir} by '
+                f'{self.file_client.name}')
 
         if self.save_best is not None:
             if runner.meta is None:
@@ -335,8 +339,8 @@ class EvalHook(Hook):
                     self.best_ckpt_path):
                 self.file_client.remove(self.best_ckpt_path)
                 runner.logger.info(
-                    (f'The previous best checkpoint {self.best_ckpt_path} was '
-                     'removed'))
+                    f'The previous best checkpoint {self.best_ckpt_path} was '
+                    'removed')
 
             best_ckpt_name = f'best_{self.key_indicator}_{current}.pth'
             self.best_ckpt_path = self.file_client.join_path(
@@ -344,7 +348,9 @@ class EvalHook(Hook):
             runner.meta['hook_msgs']['best_ckpt'] = self.best_ckpt_path
 
             runner.save_checkpoint(
-                self.out_dir, best_ckpt_name, create_symlink=False)
+                self.out_dir,
+                filename_tmpl=best_ckpt_name,
+                create_symlink=False)
             runner.logger.info(
                 f'Now best checkpoint is saved as {best_ckpt_name}.')
             runner.logger.info(
@@ -366,7 +372,7 @@ class EvalHook(Hook):
         runner.log_buffer.ready = True
 
         if self.save_best is not None:
-            # If the performance of model is pool, the `eval_res` may be an
+            # If the performance of model is poor, the `eval_res` may be an
             # empty dict and it will raise exception when `self.save_best` is
             # not None. More details at
             # https://github.com/open-mmlab/mmdetection/issues/6265.
@@ -437,20 +443,20 @@ class DistEvalHook(EvalHook):
     """
 
     def __init__(self,
-                 dataloader,
-                 start=None,
-                 interval=1,
-                 by_epoch=True,
-                 save_best=None,
-                 rule=None,
-                 test_fn=None,
-                 greater_keys=None,
-                 less_keys=None,
-                 broadcast_bn_buffer=True,
-                 tmpdir=None,
-                 gpu_collect=False,
-                 out_dir=None,
-                 file_client_args=None,
+                 dataloader: DataLoader,
+                 start: Optional[int] = None,
+                 interval: int = 1,
+                 by_epoch: bool = True,
+                 save_best: Optional[str] = None,
+                 rule: Optional[str] = None,
+                 test_fn: Optional[Callable] = None,
+                 greater_keys: Optional[List[str]] = None,
+                 less_keys: Optional[List[str]] = None,
+                 broadcast_bn_buffer: bool = True,
+                 tmpdir: Optional[str] = None,
+                 gpu_collect: bool = False,
+                 out_dir: Optional[str] = None,
+                 file_client_args: Optional[dict] = None,
                  **eval_kwargs):
 
         if test_fn is None:
