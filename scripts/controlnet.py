@@ -18,8 +18,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
-importlib.reload(external_code)
 importlib.reload(global_state)
+importlib.reload(external_code)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -120,37 +120,8 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = {
-            "none": lambda x, *args, **kwargs: (x, True),
-            "canny": canny,
-            "depth": midas,
-            "depth_leres": leres,
-            "hed": hed,
-            "mlsd": mlsd,
-            "normal_map": midas_normal,
-            "openpose": openpose,
-            "openpose_hand": openpose_hand,
-            "clip_vision": clip,
-            "color": color,
-            "pidinet": pidinet,
-            "scribble": simple_scribble,
-            "fake_scribble": fake_scribble,
-            "segmentation": uniformer,
-            "binary": binary,
-        }
-        self.unloadable = {
-            "hed": unload_hed,
-            "fake_scribble": unload_hed,
-            "mlsd": unload_mlsd,
-            "clip": unload_clip,
-            "depth": unload_midas,
-            "depth_leres": unload_leres,
-            "normal_map": unload_midas,
-            "pidinet": unload_pidinet,
-            "openpose": unload_openpose,
-            "openpose_hand": unload_openpose,
-            "segmentation": unload_uniformer,
-        }
+        self.preprocessor = global_state.cn_preprocessor_modules
+        self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
         self.txt2img_w_slider = gr.Slider()
@@ -439,6 +410,7 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
+        self.paste_field_names = []
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         with gr.Group():
@@ -451,8 +423,11 @@ class Script(scripts.Script):
                 else:
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        
+        for _, field_name in self.infotext_fields:
+            self.paste_field_names.append(field_name)
 
-                return controls
+        return controls
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
@@ -581,23 +556,37 @@ class Script(scripts.Script):
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
         if resize_mode == external_code.ResizeMode.INNER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            w1 = w0
+            h1 = int(w0/w*h)
+            if (h/w > h0/w0):
+                h1 = h0
+                w1 = int(h0/h*w)
             transform = Compose([
-                Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w)),
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w), interpolation=InterpolationMode.BICUBIC)
             ])
             control = transform(control)
             detected_map = transform(detected_map)
         elif resize_mode == external_code.ResizeMode.OUTER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            h1 = h0
+            w1 = int(h0/h*w)
+            if (h/w > h0/w0):
+                w1 = w0
+                h1 = int(w0/w*h)
             transform = Compose([
-                Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w))
-            ]) 
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w),interpolation=InterpolationMode.BICUBIC)
+            ])
             control = transform(control)
             detected_map = transform(detected_map)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
+       
         # for log use
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
