@@ -430,8 +430,9 @@ class Script(scripts.Script):
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img),)
                         
-        for _, field_name in self.infotext_fields:
-            self.paste_field_names.append(field_name)
+        if shared.opts.data.get("control_net_sync_field_args", False):
+            for _, field_name in self.infotext_fields:
+                self.paste_field_names.append(field_name)
 
         return controls
 
@@ -827,6 +828,8 @@ def on_ui_settings():
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(
         False, "Enable CFG-Based guidance", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_sync_field_args", shared.OptionInfo(
+        False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
     
