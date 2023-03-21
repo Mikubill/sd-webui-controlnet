@@ -832,26 +832,26 @@ class Img2ImgTabTracker:
         self.submit_img2img_tab = None
         self.submit_button = None
 
-    def save_submit_img2img_tab(self, button):
+    def save_submit_img2img_tab(self, button_elem_id):
         self.submit_img2img_tab = self.active_img2img_tab
-        self.submit_button = button.elem_id
+        self.submit_button = button_elem_id
 
-    def set_active_img2img_tab(self, tab):
-        self.active_img2img_tab = tab.elem_id
+    def set_active_img2img_tab(self, tab_elem_id):
+        self.active_img2img_tab = tab_elem_id
 
     def on_after_component_callback(self, component, **_kwargs):
         if type(component) is gr.State:
             return
 
         if type(component) is gr.Button and component.elem_id in ('img2img_generate', 'txt2img_generate'):
-            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component), outputs=[])
+            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component.elem_id), outputs=[])
             return
 
         tab = getattr(component, 'parent', None)
         is_tab = type(tab) is gr.Tab and getattr(tab, 'elem_id', None) is not None
         is_img2img_tab = is_tab and getattr(tab, 'parent', None) is not None and getattr(tab.parent, 'elem_id', None) == 'mode_img2img'
         if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
-            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab.elem_id), outputs=[])
             self.img2img_tabs.add(tab.elem_id)
             return
 
