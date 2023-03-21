@@ -393,13 +393,19 @@ class Script(scripts.Script):
 
         unit = gr.State(default_unit)
         for comp in ctrls:
-            event_subscriber = comp.change
+            event_subscribers = []
             if hasattr(comp, 'edit'):
-                event_subscriber = comp.edit
+                event_subscribers.append(comp.edit)
             elif hasattr(comp, 'click'):
-                event_subscriber = comp.click
+                event_subscribers.append(comp.click)
+            else:
+                event_subscribers.append(comp.change)
 
-            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+            if hasattr(comp, 'clear'):
+                event_subscribers.append(comp.clear)
+
+            for event_subscriber in event_subscribers:
+                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
 
         return unit
 
