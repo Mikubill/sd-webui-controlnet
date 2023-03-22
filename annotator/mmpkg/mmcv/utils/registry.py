@@ -2,29 +2,12 @@
 import inspect
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional
 
-from .misc import deprecated_api_warning, is_seq_of
+from .misc import is_seq_of
 
 
-def build_from_cfg(cfg: Dict,
-                   registry: 'Registry',
-                   default_args: Optional[Dict] = None) -> Any:
-    """Build a module from config dict when it is a class configuration, or
-    call a function from config dict when it is a function configuration.
-
-    Example:
-        >>> MODELS = Registry('models')
-        >>> @MODELS.register_module()
-        >>> class ResNet:
-        >>>     pass
-        >>> resnet = build_from_cfg(dict(type='Resnet'), MODELS)
-        >>> # Returns an instantiated object
-        >>> @MODELS.register_module()
-        >>> def resnet50():
-        >>>     pass
-        >>> resnet = build_from_cfg(dict(type='resnet50'), MODELS)
-        >>> # Return a result of the calling function
+def build_from_cfg(cfg, registry, default_args=None):
+    """Build a module from config dict.
 
     Args:
         cfg (dict): Config dict. It should at least contain the key "type".
@@ -60,7 +43,7 @@ def build_from_cfg(cfg: Dict,
         if obj_cls is None:
             raise KeyError(
                 f'{obj_type} is not in the {registry.name} registry')
-    elif inspect.isclass(obj_type) or inspect.isfunction(obj_type):
+    elif inspect.isclass(obj_type):
         obj_cls = obj_type
     else:
         raise TypeError(
@@ -73,21 +56,15 @@ def build_from_cfg(cfg: Dict,
 
 
 class Registry:
-    """A registry to map strings to classes or functions.
+    """A registry to map strings to classes.
 
-    Registered object could be built from registry. Meanwhile, registered
-    functions could be called from registry.
-
+    Registered object could be built from registry.
     Example:
         >>> MODELS = Registry('models')
         >>> @MODELS.register_module()
         >>> class ResNet:
         >>>     pass
         >>> resnet = MODELS.build(dict(type='ResNet'))
-        >>> @MODELS.register_module()
-        >>> def resnet50():
-        >>>     pass
-        >>> resnet = MODELS.build(dict(type='resnet50'))
 
     Please refer to
     https://mmcv.readthedocs.io/en/latest/understand_mmcv/registry.html for
@@ -151,22 +128,20 @@ class Registry:
         The name of the package where registry is defined will be returned.
 
         Example:
-            >>> # in mmdet/models/backbone/resnet.py
+            # in mmdet/models/backbone/resnet.py
             >>> MODELS = Registry('models')
             >>> @MODELS.register_module()
             >>> class ResNet:
             >>>     pass
             The scope of ``ResNet`` will be ``mmdet``.
 
+
         Returns:
-            str: The inferred scope name.
+            scope (str): The inferred scope name.
         """
-        # We access the caller using inspect.currentframe() instead of
-        # inspect.stack() for performance reasons. See details in PR #1844
-        frame = inspect.currentframe()
-        # get the frame where `infer_scope()` is called
-        infer_scope_caller = frame.f_back.f_back
-        filename = inspect.getmodule(infer_scope_caller).__name__
+        # inspect.stack() trace where this function is called, the index-2
+        # indicates the frame where `infer_scope()` is called
+        filename = inspect.getmodule(inspect.stack()[2][0]).__name__
         split_filename = filename.split('.')
         return split_filename[0]
 
@@ -183,8 +158,8 @@ class Registry:
             None, 'ResNet'
 
         Return:
-            tuple[str | None, str]: The former element is the first scope of
-            the key, which can be ``None``. The latter is the remaining key.
+            scope (str, None): The first scope.
+            key (str): The remaining key.
         """
         split_index = key.find('.')
         if split_index != -1:
@@ -257,28 +232,26 @@ class Registry:
             f'scope {registry.scope} exists in {self.name} registry'
         self.children[registry.scope] = registry
 
-    @deprecated_api_warning(name_dict=dict(module_class='module'))
-    def _register_module(self, module, module_name=None, force=False):
-        if not inspect.isclass(module) and not inspect.isfunction(module):
-            raise TypeError('module must be a class or a function, '
-                            f'but got {type(module)}')
+    def _register_module(self, module_class, module_name=None, force=False):
+        if not inspect.isclass(module_class):
+            raise TypeError('module must be a class, '
+                            f'but got {type(module_class)}')
 
         if module_name is None:
-            module_name = module.__name__
+            module_name = module_class.__name__
         if isinstance(module_name, str):
             module_name = [module_name]
         for name in module_name:
             if not force and name in self._module_dict:
                 raise KeyError(f'{name} is already registered '
                                f'in {self.name}')
-            self._module_dict[name] = module
+            self._module_dict[name] = module_class
 
     def deprecated_register_module(self, cls=None, force=False):
         warnings.warn(
             'The old API of register_module(module, force=False) '
             'is deprecated and will be removed, please use the new API '
-            'register_module(name=None, force=False, module=None) instead.',
-            DeprecationWarning)
+            'register_module(name=None, force=False, module=None) instead.')
         if cls is None:
             return partial(self.deprecated_register_module, force=force)
         self._register_module(cls, force=force)
@@ -312,7 +285,7 @@ class Registry:
                 specified, the class name will be used.
             force (bool, optional): Whether to override an existing class with
                 the same name. Default: False.
-            module (type): Module class or function to be registered.
+            module (type): Module class to be registered.
         """
         if not isinstance(force, bool):
             raise TypeError(f'force must be a boolean, but got {type(force)}')
@@ -329,12 +302,14 @@ class Registry:
 
         # use it as a normal method: x.register_module(module=SomeClass)
         if module is not None:
-            self._register_module(module=module, module_name=name, force=force)
+            self._register_module(
+                module_class=module, module_name=name, force=force)
             return module
 
         # use it as a decorator: @x.register_module()
-        def _register(module):
-            self._register_module(module=module, module_name=name, force=force)
-            return module
+        def _register(cls):
+            self._register_module(
+                module_class=cls, module_name=name, force=force)
+            return cls
 
         return _register

@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
-from typing import Optional
 
 from ..utils import Registry
 
@@ -8,11 +7,11 @@ RUNNERS = Registry('runner')
 RUNNER_BUILDERS = Registry('runner builder')
 
 
-def build_runner_constructor(cfg: dict):
+def build_runner_constructor(cfg):
     return RUNNER_BUILDERS.build(cfg)
 
 
-def build_runner(cfg: dict, default_args: Optional[dict] = None):
+def build_runner(cfg, default_args=None):
     runner_cfg = copy.deepcopy(cfg)
     constructor_type = runner_cfg.pop('constructor',
                                       'DefaultRunnerConstructor')

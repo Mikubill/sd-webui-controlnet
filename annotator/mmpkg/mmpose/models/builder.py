@@ -4,7 +4,7 @@ from annotator.mmpkg.mmcv.cnn import build_model_from_cfg
 from annotator.mmpkg.mmcv.utils import Registry
 
 MODELS = Registry(
-    'models', build_func=build_model_from_cfg, parent=MMCV_MODELS)
+    'models', build_func=build_model_from_cfg, parent=MMCV_MODELS, scope='mmpose')
 
 BACKBONES = MODELS
 NECKS = MODELS

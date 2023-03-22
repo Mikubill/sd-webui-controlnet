@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from enum import Enum
-from typing import Union
 
 
 class Priority(Enum):
@@ -40,7 +39,7 @@ class Priority(Enum):
     LOWEST = 100
 
 
-def get_priority(priority: Union[int, str, Priority]) -> int:
+def get_priority(priority):
     """Get priority value.
 
     Args:

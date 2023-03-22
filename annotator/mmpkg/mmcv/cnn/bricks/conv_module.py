@@ -1,8 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
-from typing import Dict, Optional, Tuple, Union
 
-import torch
 import torch.nn as nn
 
 from annotator.mmpkg.mmcv.utils import _BatchNorm, _InstanceNorm
@@ -70,22 +68,22 @@ class ConvModule(nn.Module):
     _abbr_ = 'conv_block'
 
     def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: Union[int, Tuple[int, int]],
-                 stride: Union[int, Tuple[int, int]] = 1,
-                 padding: Union[int, Tuple[int, int]] = 0,
-                 dilation: Union[int, Tuple[int, int]] = 1,
-                 groups: int = 1,
-                 bias: Union[bool, str] = 'auto',
-                 conv_cfg: Optional[Dict] = None,
-                 norm_cfg: Optional[Dict] = None,
-                 act_cfg: Optional[Dict] = dict(type='ReLU'),
-                 inplace: bool = True,
-                 with_spectral_norm: bool = False,
-                 padding_mode: str = 'zeros',
-                 order: tuple = ('conv', 'norm', 'act')):
-        super().__init__()
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias='auto',
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=dict(type='ReLU'),
+                 inplace=True,
+                 with_spectral_norm=False,
+                 padding_mode='zeros',
+                 order=('conv', 'norm', 'act')):
+        super(ConvModule, self).__init__()
         assert conv_cfg is None or isinstance(conv_cfg, dict)
         assert norm_cfg is None or isinstance(norm_cfg, dict)
         assert act_cfg is None or isinstance(act_cfg, dict)
@@ -98,7 +96,7 @@ class ConvModule(nn.Module):
         self.with_explicit_padding = padding_mode not in official_padding_mode
         self.order = order
         assert isinstance(self.order, tuple) and len(self.order) == 3
-        assert set(order) == {'conv', 'norm', 'act'}
+        assert set(order) == set(['conv', 'norm', 'act'])
 
         self.with_norm = norm_cfg is not None
         self.with_activation = act_cfg is not None
@@ -145,22 +143,21 @@ class ConvModule(nn.Module):
                 norm_channels = out_channels
             else:
                 norm_channels = in_channels
-            self.norm_name, norm = build_norm_layer(
-                norm_cfg, norm_channels)  # type: ignore
+            self.norm_name, norm = build_norm_layer(norm_cfg, norm_channels)
             self.add_module(self.norm_name, norm)
             if self.with_bias:
                 if isinstance(norm, (_BatchNorm, _InstanceNorm)):
                     warnings.warn(
                         'Unnecessary conv bias before batch/instance norm')
         else:
-            self.norm_name = None  # type: ignore
+            self.norm_name = None
 
         # build activation layer
         if self.with_activation:
-            act_cfg_ = act_cfg.copy()  # type: ignore
+            act_cfg_ = act_cfg.copy()
             # nn.Tanh has no 'inplace' argument
             if act_cfg_['type'] not in [
-                    'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish', 'GELU'
+                    'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish'
             ]:
                 act_cfg_.setdefault('inplace', inplace)
             self.activate = build_activation_layer(act_cfg_)
@@ -196,10 +193,7 @@ class ConvModule(nn.Module):
         if self.with_norm:
             constant_init(self.norm, 1, bias=0)
 
-    def forward(self,
-                x: torch.Tensor,
-                activate: bool = True,
-                norm: bool = True) -> torch.Tensor:
+    def forward(self, x, activate=True, norm=True):
         for layer in self.order:
             if layer == 'conv':
                 if self.with_explicit_padding:

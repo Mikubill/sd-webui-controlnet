@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Any, Dict, Optional
-
 import torch
 import torch.nn as nn
 
@@ -8,9 +6,7 @@ from annotator.mmpkg.mmcv import build_from_cfg
 from .registry import DROPOUT_LAYERS
 
 
-def drop_path(x: torch.Tensor,
-              drop_prob: float = 0.,
-              training: bool = False) -> torch.Tensor:
+def drop_path(x, drop_prob=0., training=False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of
     residual blocks).
 
@@ -40,11 +36,11 @@ class DropPath(nn.Module):
         drop_prob (float): Probability of the path to be zeroed. Default: 0.1
     """
 
-    def __init__(self, drop_prob: float = 0.1):
-        super().__init__()
+    def __init__(self, drop_prob=0.1):
+        super(DropPath, self).__init__()
         self.drop_prob = drop_prob
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         return drop_path(x, self.drop_prob, self.training)
 
 
@@ -60,10 +56,10 @@ class Dropout(nn.Dropout):
         inplace (bool):  Do the operation inplace or not. Default: False.
     """
 
-    def __init__(self, drop_prob: float = 0.5, inplace: bool = False):
+    def __init__(self, drop_prob=0.5, inplace=False):
         super().__init__(p=drop_prob, inplace=inplace)
 
 
-def build_dropout(cfg: Dict, default_args: Optional[Dict] = None) -> Any:
+def build_dropout(cfg, default_args=None):
     """Builder for drop out layers."""
     return build_from_cfg(cfg, DROPOUT_LAYERS, default_args)

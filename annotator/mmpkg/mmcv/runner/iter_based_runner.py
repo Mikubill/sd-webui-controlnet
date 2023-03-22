@@ -4,11 +4,9 @@ import platform
 import shutil
 import time
 import warnings
-from typing import Callable, Dict, List, Optional, Tuple, Union, no_type_check
 
 import torch
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
 
 import annotator.mmpkg.mmcv as mmcv
 from .base_runner import BaseRunner
@@ -20,13 +18,13 @@ from .utils import get_host_info
 
 class IterLoader:
 
-    def __init__(self, dataloader: DataLoader):
+    def __init__(self, dataloader):
         self._dataloader = dataloader
         self.iter_loader = iter(self._dataloader)
         self._epoch = 0
 
     @property
-    def epoch(self) -> int:
+    def epoch(self):
         return self._epoch
 
     def __next__(self):
@@ -59,7 +57,6 @@ class IterBasedRunner(BaseRunner):
         self.data_loader = data_loader
         self._epoch = data_loader.epoch
         data_batch = next(data_loader)
-        self.data_batch = data_batch
         self.call_hook('before_train_iter')
         outputs = self.model.train_step(data_batch, self.optimizer, **kwargs)
         if not isinstance(outputs, dict):
@@ -68,7 +65,6 @@ class IterBasedRunner(BaseRunner):
             self.log_buffer.update(outputs['log_vars'], outputs['num_samples'])
         self.outputs = outputs
         self.call_hook('after_train_iter')
-        del self.data_batch
         self._inner_iter += 1
         self._iter += 1
 
@@ -78,7 +74,6 @@ class IterBasedRunner(BaseRunner):
         self.mode = 'val'
         self.data_loader = data_loader
         data_batch = next(data_loader)
-        self.data_batch = data_batch
         self.call_hook('before_val_iter')
         outputs = self.model.val_step(data_batch, **kwargs)
         if not isinstance(outputs, dict):
@@ -87,14 +82,9 @@ class IterBasedRunner(BaseRunner):
             self.log_buffer.update(outputs['log_vars'], outputs['num_samples'])
         self.outputs = outputs
         self.call_hook('after_val_iter')
-        del self.data_batch
         self._inner_iter += 1
 
-    def run(self,
-            data_loaders: List[DataLoader],
-            workflow: List[Tuple[str, int]],
-            max_iters: Optional[int] = None,
-            **kwargs) -> None:
+    def run(self, data_loaders, workflow, max_iters=None, **kwargs):
         """Start running.
 
         Args:
@@ -147,11 +137,10 @@ class IterBasedRunner(BaseRunner):
         self.call_hook('after_epoch')
         self.call_hook('after_run')
 
-    @no_type_check
     def resume(self,
-               checkpoint: str,
-               resume_optimizer: bool = True,
-               map_location: Union[str, Callable] = 'default') -> None:
+               checkpoint,
+               resume_optimizer=True,
+               map_location='default'):
         """Resume model from checkpoint.
 
         Args:
@@ -187,13 +176,12 @@ class IterBasedRunner(BaseRunner):
 
         self.logger.info(f'resumed from epoch: {self.epoch}, iter {self.iter}')
 
-    def save_checkpoint(  # type: ignore
-            self,
-            out_dir: str,
-            filename_tmpl: str = 'iter_{}.pth',
-            meta: Optional[Dict] = None,
-            save_optimizer: bool = True,
-            create_symlink: bool = True) -> None:
+    def save_checkpoint(self,
+                        out_dir,
+                        filename_tmpl='iter_{}.pth',
+                        meta=None,
+                        save_optimizer=True,
+                        create_symlink=True):
         """Save checkpoint to file.
 
         Args:
@@ -269,13 +257,13 @@ class IterBasedRunner(BaseRunner):
         will be triggered after default hooks.
         """
         if checkpoint_config is not None:
-            checkpoint_config.setdefault('by_epoch', False)  # type: ignore
+            checkpoint_config.setdefault('by_epoch', False)
         if lr_config is not None:
-            lr_config.setdefault('by_epoch', False)  # type: ignore
+            lr_config.setdefault('by_epoch', False)
         if log_config is not None:
             for info in log_config['hooks']:
                 info.setdefault('by_epoch', False)
-        super().register_training_hooks(
+        super(IterBasedRunner, self).register_training_hooks(
             lr_config=lr_config,
             momentum_config=momentum_config,
             optimizer_config=optimizer_config,

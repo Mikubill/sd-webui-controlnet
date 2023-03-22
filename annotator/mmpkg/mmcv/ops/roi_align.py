@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Any
-
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -32,10 +30,9 @@ class RoIAlignFunction(Function):
                 mode_s=pool_mode,
                 aligned_i=aligned)
         else:
-            from torch.onnx import TensorProtoDataType
+            from torch.onnx.symbolic_opset9 import sub, squeeze
             from torch.onnx.symbolic_helper import _slice_helper
-            from torch.onnx.symbolic_opset9 import squeeze, sub
-
+            from torch.onnx import TensorProtoDataType
             # batch_indices = rois[:, 0].long()
             batch_indices = _slice_helper(
                 g, rois, axes=[1], starts=[0], ends=[1])
@@ -64,14 +61,14 @@ class RoIAlignFunction(Function):
                 mode_s=pool_mode)
 
     @staticmethod
-    def forward(ctx: Any,
-                input: torch.Tensor,
-                rois: torch.Tensor,
-                output_size: int,
-                spatial_scale: float = 1.0,
-                sampling_ratio: int = 0,
-                pool_mode: str = 'avg',
-                aligned: bool = True) -> torch.Tensor:
+    def forward(ctx,
+                input,
+                rois,
+                output_size,
+                spatial_scale=1.0,
+                sampling_ratio=0,
+                pool_mode='avg',
+                aligned=True):
         ctx.output_size = _pair(output_size)
         ctx.spatial_scale = spatial_scale
         ctx.sampling_ratio = sampling_ratio
@@ -110,7 +107,7 @@ class RoIAlignFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple:
+    def backward(ctx, grad_output):
         rois, argmax_y, argmax_x = ctx.saved_tensors
         grad_input = grad_output.new_zeros(ctx.input_shape)
         # complex head architecture may cause grad_output uncontiguous.
@@ -177,13 +174,13 @@ class RoIAlign(nn.Module):
         },
         cls_name='RoIAlign')
     def __init__(self,
-                 output_size: tuple,
-                 spatial_scale: float = 1.0,
-                 sampling_ratio: int = 0,
-                 pool_mode: str = 'avg',
-                 aligned: bool = True,
-                 use_torchvision: bool = False):
-        super().__init__()
+                 output_size,
+                 spatial_scale=1.0,
+                 sampling_ratio=0,
+                 pool_mode='avg',
+                 aligned=True,
+                 use_torchvision=False):
+        super(RoIAlign, self).__init__()
 
         self.output_size = _pair(output_size)
         self.spatial_scale = float(spatial_scale)
@@ -192,7 +189,7 @@ class RoIAlign(nn.Module):
         self.aligned = aligned
         self.use_torchvision = use_torchvision
 
-    def forward(self, input: torch.Tensor, rois: torch.Tensor) -> torch.Tensor:
+    def forward(self, input, rois):
         """
         Args:
             input: NCHW images

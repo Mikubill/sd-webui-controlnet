@@ -2,10 +2,9 @@
 import yaml
 
 try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
+    from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
-    from yaml import Loader, Dumper  # type: ignore
+    from yaml import Loader, Dumper
 
 from .base import BaseFileHandler  # isort:skip
 

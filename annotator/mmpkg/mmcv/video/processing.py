@@ -3,17 +3,16 @@ import os
 import os.path as osp
 import subprocess
 import tempfile
-from typing import List, Optional, Union
 
 from annotator.mmpkg.mmcv.utils import requires_executable
 
 
 @requires_executable('ffmpeg')
-def convert_video(in_file: str,
-                  out_file: str,
-                  print_cmd: bool = False,
-                  pre_options: str = '',
-                  **kwargs) -> None:
+def convert_video(in_file,
+                  out_file,
+                  print_cmd=False,
+                  pre_options='',
+                  **kwargs):
     """Convert a video with ffmpeg.
 
     This provides a general api to ffmpeg, the executed command is::
@@ -53,13 +52,13 @@ def convert_video(in_file: str,
 
 
 @requires_executable('ffmpeg')
-def resize_video(in_file: str,
-                 out_file: str,
-                 size: Optional[tuple] = None,
-                 ratio: Union[tuple, float, None] = None,
-                 keep_ar: bool = False,
-                 log_level: str = 'info',
-                 print_cmd: bool = False) -> None:
+def resize_video(in_file,
+                 out_file,
+                 size=None,
+                 ratio=None,
+                 keep_ar=False,
+                 log_level='info',
+                 print_cmd=False):
     """Resize a video.
 
     Args:
@@ -91,14 +90,14 @@ def resize_video(in_file: str,
 
 
 @requires_executable('ffmpeg')
-def cut_video(in_file: str,
-              out_file: str,
-              start: Optional[float] = None,
-              end: Optional[float] = None,
-              vcodec: Optional[str] = None,
-              acodec: Optional[str] = None,
-              log_level: str = 'info',
-              print_cmd: bool = False) -> None:
+def cut_video(in_file,
+              out_file,
+              start=None,
+              end=None,
+              vcodec=None,
+              acodec=None,
+              log_level='info',
+              print_cmd=False):
     """Cut a clip from a video.
 
     Args:
@@ -117,21 +116,21 @@ def cut_video(in_file: str,
     if acodec is None:
         options['acodec'] = 'copy'
     if start:
-        options['ss'] = start  # type: ignore
+        options['ss'] = start
     else:
         start = 0
     if end:
-        options['t'] = end - start  # type: ignore
+        options['t'] = end - start
     convert_video(in_file, out_file, print_cmd, **options)
 
 
 @requires_executable('ffmpeg')
-def concat_video(video_list: List,
-                 out_file: str,
-                 vcodec: Optional[str] = None,
-                 acodec: Optional[str] = None,
-                 log_level: str = 'info',
-                 print_cmd: bool = False) -> None:
+def concat_video(video_list,
+                 out_file,
+                 vcodec=None,
+                 acodec=None,
+                 log_level='info',
+                 print_cmd=False):
     """Concatenate multiple videos into a single one.
 
     Args:

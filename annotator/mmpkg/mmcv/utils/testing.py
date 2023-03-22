@@ -111,9 +111,8 @@ def assert_is_norm_layer(module) -> bool:
     Returns:
         bool: Whether the module is a norm layer.
     """
-    from torch.nn import GroupNorm, LayerNorm
-
     from .parrots_wrapper import _BatchNorm, _InstanceNorm
+    from torch.nn import GroupNorm, LayerNorm
     norm_layer_candidates = (_BatchNorm, _InstanceNorm, GroupNorm, LayerNorm)
     return isinstance(module, norm_layer_candidates)
 

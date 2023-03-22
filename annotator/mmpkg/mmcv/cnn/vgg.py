@@ -1,14 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
-from typing import List, Optional, Sequence, Tuple, Union
 
 import torch.nn as nn
-from torch import Tensor
 
 from .utils import constant_init, kaiming_init, normal_init
 
 
-def conv3x3(in_planes: int, out_planes: int, dilation: int = 1) -> nn.Module:
+def conv3x3(in_planes, out_planes, dilation=1):
     """3x3 convolution with padding."""
     return nn.Conv2d(
         in_planes,
@@ -18,12 +16,12 @@ def conv3x3(in_planes: int, out_planes: int, dilation: int = 1) -> nn.Module:
         dilation=dilation)
 
 
-def make_vgg_layer(inplanes: int,
-                   planes: int,
-                   num_blocks: int,
-                   dilation: int = 1,
-                   with_bn: bool = False,
-                   ceil_mode: bool = False) -> List[nn.Module]:
+def make_vgg_layer(inplanes,
+                   planes,
+                   num_blocks,
+                   dilation=1,
+                   with_bn=False,
+                   ceil_mode=False):
     layers = []
     for _ in range(num_blocks):
         layers.append(conv3x3(inplanes, planes, dilation))
@@ -61,18 +59,18 @@ class VGG(nn.Module):
     }
 
     def __init__(self,
-                 depth: int,
-                 with_bn: bool = False,
-                 num_classes: int = -1,
-                 num_stages: int = 5,
-                 dilations: Sequence[int] = (1, 1, 1, 1, 1),
-                 out_indices: Sequence[int] = (0, 1, 2, 3, 4),
-                 frozen_stages: int = -1,
-                 bn_eval: bool = True,
-                 bn_frozen: bool = False,
-                 ceil_mode: bool = False,
-                 with_last_pool: bool = True):
-        super().__init__()
+                 depth,
+                 with_bn=False,
+                 num_classes=-1,
+                 num_stages=5,
+                 dilations=(1, 1, 1, 1, 1),
+                 out_indices=(0, 1, 2, 3, 4),
+                 frozen_stages=-1,
+                 bn_eval=True,
+                 bn_frozen=False,
+                 ceil_mode=False,
+                 with_last_pool=True):
+        super(VGG, self).__init__()
         if depth not in self.arch_settings:
             raise KeyError(f'invalid depth {depth} for vgg')
         assert num_stages >= 1 and num_stages <= 5
@@ -124,7 +122,7 @@ class VGG(nn.Module):
                 nn.Linear(4096, num_classes),
             )
 
-    def init_weights(self, pretrained: Optional[str] = None) -> None:
+    def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):
             logger = logging.getLogger()
             from ..runner import load_checkpoint
@@ -140,7 +138,7 @@ class VGG(nn.Module):
         else:
             raise TypeError('pretrained must be a str or None')
 
-    def forward(self, x: Tensor) -> Union[Tensor, Tuple[Tensor, ...]]:
+    def forward(self, x):
         outs = []
         vgg_layers = getattr(self, self.module_name)
         for i in range(len(self.stage_blocks)):
@@ -158,8 +156,8 @@ class VGG(nn.Module):
         else:
             return tuple(outs)
 
-    def train(self, mode: bool = True) -> None:
-        super().train(mode)
+    def train(self, mode=True):
+        super(VGG, self).train(mode)
         if self.bn_eval:
             for m in self.modules():
                 if isinstance(m, nn.BatchNorm2d):

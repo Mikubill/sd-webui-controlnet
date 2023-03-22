@@ -1,11 +1,9 @@
-# Copyright (c) OpenMMLab. All rights reserved.
 import torch
-import torch.nn as nn
 
 import annotator.mmpkg.mmcv as mmcv
 
 
-class _BatchNormXd(nn.modules.batchnorm._BatchNorm):
+class _BatchNormXd(torch.nn.modules.batchnorm._BatchNorm):
     """A general BatchNorm layer without input dimension check.
 
     Reproduced from @kapily's work:
@@ -16,11 +14,11 @@ class _BatchNormXd(nn.modules.batchnorm._BatchNorm):
     SyncBatchNorm.
     """
 
-    def _check_input_dim(self, input: torch.Tensor):
+    def _check_input_dim(self, input):
         return
 
 
-def revert_sync_batchnorm(module: nn.Module) -> nn.Module:
+def revert_sync_batchnorm(module):
     """Helper function to convert all `SyncBatchNorm` (SyncBN) and
     `mmcv.ops.sync_bn.SyncBatchNorm`(MMSyncBN) layers in the model to
     `BatchNormXd` layers.

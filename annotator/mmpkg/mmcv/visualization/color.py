@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from enum import Enum
-from typing import Union
 
 import numpy as np
 
@@ -22,7 +21,7 @@ class Color(Enum):
     black = (0, 0, 0)
 
 
-def color_val(color: Union[Color, str, tuple, int, np.ndarray]) -> tuple:
+def color_val(color):
     """Convert various input to color tuples.
 
     Args:
@@ -32,7 +31,7 @@ def color_val(color: Union[Color, str, tuple, int, np.ndarray]) -> tuple:
         tuple[int]: A tuple of 3 integers indicating BGR channels.
     """
     if is_str(color):
-        return Color[color].value  # type: ignore
+        return Color[color].value
     elif isinstance(color, Color):
         return color.value
     elif isinstance(color, tuple):

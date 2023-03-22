@@ -3,7 +3,7 @@ import warnings
 from annotator.mmpkg.mmcv.cnn import MODELS as MMCV_MODELS
 from annotator.mmpkg.mmcv.utils import Registry
 
-MODELS = Registry('models', parent=MMCV_MODELS)
+MODELS = Registry('models', parent=MMCV_MODELS, scope='mmseg')
 
 BACKBONES = MODELS
 NECKS = MODELS

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 from torch.autograd import Function
 
@@ -10,7 +8,6 @@ ext_module = ext_loader.load_ext('_ext', ['knn_forward'])
 
 class KNN(Function):
     r"""KNN (CUDA) based on heap data structure.
-
     Modified from `PAConv <https://github.com/CVMI-Lab/PAConv/tree/main/
     scene_seg/lib/pointops/src/knnquery_heap>`_.
 
@@ -21,15 +18,15 @@ class KNN(Function):
     def forward(ctx,
                 k: int,
                 xyz: torch.Tensor,
-                center_xyz: Optional[torch.Tensor] = None,
+                center_xyz: torch.Tensor = None,
                 transposed: bool = False) -> torch.Tensor:
         """
         Args:
             k (int): number of nearest neighbors.
-            xyz (torch.Tensor): (B, N, 3) if transposed == False, else
-                (B, 3, N). xyz coordinates of the features.
-            center_xyz (torch.Tensor, optional): (B, npoint, 3) if transposed
-                is False, else (B, 3, npoint). centers of the knn query.
+            xyz (Tensor): (B, N, 3) if transposed == False, else (B, 3, N).
+                xyz coordinates of the features.
+            center_xyz (Tensor, optional): (B, npoint, 3) if transposed ==
+                False, else (B, 3, npoint). centers of the knn query.
                 Default: None.
             transposed (bool, optional): whether the input tensors are
                 transposed. Should not explicitly use this keyword when
@@ -37,8 +34,8 @@ class KNN(Function):
                 Default: False.
 
         Returns:
-            torch.Tensor: (B, k, npoint) tensor with the indices of the
-            features that form k-nearest neighbours.
+            Tensor: (B, k, npoint) tensor with the indices of
+                the features that form k-nearest neighbours.
         """
         assert (k > 0) & (k < 100), 'k should be in range(0, 100)'
 

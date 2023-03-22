@@ -41,7 +41,7 @@ def digit_version(version_str: str, length: int = 4):
             release.extend([val, 0])
 
     elif version.is_postrelease:
-        release.extend([1, version.post])  # type: ignore
+        release.extend([1, version.post])
     else:
         release.extend([0, 0])
     return tuple(release)

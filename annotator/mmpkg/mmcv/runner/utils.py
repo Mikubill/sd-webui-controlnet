@@ -6,8 +6,6 @@ import time
 import warnings
 from getpass import getuser
 from socket import gethostname
-from types import ModuleType
-from typing import Optional
 
 import numpy as np
 import torch
@@ -15,7 +13,7 @@ import torch
 import annotator.mmpkg.mmcv as mmcv
 
 
-def get_host_info() -> str:
+def get_host_info():
     """Get hostname and username.
 
     Return empty string if exception raised, e.g. ``getpass.getuser()`` will
@@ -30,13 +28,11 @@ def get_host_info() -> str:
         return host
 
 
-def get_time_str() -> str:
+def get_time_str():
     return time.strftime('%Y%m%d_%H%M%S', time.localtime())
 
 
-def obj_from_dict(info: dict,
-                  parent: Optional[ModuleType] = None,
-                  default_args: Optional[dict] = None):
+def obj_from_dict(info, parent=None, default_args=None):
     """Initialize an object from dict.
 
     The dict must contain the key "type", which indicates the object type, it
@@ -71,9 +67,7 @@ def obj_from_dict(info: dict,
     return obj_type(**args)
 
 
-def set_random_seed(seed: int,
-                    deterministic: bool = False,
-                    use_rank_shift: bool = False) -> None:
+def set_random_seed(seed, deterministic=False, use_rank_shift=False):
     """Set random seed.
 
     Args:

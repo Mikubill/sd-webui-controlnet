@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Tuple
-
 import torch
 from torch import Tensor, nn
 from torch.autograd import Function
@@ -17,14 +15,14 @@ class CorrelationFunction(Function):
 
     @staticmethod
     def forward(ctx,
-                input1: Tensor,
-                input2: Tensor,
-                kernel_size: int = 1,
-                max_displacement: int = 1,
-                stride: int = 1,
-                padding: int = 1,
-                dilation: int = 1,
-                dilation_patch: int = 1) -> Tensor:
+                input1,
+                input2,
+                kernel_size=1,
+                max_displacement=1,
+                stride=1,
+                padding=1,
+                dilation=1,
+                dilation_patch=1):
 
         ctx.save_for_backward(input1, input2)
 
@@ -62,9 +60,7 @@ class CorrelationFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(
-        ctx, grad_output: Tensor
-    ) -> Tuple[Tensor, Tensor, None, None, None, None, None, None]:
+    def backward(ctx, grad_output):
         input1, input2 = ctx.saved_tensors
 
         kH, kW = ctx.kernel_size
@@ -116,7 +112,7 @@ class CorrelationFunction(Function):
 
 
 class Correlation(nn.Module):
-    r"""Correlation operator.
+    r"""Correlation operator
 
     This correlation operator works for optical flow correlation computation.
 

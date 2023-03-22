@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from abc import ABCMeta
-from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -34,14 +33,14 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
     """
 
     def __init__(self,
-                 in_channels: int,
-                 reduction: int = 2,
-                 use_scale: bool = True,
-                 conv_cfg: Optional[Dict] = None,
-                 norm_cfg: Optional[Dict] = None,
-                 mode: str = 'embedded_gaussian',
+                 in_channels,
+                 reduction=2,
+                 use_scale=True,
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 mode='embedded_gaussian',
                  **kwargs):
-        super().__init__()
+        super(_NonLocalNd, self).__init__()
         self.in_channels = in_channels
         self.reduction = reduction
         self.use_scale = use_scale
@@ -62,7 +61,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
             self.inter_channels,
             kernel_size=1,
             conv_cfg=conv_cfg,
-            act_cfg=None)  # type: ignore
+            act_cfg=None)
         self.conv_out = ConvModule(
             self.inter_channels,
             self.in_channels,
@@ -97,7 +96,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
 
         self.init_weights(**kwargs)
 
-    def init_weights(self, std: float = 0.01, zeros_init: bool = True) -> None:
+    def init_weights(self, std=0.01, zeros_init=True):
         if self.mode != 'gaussian':
             for m in [self.g, self.theta, self.phi]:
                 normal_init(m.conv, std=std)
@@ -114,8 +113,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
             else:
                 normal_init(self.conv_out.norm, std=std)
 
-    def gaussian(self, theta_x: torch.Tensor,
-                 phi_x: torch.Tensor) -> torch.Tensor:
+    def gaussian(self, theta_x, phi_x):
         # NonLocal1d pairwise_weight: [N, H, H]
         # NonLocal2d pairwise_weight: [N, HxW, HxW]
         # NonLocal3d pairwise_weight: [N, TxHxW, TxHxW]
@@ -123,8 +121,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
         pairwise_weight = pairwise_weight.softmax(dim=-1)
         return pairwise_weight
 
-    def embedded_gaussian(self, theta_x: torch.Tensor,
-                          phi_x: torch.Tensor) -> torch.Tensor:
+    def embedded_gaussian(self, theta_x, phi_x):
         # NonLocal1d pairwise_weight: [N, H, H]
         # NonLocal2d pairwise_weight: [N, HxW, HxW]
         # NonLocal3d pairwise_weight: [N, TxHxW, TxHxW]
@@ -135,8 +132,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
         pairwise_weight = pairwise_weight.softmax(dim=-1)
         return pairwise_weight
 
-    def dot_product(self, theta_x: torch.Tensor,
-                    phi_x: torch.Tensor) -> torch.Tensor:
+    def dot_product(self, theta_x, phi_x):
         # NonLocal1d pairwise_weight: [N, H, H]
         # NonLocal2d pairwise_weight: [N, HxW, HxW]
         # NonLocal3d pairwise_weight: [N, TxHxW, TxHxW]
@@ -144,8 +140,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
         pairwise_weight /= pairwise_weight.shape[-1]
         return pairwise_weight
 
-    def concatenation(self, theta_x: torch.Tensor,
-                      phi_x: torch.Tensor) -> torch.Tensor:
+    def concatenation(self, theta_x, phi_x):
         # NonLocal1d pairwise_weight: [N, H, H]
         # NonLocal2d pairwise_weight: [N, HxW, HxW]
         # NonLocal3d pairwise_weight: [N, TxHxW, TxHxW]
@@ -162,7 +157,7 @@ class _NonLocalNd(nn.Module, metaclass=ABCMeta):
 
         return pairwise_weight
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         # Assume `reduction = 1`, then `inter_channels = C`
         # or `inter_channels = C` when `mode="gaussian"`
 
@@ -229,11 +224,12 @@ class NonLocal1d(_NonLocalNd):
     """
 
     def __init__(self,
-                 in_channels: int,
-                 sub_sample: bool = False,
-                 conv_cfg: Dict = dict(type='Conv1d'),
+                 in_channels,
+                 sub_sample=False,
+                 conv_cfg=dict(type='Conv1d'),
                  **kwargs):
-        super().__init__(in_channels, conv_cfg=conv_cfg, **kwargs)
+        super(NonLocal1d, self).__init__(
+            in_channels, conv_cfg=conv_cfg, **kwargs)
 
         self.sub_sample = sub_sample
 
@@ -262,11 +258,12 @@ class NonLocal2d(_NonLocalNd):
     _abbr_ = 'nonlocal_block'
 
     def __init__(self,
-                 in_channels: int,
-                 sub_sample: bool = False,
-                 conv_cfg: Dict = dict(type='Conv2d'),
+                 in_channels,
+                 sub_sample=False,
+                 conv_cfg=dict(type='Conv2d'),
                  **kwargs):
-        super().__init__(in_channels, conv_cfg=conv_cfg, **kwargs)
+        super(NonLocal2d, self).__init__(
+            in_channels, conv_cfg=conv_cfg, **kwargs)
 
         self.sub_sample = sub_sample
 
@@ -292,11 +289,12 @@ class NonLocal3d(_NonLocalNd):
     """
 
     def __init__(self,
-                 in_channels: int,
-                 sub_sample: bool = False,
-                 conv_cfg: Dict = dict(type='Conv3d'),
+                 in_channels,
+                 sub_sample=False,
+                 conv_cfg=dict(type='Conv3d'),
                  **kwargs):
-        super().__init__(in_channels, conv_cfg=conv_cfg, **kwargs)
+        super(NonLocal3d, self).__init__(
+            in_channels, conv_cfg=conv_cfg, **kwargs)
         self.sub_sample = sub_sample
 
         if sub_sample:

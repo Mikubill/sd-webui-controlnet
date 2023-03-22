@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Dict
-
 import torch.nn as nn
 
 from .registry import PADDING_LAYERS
@@ -10,11 +8,11 @@ PADDING_LAYERS.register_module('reflect', module=nn.ReflectionPad2d)
 PADDING_LAYERS.register_module('replicate', module=nn.ReplicationPad2d)
 
 
-def build_padding_layer(cfg: Dict, *args, **kwargs) -> nn.Module:
+def build_padding_layer(cfg, *args, **kwargs):
     """Build padding layer.
 
     Args:
-        cfg (dict): The padding layer config, which should contain:
+        cfg (None or dict): The padding layer config, which should contain:
             - type (str): Layer type.
             - layer args: Args needed to instantiate a padding layer.
 

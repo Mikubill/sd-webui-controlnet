@@ -1,7 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple, Union
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,14 +6,14 @@ import torch.nn.functional as F
 from .registry import CONV_LAYERS
 
 
-def conv_ws_2d(input: torch.Tensor,
-               weight: torch.Tensor,
-               bias: Optional[torch.Tensor] = None,
-               stride: Union[int, Tuple[int, int]] = 1,
-               padding: Union[int, Tuple[int, int]] = 0,
-               dilation: Union[int, Tuple[int, int]] = 1,
-               groups: int = 1,
-               eps: float = 1e-5) -> torch.Tensor:
+def conv_ws_2d(input,
+               weight,
+               bias=None,
+               stride=1,
+               padding=0,
+               dilation=1,
+               groups=1,
+               eps=1e-5):
     c_in = weight.size(0)
     weight_flat = weight.view(c_in, -1)
     mean = weight_flat.mean(dim=1, keepdim=True).view(c_in, 1, 1, 1)
@@ -29,16 +26,16 @@ def conv_ws_2d(input: torch.Tensor,
 class ConvWS2d(nn.Conv2d):
 
     def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: Union[int, Tuple[int, int]],
-                 stride: Union[int, Tuple[int, int]] = 1,
-                 padding: Union[int, Tuple[int, int]] = 0,
-                 dilation: Union[int, Tuple[int, int]] = 1,
-                 groups: int = 1,
-                 bias: bool = True,
-                 eps: float = 1e-5):
-        super().__init__(
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=True,
+                 eps=1e-5):
+        super(ConvWS2d, self).__init__(
             in_channels,
             out_channels,
             kernel_size,
@@ -49,7 +46,7 @@ class ConvWS2d(nn.Conv2d):
             bias=bias)
         self.eps = eps
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         return conv_ws_2d(x, self.weight, self.bias, self.stride, self.padding,
                           self.dilation, self.groups, self.eps)
 
@@ -79,14 +76,14 @@ class ConvAWS2d(nn.Conv2d):
     """
 
     def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: Union[int, Tuple[int, int]],
-                 stride: Union[int, Tuple[int, int]] = 1,
-                 padding: Union[int, Tuple[int, int]] = 0,
-                 dilation: Union[int, Tuple[int, int]] = 1,
-                 groups: int = 1,
-                 bias: bool = True):
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=True):
         super().__init__(
             in_channels,
             out_channels,
@@ -101,7 +98,7 @@ class ConvAWS2d(nn.Conv2d):
         self.register_buffer('weight_beta',
                              torch.zeros(self.out_channels, 1, 1, 1))
 
-    def _get_weight(self, weight: torch.Tensor) -> torch.Tensor:
+    def _get_weight(self, weight):
         weight_flat = weight.view(weight.size(0), -1)
         mean = weight_flat.mean(dim=1).view(-1, 1, 1, 1)
         std = torch.sqrt(weight_flat.var(dim=1) + 1e-5).view(-1, 1, 1, 1)
@@ -109,16 +106,13 @@ class ConvAWS2d(nn.Conv2d):
         weight = self.weight_gamma * weight + self.weight_beta
         return weight
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         weight = self._get_weight(self.weight)
         return F.conv2d(x, weight, self.bias, self.stride, self.padding,
                         self.dilation, self.groups)
 
-    def _load_from_state_dict(self, state_dict: OrderedDict, prefix: str,
-                              local_metadata: Dict, strict: bool,
-                              missing_keys: List[str],
-                              unexpected_keys: List[str],
-                              error_msgs: List[str]) -> None:
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
         """Override default load function.
 
         AWS overrides the function _load_from_state_dict to recover
@@ -130,7 +124,7 @@ class ConvAWS2d(nn.Conv2d):
         """
 
         self.weight_gamma.data.fill_(-1)
-        local_missing_keys: List = []
+        local_missing_keys = []
         super()._load_from_state_dict(state_dict, prefix, local_metadata,
                                       strict, local_missing_keys,
                                       unexpected_keys, error_msgs)

@@ -1,7 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Optional, Tuple
-
-from torch import Tensor, nn
+from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
@@ -30,13 +28,13 @@ class DeformRoIPoolFunction(Function):
 
     @staticmethod
     def forward(ctx,
-                input: Tensor,
-                rois: Tensor,
-                offset: Optional[Tensor],
-                output_size: Tuple[int, ...],
-                spatial_scale: float = 1.0,
-                sampling_ratio: int = 0,
-                gamma: float = 0.1) -> Tensor:
+                input,
+                rois,
+                offset,
+                output_size,
+                spatial_scale=1.0,
+                sampling_ratio=0,
+                gamma=0.1):
         if offset is None:
             offset = input.new_zeros(0)
         ctx.output_size = _pair(output_size)
@@ -66,9 +64,7 @@ class DeformRoIPoolFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(
-        ctx, grad_output: Tensor
-    ) -> Tuple[Tensor, None, Tensor, None, None, None, None]:
+    def backward(ctx, grad_output):
         input, rois, offset = ctx.saved_tensors
         grad_input = grad_output.new_zeros(input.shape)
         grad_offset = grad_output.new_zeros(offset.shape)
@@ -96,20 +92,17 @@ deform_roi_pool = DeformRoIPoolFunction.apply
 class DeformRoIPool(nn.Module):
 
     def __init__(self,
-                 output_size: Tuple[int, ...],
-                 spatial_scale: float = 1.0,
-                 sampling_ratio: int = 0,
-                 gamma: float = 0.1):
-        super().__init__()
+                 output_size,
+                 spatial_scale=1.0,
+                 sampling_ratio=0,
+                 gamma=0.1):
+        super(DeformRoIPool, self).__init__()
         self.output_size = _pair(output_size)
         self.spatial_scale = float(spatial_scale)
         self.sampling_ratio = int(sampling_ratio)
         self.gamma = float(gamma)
 
-    def forward(self,
-                input: Tensor,
-                rois: Tensor,
-                offset: Optional[Tensor] = None) -> Tensor:
+    def forward(self, input, rois, offset=None):
         return deform_roi_pool(input, rois, offset, self.output_size,
                                self.spatial_scale, self.sampling_ratio,
                                self.gamma)
@@ -118,13 +111,14 @@ class DeformRoIPool(nn.Module):
 class DeformRoIPoolPack(DeformRoIPool):
 
     def __init__(self,
-                 output_size: Tuple[int, ...],
-                 output_channels: int,
-                 deform_fc_channels: int = 1024,
-                 spatial_scale: float = 1.0,
-                 sampling_ratio: int = 0,
-                 gamma: float = 0.1):
-        super().__init__(output_size, spatial_scale, sampling_ratio, gamma)
+                 output_size,
+                 output_channels,
+                 deform_fc_channels=1024,
+                 spatial_scale=1.0,
+                 sampling_ratio=0,
+                 gamma=0.1):
+        super(DeformRoIPoolPack, self).__init__(output_size, spatial_scale,
+                                                sampling_ratio, gamma)
 
         self.output_channels = output_channels
         self.deform_fc_channels = deform_fc_channels
@@ -141,7 +135,7 @@ class DeformRoIPoolPack(DeformRoIPool):
         self.offset_fc[-1].weight.data.zero_()
         self.offset_fc[-1].bias.data.zero_()
 
-    def forward(self, input: Tensor, rois: Tensor) -> Tensor:  # type: ignore
+    def forward(self, input, rois):
         assert input.size(1) == self.output_channels
         x = deform_roi_pool(input, rois, None, self.output_size,
                             self.spatial_scale, self.sampling_ratio,
@@ -158,13 +152,14 @@ class DeformRoIPoolPack(DeformRoIPool):
 class ModulatedDeformRoIPoolPack(DeformRoIPool):
 
     def __init__(self,
-                 output_size: Tuple[int, ...],
-                 output_channels: int,
-                 deform_fc_channels: int = 1024,
-                 spatial_scale: float = 1.0,
-                 sampling_ratio: int = 0,
-                 gamma: float = 0.1):
-        super().__init__(output_size, spatial_scale, sampling_ratio, gamma)
+                 output_size,
+                 output_channels,
+                 deform_fc_channels=1024,
+                 spatial_scale=1.0,
+                 sampling_ratio=0,
+                 gamma=0.1):
+        super(ModulatedDeformRoIPoolPack,
+              self).__init__(output_size, spatial_scale, sampling_ratio, gamma)
 
         self.output_channels = output_channels
         self.deform_fc_channels = deform_fc_channels
@@ -192,7 +187,7 @@ class ModulatedDeformRoIPoolPack(DeformRoIPool):
         self.mask_fc[2].weight.data.zero_()
         self.mask_fc[2].bias.data.zero_()
 
-    def forward(self, input: Tensor, rois: Tensor) -> Tensor:  # type: ignore
+    def forward(self, input, rois):
         assert input.size(1) == self.output_channels
         x = deform_roi_pool(input, rois, None, self.output_size,
                             self.spatial_scale, self.sampling_ratio,

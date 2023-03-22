@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import io
-import logging
 import os
 import os.path as osp
 import pkgutil
@@ -10,18 +9,17 @@ import warnings
 from collections import OrderedDict
 from importlib import import_module
 from tempfile import TemporaryDirectory
-from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-import torch.nn as nn
 import torchvision
 from torch.optim import Optimizer
+from torch.utils import model_zoo
 
 import annotator.mmpkg.mmcv as mmcv
 from ..fileio import FileClient
 from ..fileio import load as load_file
 from ..parallel import is_module_wrapper
-from ..utils import digit_version, load_url, mkdir_or_exist
+from ..utils import mkdir_or_exist
 from .dist_utils import get_dist_info
 
 ENV_MMCV_HOME = 'MMCV_HOME'
@@ -29,7 +27,7 @@ ENV_XDG_CACHE_HOME = 'XDG_CACHE_HOME'
 DEFAULT_CACHE_DIR = '~/.cache'
 
 
-def _get_mmcv_home() -> str:
+def _get_mmcv_home():
     mmcv_home = os.path.expanduser(
         os.getenv(
             ENV_MMCV_HOME,
@@ -40,10 +38,7 @@ def _get_mmcv_home() -> str:
     return mmcv_home
 
 
-def load_state_dict(module: nn.Module,
-                    state_dict: Union[dict, OrderedDict],
-                    strict: bool = False,
-                    logger: Optional[logging.Logger] = None) -> None:
+def load_state_dict(module, state_dict, strict=False, logger=None):
     """Load state_dict to a module.
 
     This method is modified from :meth:`torch.nn.Module.load_state_dict`.
@@ -52,21 +47,21 @@ def load_state_dict(module: nn.Module,
 
     Args:
         module (Module): Module that receives the state_dict.
-        state_dict (dict or OrderedDict): Weights.
+        state_dict (OrderedDict): Weights.
         strict (bool): whether to strictly enforce that the keys
             in :attr:`state_dict` match the keys returned by this module's
             :meth:`~torch.nn.Module.state_dict` function. Default: ``False``.
         logger (:obj:`logging.Logger`, optional): Logger to log the error
             message. If not specified, print function will be used.
     """
-    unexpected_keys: List[str] = []
-    all_missing_keys: List[str] = []
-    err_msg: List[str] = []
+    unexpected_keys = []
+    all_missing_keys = []
+    err_msg = []
 
     metadata = getattr(state_dict, '_metadata', None)
-    state_dict = state_dict.copy()  # type: ignore
+    state_dict = state_dict.copy()
     if metadata is not None:
-        state_dict._metadata = metadata  # type: ignore
+        state_dict._metadata = metadata
 
     # use _load_from_state_dict to enable checkpoint version control
     def load(module, prefix=''):
@@ -84,8 +79,7 @@ def load_state_dict(module: nn.Module,
                 load(child, prefix + name + '.')
 
     load(module)
-    # break load->load reference cycle
-    load = None  # type: ignore
+    load = None  # break load->load reference cycle
 
     # ignore "num_batches_tracked" of BN layers
     missing_keys = [
@@ -103,7 +97,7 @@ def load_state_dict(module: nn.Module,
     if len(err_msg) > 0 and rank == 0:
         err_msg.insert(
             0, 'The model and loaded state dict do not match exactly\n')
-        err_msg = '\n'.join(err_msg)  # type: ignore
+        err_msg = '\n'.join(err_msg)
         if strict:
             raise RuntimeError(err_msg)
         elif logger is not None:
@@ -113,59 +107,14 @@ def load_state_dict(module: nn.Module,
 
 
 def get_torchvision_models():
-    if digit_version(torchvision.__version__) < digit_version('0.13.0a0'):
-        model_urls = dict()
-        # When the version of torchvision is lower than 0.13, the model url is
-        # not declared in `torchvision.model.__init__.py`, so we need to
-        # iterate through `torchvision.models.__path__` to get the url for each
-        # model.
-        for _, name, ispkg in pkgutil.walk_packages(
-                torchvision.models.__path__):
-            if ispkg:
-                continue
-            _zoo = import_module(f'torchvision.models.{name}')
-            if hasattr(_zoo, 'model_urls'):
-                _urls = getattr(_zoo, 'model_urls')
-                model_urls.update(_urls)
-    else:
-        # Since torchvision bumps to v0.13, the weight loading logic,
-        # model keys and model urls have been changed. Here the URLs of old
-        # version is loaded to avoid breaking back compatibility. If the
-        # torchvision version>=0.13.0, new URLs will be added. Users can get
-        # the resnet50 checkpoint by setting 'resnet50.imagent1k_v1',
-        # 'resnet50' or 'ResNet50_Weights.IMAGENET1K_V1' in the config.
-        json_path = osp.join(mmcv.__path__[0],
-                             'model_zoo/torchvision_0.12.json')
-        model_urls = mmcv.load(json_path)
-        if digit_version(torchvision.__version__) < digit_version('0.14.0a0'):
-            weights_list = [
-                cls for cls_name, cls in torchvision.models.__dict__.items()
-                if cls_name.endswith('_Weights')
-            ]
-        else:
-            weights_list = [
-                torchvision.models.get_model_weights(model)
-                for model in torchvision.models.list_models(torchvision.models)
-            ]
-
-        for cls in weights_list:
-            # The name of torchvision model weights classes ends with
-            # `_Weights` such as `ResNet18_Weights`. However, some model weight
-            # classes, such as `MNASNet0_75_Weights` does not have any urls in
-            # torchvision 0.13.0 and cannot be iterated. Here we simply check
-            # `DEFAULT` attribute to ensure the class is not empty.
-            if not hasattr(cls, 'DEFAULT'):
-                continue
-            # Since `cls.DEFAULT` can not be accessed by iterating cls, we set
-            # default urls explicitly.
-            cls_name = cls.__name__
-            cls_key = cls_name.replace('_Weights', '').lower()
-            model_urls[f'{cls_key}.default'] = cls.DEFAULT.url
-            for weight_enum in cls:
-                cls_key = cls_name.replace('_Weights', '').lower()
-                cls_key = f'{cls_key}.{weight_enum.name.lower()}'
-                model_urls[cls_key] = weight_enum.url
-
+    model_urls = dict()
+    for _, name, ispkg in pkgutil.walk_packages(torchvision.models.__path__):
+        if ispkg:
+            continue
+        _zoo = import_module(f'torchvision.models.{name}')
+        if hasattr(_zoo, 'model_urls'):
+            _urls = getattr(_zoo, 'model_urls')
+            model_urls.update(_urls)
     return model_urls
 
 
@@ -199,13 +148,8 @@ def get_deprecated_model_names():
     return deprecate_urls
 
 
-def _process_mmcls_checkpoint(checkpoint: Dict) -> Dict:
-    if 'state_dict' in checkpoint:
-        state_dict = checkpoint['state_dict']
-    else:
-        # Some checkpoints converted from 3rd-party repo don't
-        # have the "state_dict" key.
-        state_dict = checkpoint
+def _process_mmcls_checkpoint(checkpoint):
+    state_dict = checkpoint['state_dict']
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
         if k.startswith('backbone.'):
@@ -218,13 +162,10 @@ def _process_mmcls_checkpoint(checkpoint: Dict) -> Dict:
 class CheckpointLoader:
     """A general checkpoint loader to manage all schemes."""
 
-    _schemes: dict = {}
+    _schemes = {}
 
     @classmethod
-    def _register_scheme(cls,
-                         prefixes: Union[str, List, Tuple],
-                         loader: Callable,
-                         force: bool = False) -> None:
+    def _register_scheme(cls, prefixes, loader, force=False):
         if isinstance(prefixes, str):
             prefixes = [prefixes]
         else:
@@ -241,16 +182,13 @@ class CheckpointLoader:
             sorted(cls._schemes.items(), key=lambda t: t[0], reverse=True))
 
     @classmethod
-    def register_scheme(cls,
-                        prefixes: Union[str, List[str], Tuple[str, ...]],
-                        loader: Optional[Callable] = None,
-                        force: bool = False) -> Callable:
+    def register_scheme(cls, prefixes, loader=None, force=False):
         """Register a loader to CheckpointLoader.
 
         This method can be used as a normal class method or a decorator.
 
         Args:
-            prefixes (str or Sequence[str]):
+            prefixes (str or list[str] or tuple[str]):
             The prefix of the registered loader.
             loader (function, optional): The loader function to be registered.
                 When this method is used as a decorator, loader is None.
@@ -261,7 +199,7 @@ class CheckpointLoader:
 
         if loader is not None:
             cls._register_scheme(prefixes, loader, force=force)
-            return  # type: ignore
+            return
 
         def _register(loader_cls):
             cls._register_scheme(prefixes, loader_cls, force=force)
@@ -270,7 +208,7 @@ class CheckpointLoader:
         return _register
 
     @classmethod
-    def _get_checkpoint_loader(cls, path: str):
+    def _get_checkpoint_loader(cls, path):
         """Finds a loader that supports the given path. Falls back to the local
         loader if no other loader is found.
 
@@ -278,22 +216,15 @@ class CheckpointLoader:
             path (str): checkpoint path
 
         Returns:
-            callable: checkpoint loader
+            loader (function): checkpoint loader
         """
+
         for p in cls._schemes:
-            # use regular match to handle some cases that where the prefix of
-            # loader has a prefix. For example, both 's3://path' and
-            # 'open-mmlab:s3://path' should return `load_from_ceph`
-            if re.match(p, path) is not None:
+            if path.startswith(p):
                 return cls._schemes[p]
 
     @classmethod
-    def load_checkpoint(
-            cls,
-            filename: str,
-            map_location: Union[str, Callable, None] = None,
-            logger: Optional[logging.Logger] = None
-    ) -> Union[dict, OrderedDict]:
+    def load_checkpoint(cls, filename, map_location=None, logger=None):
         """load checkpoint through URL scheme path.
 
         Args:
@@ -308,17 +239,14 @@ class CheckpointLoader:
         """
 
         checkpoint_loader = cls._get_checkpoint_loader(filename)
-        class_name = checkpoint_loader.__name__  # type: ignore
+        class_name = checkpoint_loader.__name__
         mmcv.print_log(
             f'load checkpoint from {class_name[10:]} path: {filename}', logger)
-        return checkpoint_loader(filename, map_location)  # type: ignore
+        return checkpoint_loader(filename, map_location)
 
 
 @CheckpointLoader.register_scheme(prefixes='')
-def load_from_local(
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def load_from_local(filename, map_location):
     """load checkpoint by local file path.
 
     Args:
@@ -328,18 +256,15 @@ def load_from_local(
     Returns:
         dict or OrderedDict: The loaded checkpoint.
     """
-    filename = osp.expanduser(filename)
+
     if not osp.isfile(filename):
-        raise FileNotFoundError(f'{filename} can not be found.')
+        raise IOError(f'{filename} is not a checkpoint file')
     checkpoint = torch.load(filename, map_location=map_location)
     return checkpoint
 
 
 @CheckpointLoader.register_scheme(prefixes=('http://', 'https://'))
-def load_from_http(
-        filename: str,
-        map_location: Union[str, Callable, None] = None,
-        model_dir: Optional[str] = None) -> Union[dict, OrderedDict]:
+def load_from_http(filename, map_location=None, model_dir=None):
     """load checkpoint through HTTP or HTTPS scheme path. In distributed
     setting, this function only download checkpoint at local rank 0.
 
@@ -347,29 +272,27 @@ def load_from_http(
         filename (str): checkpoint file path with modelzoo or
             torchvision prefix
         map_location (str, optional): Same as :func:`torch.load`.
-        model_dir (str, optional): directory in which to save the object,
+        model_dir (string, optional): directory in which to save the object,
             Default: None
 
     Returns:
         dict or OrderedDict: The loaded checkpoint.
     """
     rank, world_size = get_dist_info()
+    rank = int(os.environ.get('LOCAL_RANK', rank))
     if rank == 0:
-        checkpoint = load_url(
+        checkpoint = model_zoo.load_url(
             filename, model_dir=model_dir, map_location=map_location)
     if world_size > 1:
         torch.distributed.barrier()
         if rank > 0:
-            checkpoint = load_url(
+            checkpoint = model_zoo.load_url(
                 filename, model_dir=model_dir, map_location=map_location)
     return checkpoint
 
 
 @CheckpointLoader.register_scheme(prefixes='pavi://')
-def load_from_pavi(
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def load_from_pavi(filename, map_location=None):
     """load checkpoint through the file path prefixed with pavi. In distributed
     setting, this function download ckpt at all ranks to different temporary
     directories.
@@ -400,23 +323,16 @@ def load_from_pavi(
     return checkpoint
 
 
-@CheckpointLoader.register_scheme(prefixes=r'(\S+\:)?s3://')
-def load_from_ceph(filename: str,
-                   map_location: Union[str, Callable, None] = None,
-                   backend: str = 'petrel') -> Union[dict, OrderedDict]:
+@CheckpointLoader.register_scheme(prefixes='s3://')
+def load_from_ceph(filename, map_location=None, backend='petrel'):
     """load checkpoint through the file path prefixed with s3.  In distributed
     setting, this function download ckpt at all ranks to different temporary
     directories.
 
-    Note:
-        Since v1.4.1, the registered scheme prefixes have been enhanced to
-        support bucket names in the path prefix, e.g. 's3://xx.xx/xx.path',
-        'bucket1:s3://xx.xx/xx.path'.
-
     Args:
         filename (str): checkpoint file path with s3 prefix
         map_location (str, optional): Same as :func:`torch.load`.
-        backend (str): The storage backend type. Options are 'ceph',
+        backend (str, optional): The storage backend type. Options are 'ceph',
             'petrel'. Default: 'petrel'.
 
     .. warning::
@@ -432,8 +348,7 @@ def load_from_ceph(filename: str,
 
     if backend == 'ceph':
         warnings.warn(
-            'CephBackend will be deprecated, please use PetrelBackend instead',
-            DeprecationWarning)
+            'CephBackend will be deprecated, please use PetrelBackend instead')
 
     # CephClient and PetrelBackend have the same prefix 's3://' and the latter
     # will be chosen as default. If PetrelBackend can not be instantiated
@@ -450,10 +365,7 @@ def load_from_ceph(filename: str,
 
 
 @CheckpointLoader.register_scheme(prefixes=('modelzoo://', 'torchvision://'))
-def load_from_torchvision(
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def load_from_torchvision(filename, map_location=None):
     """load checkpoint through the file path prefixed with modelzoo or
     torchvision.
 
@@ -467,25 +379,16 @@ def load_from_torchvision(
     """
     model_urls = get_torchvision_models()
     if filename.startswith('modelzoo://'):
-        warnings.warn(
-            'The URL scheme of "modelzoo://" is deprecated, please '
-            'use "torchvision://" instead', DeprecationWarning)
+        warnings.warn('The URL scheme of "modelzoo://" is deprecated, please '
+                      'use "torchvision://" instead')
         model_name = filename[11:]
     else:
         model_name = filename[14:]
-
-    # Support getting model urls in the same way as torchvision
-    # `ResNet50_Weights.IMAGENET1K_V1` will be mapped to
-    # resnet50.imagenet1k_v1.
-    model_name = model_name.lower().replace('_weights', '')
     return load_from_http(model_urls[model_name], map_location=map_location)
 
 
 @CheckpointLoader.register_scheme(prefixes=('open-mmlab://', 'openmmlab://'))
-def load_from_openmmlab(
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def load_from_openmmlab(filename, map_location=None):
     """load checkpoint through the file path prefixed with open-mmlab or
     openmmlab.
 
@@ -509,10 +412,8 @@ def load_from_openmmlab(
 
     deprecated_urls = get_deprecated_model_names()
     if model_name in deprecated_urls:
-        warnings.warn(
-            f'{prefix_str}{model_name} is deprecated in favor '
-            f'of {prefix_str}{deprecated_urls[model_name]}',
-            DeprecationWarning)
+        warnings.warn(f'{prefix_str}{model_name} is deprecated in favor '
+                      f'of {prefix_str}{deprecated_urls[model_name]}')
         model_name = deprecated_urls[model_name]
     model_url = model_urls[model_name]
     # check if is url
@@ -521,16 +422,13 @@ def load_from_openmmlab(
     else:
         filename = osp.join(_get_mmcv_home(), model_url)
         if not osp.isfile(filename):
-            raise FileNotFoundError(f'{filename} can not be found.')
+            raise IOError(f'{filename} is not a checkpoint file')
         checkpoint = torch.load(filename, map_location=map_location)
     return checkpoint
 
 
 @CheckpointLoader.register_scheme(prefixes='mmcls://')
-def load_from_mmcls(
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def load_from_mmcls(filename, map_location=None):
     """load checkpoint through the file path prefixed with mmcls.
 
     Args:
@@ -549,10 +447,7 @@ def load_from_mmcls(
     return checkpoint
 
 
-def _load_checkpoint(
-        filename: str,
-        map_location: Union[str, Callable, None] = None,
-        logger: Optional[logging.Logger] = None) -> Union[dict, OrderedDict]:
+def _load_checkpoint(filename, map_location=None, logger=None):
     """Load checkpoint from somewhere (modelzoo, file, url).
 
     Args:
@@ -572,11 +467,7 @@ def _load_checkpoint(
     return CheckpointLoader.load_checkpoint(filename, map_location, logger)
 
 
-def _load_checkpoint_with_prefix(
-    prefix: str,
-    filename: str,
-    map_location: Union[str, Callable, None] = None,
-) -> Union[dict, OrderedDict]:
+def _load_checkpoint_with_prefix(prefix, filename, map_location=None):
     """Load partial pretrained model with specific prefix.
 
     Args:
@@ -609,13 +500,12 @@ def _load_checkpoint_with_prefix(
     return state_dict
 
 
-def load_checkpoint(
-        model: torch.nn.Module,
-        filename: str,
-        map_location: Union[str, Callable, None] = None,
-        strict: bool = False,
-        logger: Optional[logging.Logger] = None,
-        revise_keys: list = [(r'^module\.', '')]) -> Union[dict, OrderedDict]:
+def load_checkpoint(model,
+                    filename,
+                    map_location=None,
+                    strict=False,
+                    logger=None,
+                    revise_keys=[(r'^module\.', '')]):
     """Load checkpoint from a file or URI.
 
     Args:
@@ -660,7 +550,7 @@ def load_checkpoint(
     return checkpoint
 
 
-def weights_to_cpu(state_dict: OrderedDict) -> OrderedDict:
+def weights_to_cpu(state_dict):
     """Copy a model state_dict to cpu.
 
     Args:
@@ -673,13 +563,11 @@ def weights_to_cpu(state_dict: OrderedDict) -> OrderedDict:
     for key, val in state_dict.items():
         state_dict_cpu[key] = val.cpu()
     # Keep metadata in state_dict
-    state_dict_cpu._metadata = getattr(  # type: ignore
-        state_dict, '_metadata', OrderedDict())
+    state_dict_cpu._metadata = getattr(state_dict, '_metadata', OrderedDict())
     return state_dict_cpu
 
 
-def _save_to_state_dict(module: torch.nn.Module, destination: dict,
-                        prefix: str, keep_vars: bool) -> None:
+def _save_to_state_dict(module, destination, prefix, keep_vars):
     """Saves module state to `destination` dictionary.
 
     This method is modified from :meth:`torch.nn.Module._save_to_state_dict`.
@@ -699,10 +587,7 @@ def _save_to_state_dict(module: torch.nn.Module, destination: dict,
             destination[prefix + name] = buf if keep_vars else buf.detach()
 
 
-def get_state_dict(module: torch.nn.Module,
-                   destination: Optional[OrderedDict] = None,
-                   prefix: str = '',
-                   keep_vars: bool = False) -> OrderedDict:
+def get_state_dict(module, destination=None, prefix='', keep_vars=False):
     """Returns a dictionary containing a whole state of the module.
 
     Both parameters and persistent buffers (e.g. running averages) are
@@ -731,10 +616,10 @@ def get_state_dict(module: torch.nn.Module,
     # below is the same as torch.nn.Module.state_dict()
     if destination is None:
         destination = OrderedDict()
-        destination._metadata = OrderedDict()  # type: ignore
-    destination._metadata[prefix[:-1]] = local_metadata = dict(  # type: ignore
+        destination._metadata = OrderedDict()
+    destination._metadata[prefix[:-1]] = local_metadata = dict(
         version=module._version)
-    _save_to_state_dict(module, destination, prefix, keep_vars)  # type: ignore
+    _save_to_state_dict(module, destination, prefix, keep_vars)
     for name, child in module._modules.items():
         if child is not None:
             get_state_dict(
@@ -743,14 +628,14 @@ def get_state_dict(module: torch.nn.Module,
         hook_result = hook(module, destination, prefix, local_metadata)
         if hook_result is not None:
             destination = hook_result
-    return destination  # type: ignore
+    return destination
 
 
-def save_checkpoint(model: torch.nn.Module,
-                    filename: str,
-                    optimizer: Optional[Optimizer] = None,
-                    meta: Optional[dict] = None,
-                    file_client_args: Optional[dict] = None) -> None:
+def save_checkpoint(model,
+                    filename,
+                    optimizer=None,
+                    meta=None,
+                    file_client_args=None):
     """Save checkpoint to file.
 
     The checkpoint will have 3 fields: ``meta``, ``state_dict`` and
@@ -781,7 +666,7 @@ def save_checkpoint(model: torch.nn.Module,
 
     checkpoint = {
         'meta': meta,
-        'state_dict': weights_to_cpu(get_state_dict(model))  # type: ignore
+        'state_dict': weights_to_cpu(get_state_dict(model))
     }
     # save optimizer state dict in the checkpoint
     if isinstance(optimizer, Optimizer):
@@ -797,7 +682,8 @@ def save_checkpoint(model: torch.nn.Module,
                 'file_client_args should be "None" if filename starts with'
                 f'"pavi://", but got {file_client_args}')
         try:
-            from pavi import exception, modelcloud
+            from pavi import modelcloud
+            from pavi import exception
         except ImportError:
             raise ImportError(
                 'Please install pavi to load checkpoint from modelcloud.')

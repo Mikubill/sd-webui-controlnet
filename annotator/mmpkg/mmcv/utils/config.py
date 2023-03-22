@@ -7,13 +7,11 @@ import platform
 import shutil
 import sys
 import tempfile
-import types
 import uuid
 import warnings
 from argparse import Action, ArgumentParser
 from collections import abc
 from importlib import import_module
-from pathlib import Path
 
 from addict import Dict
 from yapf.yapflib.yapf_api import FormatCode
@@ -22,9 +20,9 @@ from .misc import import_modules_from_strings
 from .path import check_file_exist
 
 if platform.system() == 'Windows':
-    import regex as re  # type: ignore
+    import regex as re
 else:
-    import re  # type: ignore
+    import re
 
 BASE_KEY = '_base_'
 DELETE_KEY = '_delete_'
@@ -39,7 +37,7 @@ class ConfigDict(Dict):
 
     def __getattr__(self, name):
         try:
-            value = super().__getattr__(name)
+            value = super(ConfigDict, self).__getattr__(name)
         except KeyError:
             ex = AttributeError(f"'{self.__class__.__name__}' object has no "
                                 f"attribute '{name}'")
@@ -96,7 +94,7 @@ class Config:
 
     @staticmethod
     def _validate_py_syntax(filename):
-        with open(filename, encoding='utf-8') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             # Setting encoding explicitly to resolve coding issue on windows
             content = f.read()
         try:
@@ -116,7 +114,7 @@ class Config:
             fileBasename=file_basename,
             fileBasenameNoExtension=file_basename_no_extension,
             fileExtname=file_extname)
-        with open(filename, encoding='utf-8') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             # Setting encoding explicitly to resolve coding issue on windows
             config_file = f.read()
         for key, value in support_templates.items():
@@ -130,7 +128,7 @@ class Config:
     def _pre_substitute_base_vars(filename, temp_config_name):
         """Substitute base variable placehoders to string, so that parsing
         would work."""
-        with open(filename, encoding='utf-8') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             # Setting encoding explicitly to resolve coding issue on windows
             config_file = f.read()
         base_var_dict = {}
@@ -183,7 +181,7 @@ class Config:
         check_file_exist(filename)
         fileExtname = osp.splitext(filename)[1]
         if fileExtname not in ['.py', '.json', '.yaml', '.yml']:
-            raise OSError('Only py/yml/yaml/json type are supported now!')
+            raise IOError('Only py/yml/yaml/json type are supported now!')
 
         with tempfile.TemporaryDirectory() as temp_config_dir:
             temp_config_file = tempfile.NamedTemporaryFile(
@@ -211,8 +209,6 @@ class Config:
                     name: value
                     for name, value in mod.__dict__.items()
                     if not name.startswith('__')
-                    and not isinstance(value, types.ModuleType)
-                    and not isinstance(value, types.FunctionType)
                 }
                 # delete imported module
                 del sys.modules[temp_module_name]
@@ -233,10 +229,10 @@ class Config:
             if 'reference' in deprecation_info:
                 warning_msg += ' More information can be found at ' \
                     f'{deprecation_info["reference"]}'
-            warnings.warn(warning_msg, DeprecationWarning)
+            warnings.warn(warning_msg)
 
         cfg_text = filename + '\n'
-        with open(filename, encoding='utf-8') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             # Setting encoding explicitly to resolve coding issue on windows
             cfg_text += f.read()
 
@@ -314,19 +310,16 @@ class Config:
                 if len(b) <= k:
                     raise KeyError(f'Index {k} exceeds the length of list {b}')
                 b[k] = Config._merge_a_into_b(v, b[k], allow_list_keys)
-            elif isinstance(v, dict):
-                if k in b and not v.pop(DELETE_KEY, False):
-                    allowed_types = (dict, list) if allow_list_keys else dict
-                    if not isinstance(b[k], allowed_types):
-                        raise TypeError(
-                            f'{k}={v} in child config cannot inherit from '
-                            f'base because {k} is a dict in the child config '
-                            f'but is of type {type(b[k])} in base config. '
-                            f'You may set `{DELETE_KEY}=True` to ignore the '
-                            f'base config.')
-                    b[k] = Config._merge_a_into_b(v, b[k], allow_list_keys)
-                else:
-                    b[k] = ConfigDict(v)
+            elif isinstance(v,
+                            dict) and k in b and not v.pop(DELETE_KEY, False):
+                allowed_types = (dict, list) if allow_list_keys else dict
+                if not isinstance(b[k], allowed_types):
+                    raise TypeError(
+                        f'{k}={v} in child config cannot inherit from base '
+                        f'because {k} is a dict in the child config but is of '
+                        f'type {type(b[k])} in base config. You may set '
+                        f'`{DELETE_KEY}=True` to ignore the base config')
+                b[k] = Config._merge_a_into_b(v, b[k], allow_list_keys)
             else:
                 b[k] = v
         return b
@@ -335,8 +328,6 @@ class Config:
     def fromfile(filename,
                  use_predefined_variables=True,
                  import_custom_modules=True):
-        if isinstance(filename, Path):
-            filename = str(filename)
         cfg_dict, cfg_text = Config._file2dict(filename,
                                                use_predefined_variables)
         if import_custom_modules and cfg_dict.get('custom_imports', None):
@@ -353,10 +344,10 @@ class Config:
                config str. Only py/yml/yaml/json type are supported now!
 
         Returns:
-            :obj:`Config`: Config obj.
+            obj:`Config`: Config obj.
         """
         if file_format not in ['.py', '.json', '.yaml', '.yml']:
-            raise OSError('Only py/yml/yaml/json type are supported now!')
+            raise IOError('Only py/yml/yaml/json type are supported now!')
         if file_format != '.py' and 'dict(' in cfg_str:
             # check if users specify a wrong suffix for python
             warnings.warn(
@@ -393,19 +384,16 @@ class Config:
             if key in RESERVED_KEYS:
                 raise KeyError(f'{key} is reserved for config file')
 
-        if isinstance(filename, Path):
-            filename = str(filename)
-
-        super().__setattr__('_cfg_dict', ConfigDict(cfg_dict))
-        super().__setattr__('_filename', filename)
+        super(Config, self).__setattr__('_cfg_dict', ConfigDict(cfg_dict))
+        super(Config, self).__setattr__('_filename', filename)
         if cfg_text:
             text = cfg_text
         elif filename:
-            with open(filename) as f:
+            with open(filename, 'r') as f:
                 text = f.read()
         else:
             text = ''
-        super().__setattr__('_text', text)
+        super(Config, self).__setattr__('_text', text)
 
     @property
     def filename(self):
@@ -537,66 +525,27 @@ class Config:
     def __getstate__(self):
         return (self._cfg_dict, self._filename, self._text)
 
-    def __copy__(self):
-        cls = self.__class__
-        other = cls.__new__(cls)
-        other.__dict__.update(self.__dict__)
-
-        return other
-
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        other = cls.__new__(cls)
-        memo[id(self)] = other
-
-        for key, value in self.__dict__.items():
-            super(Config, other).__setattr__(key, copy.deepcopy(value, memo))
-
-        return other
-
     def __setstate__(self, state):
         _cfg_dict, _filename, _text = state
-        super().__setattr__('_cfg_dict', _cfg_dict)
-        super().__setattr__('_filename', _filename)
-        super().__setattr__('_text', _text)
+        super(Config, self).__setattr__('_cfg_dict', _cfg_dict)
+        super(Config, self).__setattr__('_filename', _filename)
+        super(Config, self).__setattr__('_text', _text)
 
     def dump(self, file=None):
-        """Dumps config into a file or returns a string representation of the
-        config.
-
-        If a file argument is given, saves the config to that file using the
-        format defined by the file argument extension.
-
-        Otherwise, returns a string representing the config. The formatting of
-        this returned string is defined by the extension of `self.filename`. If
-        `self.filename` is not defined, returns a string representation of a
-         dict (lowercased and using ' for strings).
-
-        Examples:
-            >>> cfg_dict = dict(item1=[1, 2], item2=dict(a=0),
-            ...     item3=True, item4='test')
-            >>> cfg = Config(cfg_dict=cfg_dict)
-            >>> dump_file = "a.py"
-            >>> cfg.dump(dump_file)
-
-        Args:
-            file (str, optional): Path of the output file where the config
-                will be dumped. Defaults to None.
-        """
-        import annotator.mmpkg.mmcv as mmcv
-        cfg_dict = super().__getattribute__('_cfg_dict').to_dict()
-        if file is None:
-            if self.filename is None or self.filename.endswith('.py'):
+        cfg_dict = super(Config, self).__getattribute__('_cfg_dict').to_dict()
+        if self.filename.endswith('.py'):
+            if file is None:
                 return self.pretty_text
             else:
+                with open(file, 'w', encoding='utf-8') as f:
+                    f.write(self.pretty_text)
+        else:
+            import annotator.mmpkg.mmcv as mmcv
+            if file is None:
                 file_format = self.filename.split('.')[-1]
                 return mmcv.dump(cfg_dict, file_format=file_format)
-        elif file.endswith('.py'):
-            with open(file, 'w', encoding='utf-8') as f:
-                f.write(self.pretty_text)
-        else:
-            file_format = file.split('.')[-1]
-            return mmcv.dump(cfg_dict, file=file, file_format=file_format)
+            else:
+                mmcv.dump(cfg_dict, file)
 
     def merge_from_dict(self, options, allow_list_keys=True):
         """Merge list into cfg_dict.
@@ -612,7 +561,7 @@ class Config:
             >>> assert cfg_dict == dict(
             ...     model=dict(backbone=dict(depth=50, with_cp=True)))
 
-            >>> # Merge list element
+            # Merge list element
             >>> cfg = Config(dict(pipeline=[
             ...     dict(type='LoadImage'), dict(type='LoadAnnotations')]))
             >>> options = dict(pipeline={'0': dict(type='SelfLoadImage')})
@@ -638,8 +587,8 @@ class Config:
             subkey = key_list[-1]
             d[subkey] = v
 
-        cfg_dict = super().__getattribute__('_cfg_dict')
-        super().__setattr__(
+        cfg_dict = super(Config, self).__getattribute__('_cfg_dict')
+        super(Config, self).__setattr__(
             '_cfg_dict',
             Config._merge_a_into_b(
                 option_cfg_dict, cfg_dict, allow_list_keys=allow_list_keys))
@@ -666,8 +615,6 @@ class DictAction(Action):
             pass
         if val.lower() in ['true', 'false']:
             return True if val.lower() == 'true' else False
-        if val == 'None':
-            return None
         return val
 
     @staticmethod

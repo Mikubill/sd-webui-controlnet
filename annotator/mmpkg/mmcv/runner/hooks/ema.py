@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Optional
-
 from ...parallel import is_module_wrapper
 from ..hooks.hook import HOOKS, Hook
 
@@ -15,8 +13,8 @@ class EMAHook(Hook):
 
         .. math::
 
-            Xema\_{t+1} = (1 - \text{momentum}) \times
-            Xema\_{t} +  \text{momentum} \times X_t
+            \text{Xema\_{t+1}} = (1 - \text{momentum}) \times
+            \text{Xema\_{t}} +  \text{momentum} \times X_t
 
     Args:
         momentum (float): The momentum used for updating ema parameter.
@@ -25,14 +23,14 @@ class EMAHook(Hook):
             Defaults to 1.
         warm_up (int): During first warm_up steps, we may use smaller momentum
             to update ema parameters more slowly. Defaults to 100.
-        resume_from (str, optional): The checkpoint path. Defaults to None.
+        resume_from (str): The checkpoint path. Defaults to None.
     """
 
     def __init__(self,
-                 momentum: float = 0.0002,
-                 interval: int = 1,
-                 warm_up: int = 100,
-                 resume_from: Optional[str] = None):
+                 momentum=0.0002,
+                 interval=1,
+                 warm_up=100,
+                 resume_from=None):
         assert isinstance(interval, int) and interval > 0
         self.warm_up = warm_up
         self.interval = interval

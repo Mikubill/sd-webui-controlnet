@@ -1,10 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from itertools import chain
-from typing import List, Tuple
 
 from torch.nn.parallel import DataParallel
 
-from .scatter_gather import ScatterInputs, scatter_kwargs
+from .scatter_gather import scatter_kwargs
 
 
 class MMDataParallel(DataParallel):
@@ -14,15 +13,7 @@ class MMDataParallel(DataParallel):
 
     - It supports a custom type :class:`DataContainer` which allows more
       flexible control of input data during both GPU and CPU inference.
-    - It implements two more APIs ``train_step()`` and ``val_step()``.
-
-    .. warning::
-        MMDataParallel only supports single GPU training, if you need to
-        train with multiple GPUs, please use MMDistributedDataParallel
-        instead. If you have multiple GPUs and you just want to use
-        MMDataParallel, you can set the environment variable
-        ``CUDA_VISIBLE_DEVICES=0`` or instantiate ``MMDataParallel`` with
-        ``device_ids=[0]``.
+    - It implement two more APIs ``train_step()`` and ``val_step()``.
 
     Args:
         module (:class:`nn.Module`): Module to be encapsulated.
@@ -32,8 +23,8 @@ class MMDataParallel(DataParallel):
         dim (int): Dimension used to scatter the data. Defaults to 0.
     """
 
-    def __init__(self, *args, dim: int = 0, **kwargs):
-        super().__init__(*args, dim=dim, **kwargs)
+    def __init__(self, *args, dim=0, **kwargs):
+        super(MMDataParallel, self).__init__(*args, dim=dim, **kwargs)
         self.dim = dim
 
     def forward(self, *inputs, **kwargs):
@@ -50,8 +41,7 @@ class MMDataParallel(DataParallel):
         else:
             return super().forward(*inputs, **kwargs)
 
-    def scatter(self, inputs: ScatterInputs, kwargs: ScatterInputs,
-                device_ids: List[int]) -> Tuple[tuple, tuple]:
+    def scatter(self, inputs, kwargs, device_ids):
         return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
     def train_step(self, *inputs, **kwargs):
@@ -64,7 +54,7 @@ class MMDataParallel(DataParallel):
         assert len(self.device_ids) == 1, \
             ('MMDataParallel only supports single GPU training, if you need to'
              ' train with multiple GPUs, please use MMDistributedDataParallel'
-             ' instead.')
+             'instead.')
 
         for t in chain(self.module.parameters(), self.module.buffers()):
             if t.device != self.src_device_obj:

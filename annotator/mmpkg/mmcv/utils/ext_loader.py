@@ -36,7 +36,6 @@ else:
         'ms_deform_attn_forward',
         'pixel_group',
         'contour_expand',
-        'diff_iou_rotated_sort_vertices_forward',
     ]
 
     def get_fake_func(name, e):
@@ -67,6 +66,6 @@ else:
         return ExtModule(*ext_list)
 
 
-def check_ops_exist() -> bool:
+def check_ops_exist():
     ext_loader = pkgutil.find_loader('mmcv._ext')
     return ext_loader is not None

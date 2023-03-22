@@ -1,6 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Any, Tuple, Union
-
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -25,11 +23,7 @@ class RoIPoolFunction(Function):
             spatial_scale_f=spatial_scale)
 
     @staticmethod
-    def forward(ctx: Any,
-                input: torch.Tensor,
-                rois: torch.Tensor,
-                output_size: Union[int, tuple],
-                spatial_scale: float = 1.0) -> torch.Tensor:
+    def forward(ctx, input, rois, output_size, spatial_scale=1.0):
         ctx.output_size = _pair(output_size)
         ctx.spatial_scale = spatial_scale
         ctx.input_shape = input.size()
@@ -55,9 +49,7 @@ class RoIPoolFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(
-            ctx: Any, grad_output: torch.Tensor
-    ) -> Tuple[torch.Tensor, None, None, None]:
+    def backward(ctx, grad_output):
         rois, argmax = ctx.saved_tensors
         grad_input = grad_output.new_zeros(ctx.input_shape)
 
@@ -78,15 +70,13 @@ roi_pool = RoIPoolFunction.apply
 
 class RoIPool(nn.Module):
 
-    def __init__(self,
-                 output_size: Union[int, tuple],
-                 spatial_scale: float = 1.0):
-        super().__init__()
+    def __init__(self, output_size, spatial_scale=1.0):
+        super(RoIPool, self).__init__()
 
         self.output_size = _pair(output_size)
         self.spatial_scale = float(spatial_scale)
 
-    def forward(self, input: torch.Tensor, rois: torch.Tensor) -> torch.Tensor:
+    def forward(self, input, rois):
         return roi_pool(input, rois, self.output_size, self.spatial_scale)
 
     def __repr__(self):

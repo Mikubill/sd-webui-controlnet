@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
 import inspect
-from typing import Dict, List
 
 import torch
 
@@ -11,7 +10,7 @@ OPTIMIZERS = Registry('optimizer')
 OPTIMIZER_BUILDERS = Registry('optimizer builder')
 
 
-def register_torch_optimizers() -> List:
+def register_torch_optimizers():
     torch_optimizers = []
     for module_name in dir(torch.optim):
         if module_name.startswith('__'):
@@ -27,11 +26,11 @@ def register_torch_optimizers() -> List:
 TORCH_OPTIMIZERS = register_torch_optimizers()
 
 
-def build_optimizer_constructor(cfg: Dict):
+def build_optimizer_constructor(cfg):
     return build_from_cfg(cfg, OPTIMIZER_BUILDERS)
 
 
-def build_optimizer(model, cfg: Dict):
+def build_optimizer(model, cfg):
     optimizer_cfg = copy.deepcopy(cfg)
     constructor_type = optimizer_cfg.pop('constructor',
                                          'DefaultOptimizerConstructor')

@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
 import warnings
-from typing import Optional
 
 from annotator.mmpkg.mmcv.fileio import FileClient
 from ..dist_utils import allreduce_params, master_only
@@ -50,14 +49,14 @@ class CheckpointHook(Hook):
     """
 
     def __init__(self,
-                 interval: int = -1,
-                 by_epoch: bool = True,
-                 save_optimizer: bool = True,
-                 out_dir: Optional[str] = None,
-                 max_keep_ckpts: int = -1,
-                 save_last: bool = True,
-                 sync_buffer: bool = False,
-                 file_client_args: Optional[dict] = None,
+                 interval=-1,
+                 by_epoch=True,
+                 save_optimizer=True,
+                 out_dir=None,
+                 max_keep_ckpts=-1,
+                 save_last=True,
+                 sync_buffer=False,
+                 file_client_args=None,
                  **kwargs):
         self.interval = interval
         self.by_epoch = by_epoch
@@ -84,8 +83,8 @@ class CheckpointHook(Hook):
             basename = osp.basename(runner.work_dir.rstrip(osp.sep))
             self.out_dir = self.file_client.join_path(self.out_dir, basename)
 
-        runner.logger.info(f'Checkpoints will be saved to {self.out_dir} by '
-                           f'{self.file_client.name}.')
+        runner.logger.info((f'Checkpoints will be saved to {self.out_dir} by '
+                            f'{self.file_client.name}.'))
 
         # disable the create_symlink option because some file backends do not
         # allow to create a symlink
@@ -94,9 +93,9 @@ class CheckpointHook(Hook):
                     'create_symlink'] and not self.file_client.allow_symlink:
                 self.args['create_symlink'] = False
                 warnings.warn(
-                    'create_symlink is set as True by the user but is changed'
-                    'to be False because creating symbolic link is not '
-                    f'allowed in {self.file_client.name}')
+                    ('create_symlink is set as True by the user but is changed'
+                     'to be False because creating symbolic link is not '
+                     f'allowed in {self.file_client.name}'))
         else:
             self.args['create_symlink'] = self.file_client.allow_symlink
 

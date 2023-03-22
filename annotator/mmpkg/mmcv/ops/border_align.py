@@ -2,8 +2,6 @@
 # modified from
 # https://github.com/Megvii-BaseDetection/cvpods/blob/master/cvpods/layers/border_align.py
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -23,8 +21,7 @@ class BorderAlignFunction(Function):
             'mmcv::MMCVBorderAlign', input, boxes, pool_size_i=pool_size)
 
     @staticmethod
-    def forward(ctx, input: torch.Tensor, boxes: torch.Tensor,
-                pool_size: int) -> torch.Tensor:
+    def forward(ctx, input, boxes, pool_size):
         ctx.pool_size = pool_size
         ctx.input_shape = input.size()
 
@@ -48,8 +45,7 @@ class BorderAlignFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(ctx,
-                 grad_output: torch.Tensor) -> Tuple[torch.Tensor, None, None]:
+    def backward(ctx, grad_output):
         boxes, argmax_idx = ctx.saved_tensors
         grad_input = grad_output.new_zeros(ctx.input_shape)
         # complex head architecture may cause grad_output uncontiguous
@@ -76,25 +72,24 @@ class BorderAlign(nn.Module):
 
     For each border line (e.g. top, left, bottom or right) of each box,
     border_align does the following:
-
-    1. uniformly samples ``pool_size`` +1 positions on this line, involving
-       the start and end points.
-    2. the corresponding features on these points are computed by bilinear
-       interpolation.
-    3. max pooling over all the ``pool_size`` +1 positions are used for
-       computing pooled feature.
+        1. uniformly samples `pool_size`+1 positions on this line, involving \
+           the start and end points.
+        2. the corresponding features on these points are computed by \
+           bilinear interpolation.
+        3. max pooling over all the `pool_size`+1 positions are used for \
+           computing pooled feature.
 
     Args:
         pool_size (int): number of positions sampled over the boxes' borders
             (e.g. top, bottom, left, right).
+
     """
 
-    def __init__(self, pool_size: int):
-        super().__init__()
+    def __init__(self, pool_size):
+        super(BorderAlign, self).__init__()
         self.pool_size = pool_size
 
-    def forward(self, input: torch.Tensor,
-                boxes: torch.Tensor) -> torch.Tensor:
+    def forward(self, input, boxes):
         """
         Args:
             input: Features with shape [N,4C,H,W]. Channels ranged in [0,C),
@@ -103,8 +98,8 @@ class BorderAlign(nn.Module):
             boxes: Boxes with shape [N,H*W,4]. Coordinate format (x1,y1,x2,y2).
 
         Returns:
-            torch.Tensor: Pooled features with shape [N,C,H*W,4]. The order is
-            (top,left,bottom,right) for the last dimension.
+            Tensor: Pooled features with shape [N,C,H*W,4]. The order is
+                (top,left,bottom,right) for the last dimension.
         """
         return border_align(input, boxes, self.pool_size)
 

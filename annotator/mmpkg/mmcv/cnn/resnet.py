@@ -1,18 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
-from typing import Optional, Sequence, Tuple, Union
 
 import torch.nn as nn
 import torch.utils.checkpoint as cp
-from torch import Tensor
 
 from .utils import constant_init, kaiming_init
 
 
-def conv3x3(in_planes: int,
-            out_planes: int,
-            stride: int = 1,
-            dilation: int = 1):
+def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     """3x3 convolution with padding."""
     return nn.Conv2d(
         in_planes,
@@ -28,14 +23,14 @@ class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self,
-                 inplanes: int,
-                 planes: int,
-                 stride: int = 1,
-                 dilation: int = 1,
-                 downsample: Optional[nn.Module] = None,
-                 style: str = 'pytorch',
-                 with_cp: bool = False):
-        super().__init__()
+                 inplanes,
+                 planes,
+                 stride=1,
+                 dilation=1,
+                 downsample=None,
+                 style='pytorch',
+                 with_cp=False):
+        super(BasicBlock, self).__init__()
         assert style in ['pytorch', 'caffe']
         self.conv1 = conv3x3(inplanes, planes, stride, dilation)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -47,7 +42,7 @@ class BasicBlock(nn.Module):
         self.dilation = dilation
         assert not with_cp
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         residual = x
 
         out = self.conv1(x)
@@ -70,19 +65,19 @@ class Bottleneck(nn.Module):
     expansion = 4
 
     def __init__(self,
-                 inplanes: int,
-                 planes: int,
-                 stride: int = 1,
-                 dilation: int = 1,
-                 downsample: Optional[nn.Module] = None,
-                 style: str = 'pytorch',
-                 with_cp: bool = False):
+                 inplanes,
+                 planes,
+                 stride=1,
+                 dilation=1,
+                 downsample=None,
+                 style='pytorch',
+                 with_cp=False):
         """Bottleneck block.
 
         If style is "pytorch", the stride-two layer is the 3x3 conv layer, if
         it is "caffe", the stride-two layer is the first 1x1 conv layer.
         """
-        super().__init__()
+        super(Bottleneck, self).__init__()
         assert style in ['pytorch', 'caffe']
         if style == 'pytorch':
             conv1_stride = 1
@@ -112,7 +107,7 @@ class Bottleneck(nn.Module):
         self.dilation = dilation
         self.with_cp = with_cp
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
 
         def _inner_forward(x):
             residual = x
@@ -145,14 +140,14 @@ class Bottleneck(nn.Module):
         return out
 
 
-def make_res_layer(block: nn.Module,
-                   inplanes: int,
-                   planes: int,
-                   blocks: int,
-                   stride: int = 1,
-                   dilation: int = 1,
-                   style: str = 'pytorch',
-                   with_cp: bool = False) -> nn.Module:
+def make_res_layer(block,
+                   inplanes,
+                   planes,
+                   blocks,
+                   stride=1,
+                   dilation=1,
+                   style='pytorch',
+                   with_cp=False):
     downsample = None
     if stride != 1 or inplanes != planes * block.expansion:
         downsample = nn.Sequential(
@@ -213,22 +208,22 @@ class ResNet(nn.Module):
     }
 
     def __init__(self,
-                 depth: int,
-                 num_stages: int = 4,
-                 strides: Sequence[int] = (1, 2, 2, 2),
-                 dilations: Sequence[int] = (1, 1, 1, 1),
-                 out_indices: Sequence[int] = (0, 1, 2, 3),
-                 style: str = 'pytorch',
-                 frozen_stages: int = -1,
-                 bn_eval: bool = True,
-                 bn_frozen: bool = False,
-                 with_cp: bool = False):
-        super().__init__()
+                 depth,
+                 num_stages=4,
+                 strides=(1, 2, 2, 2),
+                 dilations=(1, 1, 1, 1),
+                 out_indices=(0, 1, 2, 3),
+                 style='pytorch',
+                 frozen_stages=-1,
+                 bn_eval=True,
+                 bn_frozen=False,
+                 with_cp=False):
+        super(ResNet, self).__init__()
         if depth not in self.arch_settings:
             raise KeyError(f'invalid depth {depth} for resnet')
         assert num_stages >= 1 and num_stages <= 4
         block, stage_blocks = self.arch_settings[depth]
-        stage_blocks = stage_blocks[:num_stages]  # type: ignore
+        stage_blocks = stage_blocks[:num_stages]
         assert len(strides) == len(dilations) == num_stages
         assert max(out_indices) < num_stages
 
@@ -239,7 +234,7 @@ class ResNet(nn.Module):
         self.bn_frozen = bn_frozen
         self.with_cp = with_cp
 
-        self.inplanes: int = 64
+        self.inplanes = 64
         self.conv1 = nn.Conv2d(
             3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -260,15 +255,14 @@ class ResNet(nn.Module):
                 dilation=dilation,
                 style=self.style,
                 with_cp=with_cp)
-            self.inplanes = planes * block.expansion  # type: ignore
+            self.inplanes = planes * block.expansion
             layer_name = f'layer{i + 1}'
             self.add_module(layer_name, res_layer)
             self.res_layers.append(layer_name)
 
-        self.feat_dim = block.expansion * 64 * 2**(  # type: ignore
-            len(stage_blocks) - 1)
+        self.feat_dim = block.expansion * 64 * 2**(len(stage_blocks) - 1)
 
-    def init_weights(self, pretrained: Optional[str] = None) -> None:
+    def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):
             logger = logging.getLogger()
             from ..runner import load_checkpoint
@@ -282,7 +276,7 @@ class ResNet(nn.Module):
         else:
             raise TypeError('pretrained must be a str or None')
 
-    def forward(self, x: Tensor) -> Union[Tensor, Tuple[Tensor]]:
+    def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -298,8 +292,8 @@ class ResNet(nn.Module):
         else:
             return tuple(outs)
 
-    def train(self, mode: bool = True) -> None:
-        super().train(mode)
+    def train(self, mode=True):
+        super(ResNet, self).train(mode)
         if self.bn_eval:
             for m in self.modules():
                 if isinstance(m, nn.BatchNorm2d):

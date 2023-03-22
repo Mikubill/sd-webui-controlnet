@@ -95,8 +95,6 @@
 
 # =======================================================================
 
-from typing import Any, List, Tuple, Union
-
 import torch
 from torch.autograd import Function
 from torch.nn import functional as F
@@ -110,10 +108,8 @@ upfirdn2d_ext = ext_loader.load_ext('_ext', ['upfirdn2d'])
 class UpFirDn2dBackward(Function):
 
     @staticmethod
-    def forward(ctx: Any, grad_output: torch.Tensor, kernel: torch.Tensor,
-                grad_kernel: torch.Tensor, up: tuple, down: tuple, pad: tuple,
-                g_pad: tuple, in_size: Union[List, Tuple],
-                out_size: Union[List, Tuple]) -> torch.Tensor:
+    def forward(ctx, grad_output, kernel, grad_kernel, up, down, pad, g_pad,
+                in_size, out_size):
 
         up_x, up_y = up
         down_x, down_y = down
@@ -153,7 +149,7 @@ class UpFirDn2dBackward(Function):
         return grad_input
 
     @staticmethod
-    def backward(ctx: Any, gradgrad_input: torch.Tensor) -> tuple:
+    def backward(ctx, gradgrad_input):
         kernel, = ctx.saved_tensors
 
         gradgrad_input = gradgrad_input.reshape(-1, ctx.in_size[2],
@@ -181,8 +177,7 @@ class UpFirDn2dBackward(Function):
 class UpFirDn2d(Function):
 
     @staticmethod
-    def forward(ctx: Any, input: torch.Tensor, kernel: torch.Tensor, up: tuple,
-                down: tuple, pad: tuple) -> torch.Tensor:
+    def forward(ctx, input, kernel, up, down, pad):
         up_x, up_y = up
         down_x, down_y = down
         pad_x0, pad_x1, pad_y0, pad_y1 = pad
@@ -227,7 +222,7 @@ class UpFirDn2d(Function):
         return out
 
     @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple:
+    def backward(ctx, grad_output):
         kernel, grad_kernel = ctx.saved_tensors
 
         grad_input = UpFirDn2dBackward.apply(
@@ -245,12 +240,7 @@ class UpFirDn2d(Function):
         return grad_input, None, None, None, None
 
 
-def upfirdn2d(
-    input: torch.Tensor,
-    kernel: torch.Tensor,
-    up: Union[int, tuple] = 1,
-    down: Union[int, tuple] = 1,
-    pad: tuple = (0, 0)) -> torch.Tensor:  # noqa E125
+def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
     """UpFRIDn for 2d features.
 
     UpFIRDn is short for upsample, apply FIR filter and downsample. More
@@ -258,8 +248,8 @@ def upfirdn2d(
     https://www.mathworks.com/help/signal/ref/upfirdn.html
 
     Args:
-        input (torch.Tensor): Tensor with shape of (n, c, h, w).
-        kernel (torch.Tensor): Filter kernel.
+        input (Tensor): Tensor with shape of (n, c, h, w).
+        kernel (Tensor): Filter kernel.
         up (int | tuple[int], optional): Upsampling factor. If given a number,
             we will use this factor for the both height and width side.
             Defaults to 1.
@@ -270,18 +260,18 @@ def upfirdn2d(
             (x_pad_0, x_pad_1, y_pad_0, y_pad_1). Defaults to (0, 0).
 
     Returns:
-        torch.Tensor: Tensor after UpFIRDn.
+        Tensor: Tensor after UpFIRDn.
     """
     if input.device.type == 'cpu':
         if len(pad) == 2:
-            pad = (pad[0], pad[1], pad[0], pad[1])  # type: ignore
+            pad = (pad[0], pad[1], pad[0], pad[1])
 
-        _up = to_2tuple(up)
+        up = to_2tuple(up)
 
-        _down = to_2tuple(down)
+        down = to_2tuple(down)
 
-        out = upfirdn2d_native(input, kernel, _up[0], _up[1], _down[0],
-                               _down[1], pad[0], pad[1], pad[2], pad[3])
+        out = upfirdn2d_native(input, kernel, up[0], up[1], down[0], down[1],
+                               pad[0], pad[1], pad[2], pad[3])
     else:
         _up = to_2tuple(up)
 
@@ -297,9 +287,8 @@ def upfirdn2d(
     return out
 
 
-def upfirdn2d_native(input: torch.Tensor, kernel: torch.Tensor, up_x: int,
-                     up_y: int, down_x: int, down_y: int, pad_x0: int,
-                     pad_x1: int, pad_y0: int, pad_y1: int) -> torch.Tensor:
+def upfirdn2d_native(input, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1,
+                     pad_y0, pad_y1):
     _, channel, in_h, in_w = input.shape
     input = input.reshape(-1, in_h, in_w, 1)
 

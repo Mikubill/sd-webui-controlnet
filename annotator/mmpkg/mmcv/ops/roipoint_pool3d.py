@@ -1,6 +1,3 @@
-from typing import Any, Tuple
-
-import torch
 from torch import nn as nn
 from torch.autograd import Function
 
@@ -20,12 +17,11 @@ class RoIPointPool3d(nn.Module):
             Default: 512.
     """
 
-    def __init__(self, num_sampled_points: int = 512):
+    def __init__(self, num_sampled_points=512):
         super().__init__()
         self.num_sampled_points = num_sampled_points
 
-    def forward(self, points: torch.Tensor, point_features: torch.Tensor,
-                boxes3d: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, points, point_features, boxes3d):
         """
         Args:
             points (torch.Tensor): Input points whose shape is (B, N, C).
@@ -34,9 +30,9 @@ class RoIPointPool3d(nn.Module):
             boxes3d (B, M, 7), Input bounding boxes whose shape is (B, M, 7).
 
         Returns:
-            tuple[torch.Tensor]: A tuple contains two elements. The first one
-            is the pooled features whose shape is (B, M, 512, 3 + C). The
-            second is an empty flag whose shape is (B, M).
+            pooled_features (torch.Tensor): The output pooled features whose
+                shape is (B, M, 512, 3 + C).
+            pooled_empty_flag (torch.Tensor): Empty flag whose shape is (B, M).
         """
         return RoIPointPool3dFunction.apply(points, point_features, boxes3d,
                                             self.num_sampled_points)
@@ -45,13 +41,7 @@ class RoIPointPool3d(nn.Module):
 class RoIPointPool3dFunction(Function):
 
     @staticmethod
-    def forward(
-            ctx: Any,
-            points: torch.Tensor,
-            point_features: torch.Tensor,
-            boxes3d: torch.Tensor,
-            num_sampled_points: int = 512
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(ctx, points, point_features, boxes3d, num_sampled_points=512):
         """
         Args:
             points (torch.Tensor): Input points whose shape is (B, N, C).
@@ -62,9 +52,9 @@ class RoIPointPool3dFunction(Function):
                 Default: 512.
 
         Returns:
-            tuple[torch.Tensor]: A tuple contains two elements. The first one
-            is the pooled features whose shape is (B, M, 512, 3 + C). The
-            second is an empty flag whose shape is (B, M).
+            pooled_features (torch.Tensor): The output pooled features whose
+                shape is (B, M, 512, 3 + C).
+            pooled_empty_flag (torch.Tensor): Empty flag whose shape is (B, M).
         """
         assert len(points.shape) == 3 and points.shape[2] == 3
         batch_size, boxes_num, feature_len = points.shape[0], boxes3d.shape[
@@ -83,5 +73,5 @@ class RoIPointPool3dFunction(Function):
         return pooled_features, pooled_empty_flag
 
     @staticmethod
-    def backward(ctx: Any, grad_out: torch.Tensor) -> torch.Tensor:
+    def backward(ctx, grad_out):
         raise NotImplementedError
