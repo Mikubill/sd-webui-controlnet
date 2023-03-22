@@ -226,3 +226,14 @@ def binary(img, res=512, thr_a=0, **kwargs):
         model_binary = apply_binary
     result = model_binary(img, thr_a)
     return result, True
+
+
+model_zoedepth = None
+
+def zoedepth(img, res=512, **kwargs):
+    global model_zoedepth
+    if model_zoedepth is None:
+        from annotator.model_zoedepth import apply_zoedepth
+        model_zoedepth = apply_zoedepth
+    result = model_zoedepth(img, res=res)
+    return result, True
