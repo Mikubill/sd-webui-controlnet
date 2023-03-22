@@ -37,7 +37,7 @@ def process_face_det_results(face_det_results):
 def unload_face_model():
     global face_model
     if face_model is not None:
-        face_model.model.cpu()
+        face_model.cpu()
 
 
 def apply_face_model(image):
