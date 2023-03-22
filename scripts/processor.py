@@ -237,3 +237,9 @@ def zoedepth(img, res=512, **kwargs):
         model_zoedepth = apply_zoedepth
     result = model_zoedepth(img, res=res)
     return result, True
+
+def unload_zoedepth():
+    global model_zoedepth
+    if model_zoedepth is not None:
+        from annotator.zoedepth import unload_zoedepth
+        unload_zoedepth()
