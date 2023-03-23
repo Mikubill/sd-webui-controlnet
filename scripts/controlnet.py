@@ -476,6 +476,10 @@ class Script(scripts.Script):
 
         model_path = global_state.cn_models.get(model, None)
         if model_path is None:
+            model = find_closest_lora_model_name(model)
+            model_path = global_state.cn_models.get(model, None)
+
+        if model_path is None:
             raise RuntimeError(f"model not found: {model}")
 
         # trim '"' at start/end
