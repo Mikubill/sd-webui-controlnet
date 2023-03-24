@@ -81,7 +81,7 @@ def apply_face_model(image):
 
     con_img = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0, 0, 0))
     if len(pose_results) == 0:
-        return con_img
+        return np.array(con_img)
     for face in pose_results:
         draw_landmarks(con_img, face['keypoints'])
     con_img = np.array(con_img)
