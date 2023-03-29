@@ -120,6 +120,9 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
             units.append(ControlNetUnit(*script_args[i:i + PARAM_COUNT]))
             i += PARAM_COUNT
 
+        elif type(script_args[i]) is str:
+            i += 1
+
         else:
             if script_args[i] is not None:
                 units.append(to_processing_unit(script_args[i]))
@@ -140,6 +143,9 @@ def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[Contr
             if index == 0:
                 return ControlNetUnit(*script_args[i:i + PARAM_COUNT])
             i += PARAM_COUNT
+
+        elif type(script_args[i]) is str:
+            i += 1
 
         else:
             if index == 0 and script_args[i] is not None:
