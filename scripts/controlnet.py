@@ -393,13 +393,19 @@ class Script(scripts.Script):
 
         unit = gr.State(default_unit)
         for comp in ctrls:
-            event_subscriber = comp.change
+            event_subscribers = []
             if hasattr(comp, 'edit'):
-                event_subscriber = comp.edit
+                event_subscribers.append(comp.edit)
             elif hasattr(comp, 'click'):
-                event_subscriber = comp.click
+                event_subscribers.append(comp.click)
+            else:
+                event_subscribers.append(comp.change)
 
-            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+            if hasattr(comp, 'clear'):
+                event_subscribers.append(comp.clear)
+
+            for event_subscriber in event_subscribers:
+                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
 
         return unit
 
@@ -424,8 +430,9 @@ class Script(scripts.Script):
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img),)
                         
-        for _, field_name in self.infotext_fields:
-            self.paste_field_names.append(field_name)
+        if shared.opts.data.get("control_net_sync_field_args", False):
+            for _, field_name in self.infotext_fields:
+                self.paste_field_names.append(field_name)
 
         return controls
 
@@ -468,6 +475,10 @@ class Script(scripts.Script):
     def build_control_model(self, p, unet, model, lowvram):
 
         model_path = global_state.cn_models.get(model, None)
+        if model_path is None:
+            model = find_closest_lora_model_name(model)
+            model_path = global_state.cn_models.get(model, None)
+
         if model_path is None:
             raise RuntimeError(f"model not found: {model}")
 
@@ -821,6 +832,8 @@ def on_ui_settings():
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(
         False, "Enable CFG-Based guidance", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_sync_field_args", shared.OptionInfo(
+        False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
     
