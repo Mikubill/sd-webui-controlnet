@@ -18,6 +18,7 @@ cn_preprocessor_modules = {
     "depth": midas,
     "depth_leres": leres,
     "hed": hed,
+    "mediapipe_laion_face": mediapipe_laion_face,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,
