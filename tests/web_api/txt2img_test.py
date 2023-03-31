@@ -3,7 +3,7 @@ import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
 utils.setup_test_env()
 import requests
-
+import os
 
 
 class TestTxt2ImgWorkingBase(unittest.TestCase):
@@ -42,6 +42,12 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
 
     def assert_status_ok(self):
         self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200)
+        stderr = ""
+        with open('test/stderr.txt') as f:
+            stderr = f.read().lower()
+        with open('test/stderr.txt', 'w') as f:
+            f.write("")
+        self.assertFalse('error' in stderr, "Errors in stderr: \n" + stderr)
 
 
 class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
