@@ -87,7 +87,7 @@ def reverse_channels(image):
 def generate_annotation(
         img_rgb,
         max_faces: int,
-        min_confidence: float = 0.01,
+        min_confidence: float,
         return_annotation_data: bool = False
 ):
     """

@@ -231,7 +231,7 @@ def binary(img, res=512, thr_a=0, **kwargs):
 model_mediapipe_face = None
 
 
-def mediapipe_face(img, res=512, max_faces: int = 1, min_confidence: float = 0.01, **kwargs):
+def mediapipe_face(img, res=512, max_faces: int = 10, min_confidence: float = 0.01, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_mediapipe_face
     if model_mediapipe_face is None:
