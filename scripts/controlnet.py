@@ -300,7 +300,7 @@ class Script(scripts.Script):
                 return [
                     gr.update(label="Annotator Resolution", value=512, minimum=64, maximum=2048, step=8, interactive=True),
                     gr.update(label="Max Faces", value=1, minimum=1, maximum=10, step=1, interactive=True),
-                    gr.update(label="Min Face Confidence", value=0.1, minimum=0.01, maximum=1, interactive=True),
+                    gr.update(label="Min Face Confidence", value=0.5, minimum=0.01, maximum=1, interactive=True),
                     gr.update(visible=True)
                 ]
             elif module == "none":

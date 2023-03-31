@@ -114,6 +114,10 @@ def generate_annotation(
 
         results = facemesh.process(img_rgb).multi_face_landmarks
 
+        if results is None:
+            print("Results is None rather than empty.  There may have been an exception.")
+            results = []
+
         faces_found_before_filtering = len(results)
 
         # Filter faces that are too small
