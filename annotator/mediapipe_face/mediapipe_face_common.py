@@ -15,6 +15,7 @@ mp_body_connections = mp.solutions.pose_connections.POSE_CONNECTIONS
 DrawingSpec = mp.solutions.drawing_styles.DrawingSpec
 PoseLandmark = mp.solutions.drawing_styles.PoseLandmark
 
+min_face_size_pixels: int = 64
 f_thick = 2
 f_rad = 1
 right_iris_draw = DrawingSpec(color=(10, 200, 250), thickness=f_thick, circle_radius=f_rad)
@@ -86,7 +87,7 @@ def reverse_channels(image):
 def generate_annotation(
         img_rgb,
         max_faces: int,
-        min_face_size_pixels: int = 0,
+        min_confidence: float = 0.01,
         return_annotation_data: bool = False
 ):
     """
@@ -106,7 +107,7 @@ def generate_annotation(
             static_image_mode=True,
             max_num_faces=max_faces,
             refine_landmarks=True,
-            min_detection_confidence=0.5,
+            min_detection_confidence=min_confidence,
     ) as facemesh:
         img_height, img_width, img_channels = img_rgb.shape
         assert(img_channels == 3)

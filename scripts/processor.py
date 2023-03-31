@@ -231,12 +231,12 @@ def binary(img, res=512, thr_a=0, **kwargs):
 model_mediapipe_face = None
 
 
-def mediapipe_face(img, res=512, max_faces: int = 1, **kwargs):
+def mediapipe_face(img, res=512, max_faces: int = 1, min_confidence: float = 0.01, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_mediapipe_face
     if model_mediapipe_face is None:
         from annotator.mediapipe_face import apply_mediapipe_face
         model_mediapipe_face = apply_mediapipe_face
-    result = model_mediapipe_face(img, max_faces=max_faces)
+    result = model_mediapipe_face(img, max_faces=max_faces, min_confidence=min_confidence)
     return result, True
 
