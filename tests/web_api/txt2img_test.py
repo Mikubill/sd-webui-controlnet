@@ -5,6 +5,7 @@ utils.setup_test_env()
 import requests
 
 
+
 class TestTxt2ImgWorkingBase(unittest.TestCase):
     def setup_route(self, setup_args):
         self.url_txt2img = "http://localhost:7860/sdapi/v1/txt2img"
@@ -69,6 +70,7 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         }
         setup_args = {"controlnet_unit": ([controlnet_unit] * getattr(self, 'units_count', 1))}
         self.setup_route(setup_args)
+        self.url_txt2img = "http://localhost:7860/controlnet/txt2img"
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
