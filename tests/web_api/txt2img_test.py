@@ -3,7 +3,6 @@ import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
 utils.setup_test_env()
 import requests
-import os
 
 
 class TestTxt2ImgWorkingBase(unittest.TestCase):
