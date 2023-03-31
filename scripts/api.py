@@ -209,7 +209,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "depth_leres",
             "fake_scribble",
             "hed",
-            "mediapipe_laion_face",
+            "mediapipe_face",
             "mlsd",
             "normal_map",
             "openpose",
@@ -252,7 +252,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
             elif controlnet_module == "color":
                 results.append(color(img, controlnet_processor_res)[0])
-            elif controlnet_module == "mediapipe_laion_face":
+            elif controlnet_module == "mediapipe_face":
                 results.append(mediapipe_laion_face(img, controlnet_processor_res)[0])
 
         if controlnet_module == "hed":
