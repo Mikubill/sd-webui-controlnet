@@ -2,7 +2,6 @@ from typing import Mapping
 
 import mediapipe as mp
 import numpy
-from PIL import Image
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -85,7 +84,7 @@ def reverse_channels(image):
 
 
 def generate_annotation(
-        input_image,
+        img_rgb,
         max_faces: int,
         min_face_size_pixels: int = 0,
         return_annotation_data: bool = False
@@ -109,10 +108,6 @@ def generate_annotation(
             refine_landmarks=True,
             min_detection_confidence=0.5,
     ) as facemesh:
-        if isinstance(input_image, Image.Image):
-            img_rgb = numpy.asarray(input_image)
-        else:
-            img_rgb = input_image
         img_height, img_width, img_channels = img_rgb.shape
         assert(img_channels == 3)
 
@@ -163,12 +158,12 @@ def generate_annotation(
             draw_pupils(empty, face_landmarks, iris_landmark_spec, 2)
 
         # Flip BGR back to RGB.
-        empty = reverse_channels(empty)
+        empty = reverse_channels(empty).copy()
 
         # We might have to generate a composite.
         if return_annotation_data:
             # Note that we're copying the input image AND flipping the channels so we can draw on top of it.
-            annotated = reverse_channels(img_rgb.clone()).copy()
+            annotated = reverse_channels(img_rgb.copy()).copy()
             for face_landmarks in filtered_landmarks:
                 mp_drawing.draw_landmarks(
                     empty,
