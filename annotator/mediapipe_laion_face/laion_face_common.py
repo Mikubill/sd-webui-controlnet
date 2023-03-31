@@ -85,7 +85,7 @@ def reverse_channels(image):
 
 
 def generate_annotation(
-        input_image: Image.Image,
+        input_image,
         max_faces: int,
         min_face_size_pixels: int = 0,
         return_annotation_data: bool = False
@@ -109,7 +109,13 @@ def generate_annotation(
             refine_landmarks=True,
             min_detection_confidence=0.5,
     ) as facemesh:
-        img_rgb = numpy.asarray(input_image)
+        if isinstance(input_image, Image.Image):
+            img_rgb = numpy.asarray(input_image)
+        else:
+            img_rgb = input_image
+        img_height, img_width, img_channels = img_rgb.shape
+        assert(img_channels == 3)
+
         results = facemesh.process(img_rgb).multi_face_landmarks
 
         faces_found_before_filtering = len(results)
@@ -132,8 +138,8 @@ def generate_annotation(
             if min_face_size_pixels > 0:
                 face_width = abs(face_rect[2] - face_rect[0])
                 face_height = abs(face_rect[3] - face_rect[1])
-                face_width_pixels = face_width * input_image.size[0]
-                face_height_pixels = face_height * input_image.size[1]
+                face_width_pixels = face_width * img_width
+                face_height_pixels = face_height * img_height
                 face_size = min(face_width_pixels, face_height_pixels)
                 if face_size >= min_face_size_pixels:
                     filtered_landmarks.append(lm)
@@ -162,7 +168,7 @@ def generate_annotation(
         # We might have to generate a composite.
         if return_annotation_data:
             # Note that we're copying the input image AND flipping the channels so we can draw on top of it.
-            annotated = reverse_channels(numpy.asarray(input_image)).copy()
+            annotated = reverse_channels(img_rgb.clone()).copy()
             for face_landmarks in filtered_landmarks:
                 mp_drawing.draw_landmarks(
                     empty,
