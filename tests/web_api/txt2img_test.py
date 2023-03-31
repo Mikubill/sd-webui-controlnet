@@ -7,7 +7,7 @@ import requests
 
 
 class TestTxt2ImgWorkingBase(unittest.TestCase):
-    def setup_route(self, setup_args, alwayson_script):
+    def setup_route(self, setup_args):
         self.url_txt2img = "http://localhost:7860/sdapi/v1/txt2img"
         self.simple_txt2img = {
             "enable_hr": False,
@@ -38,15 +38,7 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
             "sampler_index": "Euler a",
             "alwayson_scripts": {}
         }
-        self.setup_controlnet_params(setup_args, alwayson_script)
-
-    def setup_controlnet_params(self, setup_args, alwayson_script):
-        if alwayson_script:
-            self.simple_txt2img["alwayson_scripts"]["ControlNet"] = {
-                "args": setup_args
-            }
-        else:
-            self.simple_txt2img["controlnet_units"] = setup_args
+        self.simple_txt2img.update(setup_args)
 
     def assert_status_ok(self):
         self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200)
@@ -69,8 +61,8 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             "guidance_end": 1.0,
             "guessmode": False,
         }
-        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
-        self.setup_route(setup_args , False)
+        setup_args = {"controlnet_unit": ([controlnet_unit] * getattr(self, 'units_count', 1))}
+        self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
@@ -106,8 +98,8 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             "guidance_end": 1.0,
             "guessmode": False,
         }
-        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
-        self.setup_route(setup_args, True)
+        setup_args = {"alwayson_scripts":{"ControlNet":{"args": ([controlnet_unit] * getattr(self, 'units_count', 1))}}}
+        self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
