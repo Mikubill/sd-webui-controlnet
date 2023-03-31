@@ -46,7 +46,9 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
         with open('test/stderr.txt') as f:
             stderr = f.read().lower()
         with open('test/stderr.txt', 'w') as f:
+            # clear stderr file
             f.write("")
+        # check if we find an error string in what we read
         self.assertFalse('error' in stderr, "Errors in stderr: \n" + stderr)
 
 
