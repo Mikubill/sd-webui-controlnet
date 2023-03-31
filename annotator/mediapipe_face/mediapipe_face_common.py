@@ -87,21 +87,12 @@ def reverse_channels(image):
 def generate_annotation(
         img_rgb,
         max_faces: int,
-        min_confidence: float,
-        return_annotation_data: bool = False
+        min_confidence: float
 ):
     """
     Find up to 'max_faces' inside the provided input image.
     If min_face_size_pixels is provided and nonzero it will be used to filter faces that occupy less than this many
     pixels in the image.
-    If return_annotation_data is TRUE (default: false) then in addition to returning the 'detected face' image, three
-    additional parameters will be returned: faces before filtering, faces after filtering, and an annotation image.
-    The faces_before_filtering return value is the number of faces detected in an image with no filtering.
-    faces_after_filtering is the number of faces remaining after filtering small faces.
-
-    :return:
-      If 'return_annotation_data==True', returns (numpy array, numpy array, int, int).
-      If 'return_annotation_data==False' (default), returns a numpy array.
     """
     with mp_face_mesh.FaceMesh(
             static_image_mode=True,
@@ -115,10 +106,8 @@ def generate_annotation(
         results = facemesh.process(img_rgb).multi_face_landmarks
 
         if results is None:
-            print("Results is None rather than empty.  There may have been an exception.")
-            results = []
-
-        faces_found_before_filtering = len(results)
+            print("Results is None rather than empty.  There may have been an exception in processing.")
+            return numpy.zeros_like(img_rgb)
 
         # Filter faces that are too small
         filtered_landmarks = []
@@ -146,8 +135,6 @@ def generate_annotation(
             else:
                 filtered_landmarks.append(lm)
 
-        faces_remaining_after_filtering = len(filtered_landmarks)
-
         # Annotations are drawn in BGR for some reason, but we don't need to flip a zero-filled image at the start.
         empty = numpy.zeros_like(img_rgb)
 
@@ -165,22 +152,4 @@ def generate_annotation(
         # Flip BGR back to RGB.
         empty = reverse_channels(empty).copy()
 
-        # We might have to generate a composite.
-        if return_annotation_data:
-            # Note that we're copying the input image AND flipping the channels so we can draw on top of it.
-            annotated = reverse_channels(img_rgb.copy()).copy()
-            for face_landmarks in filtered_landmarks:
-                mp_drawing.draw_landmarks(
-                    empty,
-                    face_landmarks,
-                    connections=face_connection_spec.keys(),
-                    landmark_drawing_spec=None,
-                    connection_drawing_spec=face_connection_spec
-                )
-                draw_pupils(empty, face_landmarks, iris_landmark_spec, 2)
-            annotated = reverse_channels(annotated)
-
-        if not return_annotation_data:
-            return empty
-        else:
-            return empty, annotated, faces_found_before_filtering, faces_remaining_after_filtering
+        return empty
