@@ -106,7 +106,7 @@ def generate_annotation(
         results = facemesh.process(img_rgb).multi_face_landmarks
 
         if results is None:
-            print("Results is None rather than empty.  There may have been an exception in processing.")
+            print("No faces detected in controlnet image for Mediapipe face annotator.")
             return numpy.zeros_like(img_rgb)
 
         # Filter faces that are too small

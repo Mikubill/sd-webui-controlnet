@@ -1,5 +1,3 @@
-from PIL import Image
-
 from .mediapipe_face_common import generate_annotation
 
 
