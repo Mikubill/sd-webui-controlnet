@@ -253,7 +253,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             elif controlnet_module == "color":
                 results.append(color(img, controlnet_processor_res)[0])
             elif controlnet_module == "mediapipe_laion_face":
-                results.append(mediapipe_laion_face(img, controlnet_processor_res))
+                results.append(mediapipe_laion_face(img, controlnet_processor_res)[0])
 
         if controlnet_module == "hed":
             unload_hed()

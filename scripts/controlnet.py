@@ -564,7 +564,7 @@ class Script(scripts.Script):
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
             
         control = rearrange(control, 'h w c -> c h w')
-        detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
+        detected_map = rearrange(torch.from_numpy(detected_map.copy()), 'h w c -> c h w')
 
         if resize_mode == external_code.ResizeMode.INNER_FIT:
             h0 = detected_map.shape[1]
