@@ -228,15 +228,15 @@ def binary(img, res=512, thr_a=0, **kwargs):
     return result, True
 
 
-model_mediapipe_laion_face = None
+model_mediapipe_face = None
 
 
-def mediapipe_laion_face(img, res=512, max_faces: int = 1, **kwargs):
+def mediapipe_face(img, res=512, max_faces: int = 1, **kwargs):
     img = resize_image(HWC3(img), res)
-    global model_mediapipe_laion_face
-    if model_mediapipe_laion_face is None:
+    global model_mediapipe_face
+    if model_mediapipe_face is None:
         from annotator.mediapipe_face import apply_mediapipe_face
-        model_mediapipe_laion_face = apply_mediapipe_face
-    result = model_mediapipe_laion_face(img, max_faces=max_faces)
+        model_mediapipe_face = apply_mediapipe_face
+    result = model_mediapipe_face(img, max_faces=max_faces)
     return result, True
 
