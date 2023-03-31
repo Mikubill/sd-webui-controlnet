@@ -114,6 +114,7 @@ class TestAlwaysonImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
             "input_image": utils.readImage("test/test_files/img2img_basic.png"),
             "model": utils.get_model(),
         }]
+        self.assert_status_ok()
 
 if __name__ == "__main__":
     unittest.main()
