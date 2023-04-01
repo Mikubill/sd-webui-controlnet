@@ -728,7 +728,7 @@ class Script(scripts.Script):
             else:
                 detected_map, is_image = preprocessor(input_image)
 
-            if model_net.target == "scripts.adapter.StyleAdapter" and unit.module == "none":
+            if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
                 detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
