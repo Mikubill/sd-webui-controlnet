@@ -162,13 +162,13 @@ class Script(scripts.Script):
             guess_mode=False,
         )
 
-    def uigroup(self, tabname, is_img2img):
+    def uigroup(self, tabname, is_img2img, elem_id_tabname):
         ctrls = ()
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-            generated_image = gr.Image(label="Annotator result", visible=False)
+            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+            generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -419,16 +419,17 @@ class Script(scripts.Script):
         self.paste_field_names = []
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
-        with gr.Group():
+        elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
+        with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
                 if max_models > 1:
-                    with gr.Tabs():
+                    with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
                             with gr.Tab(f"Control Model - {i}"):
-                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img),)
+                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
-                        controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        controls += (self.uigroup(f"ControlNet", is_img2img, elem_id_tabname),)
                         
         if shared.opts.data.get("control_net_sync_field_args", False):
             for _, field_name in self.infotext_fields:
