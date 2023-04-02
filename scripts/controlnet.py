@@ -721,18 +721,21 @@ class Script(scripts.Script):
                 input_image = detected_map
 
             print(f"Loading preprocessor: {unit.module}")
-            preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
-            if unit.processor_res > 64:
-                detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+            if unit.module is not None:
+                preprocessor = self.preprocessor[unit.module]
+                if unit.processor_res > 64:
+                    detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+                else:
+                    detected_map, is_image = preprocessor(input_image)
+                
+                if is_image:
+                    control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
+                    detected_maps.append((detected_map, unit.module))
+                else:
+                    control = detected_map  
             else:
-                detected_map, is_image = preprocessor(input_image)
-            
-            if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
-                detected_maps.append((detected_map, unit.module))
-            else:
-                control = detected_map  
+                control, detected_map = self.detectmap_proc(input_image, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
 
             forward_param = ControlParams(
                 control_model=model_net,
