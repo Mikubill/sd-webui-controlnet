@@ -711,6 +711,11 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
+                # scale crop region to the size of our image
+                x1, y1, x2, y2 = crop_region
+                scale_x, scale_y = p.width / float(input_image.width), p.height / float(input_image.height)
+                crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
+
                 input_image = input_image.crop(crop_region)
                 input_image = images.resize_image(2, input_image, p.width, p.height)
                 input_image = HWC3(np.asarray(input_image))
