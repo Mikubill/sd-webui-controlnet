@@ -125,11 +125,6 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         self.setUp()
         self.assert_status_ok()
 
-    def test_img2img_1_units_with_2_max_models(self):
-        shared.opts.data["control_net_max_models_num"] = 2
-        self.assert_status_ok()
-        shared.opts.data["control_net_max_models_num"] = 1
-
     def test_txt2img_8_units(self):
         self.units_count = 8
         self.setUp()

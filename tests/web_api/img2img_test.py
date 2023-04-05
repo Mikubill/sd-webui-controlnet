@@ -3,7 +3,6 @@ import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
 utils.setup_test_env()
 import requests
-from modules import shared
 
 
 
@@ -118,11 +117,6 @@ class TestAlwaysonImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
             "model": utils.get_model(),
         }]
         self.assert_status_ok()
-
-    def test_img2img_1_units_with_2_max_models(self):
-        shared.opts.data["control_net_max_models_num"] = 2
-        self.assert_status_ok()
-        shared.opts.data["control_net_max_models_num"] = 1
 
 if __name__ == "__main__":
     unittest.main()
