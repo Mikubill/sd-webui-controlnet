@@ -112,6 +112,11 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
 
+    def test_txt2img_alwayson_scripts_default_units(self):
+        self.units_count = 0
+        self.setUp()
+        self.assert_status_ok()
+
     def test_txt2img_multiple_batches_performed(self):
         self.simple_txt2img["n_iter"] = 2
         self.assert_status_ok()

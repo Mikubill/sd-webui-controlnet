@@ -111,6 +111,11 @@ class TestAlwaysonImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
     def test_img2img_simple_performed(self):
         self.assert_status_ok()
 
+    def test_img2img_alwayson_scripts_default_units(self):
+        self.units_count = 0
+        self.setUp()
+        self.assert_status_ok()
+
     def test_img2img_default_params(self):
         self.simple_img2img["alwayson_scripts"]["ControlNet"]["args"] = [{
             "input_image": utils.readImage("test/test_files/img2img_basic.png"),
