@@ -69,6 +69,8 @@ class UnetHook(nn.Module):
         super().__init__()
         self.lowvram = lowvram
         self.batch_cond_available = True
+        self.cntiter = -1 # SBM Stylebreak cond / uncond counter.
+        self.stylebreak = False
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
         
     def hook(self, model):
@@ -115,6 +117,7 @@ class UnetHook(nn.Module):
             return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
+            outer.cntiter = outer.cntiter + 1 # SBM Stylebreak attempted fix.
             total_control = [0.0] * 13
             total_adapter = [0.0] * 4
             total_extra_cond = torch.zeros([0, context.shape[-1]]).to(devices.get_device_for("controlnet"))
@@ -135,9 +138,12 @@ class UnetHook(nn.Module):
                 outer.batch_cond_available = False
                 if len(total_extra_cond) > 0 or outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
                     print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
+                    outer.stylebreak = True # SBM Stylebreak attempted fix.
                 
             # concat styleadapter to cond, pad uncond to same length
-            if len(total_extra_cond) > 0 and outer.batch_cond_available:
+            
+            if (len(total_extra_cond) > 0
+            and outer.batch_cond_available):
                 total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
                 if outer.is_vanilla_samplers:  
                     uncond, cond = context.chunk(2)
@@ -149,6 +155,25 @@ class UnetHook(nn.Module):
                     cond = torch.cat([cond, total_extra_cond], dim=1)
                     uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
                     context = torch.cat([cond, uncond], dim=0)
+            elif (len(total_extra_cond) > 0
+            and   outer.stylebreak):
+                # SBM Stylebreak fix: Context is split to (cond,uncond) iterations.
+                # Since I don't receieve an indication of which iteration is which,
+                # I rely instead on a simple counter and assumption that the order is maintained.
+                
+                # SBM Perhaps a simple reshape(1,*total.shape) would do.
+                total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0], dim=0)
+                indpos = True
+                if outer.is_vanilla_samplers: # Vanillas reverse cond,uncond order.
+                    indpos = not indpos
+                if outer.cntiter % 2 != 0: # Flip cond/uncond in odd iters. 
+                    indpos = not indpos
+                halfcon = context.chunk(1)[0] # Does nothing really. Besides make a copy maybe.
+                if indpos:
+                    halfcon = torch.cat([halfcon, total_extra_cond], dim=1)
+                else:
+                    halfcon = torch.cat([halfcon, halfcon[:, -total_extra_cond.shape[1]:, :]], dim=1)
+                context = halfcon
                 
             # handle unet injection stuff
             for param in outer.control_params:
