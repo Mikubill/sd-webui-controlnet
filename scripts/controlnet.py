@@ -20,7 +20,7 @@ from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
 importlib.reload(global_state)
 importlib.reload(external_code)
-from modules.processing import StableDiffusionProcessingImg2Img
+from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
@@ -727,12 +727,27 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-            
+
+
+            if issubclass(type(p), StableDiffusionProcessingTxt2Img) and p.enable_hr:
+                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                    hr_y = int(p.height * p.hr_scale)
+                    hr_x = int(p.width * p.hr_scale)
+                else:
+                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+
+                if is_image:
+                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, hr_y, hr_x)
+                else:
+                    hr_control = detected_map
+            else:
+                hr_control = None
+
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
-                control = detected_map  
+                control = detected_map
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -744,7 +759,8 @@ class Script(scripts.Script):
                 stop_guidance_percent=unit.guidance_end,
                 advanced_weighting=None,
                 is_adapter=isinstance(model_net, PlugableAdapter),
-                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter"
+                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
+                hr_hint_cond = hr_control,
             )
             forward_params.append(forward_param)
 

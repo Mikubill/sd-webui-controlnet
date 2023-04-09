@@ -50,7 +50,8 @@ class ControlParams:
         stop_guidance_percent, 
         advanced_weighting, 
         is_adapter,
-        is_extra_cond
+        is_extra_cond,
+        hr_hint_cond
     ):
         self.control_model = control_model
         self.hint_cond = hint_cond
@@ -62,6 +63,7 @@ class ControlParams:
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
         self.is_extra_cond = is_extra_cond
+        self.hr_hint_cond = hr_hint_cond
 
 
 class UnetHook(nn.Module):
@@ -160,6 +162,7 @@ class UnetHook(nn.Module):
                 # hires stuffs
                 # note that this method may not works if hr_scale < 1.1
                 if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
+                    param.hint_cond = param.hr_hint_cond
                     only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
                     # If you want to completely disable control net, uncomment this.
                     # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
