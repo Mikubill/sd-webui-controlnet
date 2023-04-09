@@ -732,12 +732,21 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-            
+
+            if unit.module == "none" and "style" in unit.model:
+                detected_map_bytes = detected_map[:,:,0].tobytes()
+                detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
+                detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
+                is_image = False
+                            
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
-                control = detected_map  
+                control = detected_map
+                if unit.module == 'clip_vision':
+                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
+                    detected_maps.append((fake_detected_map, unit.module))
 
             forward_param = ControlParams(
                 control_model=model_net,
