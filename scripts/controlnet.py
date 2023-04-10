@@ -134,6 +134,11 @@ class Script(scripts.Script):
         self.txt2img_h_slider = gr.Slider()
         self.img2img_w_slider = gr.Slider()
         self.img2img_h_slider = gr.Slider()
+        self.enabled_units = []
+        batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
+        batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
+        batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
+        batch_hijack.instance.postprocess_batch_callbacks.insert(0, self.batch_tab_postprocess)
 
     def title(self):
         return "ControlNet"
@@ -610,34 +615,25 @@ class Script(scripts.Script):
         return control, detected_map
 
     def is_ui(self, args):
-        return args and isinstance(args[0], external_code.ControlNetUnit) and getattr(args[0], 'is_ui', False)
+        return args and all(isinstance(arg, UiControlNetUnit) for arg in args)
 
-    def process(self, p, *args):
-        """
-        This function is called before processing begins for AlwaysVisible scripts.
-        You can modify the processing object (p) here, inject hooks, etc.
-        args contains all values returned by components from ui()
-        """
-        unet = p.sd_model.model.diffusion_model
-        if self.latest_network is not None:
-            # always restore (~0.05s)
-            self.latest_network.restore(unet)
-
-        params_group = external_code.get_all_units_from(args)
+    def get_enabled_units(self, p):
+        units = external_code.get_all_units_in_processing(p)
         enabled_units = []
-        if len(params_group) == 0:
+
+        if len(units) == 0:
             # fill a null group
             remote_unit = self.parse_remote_call(p, self.get_default_ui_unit(), 0)
             if remote_unit.enabled:
-                params_group.append(remote_unit)
+                units.append(remote_unit)
 
-        for idx, unit in enumerate(params_group):
+        for idx, unit in enumerate(units):
             unit = self.parse_remote_call(p, unit, idx)
             if not unit.enabled:
                 continue
 
-            enabled_units.append(unit)
-            if len(params_group) != 1:
+            enabled_units.append(copy(unit))
+            if len(units) != 1:
                 prefix = f"ControlNet-{idx}"
             else:
                 prefix = "ControlNet"
@@ -651,9 +647,25 @@ class Script(scripts.Script):
                 f"{prefix} Guidance End": unit.guidance_end,
             })
 
-        if len(params_group) == 0 or len(enabled_units) == 0:
+        return enabled_units
+
+    def process(self, p, *args):
+        """
+        This function is called before processing begins for AlwaysVisible scripts.
+        You can modify the processing object (p) here, inject hooks, etc.
+        args contains all values returned by components from ui()
+        """
+        unet = p.sd_model.model.diffusion_model
+        if self.latest_network is not None:
+            # always restore (~0.05s)
+            self.latest_network.restore(unet)
+
+        if not batch_hijack.instance.is_batch:
+            self.enabled_units = self.get_enabled_units(p)
+
+        if len(self.enabled_units) == 0:
            self.latest_network = None
-           return 
+           return
 
         detected_maps = []
         forward_params = []
@@ -664,13 +676,13 @@ class Script(scripts.Script):
             self.clear_control_model_cache()
 
         # unload unused preproc
-        module_list = [unit.module for unit in enabled_units]
+        module_list = [unit.module for unit in self.enabled_units]
         for key in self.unloadable:
             if key not in module_list:
                 self.unloadable.get(unit.module, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
-        for idx, unit in enumerate(enabled_units):
+        for idx, unit in enumerate(self.enabled_units):
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
             image = image_dict_from_unit(unit)
             if image is not None:
@@ -774,10 +786,12 @@ class Script(scripts.Script):
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
         self.detected_map = detected_maps
 
-        if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
+        if len(self.enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
             swap_img2img_pipeline(p)
 
     def postprocess(self, p, processed, *args):
+        if not batch_hijack.instance.is_batch:
+            self.enabled_units.clear()
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
                 detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
@@ -807,6 +821,33 @@ class Script(scripts.Script):
         gc.collect()
         devices.torch_gc()
 
+    def batch_tab_process(self, p, batches, *args, **kwargs):
+        self.enabled_units = self.get_enabled_units(p)
+        for unit_i, unit in enumerate(self.enabled_units):
+            unit.batch_images = iter(batch[unit_i] for batch in batches)
+
+    def batch_tab_process_each(self, p, *args, **kwargs):
+        for unit_i, unit in enumerate(self.enabled_units):
+            if getattr(unit, 'loopback', False) and batch_hijack.instance.batch_index > 0: continue
+
+            unit.image = next(unit.batch_images)
+
+    def batch_tab_postprocess_each(self, p, processed, *args, **kwargs):
+        for unit_i, unit in enumerate(self.enabled_units):
+            if getattr(unit, 'loopback', False):
+                output_images = getattr(processed, 'images', [])[processed.index_of_first_image:]
+                if output_images:
+                    unit.image = np.array(output_images[0])
+                else:
+                    print(f'Warning: No loopback image found for ControlNet model {unit_i}. Using control map from last batch iteration instead')
+
+    def batch_tab_postprocess(self, p, *args, **kwargs):
+        self.enabled_units.clear()
+        self.input_image = None
+        if self.latest_network is None: return
+
+        self.latest_network.restore(shared.sd_model.model.diffusion_model)
+        self.latest_network = None
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
         if isinstance(s, Script):
@@ -857,4 +898,5 @@ def on_ui_settings():
 
 
 
+batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
