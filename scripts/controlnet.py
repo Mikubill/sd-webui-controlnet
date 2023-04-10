@@ -777,6 +777,7 @@ class Script(scripts.Script):
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
                 hr_hint_cond = hr_control,
+                hint_cond_check = control
             )
             forward_params.append(forward_param)
 
