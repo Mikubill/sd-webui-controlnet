@@ -32,6 +32,10 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return value
 
 
+InputImage = Union[np.ndarray, str]
+InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
+
+
 class ControlNetUnit:
     """
     Represents an entire ControlNet processing unit.
@@ -43,7 +47,7 @@ class ControlNetUnit:
         module: Optional[str]=None,
         model: Optional[str]=None,
         weight: float=1.0,
-        image: Optional[Union[Dict[str, Union[np.ndarray, str]], Tuple[Union[np.ndarray, str], Union[np.ndarray, str]], np.ndarray, str]]=None,
+        image: Optional[InputImage]=None,
         invert_image: bool=False,
         resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
         rgbbgr_mode: bool=False,
