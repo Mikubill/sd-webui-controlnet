@@ -69,10 +69,10 @@ class BatchHijack:
         self.dispatch_callbacks(self.process_batch_each_callbacks, p)
         old_detectmap_output = shared.opts.data.get('control_net_no_detectmap', False)
         try:
-            shared.opts.set('control_net_no_detectmap', True)
+            shared.opts.data.update({'control_net_no_detectmap': True})
             processed = getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
         finally:
-            shared.opts.set('control_net_no_detectmap', old_detectmap_output)
+            shared.opts.data.update({'control_net_no_detectmap': old_detectmap_output})
 
         self.dispatch_callbacks(self.postprocess_batch_each_callbacks, p, processed)
 
