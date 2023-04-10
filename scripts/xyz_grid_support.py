@@ -4,8 +4,7 @@ import numpy as np
 from modules import scripts, shared
 
 try:
-    from scripts import controlnet
-    from scripts.global_state import update_cn_models, cn_models_names
+    from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
     from scripts.external_code import ResizeMode
 except ImportError:
     import_error = True
@@ -405,7 +404,7 @@ def add_axis_options(xyz_grid):
         return [e.value for e in ResizeMode]
 
     def choices_preprocessor():
-        return list(controlnet.Script().preprocessor)
+        return list(cn_preprocessor_modules)
 
     def make_excluded_list():
         pattern = re.compile(r"\[(\w+)\]")

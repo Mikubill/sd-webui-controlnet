@@ -179,7 +179,7 @@ class Script(scripts.Script):
         # if is_img2img:
             # return False
         return scripts.AlwaysVisible
-    
+
     def after_component(self, component, **kwargs):
         if component.elem_id == "txt2img_width":
             self.txt2img_w_slider = component
@@ -525,7 +525,6 @@ class Script(scripts.Script):
 
         return unit
 
-
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
         The return value should be an array of all components that are used in processing.
@@ -546,7 +545,7 @@ class Script(scripts.Script):
                 else:
                     with gr.Column():
                         controls += (self.uigroup(f"ControlNet", is_img2img, elem_id_tabname),)
-                        
+
         if shared.opts.data.get("control_net_sync_field_args", False):
             for _, field_name in self.infotext_fields:
                 self.paste_field_names.append(field_name)
@@ -565,7 +564,7 @@ class Script(scripts.Script):
             (guidance_start, f"{tabname} Guidance Start"),
             (guidance_end, f"{tabname} Guidance End"),
         ])
-        
+
     def clear_control_model_cache(self):
         Script.model_cache.clear()
         gc.collect()
@@ -590,7 +589,6 @@ class Script(scripts.Script):
         return model_net
 
     def build_control_model(self, p, unet, model, lowvram):
-
         model_path = global_state.cn_models.get(model, None)
         if model_path is None:
             model = find_closest_lora_model_name(model)
@@ -614,19 +612,19 @@ class Script(scripts.Script):
             network_config = os.path.join(global_state.script_dir, network_config)
 
         if any([k.startswith("body.") or k == 'style_embedding' for k, v in state_dict.items()]):
-            # adapter model     
+            # adapter model
             network_module = PlugableAdapter
             network_config = shared.opts.data.get("control_net_model_adapter_config", global_state.default_conf_adapter)
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
-            
+
         override_config = os.path.splitext(model_path)[0] + ".yaml"
         if os.path.exists(override_config):
             network_config = override_config
 
         network = network_module(
-            state_dict=state_dict, 
-            config_path=network_config,  
+            state_dict=state_dict,
+            config_path=network_config,
             lowvram=lowvram,
             base_model=unet,
         )
@@ -679,7 +677,7 @@ class Script(scripts.Script):
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
-            
+
         control = rearrange(control, 'h w c -> c h w')
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
@@ -714,7 +712,7 @@ class Script(scripts.Script):
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-       
+
         # for log use
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
@@ -775,7 +773,7 @@ class Script(scripts.Script):
         detected_maps = []
         forward_params = []
         hook_lowvram = False
-        
+
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             self.clear_control_model_cache()
@@ -784,7 +782,7 @@ class Script(scripts.Script):
         module_list = [unit.module for unit in self.enabled_units]
         for key in self.unloadable:
             if key not in module_list:
-                self.unloadable.get(unit.module, lambda:None)()
+                self.unloadable.get(key, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
@@ -799,7 +797,7 @@ class Script(scripts.Script):
 
             if unit.low_vram:
                 hook_lowvram = True
-                
+
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
@@ -822,7 +820,7 @@ class Script(scripts.Script):
                     invert_image = True
             else:
                 # use img2img init_image as default
-                input_image = getattr(p, "init_images", [None])[0] 
+                input_image = getattr(p, "init_images", [None])[0]
                 if input_image is None:
                     raise ValueError('controlnet is enabled but no input image is given')
                 input_image = HWC3(np.asarray(input_image))
@@ -860,7 +858,7 @@ class Script(scripts.Script):
                 detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
                 is_image = False
-                            
+
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
@@ -886,7 +884,7 @@ class Script(scripts.Script):
 
             del model_net
 
-        self.latest_network = UnetHook(lowvram=hook_lowvram)    
+        self.latest_network = UnetHook(lowvram=hook_lowvram)
         self.latest_network.hook(unet)
         self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
         self.detected_map = detected_maps
@@ -897,9 +895,10 @@ class Script(scripts.Script):
     def postprocess(self, p, processed, *args):
         if not batch_hijack.instance.is_batch:
             self.enabled_units.clear()
+
         if shared.opts.data.get("control_net_detectmap_autosaving", False) and self.latest_network is not None:
             for detect_map, module in self.detected_map:
-                detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", False), module)
+                detectmap_dir = os.path.join(shared.opts.data.get("control_net_detectedmap_dir", ""), module)
                 if not os.path.isabs(detectmap_dir):
                     detectmap_dir = os.path.join(p.outpath_samples, detectmap_dir)
                 if module != "none":
@@ -954,6 +953,8 @@ class Script(scripts.Script):
 
         self.latest_network.restore(shared.sd_model.model.diffusion_model)
         self.latest_network = None
+
+
 def update_script_args(p, value, arg_idx):
     for s in scripts.scripts_txt2img.alwayson_scripts:
         if isinstance(s, Script):
