@@ -18,8 +18,8 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
-importlib.reload(external_code)
 importlib.reload(global_state)
+importlib.reload(external_code)
 from modules.processing import StableDiffusionProcessingImg2Img
 from modules.images import save_image
 from PIL import Image
@@ -118,37 +118,8 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = {
-            "none": lambda x, *args, **kwargs: (x, True),
-            "canny": canny,
-            "depth": midas,
-            "depth_leres": leres,
-            "hed": hed,
-            "mlsd": mlsd,
-            "normal_map": midas_normal,
-            "openpose": openpose,
-            "openpose_hand": openpose_hand,
-            "clip_vision": clip,
-            "color": color,
-            "pidinet": pidinet,
-            "scribble": simple_scribble,
-            "fake_scribble": fake_scribble,
-            "segmentation": uniformer,
-            "binary": binary,
-        }
-        self.unloadable = {
-            "hed": unload_hed,
-            "fake_scribble": unload_hed,
-            "mlsd": unload_mlsd,
-            "clip": unload_clip,
-            "depth": unload_midas,
-            "depth_leres": unload_leres,
-            "normal_map": unload_midas,
-            "pidinet": unload_pidinet,
-            "openpose": unload_openpose,
-            "openpose_hand": unload_openpose,
-            "segmentation": unload_uniformer,
-        }
+        self.preprocessor = global_state.cn_preprocessor_modules
+        self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
         self.txt2img_w_slider = gr.Slider()
@@ -189,7 +160,7 @@ class Script(scripts.Script):
             guess_mode=False,
         )
 
-    def uigroup(self, tabname, is_img2img):
+    def uigroup(self, tabname, is_img2img, elem_id_tabname):
         ctrls = ()
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
@@ -198,10 +169,10 @@ class Script(scripts.Script):
         input_tabs = gr.Tabs(elem_id="controlnet_image_tabs")
         with input_tabs:
             with gr.Tab("Input Image", id="tab_input"):
-                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
+                input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
             with gr.Tab("Crop Image", id="tab_crop"):
                 cropped_image = gr.Image(label="Crop image", interactive=True, tool="select")
-            with gr.Tab("Annotator Result", id="tab_result"):
+            with gr.Tab("Annotator Result", id="tab_result", elem_id=f'{elem_id_tabname}_{tabname}_generated_image'):
                 generated_image = gr.Image(label="Annotator result", interactive=False).style(height=240)
 
         with gr.Row():
@@ -431,13 +402,19 @@ class Script(scripts.Script):
 
         unit = gr.State(default_unit)
         for comp in ctrls:
-            event_subscriber = comp.change
+            event_subscribers = []
             if hasattr(comp, 'edit'):
-                event_subscriber = comp.edit
+                event_subscribers.append(comp.edit)
             elif hasattr(comp, 'click'):
-                event_subscriber = comp.click
+                event_subscribers.append(comp.click)
+            else:
+                event_subscribers.append(comp.change)
 
-            event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+            if hasattr(comp, 'clear'):
+                event_subscribers.append(comp.clear)
+
+            for event_subscriber in event_subscribers:
+                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
 
         return unit
 
@@ -448,20 +425,26 @@ class Script(scripts.Script):
         Values of those returned components will be passed to run() and process() functions.
         """
         self.infotext_fields = []
+        self.paste_field_names = []
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
-        with gr.Group():
+        elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
+        with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
                 if max_models > 1:
-                    with gr.Tabs():
+                    with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
                             with gr.Tab(f"Control Model - {i}"):
-                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img),)
+                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
-                        controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        controls += (self.uigroup(f"ControlNet", is_img2img, elem_id_tabname),)
+                        
+        if shared.opts.data.get("control_net_sync_field_args", False):
+            for _, field_name in self.infotext_fields:
+                self.paste_field_names.append(field_name)
 
-                return controls
+        return controls
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
@@ -502,6 +485,10 @@ class Script(scripts.Script):
     def build_control_model(self, p, unet, model, lowvram):
 
         model_path = global_state.cn_models.get(model, None)
+        if model_path is None:
+            model = find_closest_lora_model_name(model)
+            model_path = global_state.cn_models.get(model, None)
+
         if model_path is None:
             raise RuntimeError(f"model not found: {model}")
 
@@ -590,23 +577,37 @@ class Script(scripts.Script):
         detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
         if resize_mode == external_code.ResizeMode.INNER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            w1 = w0
+            h1 = int(w0/w*h)
+            if (h/w > h0/w0):
+                h1 = h0
+                w1 = int(h0/h*w)
             transform = Compose([
-                Resize(h if h<w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w)),
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w), interpolation=InterpolationMode.BICUBIC)
             ])
             control = transform(control)
             detected_map = transform(detected_map)
         elif resize_mode == external_code.ResizeMode.OUTER_FIT:
+            h0 = detected_map.shape[1]
+            w0 = detected_map.shape[2]
+            h1 = h0
+            w1 = int(h0/h*w)
+            if (h/w > h0/w0):
+                w1 = w0
+                h1 = int(w0/w*h)
             transform = Compose([
-                Resize(h if h>w else w, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(size=(h, w))
-            ]) 
+                CenterCrop(size=(h1, w1)),
+                Resize(size=(h, w),interpolation=InterpolationMode.BICUBIC)
+            ])
             control = transform(control)
             detected_map = transform(detected_map)
         else:
             control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
             detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-            
+       
         # for log use
         detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
         return control, detected_map
@@ -720,6 +721,11 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
+                # scale crop region to the size of our image
+                x1, y1, x2, y2 = crop_region
+                scale_x, scale_y = p.width / float(input_image.width), p.height / float(input_image.height)
+                crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
+
                 input_image = input_image.crop(crop_region)
                 input_image = images.resize_image(2, input_image, p.width, p.height)
                 input_image = HWC3(np.asarray(input_image))
@@ -736,12 +742,21 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-            
+
+            if unit.module == "none" and "style" in unit.model:
+                detected_map_bytes = detected_map[:,:,0].tobytes()
+                detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
+                detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
+                is_image = False
+                            
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
-                control = detected_map  
+                control = detected_map
+                if unit.module == 'clip_vision':
+                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
+                    detected_maps.append((fake_detected_map, unit.module))
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -841,6 +856,8 @@ def on_ui_settings():
         False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_cfg_based_guidance", shared.OptionInfo(
         False, "Enable CFG-Based guidance", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_sync_field_args", shared.OptionInfo(
+        False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
     
@@ -852,26 +869,26 @@ class Img2ImgTabTracker:
         self.submit_img2img_tab = None
         self.submit_button = None
 
-    def save_submit_img2img_tab(self, button):
+    def save_submit_img2img_tab(self, button_elem_id):
         self.submit_img2img_tab = self.active_img2img_tab
-        self.submit_button = button.elem_id
+        self.submit_button = button_elem_id
 
-    def set_active_img2img_tab(self, tab):
-        self.active_img2img_tab = tab.elem_id
+    def set_active_img2img_tab(self, tab_elem_id):
+        self.active_img2img_tab = tab_elem_id
 
     def on_after_component_callback(self, component, **_kwargs):
         if type(component) is gr.State:
             return
 
         if type(component) is gr.Button and component.elem_id in ('img2img_generate', 'txt2img_generate'):
-            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component), outputs=[])
+            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component.elem_id), outputs=[])
             return
 
         tab = getattr(component, 'parent', None)
         is_tab = type(tab) is gr.Tab and getattr(tab, 'elem_id', None) is not None
         is_img2img_tab = is_tab and getattr(tab, 'parent', None) is not None and getattr(tab.parent, 'elem_id', None) == 'mode_img2img'
         if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
-            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab), outputs=[])
+            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab.elem_id), outputs=[])
             self.img2img_tabs.add(tab.elem_id)
             return
 

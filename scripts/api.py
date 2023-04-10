@@ -187,9 +187,15 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         print(up_to_date_model_list)
         return {"model_list": up_to_date_model_list}
 
+    @app.get("/controlnet/module_list")
+    async def module_list():
+        _module_list = external_code.get_modules()
+        print(_module_list)
+        return {"module_list": _module_list}
+
     @app.post("/controlnet/detect")
     async def detect(
-        controlnet_module: str = Body("None", title='Controlnet Module'),
+        controlnet_module: str = Body("none", title='Controlnet Module'),
         controlnet_input_images: List[str] = Body([], title='Controlnet Input Images'),
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
@@ -197,14 +203,15 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     ):
 
         available_modules = [
-            "canny", 
-            "depth", 
-            "depth_leres", 
-            "fake_scribble", 
-            "hed", 
-            "mlsd", 
-            "normal_map", 
-            "openpose", 
+            "none",
+            "canny",
+            "depth",
+            "depth_leres",
+            "fake_scribble",
+            "hed",
+            "mlsd",
+            "normal_map",
+            "openpose",
             "segmentation",
             "binary",
             "color"
