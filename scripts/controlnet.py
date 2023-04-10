@@ -59,7 +59,16 @@ tossup_symbol = '\u2934'
 
 webcam_enabled = False
 webcam_mirrored = False
-
+global_batch_input_dir = gr.Textbox(
+    label='Controlnet input directory',
+    placeholder='Leave empty to use input directory',
+    **shared.hide_dirs,
+    elem_id='controlnet_batch_input_dir')
+img2img_batch_input_dir = None
+img2img_batch_input_dir_callbacks = []
+img2img_batch_output_dir = None
+img2img_batch_output_dir_callbacks = []
+generate_buttons = {}
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -120,6 +129,23 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
     return dict(image)
 
 
+class UiControlNetUnit(external_code.ControlNetUnit):
+    def __init__(
+        self,
+        input_mode: batch_hijack.InputMode = batch_hijack.InputMode.SIMPLE,
+        batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
+        output_dir: str = '',
+        loopback: bool = False,
+        *args, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.is_ui = True
+        self.input_mode = input_mode
+        self.batch_images = batch_images
+        self.output_dir = output_dir
+        self.loopback = loopback
+
+
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -165,8 +191,9 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
 
-    def get_default_ui_unit(self):
-        return external_code.ControlNetUnit(
+    def get_default_ui_unit(self, is_ui=True):
+        cls = UiControlNetUnit if is_ui else external_code.ControlNetUnit
+        return cls(
             enabled=False,
             module="none",
             model="None",
@@ -174,12 +201,16 @@ class Script(scripts.Script):
         )
 
     def uigroup(self, tabname, is_img2img, elem_id_tabname):
-        ctrls = ()
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
-            generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
+            with gr.Tabs():
+                with gr.Tab(label='Upload') as upload_tab:
+                    upload_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+                    generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
+
+                with gr.Tab(label='Batch') as batch_tab:
+                    batch_image_dir = gr.Textbox(label='Input directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -193,8 +224,8 @@ class Script(scripts.Script):
             rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=default_unit.rgbbgr_mode)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
+            loopback = gr.Checkbox(label='Loopback', value=default_unit.loopback)
 
-        ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
         
         def send_dimensions(image):
@@ -220,8 +251,8 @@ class Script(scripts.Script):
             webcam_mirrored = not webcam_mirrored
             return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
             
-        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
+        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=upload_image)
+        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=upload_image)
 
         def refresh_all_models(*inputs):
             global_state.update_cn_models()
@@ -241,7 +272,6 @@ class Script(scripts.Script):
             guidance_start = gr.Slider(label="Guidance Start (T)", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True)
             guidance_end = gr.Slider(label="Guidance End (T)", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True)
 
-            ctrls += (module, model, weight,)
                 # model_dropdowns.append(model)
         def build_sliders(module):
             if module == "canny":
@@ -347,7 +377,7 @@ class Script(scripts.Script):
                     base64_str = str(encoded_string, "utf-8")
                     base64_str = "data:image/png;base64,"+ base64_str
                     inputs['image'] = base64_str
-                return input_image.orgpreprocess(inputs)
+                return upload_image.orgpreprocess(inputs)
             return None
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
@@ -361,7 +391,7 @@ class Script(scripts.Script):
                 canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                     
         create_button = gr.Button(value="Create blank canvas")
-        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[upload_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
@@ -381,42 +411,111 @@ class Script(scripts.Script):
             annotator_button = gr.Button(value="Preview annotator result")
             annotator_button_hide = gr.Button(value="Hide annotator result")
         
-        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
+        annotator_button.click(fn=run_annotator, inputs=[upload_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
         annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
 
         if is_img2img:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
+            send_dimen_button.click(fn=send_dimensions, inputs=[upload_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
-        
-        ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
-        ctrls += (lowvram,)
-        ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
-        self.register_modules(tabname, ctrls)
+            send_dimen_button.click(fn=send_dimensions, inputs=[upload_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        input_image.orgpreprocess=input_image.preprocess
-        input_image.preprocess=svgPreprocess
+        input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
+        input_image = gr.State()
+        batch_image_dir_state = gr.State('')
+        output_dir_state = gr.State('')
+        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, scribble_mode, resize_mode, rgbbgr_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
+        self.register_modules(tabname, unit_args)
 
-        def controlnet_unit_from_args(*args):
-            unit = external_code.ControlNetUnit(*args)
-            setattr(unit, 'is_ui', True)
-            return unit
+        upload_image.orgpreprocess=upload_image.preprocess
+        upload_image.preprocess=svgPreprocess
 
+        # update unit when any of its properties changes
         unit = gr.State(default_unit)
-        for comp in ctrls:
-            event_subscribers = []
-            if hasattr(comp, 'edit'):
-                event_subscribers.append(comp.edit)
-            elif hasattr(comp, 'click'):
-                event_subscribers.append(comp.click)
+        for comp in unit_args:
+            for events in (
+                ('edit', 'clear'),
+                ('click',),
+                ('change',),
+            ):
+                if not all(hasattr(comp, event) for event in events): continue
+                for event in events:
+                    getattr(comp, event)(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit)
+
+                break
+
+        def index_of_init_parameter(parameter):
+            parameters = inspect.getfullargspec(UiControlNetUnit.__init__)[0][1:] + inspect.getfullargspec(external_code.ControlNetUnit.__init__)[0][1:]
+            index = parameters.index(parameter)
+            return index
+
+        # keep upload_image in sync with input_image
+        upload_image_index = index_of_init_parameter('image')
+        components = list(unit_args)
+        components[upload_image_index] = upload_image
+        for event in 'edit', 'clear':
+            getattr(upload_image, event)(fn=lambda *args: (args[upload_image_index], UiControlNetUnit(*args)), inputs=components, outputs=[input_image, unit])
+
+        # keep input_mode in sync
+        input_mode_index = index_of_init_parameter('input_mode')
+        components = list(unit_args)
+        for input_tab in (
+            (upload_tab, batch_hijack.InputMode.SIMPLE),
+            (batch_tab, batch_hijack.InputMode.BATCH)
+        ):
+            components[input_mode_index] = gr.State(input_tab[1])
+            input_tab[0].select(fn=lambda *args: (args[input_mode_index], UiControlNetUnit(*args)), inputs=components, outputs=[input_mode, unit])
+
+        batch_dir_index = index_of_init_parameter('batch_images')
+        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir, *args):
+            args = list(args)
+            if batch_dir:
+                args[batch_dir_index] = batch_dir
+            elif fallback_dir:
+                args[batch_dir_index] = fallback_dir
             else:
-                event_subscribers.append(comp.change)
+                args[batch_dir_index] = fallback_fallback_dir
 
-            if hasattr(comp, 'clear'):
-                event_subscribers.append(comp.clear)
+            return args[batch_dir_index], UiControlNetUnit(*args)
 
-            for event_subscriber in event_subscribers:
-                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+        # keep batch_dir in sync with global batch input textboxes
+        global img2img_batch_input_dir, img2img_batch_input_dir_callbacks
+        def subscribe_for_batch_dir():
+            global global_batch_input_dir, img2img_batch_input_dir
+            batch_dirs = [batch_image_dir, global_batch_input_dir, img2img_batch_input_dir]
+            for batch_dir_comp in batch_dirs:
+                if not hasattr(batch_dir_comp, 'change'): continue
+                batch_dir_comp.change(
+                    fn=determine_batch_dir,
+                    inputs=batch_dirs + list(unit_args),
+                    outputs=[batch_image_dir_state, unit])
+
+        if img2img_batch_input_dir is None:
+            # we are too soon, subscribe later when available
+            img2img_batch_input_dir_callbacks.append(subscribe_for_batch_dir)
+        else:
+            subscribe_for_batch_dir()
+
+        # keep output_dir in sync with global batch output textbox
+        global img2img_batch_output_dir, img2img_batch_output_dir_callbacks
+        def subscribe_for_output_dir():
+            output_dir_index = index_of_init_parameter('output_dir')
+            def update_output_dir(output_dir, *args):
+                args = list(args)
+                args[output_dir_index] = output_dir
+                return output_dir, UiControlNetUnit(*args)
+
+            global img2img_batch_output_dir
+            img2img_batch_output_dir.change(
+                fn=update_output_dir,
+                inputs=[img2img_batch_output_dir] + list(unit_args),
+                outputs=[output_dir_state, unit]
+            )
+
+        if img2img_batch_input_dir is None:
+            # we are too soon, subscribe later when available
+            img2img_batch_output_dir_callbacks.append(subscribe_for_output_dir)
+        else:
+            subscribe_for_output_dir()
 
         return unit
 
@@ -896,7 +995,26 @@ def on_ui_settings():
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 
 
+def on_after_component(component, **_kwargs):
+    global img2img_batch_input_dir
+    if getattr(component, 'elem_id', None) == 'img2img_batch_input_dir':
+        img2img_batch_input_dir = component
+        for callback in img2img_batch_input_dir_callbacks:
+            callback()
+        return
+
+    global img2img_batch_output_dir
+    if getattr(component, 'elem_id', None) == 'img2img_batch_output_dir':
+        img2img_batch_output_dir = component
+        for callback in img2img_batch_output_dir_callbacks:
+            callback()
+        return
+
+    if getattr(component, 'elem_id', None) == 'img2img_batch_inpaint_mask_dir':
+        global_batch_input_dir.render()
+        return
 
 
 batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
+script_callbacks.on_after_component(on_after_component)
