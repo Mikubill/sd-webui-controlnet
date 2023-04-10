@@ -107,8 +107,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 global_state.update_cn_models()
 
-def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
-    image = unit.image
+def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     if image is None:
         return None
 
@@ -118,10 +117,16 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
         image = {'image': image, 'mask': None}
 
     if isinstance(image['image'], str):
-        image['image'] = external_code.to_base64_nparray(image['image'])
+        if os.path.exists(image['image']):
+            image['image'] = numpy.array(Image.open(image['image'])).astype('uint8')
+        else:
+            image['image'] = external_code.to_base64_nparray(image['image'])
 
     if isinstance(image['mask'], str):
-        image['mask'] = external_code.to_base64_nparray(image['mask'])
+        if os.path.exists(image['mask']):
+            image['mask'] = numpy.array(Image.open(image['mask'])).astype('uint8')
+        else:
+            image['mask'] = external_code.to_base64_nparray(image['mask'])
     elif image['mask'] is None:
         image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
 
@@ -783,7 +788,7 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
-            image = image_dict_from_unit(unit)
+            image = image_dict_from_any(unit.image)
             if image is not None:
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
