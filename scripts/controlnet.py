@@ -166,6 +166,7 @@ class Script(scripts.Script):
         self.img2img_w_slider = gr.Slider()
         self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
+        self.detected_map = []
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -921,6 +922,7 @@ class Script(scripts.Script):
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)
         self.latest_network = None
+        self.detected_map.clear()
 
         gc.collect()
         devices.torch_gc()
