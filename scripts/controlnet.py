@@ -686,9 +686,7 @@ class Script(scripts.Script):
             model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
             model_net.reset()
 
-            is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
-            is_img2img_batch_tab = is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-            if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
+            if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
             elif p_input_image is not None:
                 input_image = HWC3(np.asarray(p_input_image))
@@ -790,9 +788,7 @@ class Script(scripts.Script):
                     img = Image.fromarray(detect_map)
                     save_image(img, detectmap_dir, module)
 
-        is_img2img = img2img_tab_tracker.submit_button == 'img2img_generate'
-        is_img2img_batch_tab = self.is_ui(args) and is_img2img and img2img_tab_tracker.submit_img2img_tab == 'img2img_batch_tab'
-        if self.latest_network is None or is_img2img_batch_tab:
+        if self.latest_network is None or batch_hijack.instance.is_batch:
             return
 
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
@@ -819,7 +815,7 @@ def update_script_args(p, value, arg_idx):
             args[s.args_from + arg_idx] = value
             p.script_args = tuple(args)
             break
-        
+
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
@@ -857,39 +853,8 @@ def on_ui_settings():
         False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
-    
-    
-class Img2ImgTabTracker:
-    def __init__(self):
-        self.img2img_tabs = set()
-        self.active_img2img_tab = 'img2img_img2img_tab'
-        self.submit_img2img_tab = None
-        self.submit_button = None
-
-    def save_submit_img2img_tab(self, button_elem_id):
-        self.submit_img2img_tab = self.active_img2img_tab
-        self.submit_button = button_elem_id
-
-    def set_active_img2img_tab(self, tab_elem_id):
-        self.active_img2img_tab = tab_elem_id
-
-    def on_after_component_callback(self, component, **_kwargs):
-        if type(component) is gr.State:
-            return
-
-        if type(component) is gr.Button and component.elem_id in ('img2img_generate', 'txt2img_generate'):
-            component.click(fn=self.save_submit_img2img_tab, inputs=gr.State(component.elem_id), outputs=[])
-            return
-
-        tab = getattr(component, 'parent', None)
-        is_tab = type(tab) is gr.Tab and getattr(tab, 'elem_id', None) is not None
-        is_img2img_tab = is_tab and getattr(tab, 'parent', None) is not None and getattr(tab.parent, 'elem_id', None) == 'mode_img2img'
-        if is_img2img_tab and tab.elem_id not in self.img2img_tabs:
-            tab.select(fn=self.set_active_img2img_tab, inputs=gr.State(tab.elem_id), outputs=[])
-            self.img2img_tabs.add(tab.elem_id)
-            return
 
 
-img2img_tab_tracker = Img2ImgTabTracker()
+
+
 script_callbacks.on_ui_settings(on_ui_settings)
-script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
