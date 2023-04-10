@@ -740,7 +740,7 @@ class Script(scripts.Script):
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
                 is_image = False
 
-            if issubclass(type(p), StableDiffusionProcessingTxt2Img) and p.enable_hr:
+            if isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr:
                 if p.hr_resize_x == 0 and p.hr_resize_y == 0:
                     hr_y = int(p.height * p.hr_scale)
                     hr_x = int(p.width * p.hr_scale)
