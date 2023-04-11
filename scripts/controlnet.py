@@ -296,6 +296,13 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
+            elif module == "colorization":
+                return [
+                    gr.update(label="B&W Image Resolution", value=512, minimum=64, maximum=2048, step=8, interactive=True),
+                    gr.update(label="Brightness", value=0, minimum=-100, maximum=100, interactive=True),
+                    gr.update(label="Contrast", value=0, minimum=-100, maximum=100, interactive=True),
+                    gr.update(visible=True)
+                ]
             elif module == "none":
                 return [
                     gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
@@ -797,6 +804,20 @@ class Script(scripts.Script):
                 if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
                     detect_map = 255-detect_map
                 processed.images.extend([Image.fromarray(detect_map)])
+
+        def restore_color(orig, color):
+            import cv2
+            orig_yuv = cv2.cvtColor(np.array(orig), cv2.COLOR_BGR2YUV)
+            color_yuv = cv2.cvtColor(np.array(color), cv2.COLOR_BGR2YUV)
+            orig_yuv[:, :, 1:3] = color_yuv[:, :, 1:3]
+            return Image.fromarray(cv2.cvtColor(orig_yuv, cv2.COLOR_YUV2BGR))
+        
+        if module == "colorization":
+            if len(processed.images) == 2:
+                processed.images[0] = restore_color(processed.images[1], processed.images[0])
+            else:
+                for i in range(1, len(processed.images)-1):
+                    processed.images[i] = restore_color(processed.images[-1], processed.images[i])
 
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)

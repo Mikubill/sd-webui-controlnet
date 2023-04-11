@@ -215,6 +215,19 @@ def color(img, res=512, **kwargs):
     return result, True
 
 
+model_colorization = None
+
+
+def colorization(img, res=512, thr_a=0, thr_b=0, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_colorization
+    if model_colorization is None:
+        from annotator.colorization import apply_colorization
+        model_colorization = apply_colorization
+    result = model_colorization(img, thr_a, thr_b)
+    return result, True
+
+
 model_binary = None
 
 

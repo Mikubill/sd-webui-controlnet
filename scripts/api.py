@@ -214,7 +214,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "openpose",
             "segmentation",
             "binary",
-            "color"
+            "color",
+            "colorization"
         ]
 
         if controlnet_module not in available_modules:
@@ -251,6 +252,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
             elif controlnet_module == "color":
                 results.append(color(img, controlnet_processor_res)[0])
+            elif controlnet_module == "colorization":
+                results.append(colorization(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
 
         if controlnet_module == "hed":
             unload_hed()

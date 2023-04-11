@@ -24,6 +24,7 @@ cn_preprocessor_modules = {
     "openpose_hand": openpose_hand,
     "clip_vision": clip,
     "color": color,
+    "colorization": colorization,
     "pidinet": pidinet,
     "scribble": simple_scribble,
     "fake_scribble": fake_scribble,
