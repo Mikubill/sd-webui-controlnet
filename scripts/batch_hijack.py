@@ -3,8 +3,6 @@ from copy import copy
 from enum import Enum
 from typing import Tuple, List
 
-from PIL import Image
-
 from modules import img2img, processing, shared, script_callbacks
 from scripts import external_code
 
@@ -179,7 +177,7 @@ class InputMode(Enum):
     BATCH = "batch"
 
 
-def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[Image.Image]], str, List[str]]:
+def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
     units = external_code.get_all_units_in_processing(p)
     units = [copy(unit) for unit in units if unit.enabled]
     any_unit_is_batch = False

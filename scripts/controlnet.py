@@ -906,11 +906,11 @@ class Script(scripts.Script):
                     img = Image.fromarray(detect_map)
                     save_image(img, detectmap_dir, module)
 
-        if self.latest_network is None or batch_hijack.instance.is_batch:
+        if self.latest_network is None:
             return
 
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if not no_detectmap_opt and hasattr(self, "detected_map") and self.detected_map is not None:
+        if not batch_hijack.instance.is_batch or not no_detectmap_opt and self.detected_map:
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
@@ -929,7 +929,7 @@ class Script(scripts.Script):
     def batch_tab_process(self, p, batches, *args, **kwargs):
         self.enabled_units = self.get_enabled_units(p)
         for unit_i, unit in enumerate(self.enabled_units):
-            unit.batch_images = iter(batch[unit_i] for batch in batches)
+            unit.batch_images = iter([batch[unit_i] for batch in batches])
 
     def batch_tab_process_each(self, p, *args, **kwargs):
         for unit_i, unit in enumerate(self.enabled_units):
@@ -953,6 +953,7 @@ class Script(scripts.Script):
 
         self.latest_network.restore(shared.sd_model.model.diffusion_model)
         self.latest_network = None
+        self.detected_map.clear()
 
 
 def update_script_args(p, value, arg_idx):
