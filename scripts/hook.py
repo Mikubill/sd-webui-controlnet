@@ -51,11 +51,10 @@ class ControlParams:
         advanced_weighting, 
         is_adapter,
         is_extra_cond,
-        hr_hint_cond,
-        hint_cond_check
+        hr_hint_cond
     ):
         self.control_model = control_model
-        self.hint_cond = hint_cond
+        self._hint_cond = hint_cond
         self.guess_mode = guess_mode
         self.weight = weight
         self.guidance_stopped = guidance_stopped
@@ -65,7 +64,20 @@ class ControlParams:
         self.is_adapter = is_adapter
         self.is_extra_cond = is_extra_cond
         self.hr_hint_cond = hr_hint_cond
-        self.hint_cond_check = hint_cond_check
+        self.used_hint_cond = None
+
+    @property
+    def hint_cond(self):
+        return self._hint_cond
+
+    # fix for all the extensions that modify hint_cond,
+    # by forcing used_hint_cond to update on the next timestep
+    # hr_hint_cond can stay the same, since most extensions dont modify the hires pass
+    # but if they do, it will cause problems
+    @hint_cond.setter
+    def hint_cond(self, new_hint_cond):
+        self._hint_cond = new_hint_cond
+        self.used_hint_cond = None
 
 
 class UnetHook(nn.Module):
@@ -127,11 +139,17 @@ class UnetHook(nn.Module):
             
             # handle external cond first
             for param in outer.control_params:
+                # select which hint_cond to use
+                if param.used_hint_cond == None or x.shape[-1] - param.used_hint_cond.shape[-1] // 8 < 0: # when a batch starts
+                    param.used_hint_cond = param.hint_cond
+                if abs(x.shape[-1] - param.used_hint_cond.shape[-1] // 8) > 8: # true on first step of hires
+                    param.used_hint_cond = param.hr_hint_cond
+
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
-                control = param.control_model(x=x, hint=param.hint_cond, timesteps=timesteps, context=context)
+                control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
                 
             # check if it's non-batch-cond mode (lowvram, edit model etc)
@@ -160,16 +178,14 @@ class UnetHook(nn.Module):
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
-                    
+
                 # hires stuffs
                 # note that this method may not works if hr_scale < 1.1
                 if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
-                    if (torch.equal(param.hint_cond, param.hint_cond_check)):
-                        param.hint_cond = param.hr_hint_cond
                     only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
                     # If you want to completely disable control net, uncomment this.
                     # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
-                    
+
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
@@ -178,8 +194,8 @@ class UnetHook(nn.Module):
                     x_in = x[:, :4, ...]
                     require_inpaint_hijack = True
                     
-                assert param.hint_cond is not None, f"Controlnet is enabled but no input image is given"  
-                control = param.control_model(x=x_in, hint=param.hint_cond, timesteps=timesteps, context=context)
+                assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
+                control = param.control_model(x=x_in, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
                 
                 if outer.lowvram:
