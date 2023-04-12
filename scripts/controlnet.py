@@ -102,16 +102,18 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
     elif not isinstance(image, dict):
         image = {'image': image, 'mask': None}
 
-    if isinstance(image['image'], str):
-        image['image'] = external_code.to_base64_nparray(image['image'])
+    # copy to enable modifying the dict and prevent response serialization error
+    result = {'image': image['image'], 'mask': image['mask']}
 
-    if isinstance(image['mask'], str):
-        image['mask'] = external_code.to_base64_nparray(image['mask'])
-    elif image['mask'] is None:
-        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
+    if isinstance(result['image'], str):
+        result['image'] = external_code.to_base64_nparray(result['image'])
 
-    # copy to enable modifying the dict
-    return dict(image)
+    if isinstance(result['mask'], str):
+        result['mask'] = external_code.to_base64_nparray(result['mask'])
+    elif result['mask'] is None:
+        result['mask'] = np.zeros_like(result['image'], dtype=np.uint8)
+
+    return result
 
 
 class Script(scripts.Script):
