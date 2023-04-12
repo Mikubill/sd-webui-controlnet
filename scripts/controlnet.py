@@ -107,6 +107,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 global_state.update_cn_models()
 
+
 def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     if image is None:
         return None
@@ -115,6 +116,9 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         image = {'image': image[0], 'mask': image[1]}
     elif not isinstance(image, dict):
         image = {'image': image, 'mask': None}
+    else:  # type(image) is dict
+        # copy to enable modifying the dict and prevent response serialization error
+        image = dict(image)
 
     if isinstance(image['image'], str):
         if os.path.exists(image['image']):
@@ -130,8 +134,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     elif image['mask'] is None:
         image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
 
-    # copy to enable modifying the dict
-    return dict(image)
+    return image
 
 
 class UiControlNetUnit(external_code.ControlNetUnit):
