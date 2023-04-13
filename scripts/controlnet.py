@@ -716,7 +716,7 @@ class Script(scripts.Script):
 
                 # scale crop region to the size of our image
                 x1, y1, x2, y2 = crop_region
-                scale_x, scale_y = p.width / float(input_image.width), p.height / float(input_image.height)
+                scale_x, scale_y = mask.width / float(input_image.width), mask.height / float(input_image.height)
                 crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
 
                 input_image = input_image.crop(crop_region)
