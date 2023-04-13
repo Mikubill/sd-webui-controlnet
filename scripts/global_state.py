@@ -29,6 +29,14 @@ cn_preprocessor_modules = {
     "fake_scribble": fake_scribble,
     "segmentation": uniformer,
     "binary": binary,
+    "depth_zoe": zoe_depth,
+    "normal_bae": normal_bae,
+    "oneformer_coco": oneformer_coco,
+    "oneformer_ade20k": oneformer_ade20k,
+    "lineart": lineart,
+    "lineart_coarse": lineart_coarse,
+    "lineart_anime": lineart_anime,
+    "shuffle": shuffle
 }
 
 cn_preprocessor_unloadable = {
@@ -43,6 +51,13 @@ cn_preprocessor_unloadable = {
     "openpose": unload_openpose,
     "openpose_hand": unload_openpose,
     "segmentation": unload_uniformer,
+    "depth_zoe": unload_zoe_depth,
+    "normal_bae": unload_normal_bae,
+    "oneformer_coco": unload_oneformer_coco,
+    "oneformer_ade20k": unload_oneformer_ade20k,
+    "lineart": unload_lineart,
+    "lineart_coarse": unload_lineart_coarse,
+    "lineart_anime": unload_lineart_anime
 }
 
 default_conf = os.path.join("models", "cldm_v15.yaml")

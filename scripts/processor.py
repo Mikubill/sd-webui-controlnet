@@ -226,3 +226,142 @@ def binary(img, res=512, thr_a=0, **kwargs):
         model_binary = apply_binary
     result = model_binary(img, thr_a)
     return result, True
+
+
+model_lineart = None
+
+
+def lineart(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_lineart
+    if model_lineart is None:
+        from annotator.lineart import LineartDetector
+        model_lineart = LineartDetector(LineartDetector.model_default)
+    result = model_lineart(img)
+    return result, True
+
+def unload_lineart():
+    global model_lineart
+    if model_lineart is not None:
+        model_lineart.unload_model()
+
+
+model_lineart_coarse = None
+
+
+def lineart_coarse(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_lineart_coarse
+    if model_lineart_coarse is None:
+        from annotator.lineart import LineartDetector
+        model_lineart_coarse = LineartDetector(LineartDetector.model_coarse)
+    result = model_lineart_coarse(img)
+    return result, True
+
+def unload_lineart_coarse():
+    global model_lineart_coarse
+    if model_lineart_coarse is not None:
+        model_lineart_coarse.unload_model()
+
+
+model_lineart_anime = None
+
+
+def lineart_anime(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_lineart_anime
+    if model_lineart_anime is None:
+        from annotator.lineart_anime import LineartAnimeDetector
+        model_lineart_anime = LineartAnimeDetector()
+    result = model_lineart_anime(img)
+    return result, True
+
+def unload_lineart_anime():
+    global model_lineart_anime
+    if model_lineart_anime is not None:
+        model_lineart_anime.unload_model()
+
+
+model_zoe_depth = None
+
+
+def zoe_depth(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_zoe_depth
+    if model_zoe_depth is None:
+        from annotator.zoe import ZoeDetector
+        model_zoe_depth = ZoeDetector()
+    result = model_zoe_depth(img)
+    return result, True
+
+def unload_zoe_depth():
+    global model_zoe_depth
+    if model_zoe_depth is not None:
+        model_zoe_depth.unload_model()
+        
+        
+model_normal_bae = None
+
+
+def normal_bae(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_normal_bae
+    if model_normal_bae is None:
+        from annotator.normalbae import NormalBaeDetector
+        model_normal_bae = NormalBaeDetector()
+    result = model_normal_bae(img)
+    return result, True
+
+def unload_normal_bae():
+    global model_normal_bae
+    if model_normal_bae is not None:
+        model_normal_bae.unload_model()
+
+
+model_oneformer_coco = None
+
+
+def oneformer_coco(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_oneformer_coco
+    if model_oneformer_coco is None:
+        from annotator.oneformer import OneformerDetector
+        model_oneformer_coco = OneformerDetector(OneformerDetector.configs["coco"])
+    result = model_oneformer_coco(img)
+    return result, True
+
+def unload_oneformer_coco():
+    global model_oneformer_coco
+    if model_oneformer_coco is not None:
+        model_oneformer_coco.unload_model()
+        
+        
+model_oneformer_ade20k = None
+
+
+def oneformer_ade20k(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_oneformer_ade20k
+    if model_oneformer_ade20k is None:
+        from annotator.oneformer import OneformerDetector
+        model_oneformer_ade20k = OneformerDetector(OneformerDetector.configs["ade20k"])
+    result = model_oneformer_ade20k(img)
+    return result, True
+
+def unload_oneformer_ade20k():
+    global model_oneformer_ade20k
+    if model_oneformer_ade20k is not None:
+        model_oneformer_ade20k.unload_model()
+        
+        
+model_shuffle = None
+
+
+def shuffle(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_shuffle
+    if model_shuffle is None:
+        from annotator.shuffle import ContentShuffleDetector
+        model_shuffle = ContentShuffleDetector()
+    result = model_shuffle(img)
+    return result, True
