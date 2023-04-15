@@ -6,7 +6,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 from typing import Optional, Union
-import pycocotools.mask as mask_util
+import annotator.oneformer.pycocotools.mask as mask_util
 import torch
 from PIL import Image
 

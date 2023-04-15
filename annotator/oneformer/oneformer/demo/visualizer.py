@@ -8,7 +8,7 @@ import cv2
 import matplotlib as mpl
 import matplotlib.colors as mplc
 import matplotlib.figure as mplfigure
-import pycocotools.mask as mask_util
+import annotator.oneformer.pycocotools.mask as mask_util
 import torch
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from PIL import Image
@@ -1152,9 +1152,9 @@ class Visualizer:
         if not mask.has_holes:
             # draw polygons for regular masks
             for segment in mask.polygons:
-                area = mask_util.area(mask_util.frPyObjects([segment], shape2d[0], shape2d[1]))
-                if area < (area_threshold or 0):
-                    continue
+                # area = mask_util.area(mask_util.frPyObjects([segment], shape2d[0], shape2d[1]))
+                # if area < (area_threshold or 0):
+                #     continue
                 has_valid_segment = True
                 segment = segment.reshape(-1, 2)
                 self.draw_polygon(segment, color=color, edge_color=edge_color, alpha=alpha)
