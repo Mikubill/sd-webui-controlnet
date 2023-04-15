@@ -108,7 +108,7 @@ class UnetHook(nn.Module):
                 
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            if base.shape[0] % 2 == 0 and (self.guess_mode or self.global_average_pooling or shared.opts.data.get("control_net_cfg_based_guidance", False)):
+            if base.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
                 if self.is_vanilla_samplers:  
                     uncond, cond = base.chunk(2)
                     if x.shape[0] % 2 == 0:
