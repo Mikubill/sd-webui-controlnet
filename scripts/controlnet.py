@@ -852,8 +852,6 @@ def on_ui_settings():
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
         False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
-        True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
