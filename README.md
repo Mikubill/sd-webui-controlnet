@@ -112,14 +112,6 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
 
-### CFG Based ControlNet (Experimental)
-
-The original ControlNet applies control to both conditional (cond) and unconditional (uncond) parts. Enabling this option will make the control only apply to the cond part. Some experiments indicate that this approach improves image quality.
-
-To enable this option, tick `Enable CFG-Based guidance for ControlNet` in the settings.
-
-Note that you need to use a low cfg scale/guidance scale (such as 3-5) and proper weight tuning to get good result.
-
 ### Guess Mode (Non-Prompt Mode, Experimental)
 
 Guess Mode is CFG Based ControlNet + Exponential decay in weighting. 
