@@ -208,6 +208,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "depth",
             "depth_leres",
             "fake_scribble",
+            'scribble',
             "hed",
             "mlsd",
             "normal_map",
@@ -245,6 +246,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(openpose(img, controlnet_processor_res, False)[0])
             elif controlnet_module == "fake_scribble":
                 results.append(fake_scribble(img, controlnet_processor_res)[0])
+            elif controlnet_module == "scribble":
+                results.append(simple_scribble(img, controlnet_processor_res)[0])
             elif controlnet_module == "segmentation":
                 results.append(uniformer(img, controlnet_processor_res)[0])
             elif controlnet_module == "binary":
