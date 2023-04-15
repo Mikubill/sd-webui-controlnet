@@ -205,18 +205,36 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     ):
 
         available_modules = [
-            "none",
-            "canny",
-            "depth",
-            "depth_leres",
-            "fake_scribble",
-            "hed",
-            "mlsd",
-            "normal_map",
-            "openpose",
-            "segmentation",
+            "none",                 
+            "canny",                
+            "scribble_thr",         
+            "hed",                  # Unload
+            "hed_safe",             # Unload
+            "scribble_hed",         
+            "mlsd",                 # Unload
+            "midas",                # Unload
+            "midas_normal",         # Unload
+            "leres",                # Unload
+            "openpose",             # Unload
+            "openpose_face",        # Unload
+            "openpose_faceonly",    # Unload
+            "openpose_hand",        # Unload
+            "openpose_full",        # Unload
+            "uniformer",            # Unload
+            "pidinet",              # Unload
+            "pidinet_ts",           # Unload
+            "pidinet_safe",         # Unload
+            "scribble_pidinet",
+            "color",
             "binary",
-            "color"
+            "lineart",              # Unload
+            "lineart_coarse",       # Unload
+            "lineart_anime",        # Unload
+            "zoe_depth",            # Unload
+            "normal_bae",           # Unload
+            "oneformer_coco",       # Unload
+            "oneformer_ade20k",     # Unload
+            "shuffle"
         ]
 
         if controlnet_module not in available_modules:
@@ -233,39 +251,89 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
             if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
+            elif controlnet_module == "scribble_thr":
+                results.append(scribble_thr(img, controlnet_processor_res)[0])
             elif controlnet_module == "hed":
                 results.append(hed(img, controlnet_processor_res)[0])
+            elif controlnet_module == "hed_safe":
+                results.append(hed_safe(img, controlnet_processor_res)[0])
+            elif controlnet_module == "scribble_hed":
+                results.append(scribble_hed(img, controlnet_processor_res)[0])
             elif controlnet_module == "mlsd":
                 results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
-            elif controlnet_module == "depth":
+            elif controlnet_module == "midas":
                 results.append(midas(img, controlnet_processor_res, np.pi * 2.0)[0])
-            elif controlnet_module == "normal_map":
+            elif controlnet_module == "midas_normal":
                 results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
-            elif controlnet_module == "depth_leres":
+            elif controlnet_module == "leres":
                 results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "openpose":
-                results.append(openpose(img, controlnet_processor_res, False)[0])
-            elif controlnet_module == "fake_scribble":
-                results.append(fake_scribble(img, controlnet_processor_res)[0])
-            elif controlnet_module == "segmentation":
+                results.append(openpose(img, controlnet_processor_res)[0])
+            elif controlnet_module == "openpose_face":
+                results.append(openpose(img, controlnet_processor_res)[0])
+            elif controlnet_module == "openpose_faceonly":
+                results.append(openpose_faceonly(img, controlnet_processor_res)[0])
+            elif controlnet_module == "openpose_hand":
+                results.append(openpose_hand(img, controlnet_processor_res)[0])
+            elif controlnet_module == "openpose_full":
+                results.append(openpose_full(img, controlnet_processor_res)[0])
+            elif controlnet_module == "uniformer":
                 results.append(uniformer(img, controlnet_processor_res)[0])
+            elif controlnet_module == "pidinet":
+                results.append(pidinet(img, controlnet_processor_res)[0])
+            elif controlnet_module == "pidinet_ts":
+                results.append(pidinet_ts(img, controlnet_processor_res)[0])
+            elif controlnet_module == "pidinet_safe":
+                results.append(pidinet_safe(img, controlnet_processor_res)[0])
+            elif controlnet_module == "scribble_pidinet":
+                results.append(scribble_pidinet(img, controlnet_processor_res)[0])
+            elif controlnet_module == "lineart":
+                results.append(lineart(img, controlnet_processor_res)[0])
+            elif controlnet_module == "lineart_coarse":
+                results.append(lineart_coarse(img, controlnet_processor_res)[0])
+            elif controlnet_module == "lineart_anime":
+                results.append(lineart_anime(img, controlnet_processor_res)[0])
+            elif controlnet_module == "zoe_depth":
+                results.append(zoe_depth(img, controlnet_processor_res)[0])
+            elif controlnet_module == "normal_bae":
+                results.append(normal_bae(img, controlnet_processor_res)[0])
+            elif controlnet_module == "oneformer_coco":
+                results.append(oneformer_coco(img, controlnet_processor_res)[0])
+            elif controlnet_module == "oneformer_ade20k":
+                results.append(oneformer_ade20k(img, controlnet_processor_res)[0])
             elif controlnet_module == "binary":
                 results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
             elif controlnet_module == "color":
                 results.append(color(img, controlnet_processor_res)[0])
 
-        if controlnet_module == "hed":
+        if controlnet_module == "hed" or controlnet_module == "hed_safe":
             unload_hed()
         elif controlnet_module == "mlsd":
             unload_mlsd()
-        elif controlnet_module == "depth" or controlnet_module == "normal_map":
+        elif controlnet_module == "midas" or controlnet_module == "midas_normal":
             unload_midas()
-        elif controlnet_module == "depth_leres":
+        elif controlnet_module == "leres":
             unload_leres()
-        elif controlnet_module == "openpose":
+        elif controlnet_module == "openpose" or controlnet_module == "openpose_face" or controlnet_module == "openpose_faceonly" or controlnet_module == "openpose_hand" or controlnet_module == "openpose_full":
             unload_openpose()
-        elif controlnet_module == "segmentation":
+        elif controlnet_module == "uniformer":
             unload_uniformer()
+        elif controlnet_module == "pidinet" or controlnet_module == "pidinet_ts" or controlnet_module == "pidinet_safe":
+            unload_pidinet()
+        elif controlnet_module == "lineart":
+            unload_lineart()
+        elif controlnet_module == "lineart_coarse":
+            unload_lineart_coarse()
+        elif controlnet_module == "lineart_anime":
+            unload_lineart_anime()
+        elif controlnet_module == "zoe_depth":
+            unload_zoe_depth()
+        elif controlnet_module == "normal_bae":
+            unload_normal_bae()
+        elif controlnet_module == "oneformer_coco":
+            unload_oneformer_coco()
+        elif controlnet_module == "oneformer_ade20k":
+            unload_oneformer_ade20k()
 
         results64 = list(map(encode_to_base64, results))
         return {"images": results64, "info": "Success"}
