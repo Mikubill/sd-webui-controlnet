@@ -5,7 +5,7 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 
 ControlNet is a neural network structure to control diffusion models by adding extra conditions. 
 
-Thanks & Inspired: kohya-ss/sd-webui-additional-networks
+Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Limits
 
