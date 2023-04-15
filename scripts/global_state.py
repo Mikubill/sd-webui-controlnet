@@ -69,8 +69,12 @@ cn_preprocessor_unloadable = {
     "lineart_anime": unload_lineart_anime
 }
 
-module_names = {key: key for key in cn_preprocessor_modules.keys()}
-module_names.update({
+module_names = OrderedDict()
+
+for key in cn_preprocessor_modules.keys():
+    module_names[key] = key
+
+update_names = {
     "depth": "depth_midas",
     "normal_map": "normal_midas",
     "hed": "softedge_hed",
@@ -82,8 +86,13 @@ module_names.update({
     "oneformer_coco": "seg_ofcoco",
     "oneformer_ade20k": "seg_ofade20k",
     "pidinet_scribble": "scribble_pidinet"
-})      
-            
+}
+
+for k, v in update_names.items():
+    module_names[k] = v
+
+module_names = OrderedDict(sorted(module_names.items(), key=lambda x: x[1]))
+
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
 cn_detectedmap_dir = os.path.join("detected_maps")
