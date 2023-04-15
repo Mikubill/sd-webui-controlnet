@@ -786,7 +786,8 @@ class Script(scripts.Script):
                 advanced_weighting=None,
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
-                hr_hint_cond = hr_control
+                global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
+                hr_hint_cond=hr_control
             )
             forward_params.append(forward_param)
 
