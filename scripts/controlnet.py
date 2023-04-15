@@ -20,7 +20,7 @@ from scripts.hook import ControlParams, UnetHook
 from scripts import external_code, global_state
 importlib.reload(global_state)
 importlib.reload(external_code)
-from modules.processing import StableDiffusionProcessingImg2Img
+from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
@@ -726,7 +726,7 @@ class Script(scripts.Script):
 
                 # scale crop region to the size of our image
                 x1, y1, x2, y2 = crop_region
-                scale_x, scale_y = p.width / float(input_image.width), p.height / float(input_image.height)
+                scale_x, scale_y = mask.width / float(input_image.width), mask.height / float(input_image.height)
                 crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
 
                 input_image = input_image.crop(crop_region)
@@ -749,15 +749,31 @@ class Script(scripts.Script):
                 detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
                 is_image = False
-                            
+
+            if isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr:
+                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                    hr_y = int(p.height * p.hr_scale)
+                    hr_x = int(p.width * p.hr_scale)
+                else:
+                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+
+                if is_image:
+                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, hr_y, hr_x)
+                else:
+                    hr_control = detected_map
+            else:
+                hr_control = None
+
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map
+
                 if unit.module == 'clip_vision':
                     fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
+
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -769,7 +785,8 @@ class Script(scripts.Script):
                 stop_guidance_percent=unit.guidance_end,
                 advanced_weighting=None,
                 is_adapter=isinstance(model_net, PlugableAdapter),
-                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter"
+                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
+                hr_hint_cond = hr_control
             )
             forward_params.append(forward_param)
 
@@ -845,8 +862,6 @@ def on_ui_settings():
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
         False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_only_midctrl_hires", shared.OptionInfo(
-        True, "Use mid-control on highres pass (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
