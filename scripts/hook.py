@@ -105,25 +105,13 @@ class UnetHook(nn.Module):
                 zeros = torch.zeros_like(base)
                 zeros[:, :x.shape[1], ...] = x
                 x = zeros
-                
+
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            if base.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
-                if self.is_vanilla_samplers:  
-                    uncond, cond = base.chunk(2)
-                    if x.shape[0] % 2 == 0:
-                        _, x_cond = x.chunk(2)
-                        return torch.cat([uncond, cond + x_cond], dim=0)
-                    if is_adapter:
-                        return torch.cat([uncond, cond + x], dim=0)
-                else:
-                    cond, uncond = base.chunk(2)
-                    if x.shape[0] % 2 == 0:
-                        x_cond, _ = x.chunk(2)
-                        return torch.cat([cond + x_cond, uncond], dim=0)
-                    if is_adapter:
-                        return torch.cat([cond + x, uncond], dim=0)
-            
+            # x should always be c, uc before we call cfg_based_adder
+            if self.is_vanilla_samplers:
+                x = torch.cat(x.chunk(2)[::-1], dim=0)
+
             # resize to sample resolution
             base_h, base_w = base.shape[-2:]
             xh, xw = x.shape[-2:]
@@ -142,7 +130,7 @@ class UnetHook(nn.Module):
             # handle external cond first
             for param in outer.control_params:
                 # select which hint_cond to use
-                if param.used_hint_cond == None or x.shape[-1] - param.used_hint_cond.shape[-1] // 8 < 0: # when a batch starts
+                if param.used_hint_cond == None or x.shape[-1] - param.used_hint_cond.shape[-1] // 8 < 0:  # when a batch starts
                     param.used_hint_cond = param.hint_cond
                 if abs(x.shape[-1] - param.used_hint_cond.shape[-1] // 8) > 8: # true on first step of hires
                     param.used_hint_cond = param.hr_hint_cond
@@ -157,8 +145,6 @@ class UnetHook(nn.Module):
             # check if it's non-batch-cond mode (lowvram, edit model etc)
             if context.shape[0] % 2 != 0 and outer.batch_cond_available:
                 outer.batch_cond_available = False
-                if len(total_extra_cond) > 0 or outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
-                    print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
                 
             # concat styleadapter to cond, pad uncond to same length
             if len(total_extra_cond) > 0 and outer.batch_cond_available:
@@ -195,6 +181,12 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
+                if param.guess_mode or param.global_average_pooling:
+                    new_control = []
+                    for c in control:
+                        cond, uncond = c.chunk(2)
+                        new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
+                    control = new_control
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
@@ -210,7 +202,7 @@ class UnetHook(nn.Module):
                     
                 for idx, item in enumerate(control):
                     target = total_adapter if param.is_adapter else total_control
-                    target[idx] += item
+                    target[idx] = item + target[idx]
                         
             control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
@@ -262,7 +254,6 @@ class UnetHook(nn.Module):
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
-        self.guess_mode = any([param.guess_mode for param in params])
 
     def restore(self, model):
         scripts.script_callbacks.remove_current_script_callbacks()
