@@ -97,7 +97,7 @@ class UnetHook(nn.Module):
                 current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
                 param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
    
-        def cfg_based_adder(base, x, require_autocast, is_adapter=False):
+        def cfg_based_adder(base, x, require_autocast):
             if isinstance(x, float):
                 return base + x
             
@@ -184,7 +184,10 @@ class UnetHook(nn.Module):
                 if param.guess_mode or param.global_average_pooling:
                     new_control = []
                     for c in control:
-                        cond, uncond = c.chunk(2)
+                        if param.is_adapter:
+                            cond, uncond = c.clone(), c.clone()
+                        else:
+                            cond, uncond = c.chunk(2)
                         new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
                     control = new_control
                 if param.guess_mode:
@@ -216,7 +219,7 @@ class UnetHook(nn.Module):
                     
                     # t2i-adatper, same as openaimodel.py:744
                     if ((i+1)%3 == 0) and len(total_adapter):
-                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack, is_adapter=True)
+                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
                         
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
