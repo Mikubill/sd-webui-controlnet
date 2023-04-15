@@ -179,13 +179,6 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
 
-                # hires stuffs
-                # note that this method may not works if hr_scale < 1.1
-                if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
-                    only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
-                    # If you want to completely disable control net, uncomment this.
-                    # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
-
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
