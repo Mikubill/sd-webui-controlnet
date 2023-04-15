@@ -268,7 +268,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             elif controlnet_module == "leres":
                 results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "openpose":
-                results.append(openpose(img, controlnet_processor_res, False)[0])
+                results.append(openpose(img, controlnet_processor_res)[0])
             elif controlnet_module == "openpose_face":
                 results.append(openpose(img, controlnet_processor_res)[0])
             elif controlnet_module == "openpose_faceonly":
