@@ -130,13 +130,9 @@ class UnetHook(nn.Module):
             # handle external cond first
             for param in outer.control_params:
                 # select which hint_cond to use
-
-                # when a batch starts
-                if param.hint_cond is not None and x.shape[-1] - param.hint_cond.shape[-1] // 8 < 0:
+                if param.used_hint_cond == None or x.shape[-1] - param.used_hint_cond.shape[-1] // 8 < 0:  # when a batch starts
                     param.used_hint_cond = param.hint_cond
-
-                # true on first step of hires
-                if param.hr_hint_cond is not None and abs(x.shape[-1] - param.hr_hint_cond.shape[-1] // 8) > 8:
+                if abs(x.shape[-1] - param.used_hint_cond.shape[-1] // 8) > 8: # true on first step of hires
                     param.used_hint_cond = param.hr_hint_cond
 
                 if param.guidance_stopped or not param.is_extra_cond:
