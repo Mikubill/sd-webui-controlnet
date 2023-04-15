@@ -300,7 +300,9 @@ def lineart(img, res=512, **kwargs):
     if model_lineart is None:
         from annotator.lineart import LineartDetector
         model_lineart = LineartDetector(LineartDetector.model_default)
-    result = model_lineart(img)
+    
+    # applied auto inversion
+    result = 255-model_lineart(img)
     return result, True
 
 def unload_lineart():
@@ -318,7 +320,9 @@ def lineart_coarse(img, res=512, **kwargs):
     if model_lineart_coarse is None:
         from annotator.lineart import LineartDetector
         model_lineart_coarse = LineartDetector(LineartDetector.model_coarse)
-    result = model_lineart_coarse(img)
+    
+    # applied auto inversion
+    result = 255-model_lineart_coarse(img)
     return result, True
 
 def unload_lineart_coarse():
@@ -336,7 +340,9 @@ def lineart_anime(img, res=512, **kwargs):
     if model_lineart_anime is None:
         from annotator.lineart_anime import LineartAnimeDetector
         model_lineart_anime = LineartAnimeDetector()
-    result = model_lineart_anime(img)
+        
+    # applied auto inversion
+    result = 255-model_lineart_anime(img)
     return result, True
 
 def unload_lineart_anime():

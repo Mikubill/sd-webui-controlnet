@@ -272,7 +272,7 @@ class Script(scripts.Script):
                 ]
             elif module == "depth":
                 return [
-                    gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=384, step=1, interactive=True),
+                    gr.update(label="Midas Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
