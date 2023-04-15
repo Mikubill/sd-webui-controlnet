@@ -102,16 +102,18 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
     elif not isinstance(image, dict):
         image = {'image': image, 'mask': None}
 
-    if isinstance(image['image'], str):
-        image['image'] = external_code.to_base64_nparray(image['image'])
+    # copy to enable modifying the dict and prevent response serialization error
+    result = {'image': image['image'], 'mask': image['mask']}
 
-    if isinstance(image['mask'], str):
-        image['mask'] = external_code.to_base64_nparray(image['mask'])
-    elif image['mask'] is None:
-        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
+    if isinstance(result['image'], str):
+        result['image'] = external_code.to_base64_nparray(result['image'])
 
-    # copy to enable modifying the dict
-    return dict(image)
+    if isinstance(result['mask'], str):
+        result['mask'] = external_code.to_base64_nparray(result['mask'])
+    elif result['mask'] is None:
+        result['mask'] = np.zeros_like(result['image'], dtype=np.uint8)
+
+    return result
 
 
 class Script(scripts.Script):
@@ -162,13 +164,13 @@ class Script(scripts.Script):
             guess_mode=False,
         )
 
-    def uigroup(self, tabname, is_img2img):
+    def uigroup(self, tabname, is_img2img, elem_id_tabname):
         ctrls = ()
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch')
-            generated_image = gr.Image(label="Annotator result", visible=False)
+            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+            generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
             gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
@@ -419,16 +421,17 @@ class Script(scripts.Script):
         self.paste_field_names = []
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
-        with gr.Group():
+        elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
+        with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
                 if max_models > 1:
-                    with gr.Tabs():
+                    with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
                             with gr.Tab(f"Control Model - {i}"):
-                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img),)
+                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
-                        controls += (self.uigroup(f"ControlNet", is_img2img),)
+                        controls += (self.uigroup(f"ControlNet", is_img2img, elem_id_tabname),)
                         
         if shared.opts.data.get("control_net_sync_field_args", False):
             for _, field_name in self.infotext_fields:
@@ -711,6 +714,11 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
+                # scale crop region to the size of our image
+                x1, y1, x2, y2 = crop_region
+                scale_x, scale_y = mask.width / float(input_image.width), mask.height / float(input_image.height)
+                crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
+
                 input_image = input_image.crop(crop_region)
                 input_image = images.resize_image(2, input_image, p.width, p.height)
                 input_image = HWC3(np.asarray(input_image))
@@ -727,12 +735,21 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-            
+
+            if unit.module == "none" and "style" in unit.model:
+                detected_map_bytes = detected_map[:,:,0].tobytes()
+                detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
+                detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
+                is_image = False
+                            
             if is_image:
                 control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
-                control = detected_map  
+                control = detected_map
+                if unit.module == 'clip_vision':
+                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
+                    detected_maps.append((fake_detected_map, unit.module))
 
             forward_param = ControlParams(
                 control_model=model_net,
