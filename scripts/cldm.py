@@ -60,8 +60,8 @@ def get_node_name(name, parent_name):
 class PlugableControlModel(nn.Module):
     def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
-        config = OmegaConf.load(config_path)        
-        self.control_model = ControlNet(**config.model.params.control_stage_config.params)
+        self.config = OmegaConf.load(config_path)        
+        self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
             
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             

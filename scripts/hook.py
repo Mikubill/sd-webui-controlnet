@@ -51,7 +51,8 @@ class ControlParams:
         advanced_weighting, 
         is_adapter,
         is_extra_cond,
-        hr_hint_cond
+        hr_hint_cond,
+        global_average_pooling,
     ):
         self.control_model = control_model
         self._hint_cond = hint_cond
@@ -63,6 +64,7 @@ class ControlParams:
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
         self.is_extra_cond = is_extra_cond
+        self.global_average_pooling = global_average_pooling
         self.hr_hint_cond = hr_hint_cond
         self.used_hint_cond = None
 
@@ -203,6 +205,9 @@ class UnetHook(nn.Module):
                     control_scales = param.advanced_weighting
                     
                 control = [c * scale for c, scale in zip(control, control_scales)]
+                if param.global_average_pooling:
+                    control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
+                    
                 for idx, item in enumerate(control):
                     target = total_adapter if param.is_adapter else total_control
                     target[idx] += item

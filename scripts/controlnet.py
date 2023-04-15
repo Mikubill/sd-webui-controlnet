@@ -122,6 +122,7 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
+        self.preprocessor_keys = global_state.module_names
         self.preprocessor = global_state.cn_preprocessor_modules
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
@@ -152,6 +153,11 @@ class Script(scripts.Script):
         if component.elem_id == "img2img_height":
             self.img2img_h_slider = component
             return self.img2img_h_slider
+        
+    def get_module_basename(self, module):
+        for k, v in self.preprocessor_keys.items():
+            if v == module or k == module:
+                return k
         
     def get_threshold_block(self, proc):
         pass
@@ -222,7 +228,7 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value=default_unit.module)
+            module = gr.Dropdown(list(self.preprocessor_keys.values()), label=f"Preprocessor", value=default_unit.module)
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
@@ -235,6 +241,7 @@ class Script(scripts.Script):
             ctrls += (module, model, weight,)
                 # model_dropdowns.append(model)
         def build_sliders(module):
+            module = self.get_module_basename(module)
             if module == "canny":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
@@ -249,14 +256,14 @@ class Script(scripts.Script):
                     gr.update(label="Hough distance threshold (MLSD)", minimum=0.01, maximum=20.0, value=0.1, step=0.01, interactive=True),
                     gr.update(visible=True)
                 ]
-            elif module in ["hed", "fake_scribble"]:
+            elif module in ["hed", "scribble_hed", "hed_safe"]:
                 return [
                     gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module in ["openpose", "openpose_hand", "segmentation"]:
+            elif module in ["openpose", "openpose_full", "segmentation"]:
                 return [
                     gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
@@ -358,6 +365,8 @@ class Script(scripts.Script):
             img = HWC3(image['image'])
             if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
                 img = HWC3(image['mask'][:, :, 0])
+                
+            module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
             result = None
             if pres > 64:
@@ -667,6 +676,7 @@ class Script(scripts.Script):
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(enabled_units):
+            unit.module = self.get_module_basename(unit.module)
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
             image = image_dict_from_unit(unit)
             if image is not None:
@@ -723,11 +733,6 @@ class Script(scripts.Script):
                 input_image = images.resize_image(2, input_image, p.width, p.height)
                 input_image = HWC3(np.asarray(input_image))
 
-            if invert_image:
-                detected_map = np.zeros_like(input_image, dtype=np.uint8)
-                detected_map[np.min(input_image, axis=2) < 127] = 255
-                input_image = detected_map
-
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
@@ -735,6 +740,9 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
+                
+            if invert_image:
+                detected_map = 255 - detected_map.copy() 
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
@@ -778,7 +786,8 @@ class Script(scripts.Script):
                 advanced_weighting=None,
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
-                hr_hint_cond = hr_control
+                global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
+                hr_hint_cond=hr_control
             )
             forward_params.append(forward_param)
 
