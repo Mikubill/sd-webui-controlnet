@@ -91,7 +91,9 @@ update_names = {
 for k, v in update_names.items():
     module_names[k] = v
 
-module_names = OrderedDict(sorted(module_names.items(), key=lambda x: x[1]))
+del module_names['none']
+
+module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
