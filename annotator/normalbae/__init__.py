@@ -48,6 +48,7 @@ class NormalBaeDetector:
         model = NNET(args)
         model = load_checkpoint(modelpath, model)
         model.eval()
+        self.model = model.to(self.device)
         self.norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     def unload_model(self):
