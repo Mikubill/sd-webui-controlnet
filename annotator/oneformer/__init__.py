@@ -31,13 +31,15 @@ class OneformerDetector:
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
         config = os.path.join(os.path.dirname(__file__), self.config["config"])
         model, self.metadata = make_detectron2_model(config, modelpath)
-        self.model = model.to(self.device)
+        self.model = model
 
     def unload_model(self):
         if self.model is not None:
-            self.model.cpu()
+            self.model.model.cpu()
 
     def __call__(self, img):
         if self.model is None:
             self.load_model()
+            
+        self.model.model.to(self.device)
         return semantic_run(img, self.model, self.metadata)

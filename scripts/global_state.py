@@ -18,15 +18,22 @@ cn_preprocessor_modules = {
     "depth": midas,
     "depth_leres": leres,
     "hed": hed,
+    "hed_safe": hed_safe,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,
     "openpose_hand": openpose_hand,
+    "openpose_face": openpose_face,
+    "openpose_faceonly": openpose_faceonly,
+    "openpose_full": openpose_full,
     "clip_vision": clip,
     "color": color,
     "pidinet": pidinet,
-    "scribble": simple_scribble,
-    "fake_scribble": fake_scribble,
+    "pidinet_safe": pidinet_safe,
+    "pidinet_sketch": pidinet_ts,
+    "pidinet_scribble": scribble_pidinet,
+    "scribble_thr": scribble_thr,
+    "scribble_hed": scribble_hed,
     "segmentation": uniformer,
     "binary": binary,
     "depth_zoe": zoe_depth,
@@ -50,6 +57,8 @@ cn_preprocessor_unloadable = {
     "pidinet": unload_pidinet,
     "openpose": unload_openpose,
     "openpose_hand": unload_openpose,
+    "openpose_face": unload_openpose,
+    "openpose_full": unload_openpose,
     "segmentation": unload_uniformer,
     "depth_zoe": unload_zoe_depth,
     "normal_bae": unload_normal_bae,
@@ -60,6 +69,21 @@ cn_preprocessor_unloadable = {
     "lineart_anime": unload_lineart_anime
 }
 
+module_names = {key: key for key in cn_preprocessor_modules.keys()}
+module_names.update({
+    "depth": "depth_midas",
+    "normal_map": "normal_midas",
+    "hed": "softedge_hed",
+    "hed_safe": "softedge_hedsafe",
+    "pidinet": "softedge_pidinet",
+    "pidinet_safe": "softedge_pidisafe",
+    "pidinet_sketch": "sketch_pidinet",
+    "segmentation": "seg_ufade20k",
+    "oneformer_coco": "seg_ofcoco",
+    "oneformer_ade20k": "seg_ofade20k",
+    "pidinet_scribble": "scribble_pidinet"
+})      
+            
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
 cn_detectedmap_dir = os.path.join("detected_maps")

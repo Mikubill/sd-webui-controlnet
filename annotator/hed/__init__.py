@@ -7,6 +7,7 @@ from einops import rearrange
 import os 
 from modules import devices
 from modules.paths import models_path
+from annotator.util import safe_step, nms
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):
@@ -102,7 +103,7 @@ remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/a
 modeldir = os.path.join(models_path, "hed")
 old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
-def apply_hed(input_image):
+def apply_hed(input_image, is_safe=False):
     global netNetwork
     if netNetwork is None:
         modelpath = os.path.join(modeldir, "network-bsds500.pth")
@@ -122,27 +123,13 @@ def apply_hed(input_image):
         image_hed = image_hed / 255.0
         image_hed = rearrange(image_hed, 'h w c -> 1 c h w')
         edge = netNetwork(image_hed)[0]
-        edge = (edge.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
+        edge = edge.cpu().numpy()
+        if is_safe:
+            edge = safe_step(edge)
+        edge = (edge * 255.0).clip(0, 255).astype(np.uint8)
         return edge[0]
     
 def unload_hed_model():
     global netNetwork
     if netNetwork is not None:
         netNetwork.cpu()
-
-def nms(x, t, s):
-    x = cv2.GaussianBlur(x.astype(np.float32), (0, 0), s)
-
-    f1 = np.array([[0, 0, 0], [1, 1, 1], [0, 0, 0]], dtype=np.uint8)
-    f2 = np.array([[0, 1, 0], [0, 1, 0], [0, 1, 0]], dtype=np.uint8)
-    f3 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.uint8)
-    f4 = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]], dtype=np.uint8)
-
-    y = np.zeros_like(x)
-
-    for f in [f1, f2, f3, f4]:
-        np.putmask(y, cv2.dilate(x, kernel=f) == x, x)
-
-    z = np.zeros_like(y, dtype=np.uint8)
-    z[y > t] = 255
-    return z

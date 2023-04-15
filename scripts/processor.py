@@ -16,7 +16,7 @@ def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
     result = model_canny(img, l, h)
     return result, True
 
-def simple_scribble(img, res=512, **kwargs):
+def scribble_thr(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) < 127] = 255
@@ -35,19 +35,28 @@ def hed(img, res=512, **kwargs):
     result = model_hed(img)
     return result, True
 
+def hed_safe(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_hed
+    if model_hed is None:
+        from annotator.hed import apply_hed
+        model_hed = apply_hed
+    result = model_hed(img, is_safe=True)
+    return result, True
+
 def unload_hed():
     global model_hed
     if model_hed is not None:
         from annotator.hed import unload_hed_model
         unload_hed_model()
 
-def fake_scribble(img, res=512, **kwargs):
+def scribble_hed(img, res=512, **kwargs):
     result, _ = hed(img, res)
     import cv2
-    from annotator.hed import nms
+    from annotator.util import nms
     result = nms(result, 127, 3.0)
     result = cv2.GaussianBlur(result, (0, 0), 3.0)
-    result[result > 10] = 255
+    result[result > 4] = 255
     result[result < 255] = 0
     return result, True
 
@@ -120,29 +129,55 @@ def unload_leres():
 model_openpose = None
 
 
-def openpose(img, res=512, has_hand=False, **kwargs):
+def openpose(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_openpose
     if model_openpose is None:
-        from annotator.openpose import apply_openpose
-        model_openpose = apply_openpose
-    result, _ = model_openpose(img, has_hand)
+        from annotator.openpose import OpenposeDetector
+        model_openpose = OpenposeDetector()
+    result = model_openpose(img)
     return result, True
 
-def openpose_hand(img, res=512, has_hand=True, **kwargs):
+def openpose_face(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_openpose
     if model_openpose is None:
-        from annotator.openpose import apply_openpose
-        model_openpose = apply_openpose
-    result, _ = model_openpose(img, has_hand)
+        from annotator.openpose import OpenposeDetector
+        model_openpose = OpenposeDetector()
+    result = model_openpose(img, include_hand=False, include_face=True)
+    return result, True
+
+def openpose_faceonly(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_openpose
+    if model_openpose is None:
+        from annotator.openpose import OpenposeDetector
+        model_openpose = OpenposeDetector()
+    result = model_openpose(img, include_body=False, include_face=True)
+    return result, True
+
+def openpose_hand(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_openpose
+    if model_openpose is None:
+        from annotator.openpose import OpenposeDetector
+        model_openpose = OpenposeDetector()
+    result = model_openpose(img, include_hand=True, include_face=False)
+    return result, True
+
+def openpose_full(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_openpose
+    if model_openpose is None:
+        from annotator.openpose import OpenposeDetector
+        model_openpose = OpenposeDetector()
+    result = model_openpose(img, include_hand=True, include_face=True)
     return result, True
 
 def unload_openpose():
     global model_openpose
     if model_openpose is not None:
-        from annotator.openpose import unload_openpose_model
-        unload_openpose_model()
+        model_openpose.unload_model()
 
 
 model_uniformer = None
@@ -174,6 +209,34 @@ def pidinet(img, res=512, **kwargs):
         from annotator.pidinet import apply_pidinet
         model_pidinet = apply_pidinet
     result = model_pidinet(img)
+    return result, True
+
+def pidinet_ts(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_pidinet
+    if model_pidinet is None:
+        from annotator.pidinet import apply_pidinet
+        model_pidinet = apply_pidinet
+    result = model_pidinet(img, apply_fliter=True)
+    return result, True
+
+def pidinet_safe(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_pidinet
+    if model_pidinet is None:
+        from annotator.pidinet import apply_pidinet
+        model_pidinet = apply_pidinet
+    result = model_pidinet(img, is_safe=True)
+    return result, True
+
+def scribble_pidinet(img, res=512, **kwargs):
+    result, _ = pidinet(img, res)
+    import cv2
+    from annotator.util import nms
+    result = nms(result, 127, 3.0)
+    result = cv2.GaussianBlur(result, (0, 0), 3.0)
+    result[result > 4] = 255
+    result[result < 255] = 0
     return result, True
 
 def unload_pidinet():

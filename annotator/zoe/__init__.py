@@ -36,6 +36,7 @@ class ZoeDetector:
     def __call__(self, input_image):
         if self.model is None:
             self.load_model()
+        self.model.to(self.device)
 
         assert input_image.ndim == 3
         image_depth = input_image

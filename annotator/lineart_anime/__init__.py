@@ -141,6 +141,7 @@ class LineartAnimeDetector:
     def __call__(self, input_image):
         if self.model is None:
             self.load_model()
+        self.model.to(self.device)
 
         H, W, C = input_image.shape
         Hn = 256 * int(np.ceil(float(H) / 256.0))

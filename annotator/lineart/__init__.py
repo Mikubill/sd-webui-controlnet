@@ -117,6 +117,7 @@ class LineartDetector:
     def __call__(self, input_image):
         if self.model is None:
             self.load_model(self.model_name)
+        self.model.to(self.device)
 
         assert input_image.ndim == 3
         image = input_image

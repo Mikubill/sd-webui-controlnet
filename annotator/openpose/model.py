@@ -216,4 +216,3 @@ class handpose_model(nn.Module):
         out_stage6 = self.model6(concat_stage6)
         return out_stage6
 
-

@@ -5,10 +5,25 @@ import numpy as np
 
 from einops import rearrange
 from .models.NNET import NNET
-from .utils import utils
 from modules import devices
 from modules.paths import models_path
 import torchvision.transforms as transforms
+
+
+# load model
+def load_checkpoint(fpath, model):
+    ckpt = torch.load(fpath, map_location='cpu')['model']
+
+    load_dict = {}
+    for k, v in ckpt.items():
+        if k.startswith('module.'):
+            k_ = k.replace('module.', '')
+            load_dict[k_] = v
+        else:
+            load_dict[k] = v
+
+    model.load_state_dict(load_dict)
+    return model
 
 
 class NormalBaeDetector:
@@ -31,9 +46,8 @@ class NormalBaeDetector:
         args.sampling_ratio = 0.4
         args.importance_ratio = 0.7
         model = NNET(args)
-        model = utils.load_checkpoint(modelpath, model)
+        model = load_checkpoint(modelpath, model)
         model.eval()
-        self.model = model.to(self.device)
         self.norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     def unload_model(self):
@@ -44,6 +58,7 @@ class NormalBaeDetector:
         if self.model is None:
             self.load_model()
 
+        self.model.to(self.device)
         assert input_image.ndim == 3
         image_normal = input_image
         with torch.no_grad():

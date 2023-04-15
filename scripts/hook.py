@@ -50,7 +50,8 @@ class ControlParams:
         stop_guidance_percent, 
         advanced_weighting, 
         is_adapter,
-        is_extra_cond
+        is_extra_cond,
+        global_average_pooling=False,
     ):
         self.control_model = control_model
         self.hint_cond = hint_cond
@@ -62,6 +63,7 @@ class ControlParams:
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
         self.is_extra_cond = is_extra_cond
+        self.global_average_pooling = global_average_pooling
 
 
 class UnetHook(nn.Module):
