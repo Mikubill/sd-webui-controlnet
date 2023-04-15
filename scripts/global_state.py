@@ -75,13 +75,15 @@ for key in cn_preprocessor_modules.keys():
     module_names[key] = key
 
 update_names = {
+    "color": "t2ia_color_gird",
+    "clip_vision": "t2ia_style_clipvision",
+    "pidinet_sketch": "t2ia_sketch_pidi",
     "depth": "depth_midas",
     "normal_map": "normal_midas",
     "hed": "softedge_hed",
     "hed_safe": "softedge_hedsafe",
     "pidinet": "softedge_pidinet",
     "pidinet_safe": "softedge_pidisafe",
-    "pidinet_sketch": "sketch_pidinet",
     "segmentation": "seg_ufade20k",
     "oneformer_coco": "seg_ofcoco",
     "oneformer_ade20k": "seg_ofade20k",
