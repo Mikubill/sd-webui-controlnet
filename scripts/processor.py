@@ -144,6 +144,40 @@ def unload_openpose():
         from annotator.openpose import unload_openpose_model
         unload_openpose_model()
 
+model_zoedepth = None
+
+def zoedepth(img, res=512, **kwargs):
+    global model_zoedepth
+    if model_zoedepth is None:
+        from annotator.zoedepth import apply_zoedepth
+        model_zoedepth = apply_zoedepth
+    result = model_zoedepth(img, res=res)
+    return result, True
+
+def unload_zoedepth():
+    global model_zoedepth
+    if model_zoedepth is not None:
+        from annotator.zoedepth import unload_zoedepth
+        unload_zoedepth()
+
+model_openposev2 = None
+
+def openposev2(img, res=512, has_hand=False, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_openposev2
+    if model_openposev2 is None:
+        from annotator.openposev2 import OpenposeDetector
+        model_openposev2 = OpenposeDetector()
+
+    result = model_openposev2(img, hand_and_face=True)
+
+    return result, True
+
+
+def unload_openposev2():
+    global model_openposev2
+    #todo
+    return
 
 model_uniformer = None
 
@@ -226,20 +260,3 @@ def binary(img, res=512, thr_a=0, **kwargs):
         model_binary = apply_binary
     result = model_binary(img, thr_a)
     return result, True
-
-
-model_zoedepth = None
-
-def zoedepth(img, res=512, **kwargs):
-    global model_zoedepth
-    if model_zoedepth is None:
-        from annotator.model_zoedepth import apply_zoedepth
-        model_zoedepth = apply_zoedepth
-    result = model_zoedepth(img, res=res)
-    return result, True
-
-def unload_zoedepth():
-    global model_zoedepth
-    if model_zoedepth is not None:
-        from annotator.zoedepth import unload_zoedepth
-        unload_zoedepth()
