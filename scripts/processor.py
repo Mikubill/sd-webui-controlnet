@@ -1,4 +1,5 @@
 
+from configparser import LegacyInterpolation
 import numpy as np
 from annotator.util import resize_image, HWC3
 
@@ -173,14 +174,46 @@ def openposev2(img, res=512, has_hand=False, **kwargs):
 
     return result, True
 
-
 def unload_openposev2():
     global model_openposev2
     #todo
     return
 
-model_uniformer = None
+model_lineart = None
 
+def lineart(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_lineart
+    if model_lineart is None:
+        from annotator.lineart import LineartDetector
+        model_lineart = LineartDetector()
+    result = model_lineart(img, False)
+
+    return result, True
+
+model_oneformer_ade20k = None
+
+def ade20k(img, res, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_oneformer_ade20k
+    if model_oneformer_ade20k is None:
+        from annotator.oneformer import OneformerADE20kDetector
+        model_oneformer_ade20k = OneformerADE20kDetector()
+    result = model_oneformer_ade20k(img)
+    return result, True
+
+model_normalbae = None
+
+def normal_bae(img, res, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_normalbae
+    if model_normalbae is None:
+        from annotator.normalbae import NormalBaeDetector
+        model_normalbae = NormalBaeDetector()
+    result = model_normalbae(img)
+    return result, True
+
+model_uniformer = None
 
 def uniformer(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
