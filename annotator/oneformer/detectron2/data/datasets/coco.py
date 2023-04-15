@@ -7,7 +7,7 @@ import logging
 import numpy as np
 import os
 import shutil
-import pycocotools.mask as mask_util
+import annotator.oneformer.pycocotools.mask as mask_util
 from fvcore.common.timer import Timer
 from iopath.common.file_io import file_lock
 from PIL import Image
@@ -61,7 +61,7 @@ def load_coco_json(json_file, image_root, dataset_name=None, extra_annotation_ke
         1. This function does not read the image files.
            The results do not have the "image" field.
     """
-    from pycocotools.coco import COCO
+    from annotator.oneformer.pycocotools.coco import COCO
 
     timer = Timer()
     json_file = PathManager.get_local_path(json_file)
