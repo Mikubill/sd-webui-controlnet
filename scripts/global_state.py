@@ -98,7 +98,7 @@ del module_names['none']
 module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")
+default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
 cn_detectedmap_dir = os.path.join("detected_maps")
 default_detectedmap_dir = cn_detectedmap_dir
 script_dir = scripts.basedir()
