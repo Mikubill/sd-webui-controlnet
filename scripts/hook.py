@@ -212,9 +212,8 @@ class UnetHook(nn.Module):
                     
                 for idx, item in enumerate(control):
                     target = total_adapter if param.is_adapter else total_control
-
                     target[idx] = item + target[idx]
-
+                        
             control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
@@ -261,7 +260,7 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
-
+    
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
