@@ -1,7 +1,7 @@
 
 import torch
 import torch.nn as nn
-from modules import devices, lowvram, shared, script_callbacks
+from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
@@ -260,14 +260,14 @@ class UnetHook(nn.Module):
                         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
-        script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
+        scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
 
     def restore(self, model):
-        script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
+        scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
         if hasattr(self, "control_params"):
             del self.control_params
         
