@@ -31,31 +31,19 @@ Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
-Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
-
 ### ControlNet 1.1 is in the beta test.
 
 Right now 12 models of ControlNet 1.1 are in the beta test (all models expect the inpaint and tile).
 
 Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
-### Extraction
+### Previous Models
 
-Two methods can be used to reduce the model's filesize:
-
-1. Directly extract controlnet from original .pth file using `extract_controlnet.py`.
-
-2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
-
-All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
-
-Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
-
-Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
+Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 ### Tips 
 
-* Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
