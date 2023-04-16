@@ -41,6 +41,8 @@ Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNe
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
 
+In 1.1, the previous depth is now called "depth_midas", the previous normal is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+
 ### Previous Models
 
 Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
