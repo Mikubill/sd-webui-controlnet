@@ -185,15 +185,18 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
-                if param.guess_mode or param.global_average_pooling:
-                    new_control = []
-                    for c in control:
-                        if param.is_adapter:
-                            cond, uncond = c.clone(), c.clone()
-                        else:
-                            cond, uncond = c.chunk(2)
-                        new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
-                    control = new_control
+                try:
+                    if param.guess_mode or param.global_average_pooling:
+                        new_control = []
+                        for c in control:
+                            if param.is_adapter:
+                                cond, uncond = c.clone(), c.clone()
+                            else:
+                                cond, uncond = c.chunk(2)
+                            new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
+                        control = new_control
+                except Exception as e:
+                    raise 'Guess Mode or Shuffle Mode does not support --lowvram'
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
