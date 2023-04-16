@@ -585,15 +585,19 @@ class Script(scripts.Script):
             return get_pytorch_control(detected_map), detected_map
 
         old_h, old_w, _ = detected_map.shape
-        k0 = float(h) / float(old_h)
-        k1 = float(w) / float(old_w)
+        old_w = float(old_w)
+        old_h = float(old_h)
+        k0 = float(h) / old_h
+        k1 = float(w) / old_w
+
+        safeint = lambda x: int(np.round(x))
 
         if resize_mode == external_code.ResizeMode.OUTER_FIT:
             k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
             high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
-            detected_map = cv2.resize(detected_map, (int(float(old_w) * k), int(float(old_h) * k)), interpolation=cv2.INTER_AREA)
+            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_AREA)
             new_h, new_w, _ = detected_map.shape
             pad_h = (h - new_h) // 2
             pad_w = (w - new_w) // 2
@@ -602,7 +606,7 @@ class Script(scripts.Script):
             return get_pytorch_control(detected_map), detected_map
         else:
             k = max(k0, k1)
-            detected_map = cv2.resize(detected_map, (int(float(old_w) * k), int(float(old_h) * k)), interpolation=cv2.INTER_LANCZOS4)
+            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_LANCZOS4)
             new_h, new_w, _ = detected_map.shape
             pad_h = (new_h - h) // 2
             pad_w = (new_w - w) // 2
