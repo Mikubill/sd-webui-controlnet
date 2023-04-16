@@ -370,7 +370,7 @@ class Script(scripts.Script):
         create_button = gr.Button(value="Create blank canvas")
         create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
-       def run_annotator(image, module, pres, pthr_a, pthr_b):
+        def run_annotator(image, module, pres, pthr_a, pthr_b):
             if image:
                 img = HWC3(image['image'])
                 if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
