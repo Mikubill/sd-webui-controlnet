@@ -109,7 +109,7 @@ class UnetHook(nn.Module):
             # assume the input format is [cond, uncond] and they have same shape
             # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
             # x should always be c, uc before we call cfg_based_adder
-            if self.is_vanilla_samplers:
+            if x.shape[0] % 2 == 0 and self.is_vanilla_samplers:
                 x = torch.cat(x.chunk(2)[::-1], dim=0)
 
             # resize to sample resolution
