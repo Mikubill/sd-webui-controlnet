@@ -768,7 +768,7 @@ class Script(scripts.Script):
                 control = detected_map
 
                 if unit.module == 'clip_vision':
-                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
+                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
 
 
