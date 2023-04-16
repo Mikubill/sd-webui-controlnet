@@ -733,7 +733,9 @@ class Script(scripts.Script):
                 input_image = images.resize_image(2, input_image, p.width, p.height)
                 input_image = HWC3(np.asarray(input_image))
 
-            np.random.seed((int(p.seed) + max(int(p.subseed),0)) % 65535)
+            tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed),0))
+            tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed),0))
+            np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
 
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
