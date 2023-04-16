@@ -37,7 +37,7 @@ Right now 12 models of ControlNet 1.1 are in the beta test (all models expect th
 
 Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
-(If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) **Some CivitAI and fp16 models are renamed randomly, making YAML files mismatch. The performance of some os these models (like shuffle) will be significantly worse than official ones. Please download models from our huggingface website.**
+(If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) **Some 3rd-party CivitAI and fp16 models are renamed randomly, making YAML files mismatch. The performance of some of these models (like shuffle) will be significantly worse than official ones. Please download models from our huggingface website with correct YAML file names.**
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
 
