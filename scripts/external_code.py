@@ -19,8 +19,8 @@ class ResizeMode(Enum):
     """
 
     RESIZE = "Just Resize"
-    INNER_FIT = "Scale to Fit (Inner Fit)"
-    OUTER_FIT = "Envelope (Outer Fit)"
+    INNER_FIT = "Inner Fit (Scale to Fit)"
+    OUTER_FIT = "Outer Fit (Shrink to Fit)"
 
 
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
@@ -49,7 +49,7 @@ class ControlNetUnit:
         weight: float=1.0,
         image: Optional[InputImage]=None,
         invert_image: bool=False,
-        resize_mode: Union[ResizeMode, int, str]=ResizeMode.OUTER_FIT,
+        resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
         rgbbgr_mode: bool=False,
         low_vram: bool=False,
         processor_res: int=64,
