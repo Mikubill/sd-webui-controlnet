@@ -12,16 +12,18 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
+from scripts import global_state, hook, external_code
+importlib.reload(global_state)
+importlib.reload(hook)
+importlib.reload(external_code)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
-from scripts import external_code, global_state
-importlib.reload(global_state)
-importlib.reload(external_code)
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
+import cv2
 from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
@@ -570,49 +572,46 @@ class Script(scripts.Script):
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
         detected_map = HWC3(detected_map)
-        if module == "normal_map" or rgbbgr_mode:
-            control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
-        else:
-            control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
-            
-        control = rearrange(control, 'h w c -> c h w')
-        detected_map = rearrange(torch.from_numpy(detected_map), 'h w c -> c h w')
 
-        if resize_mode == external_code.ResizeMode.INNER_FIT:
-            h0 = detected_map.shape[1]
-            w0 = detected_map.shape[2]
-            w1 = w0
-            h1 = int(w0/w*h)
-            if (h/w > h0/w0):
-                h1 = h0
-                w1 = int(h0/h*w)
-            transform = Compose([
-                CenterCrop(size=(h1, w1)),
-                Resize(size=(h, w), interpolation=InterpolationMode.BICUBIC)
-            ])
-            control = transform(control)
-            detected_map = transform(detected_map)
-        elif resize_mode == external_code.ResizeMode.OUTER_FIT:
-            h0 = detected_map.shape[1]
-            w0 = detected_map.shape[2]
-            h1 = h0
-            w1 = int(h0/h*w)
-            if (h/w > h0/w0):
-                w1 = w0
-                h1 = int(w0/w*h)
-            transform = Compose([
-                CenterCrop(size=(h1, w1)),
-                Resize(size=(h, w),interpolation=InterpolationMode.BICUBIC)
-            ])
-            control = transform(control)
-            detected_map = transform(detected_map)
+        if module == "normal_map" or rgbbgr_mode:
+            detected_map = detected_map[:, :, ::-1].copy()
+
+        def get_pytorch_control(x):
+            y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
+            return rearrange(y.float() / 255.0, 'h w c -> c h w')
+
+        if resize_mode == external_code.ResizeMode.RESIZE:
+            detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
+            return get_pytorch_control(detected_map), detected_map
+
+        old_h, old_w, _ = detected_map.shape
+        old_w = float(old_w)
+        old_h = float(old_h)
+        k0 = float(h) / old_h
+        k1 = float(w) / old_w
+
+        safeint = lambda x: int(np.round(x))
+
+        if resize_mode == external_code.ResizeMode.OUTER_FIT:
+            k = min(k0, k1)
+            borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
+            high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
+            high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
+            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_AREA)
+            new_h, new_w, _ = detected_map.shape
+            pad_h = max(0, (h - new_h) // 2)
+            pad_w = max(0, (w - new_w) // 2)
+            high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
+            detected_map = high_quality_background
+            return get_pytorch_control(detected_map), detected_map
         else:
-            control = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(control)
-            detected_map = Resize((h,w), interpolation=InterpolationMode.BICUBIC)(detected_map)
-       
-        # for log use
-        detected_map = rearrange(detected_map, 'c h w -> h w c').numpy().astype(np.uint8)
-        return control, detected_map
+            k = max(k0, k1)
+            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_LANCZOS4)
+            new_h, new_w, _ = detected_map.shape
+            pad_h = max(0, (new_h - h) // 2)
+            pad_w = max(0, (new_w - w) // 2)
+            detected_map = detected_map[pad_h:pad_h+h, pad_w:pad_w+w]
+            return get_pytorch_control(detected_map), detected_map
 
     def is_ui(self, args):
         return args and isinstance(args[0], external_code.ControlNetUnit) and getattr(args[0], 'is_ui', False)
@@ -672,7 +671,7 @@ class Script(scripts.Script):
         module_list = [unit.module for unit in enabled_units]
         for key in self.unloadable:
             if key not in module_list:
-                self.unloadable.get(unit.module, lambda:None)()
+                self.unloadable.get(key, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(enabled_units):
@@ -775,7 +774,7 @@ class Script(scripts.Script):
                 control = detected_map
 
                 if unit.module == 'clip_vision':
-                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8",buffer=detected_map.numpy(force=True).tobytes())
+                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
 
 

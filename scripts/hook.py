@@ -88,15 +88,15 @@ class UnetHook(nn.Module):
         self.lowvram = lowvram
         self.batch_cond_available = True
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
-        
+
+    def guidance_schedule_handler(self, x):
+        for param in self.control_params:
+            current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
+            param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
+
     def hook(self, model):
         outer = self
-        
-        def guidance_schedule_handler(x):
-            for param in self.control_params:
-                current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
-                param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
-   
+
         def cfg_based_adder(base, x, require_autocast):
             if isinstance(x, float):
                 return base + x
@@ -105,12 +105,6 @@ class UnetHook(nn.Module):
                 zeros = torch.zeros_like(base)
                 zeros[:, :x.shape[1], ...] = x
                 x = zeros
-
-            # assume the input format is [cond, uncond] and they have same shape
-            # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            # x should always be c, uc before we call cfg_based_adder
-            if self.is_vanilla_samplers:
-                x = torch.cat(x.chunk(2)[::-1], dim=0)
 
             # resize to sample resolution
             base_h, base_w = base.shape[-2:]
@@ -185,15 +179,33 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
+
                 if param.guess_mode or param.global_average_pooling:
-                    new_control = []
-                    for c in control:
-                        if param.is_adapter:
-                            cond, uncond = c.clone(), c.clone()
-                        else:
-                            cond, uncond = c.chunk(2)
-                        new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
-                    control = new_control
+                    try:
+                        new_control = []
+                        for c in control:
+                            # Setp 1 get correct cond, uncond
+                            if param.is_adapter:
+                                cond, uncond = c, c
+                            elif outer.is_vanilla_samplers:
+                                uncond, cond = c.chunk(2)
+                            else:
+                                cond, uncond = c.chunk(2)
+
+                            # Step 2 erase uncond
+                            if outer.is_vanilla_samplers:
+                                new_control.append(torch.cat([torch.zeros_like(uncond), cond], dim=0))
+                            else:
+                                new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
+                        control = new_control
+                    except Exception as e:
+                        print('---------------------')
+                        print(e)
+                        print('ERROR: Failed to apply Guess Mode or Shuffle. You may try to add --always-batch-cond-uncond to your flags')
+                        print('ERROR: Begin to use backup method without Guess Mode or Shuffle.')
+                        print('ERROR: Results might be worse, but the webui will not fail.')
+                        print('---------------------')
+
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
@@ -256,14 +268,14 @@ class UnetHook(nn.Module):
                         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
-        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
+        scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
     
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
 
     def restore(self, model):
-        scripts.script_callbacks.remove_current_script_callbacks()
+        scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
         if hasattr(self, "control_params"):
             del self.control_params
         
