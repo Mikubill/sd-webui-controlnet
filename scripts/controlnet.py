@@ -586,9 +586,9 @@ class Script(scripts.Script):
         old_h, old_w, _ = detected_map.shape
         k0 = float(h) / float(old_h)
         k1 = float(w) / float(old_w)
-        k = min(k0, k1) if resize_mode == external_code.ResizeMode.OUTER_FIT else max(k0, k1)
 
-        if k < 1:
+        if resize_mode == external_code.ResizeMode.OUTER_FIT:
+            k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
             high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
@@ -600,6 +600,7 @@ class Script(scripts.Script):
             detected_map = high_quality_background
             return get_pytorch_control(detected_map), detected_map
         else:
+            k = max(k0, k1)
             detected_map = cv2.resize(detected_map, (int(float(old_w) * k), int(float(old_h) * k)), interpolation=cv2.INTER_LANCZOS4)
             new_h, new_w, _ = detected_map.shape
             pad_h = (new_h - h) // 2
