@@ -75,7 +75,7 @@ for key in cn_preprocessor_modules.keys():
     module_names[key] = key
 
 update_names = {
-    "color": "t2ia_color_gird",
+    "color": "t2ia_color_grid",
     "clip_vision": "t2ia_style_clipvision",
     "pidinet_sketch": "t2ia_sketch_pidi",
     "depth": "depth_midas",
