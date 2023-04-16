@@ -180,8 +180,8 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to("cpu")
 
-                try:
-                    if param.guess_mode or param.global_average_pooling:
+                if param.guess_mode or param.global_average_pooling:
+                    try:
                         new_control = []
                         for c in control:
                             # Setp 1 get correct cond, uncond
@@ -198,13 +198,13 @@ class UnetHook(nn.Module):
                             else:
                                 new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
                         control = new_control
-                except Exception as e:
-                    print('---------------------')
-                    print(e)
-                    print('ERROR: Failed to apply Guess Mode or Shuffle. You may try to add --always-batch-cond-uncond to your flags')
-                    print('ERROR: Begin to use backup method without Guess Mode or Shuffle.')
-                    print('ERROR: Results might be worse, but the webui will not fail.')
-                    print('---------------------')
+                    except Exception as e:
+                        print('---------------------')
+                        print(e)
+                        print('ERROR: Failed to apply Guess Mode or Shuffle. You may try to add --always-batch-cond-uncond to your flags')
+                        print('ERROR: Begin to use backup method without Guess Mode or Shuffle.')
+                        print('ERROR: Results might be worse, but the webui will not fail.')
+                        print('---------------------')
 
                 if param.guess_mode:
                     if param.is_adapter:
