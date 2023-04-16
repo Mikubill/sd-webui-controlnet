@@ -106,12 +106,6 @@ class UnetHook(nn.Module):
                 zeros[:, :x.shape[1], ...] = x
                 x = zeros
 
-            # assume the input format is [cond, uncond] and they have same shape
-            # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            # x should always be c, uc before we call cfg_based_adder
-            if x.shape[0] % 2 == 0 and self.is_vanilla_samplers:
-                x = torch.cat(x.chunk(2)[::-1], dim=0)
-
             # resize to sample resolution
             base_h, base_w = base.shape[-2:]
             xh, xw = x.shape[-2:]
@@ -185,18 +179,33 @@ class UnetHook(nn.Module):
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
+
                 try:
                     if param.guess_mode or param.global_average_pooling:
                         new_control = []
                         for c in control:
+                            # Setp 1 get correct cond, uncond
                             if param.is_adapter:
-                                cond, uncond = c.clone(), c.clone()
+                                cond, uncond = c, c
+                            elif outer.is_vanilla_samplers:
+                                uncond, cond = c.chunk(2)
                             else:
                                 cond, uncond = c.chunk(2)
-                            new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
+
+                            # Step 2 erase uncond
+                            if outer.is_vanilla_samplers:
+                                new_control.append(torch.cat([torch.zeros_like(uncond), cond], dim=0))
+                            else:
+                                new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
                         control = new_control
                 except Exception as e:
-                    raise 'Shuffle or Guess in --lowvram or --medvram needs you to add --always-batch-cond-uncond in your A1111 flags'
+                    print('---------------------')
+                    print(e)
+                    print('ERROR: Failed to apply Guess Mode or Shuffle. You may try to add --always-batch-cond-uncond to your flags')
+                    print('ERROR: Begin to use backup method without Guess Mode or Shuffle.')
+                    print('ERROR: Results might be worse, but the webui will not fail.')
+                    print('---------------------')
+
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
