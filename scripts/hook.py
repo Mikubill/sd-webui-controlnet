@@ -187,8 +187,8 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.guidance_stopped or param.is_extra_cond:
                     continue
-                if outer.lowvram:
-                    param.control_model.to(devices.get_device_for("controlnet"))
+
+                param.control_model.to(devices.get_device_for("controlnet"))
 
                 # inpaint model workaround
                 x_in = x
