@@ -18,17 +18,32 @@ cn_preprocessor_modules = {
     "depth": midas,
     "depth_leres": leres,
     "hed": hed,
+    "hed_safe": hed_safe,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,
     "openpose_hand": openpose_hand,
+    "openpose_face": openpose_face,
+    "openpose_faceonly": openpose_faceonly,
+    "openpose_full": openpose_full,
     "clip_vision": clip,
     "color": color,
     "pidinet": pidinet,
-    "scribble": simple_scribble,
-    "fake_scribble": fake_scribble,
+    "pidinet_safe": pidinet_safe,
+    "pidinet_sketch": pidinet_ts,
+    "pidinet_scribble": scribble_pidinet,
+    "scribble_thr": scribble_thr,
+    "scribble_hed": scribble_hed,
     "segmentation": uniformer,
     "binary": binary,
+    "depth_zoe": zoe_depth,
+    "normal_bae": normal_bae,
+    "oneformer_coco": oneformer_coco,
+    "oneformer_ade20k": oneformer_ade20k,
+    "lineart": lineart,
+    "lineart_coarse": lineart_coarse,
+    "lineart_anime": lineart_anime,
+    "shuffle": shuffle
 }
 
 cn_preprocessor_unloadable = {
@@ -42,8 +57,45 @@ cn_preprocessor_unloadable = {
     "pidinet": unload_pidinet,
     "openpose": unload_openpose,
     "openpose_hand": unload_openpose,
+    "openpose_face": unload_openpose,
+    "openpose_full": unload_openpose,
     "segmentation": unload_uniformer,
+    "depth_zoe": unload_zoe_depth,
+    "normal_bae": unload_normal_bae,
+    "oneformer_coco": unload_oneformer_coco,
+    "oneformer_ade20k": unload_oneformer_ade20k,
+    "lineart": unload_lineart,
+    "lineart_coarse": unload_lineart_coarse,
+    "lineart_anime": unload_lineart_anime
 }
+
+module_names = OrderedDict()
+
+for key in cn_preprocessor_modules.keys():
+    module_names[key] = key
+
+update_names = {
+    "color": "t2ia_color_grid",
+    "clip_vision": "t2ia_style_clipvision",
+    "pidinet_sketch": "t2ia_sketch_pidi",
+    "depth": "depth_midas",
+    "normal_map": "normal_midas",
+    "hed": "softedge_hed",
+    "hed_safe": "softedge_hedsafe",
+    "pidinet": "softedge_pidinet",
+    "pidinet_safe": "softedge_pidisafe",
+    "segmentation": "seg_ufade20k",
+    "oneformer_coco": "seg_ofcoco",
+    "oneformer_ade20k": "seg_ofade20k",
+    "pidinet_scribble": "scribble_pidinet"
+}
+
+for k, v in update_names.items():
+    module_names[k] = v
+
+del module_names['none']
+
+module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "sketch_adapter_v14.yaml")

@@ -70,15 +70,15 @@ def get_obj_from_str(string, reload=False):
 class PlugableAdapter(nn.Module):
     def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
-        config = OmegaConf.load(config_path)
+        self.config = OmegaConf.load(config_path)
         model = Adapter
         try:
-            self.target = config.model.target
-            model = get_obj_from_str(config.model.target)
+            self.target = self.config.model.target
+            model = get_obj_from_str(self.config.model.target)
         except ImportError:
             pass
         
-        self.control_model = model(**config.model.params)       
+        self.control_model = model(**self.config.model.params)       
         self.control_model.load_state_dict(state_dict)
         self.lowvram = lowvram 
         self.control = None
