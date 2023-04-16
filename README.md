@@ -40,6 +40,7 @@ Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNe
 ### Previous Models
 
 Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 ### Tips 
