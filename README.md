@@ -33,6 +33,12 @@ Currently it supports both full models and trimmed models. Use `extract_controln
 
 Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
+### ControlNet 1.1 is in the beta test.
+
+Right now 12 models of ControlNet 1.1 are in the beta test (all models expect the inpaint and tile).
+
+Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
+
 ### Extraction
 
 Two methods can be used to reduce the model's filesize:
