@@ -598,8 +598,8 @@ class Script(scripts.Script):
             high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
             detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_AREA)
             new_h, new_w, _ = detected_map.shape
-            pad_h = (h - new_h) // 2
-            pad_w = (w - new_w) // 2
+            pad_h = max(0, (h - new_h) // 2)
+            pad_w = max(0, (w - new_w) // 2)
             high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
             detected_map = high_quality_background
             return get_pytorch_control(detected_map), detected_map
@@ -607,8 +607,8 @@ class Script(scripts.Script):
             k = max(k0, k1)
             detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_LANCZOS4)
             new_h, new_w, _ = detected_map.shape
-            pad_h = (new_h - h) // 2
-            pad_w = (new_w - w) // 2
+            pad_h = max(0, (new_h - h) // 2)
+            pad_w = max(0, (new_w - w) // 2)
             detected_map = detected_map[pad_h:pad_h+h, pad_w:pad_w+w]
             return get_pytorch_control(detected_map), detected_map
 
