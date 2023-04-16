@@ -774,6 +774,8 @@ class Script(scripts.Script):
                     fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
 
+            is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
+
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -787,7 +789,11 @@ class Script(scripts.Script):
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
                 global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
-                hr_hint_cond=hr_control
+                hr_hint_cond=hr_control,
+                batch_size=p.batch_size,
+                instance_counter=0,
+                is_vanilla_samplers=is_vanilla_samplers,
+                cfg_scale=p.cfg_scale
             )
             forward_params.append(forward_param)
 
@@ -795,7 +801,7 @@ class Script(scripts.Script):
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
+        self.latest_network.notify(forward_params, is_vanilla_samplers)
         self.detected_map = detected_maps
 
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
