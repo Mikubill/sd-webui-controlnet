@@ -196,7 +196,7 @@ class UnetHook(nn.Module):
                             new_control.append(torch.cat([cond, torch.zeros_like(uncond)], dim=0))
                         control = new_control
                 except Exception as e:
-                    raise 'Guess Mode or Shuffle Mode does not support --lowvram'
+                    raise 'Shuffle or Guess in --lowvram or --medvram needs you to add --always-batch-cond-uncond in your A1111 flags'
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
