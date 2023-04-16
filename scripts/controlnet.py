@@ -206,6 +206,7 @@ class UiControlNetUnit(external_code.ControlNetUnit):
 
 class Script(scripts.Script):
     model_cache = OrderedDict()
+    preprocessor_cache = {}
 
     def __init__(self) -> None:
         super().__init__()
@@ -670,6 +671,32 @@ class Script(scripts.Script):
             (guidance_end, f"{tabname} Guidance End"),
         ])
 
+    def cached_preprocessor(self, module):
+        cache_size = shared.opts.data.get("control_net_preprocessor_cache_size", 0)
+        if len(Script.preprocessor_cache) > cache_size:
+            print("ControlNet annotator cache exceeds maximum size, resetting it.")
+            Script.preprocessor_cache = {}
+        # Uncacheable preprocessors:
+        if cache_size == 0 or module in ['shuffle']:
+            return self.preprocessor[module]
+        # Silly way to hash a dictionary, but probably good enough; faster than
+        # running an annotator, anyway
+        def dicthashkey(d):
+            return hash("".join(str(k) + str(v) for k, v in d.items()))
+        def preprocessor(input_image, *args, **kwargs):
+            # We don't want to store large items in the key, so let's use the hash values
+            cachekey = (module, hash(str(input_image)), dicthashkey(kwargs))
+            cached = Script.preprocessor_cache.get(cachekey)
+            if cached:
+                return cached
+            else:
+                print("ControlNet annotator result not in cache, running preprocessor")
+                res = self.preprocessor[module](input_image, *args, **kwargs)
+                print("Preprocessor done")
+                Script.preprocessor_cache[cachekey] = res
+                return res
+        return preprocessor
+
     def clear_control_model_cache(self):
         Script.model_cache.clear()
         gc.collect()
@@ -1133,7 +1160,8 @@ class Script(scripts.Script):
             input_image = np.ascontiguousarray(input_image.copy()).copy()
 
             print(f"Loading preprocessor: {unit.module}")
-            preprocessor = self.preprocessor[unit.module]
+            preprocessor = self.cached_preprocessor(unit.module)
+
             h, w, bsz = p.height, p.width, p.batch_size
 
             preprocessor_resolution = unit.processor_res
@@ -1307,6 +1335,8 @@ def on_ui_settings():
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
+    shared.opts.add_option("control_net_preprocessor_cache_size", shared.OptionInfo(
+        0, "Preprocessor cache size", gr.Slider, {"minimum": 0, "maximum": 100, "step": 1}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
