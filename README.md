@@ -5,7 +5,7 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 
 ControlNet is a neural network structure to control diffusion models by adding extra conditions. 
 
-Thanks & Inspired: kohya-ss/sd-webui-additional-networks
+Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Limits
 
@@ -31,25 +31,24 @@ Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
 
-Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+### ControlNet 1.1 is in the beta test.
 
-### Extraction
+Right now 12 models of ControlNet 1.1 are in the beta test (all models expect the inpaint and tile).
 
-Two methods can be used to reduce the model's filesize:
+Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
-1. Directly extract controlnet from original .pth file using `extract_controlnet.py`.
+(If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) **Some 3rd-party CivitAI and fp16 models are renamed randomly, making YAML files mismatch. The performance of some of these models (like shuffle) will be significantly worse than official ones. Please download models from our huggingface website with correct YAML file names.**
 
-2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
+Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
 
-All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
+### Previous Models
 
-Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
+Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
-Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
+Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 ### Tips 
 
-* Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
@@ -111,14 +110,6 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 ### Minimum Requirements
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
-
-### CFG Based ControlNet (Experimental)
-
-The original ControlNet applies control to both conditional (cond) and unconditional (uncond) parts. Enabling this option will make the control only apply to the cond part. Some experiments indicate that this approach improves image quality.
-
-To enable this option, tick `Enable CFG-Based guidance for ControlNet` in the settings.
-
-Note that you need to use a low cfg scale/guidance scale (such as 3-5) and proper weight tuning to get good result.
 
 ### Guess Mode (Non-Prompt Mode, Experimental)
 

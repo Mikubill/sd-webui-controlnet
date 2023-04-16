@@ -49,7 +49,7 @@ class ControlNetUnit:
         weight: float=1.0,
         image: Optional[InputImage]=None,
         invert_image: bool=False,
-        resize_mode: Union[ResizeMode, int, str]=ResizeMode.INNER_FIT,
+        resize_mode: Union[ResizeMode, int, str]=ResizeMode.OUTER_FIT,
         rgbbgr_mode: bool=False,
         low_vram: bool=False,
         processor_res: int=64,
