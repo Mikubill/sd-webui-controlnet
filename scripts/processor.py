@@ -42,7 +42,7 @@ def tile_gaussian(img, res=512, thr_a=5, **kwargs):
 def threshold(img, res=512, thr_a=127, **kwargs):
     img = resize_image(HWC3(img), res)
     result = np.zeros_like(img, dtype=np.uint8)
-    result[np.min(img, axis=2) < thr_a] = 255
+    result[np.min(img, axis=2) > thr_a] = 255
     return result, True
 
 
