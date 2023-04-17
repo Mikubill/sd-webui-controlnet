@@ -743,7 +743,12 @@ class Script(scripts.Script):
             if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
             elif p_input_image is not None:
-                input_image = HWC3(np.asarray(p_input_image))
+                if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
+                    color = HWC3(np.asarray(p_input_image['image']))
+                    alpha = np.asarray(p_input_image['mask'])[..., None]
+                    input_image = np.concatenate([color, alpha], axis=2)
+                else:
+                    input_image = HWC3(np.asarray(p_input_image))
             elif image is not None:
                 # Need to check the image for API compatibility
                 if isinstance(image['image'], str):
