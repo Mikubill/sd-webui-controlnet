@@ -1,0 +1,9 @@
+model:
+  target: tencentarc.t21_adapter
+  params:
+    channels: [320, 640, 1280, 1280]
+    nums_rb: 2
+    ksize: 1
+    sk: true
+    cin: 192
+    use_conv: false

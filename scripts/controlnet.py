@@ -29,6 +29,7 @@ from scripts.hook import ControlParams, UnetHook
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 import cv2
+from pathlib import Path
 from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
@@ -340,10 +341,24 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module == "binary":
+            elif module == "threshold":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                    gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
+                    gr.update(label="Binarization Threshold", minimum=0, maximum=255, value=127, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "scribble_xdog":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="XDoG Threshold", minimum=1, maximum=64, value=32, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "tile_gaussian":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Noise", value=16.0, minimum=0.1, maximum=48.0, step=0.01, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -373,12 +388,12 @@ class Script(scripts.Script):
         advanced = gr.Column(visible=False)
         with advanced:
             processor_res = gr.Slider(label="Annotator resolution", value=default_unit.processor_res, minimum=64, maximum=2048, interactive=False)
-            threshold_a =  gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
-            threshold_b =  gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
+            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
+            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
             
         if gradio_compat:    
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
-                
+
         # infotext_fields.extend((module, model, weight))
 
         def create_canvas(h, w):
@@ -412,9 +427,14 @@ class Script(scripts.Script):
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+            if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
                 img = HWC3(image['mask'][:, :, 0])
-                
+
+            if 'inpaint' in module:
+                color = HWC3(image['image'])
+                alpha = image['mask'][:, :, 0:1]
+                img = np.concatenate([color, alpha], axis=2)
+
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
             result = None
@@ -631,10 +651,19 @@ class Script(scripts.Script):
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
 
+        model_stem = Path(model_path).stem
         override_config = os.path.splitext(model_path)[0] + ".yaml"
+
+        if not os.path.exists(override_config):
+            override_config = os.path.join(global_state.script_dir, 'models', model_stem + ".yaml")
+
+        if 'v11' in model_stem or 'shuffle' in model_stem:
+            assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
+
         if os.path.exists(override_config):
             network_config = override_config
 
+        print(f"Loading config: {network_config}")
         network = network_module(
             state_dict=state_dict,
             config_path=network_config,
@@ -685,10 +714,13 @@ class Script(scripts.Script):
         return unit
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
-        detected_map = HWC3(detected_map)
 
-        if module == "normal_map" or rgbbgr_mode:
-            detected_map = detected_map[:, :, ::-1].copy()
+        if 'inpaint' in module:
+            detected_map = detected_map.astype(np.float32)
+        else:
+            detected_map = HWC3(detected_map)
+            if module == "normal_map" or rgbbgr_mode:
+                detected_map = detected_map[:, :, ::-1].copy()
 
         def get_pytorch_control(x):
             y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
@@ -825,10 +857,16 @@ class Script(scripts.Script):
                     input_image = HWC3(image['image'])
 
                 # Adding 'mask' check for API compatibility
-                if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                    print("using mask as input")
-                    input_image = HWC3(image['mask'][:, :, 0])
-                    invert_image = True
+                if 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
+                    if 'inpaint' in unit.module:
+                        print("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    else:
+                        print("using mask as input")
+                        input_image = HWC3(image['mask'][:, :, 0])
+                        invert_image = True
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0]
@@ -837,21 +875,26 @@ class Script(scripts.Script):
                 input_image = HWC3(np.asarray(input_image))
 
             if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
-                input_image = Image.fromarray(input_image)
+                input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
+                input_image = [Image.fromarray(x) for x in input_image]
+
                 mask = p.image_mask.convert('L')
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
                 # scale crop region to the size of our image
                 x1, y1, x2, y2 = crop_region
-                scale_x, scale_y = mask.width / float(input_image.width), mask.height / float(input_image.height)
+                scale_x, scale_y = mask.width / float(input_image[0].width), mask.height / float(input_image[0].height)
                 crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
 
-                input_image = input_image.crop(crop_region)
-                input_image = images.resize_image(2, input_image, p.width, p.height)
-                input_image = HWC3(np.asarray(input_image))
+                input_image = [x.crop(crop_region) for x in input_image]
+                input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
+                input_image = [np.asarray(x)[:, :, 0] for x in input_image]
+                input_image = np.stack(input_image, axis=2)
 
-            np.random.seed(int(p.seed) % 65535)
+            tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed),0))
+            tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed),0))
+            np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
 
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
@@ -894,6 +937,8 @@ class Script(scripts.Script):
                     fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
 
+            is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
+
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -907,7 +952,11 @@ class Script(scripts.Script):
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
                 global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
-                hr_hint_cond=hr_control
+                hr_hint_cond=hr_control,
+                batch_size=p.batch_size,
+                instance_counter=0,
+                is_vanilla_samplers=is_vanilla_samplers,
+                cfg_scale=p.cfg_scale
             )
             forward_params.append(forward_param)
 
@@ -915,7 +964,7 @@ class Script(scripts.Script):
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
         self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
+        self.latest_network.notify(forward_params, is_vanilla_samplers)
         self.detected_map = detected_maps
 
         if len(self.enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
@@ -943,7 +992,7 @@ class Script(scripts.Script):
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
-                processed.images.extend([Image.fromarray(detect_map)])
+                processed.images.extend([Image.fromarray(detect_map.clip(0, 255).astype(np.uint8))])
 
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)

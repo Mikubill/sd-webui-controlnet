@@ -1,4 +1,4 @@
-
+import cv2
 import numpy as np
 from annotator.util import resize_image, HWC3
 
@@ -21,6 +21,43 @@ def scribble_thr(img, res=512, **kwargs):
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) < 127] = 255
     return result, True
+
+
+def scribble_xdog(img, res=512, thr_a=32, **kwargs):
+    img = resize_image(HWC3(img), res)
+    g1 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 0.5)
+    g2 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 5.0)
+    dog = (255 - np.min(g2 - g1, axis=2)).clip(0, 255).astype(np.uint8)
+    result = np.zeros_like(img, dtype=np.uint8)
+    result[2 * (255 - dog) > thr_a] = 255
+    return result, True
+
+
+def tile_gaussian(img, res=512, thr_a=16, **kwargs):
+    img = resize_image(HWC3(img), res)
+    y = img.astype(np.float32)
+    for _ in range(3):
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
+        y = cv2.pyrDown(y)
+    for _ in range(3):
+        y = cv2.pyrUp(y)
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
+    return y.clip(0, 255).astype(np.uint8), True
+
+
+def threshold(img, res=512, thr_a=127, **kwargs):
+    img = resize_image(HWC3(img), res)
+    result = np.zeros_like(img, dtype=np.uint8)
+    result[np.min(img, axis=2) > thr_a] = 255
+    return result, True
+
+
+def inpaint(img, res=512, **kwargs):
+    color = resize_image(img[:, :, 0:3], res)
+    mask = resize_image(img[:, :, 3:4], res)
+    img = color.astype(np.int32)
+    img[mask > 127] = - 255
+    return img, True
 
 
 model_hed = None
