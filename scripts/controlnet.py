@@ -761,17 +761,21 @@ class Script(scripts.Script):
                 else:
                     input_image = HWC3(image['image'])
 
-                # Adding 'mask' check for API compatibility
-                if 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
-                    if 'inpaint' in unit.module:
-                        print("using inpaint as input")
-                        color = HWC3(image['image'])
+                have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
+
+                if 'inpaint' in unit.module:
+                    print("using inpaint as input")
+                    color = HWC3(image['image'])
+                    if have_mask:
                         alpha = image['mask'][:, :, 0:1]
-                        input_image = np.concatenate([color, alpha], axis=2)
                     else:
+                        alpha = np.zeros_like(color)[:, :, 0:1]
+                    input_image = np.concatenate([color, alpha], axis=2)
+                else:
+                    if have_mask:
                         print("using mask as input")
                         input_image = HWC3(image['mask'][:, :, 0])
-                        invert_image = True
+                        invert_image = False  # Always use black bg and white line
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
