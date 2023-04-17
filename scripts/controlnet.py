@@ -548,7 +548,11 @@ class Script(scripts.Script):
             os.path.join(model_dir_name, model_stem.replace('_fp16', '') + ".yaml"),
             os.path.join(global_state.script_dir, 'models', model_stem.replace('_fp16', '') + ".yaml"),
             os.path.join(model_dir_name, model_stem.replace('_diff', '') + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem.replace('_diff', '') + ".yaml")
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('_diff', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('-fp16', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('-fp16', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('-diff', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('-diff', '') + ".yaml")
         ]
 
         override_config = possible_config_filenames[0]
