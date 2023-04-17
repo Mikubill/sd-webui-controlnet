@@ -207,7 +207,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         available_modules = [
             "none",
 
-            "binary",                 
             "canny",
             
             "depth_midas",          # Unload
@@ -231,7 +230,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             
             "scribble_hed",
             "scribble_pidinet",
-            "scribble_thr",
 
             "seg_ofcoco",           # Unload
             "seg_ofade20k",         # Unload
@@ -260,11 +258,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         for input_image in controlnet_input_images:
             img = external_code.to_base64_nparray(input_image)
 
-            if controlnet_module == "binary":
-                results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
-            elif controlnet_module == "canny":
+            if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
-            
             elif controlnet_module == "depth_midas":
                 results.append(midas(img, controlnet_processor_res, np.pi * 2.0)[0])
             elif controlnet_module == "depth_leres":
@@ -302,8 +297,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(scribble_hed(img, controlnet_processor_res)[0])
             elif controlnet_module == "scribble_pidinet":
                 results.append(scribble_pidinet(img, controlnet_processor_res)[0])
-            elif controlnet_module == "scribble_thr":
-                results.append(scribble_thr(img, controlnet_processor_res)[0])
             
             elif controlnet_module == "seg_ofcoco":
                 results.append(oneformer_coco(img, controlnet_processor_res)[0])
