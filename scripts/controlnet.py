@@ -1016,7 +1016,7 @@ def on_ui_settings():
     shared.opts.add_option("controlnet_show_batch_images_in_ui", shared.OptionInfo(
         False, "Show batch images in gradio gallerie output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_increment_seed_during_batch", shared.OptionInfo(
-        True, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
+        False, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
     # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
     #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 

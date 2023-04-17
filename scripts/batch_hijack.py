@@ -20,7 +20,10 @@ class BatchHijack:
         self.postprocess_batch_callbacks = [self.on_postprocess_batch]
 
     def img2img_process_batch_hijack(self, p, *args, **kwargs):
-        _, batches, output_dir, _ = get_cn_batches(p)
+        cn_is_batch, batches, output_dir, _ = get_cn_batches(p)
+        if not cn_is_batch:
+            return getattr(img2img, '__controlnet_original_process_batch')(p, *args, **kwargs)
+
         self.dispatch_callbacks(self.process_batch_callbacks, p, batches, output_dir)
 
         try:
