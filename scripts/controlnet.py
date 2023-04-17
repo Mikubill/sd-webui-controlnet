@@ -61,6 +61,7 @@ tossup_symbol = '\u2934'
 
 webcam_enabled = False
 webcam_mirrored = False
+
 global_batch_input_dir = gr.Textbox(
     label='Controlnet input directory',
     placeholder='Leave empty to use input directory',
@@ -71,6 +72,10 @@ img2img_batch_input_dir_callbacks = []
 img2img_batch_output_dir = None
 img2img_batch_output_dir_callbacks = []
 generate_buttons = {}
+
+txt2img_submit_button = None
+img2img_submit_button = None
+
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -223,14 +228,14 @@ class Script(scripts.Script):
         with gr.Row():
             with gr.Tabs():
                 with gr.Tab(label='Upload') as upload_tab:
-                    upload_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+                    input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
                     generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
                 with gr.Tab(label='Batch') as batch_tab:
                     batch_image_dir = gr.Textbox(label='Input directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
 
         with gr.Row():
-            gr.HTML(value='<p>Invert colors if your image has white background.<br >Change your brush width to make it thinner if you want to draw something.<br ></p>')
+            gr.HTML(value='<p>Set the preprocessor to none If your image is lineart, scribble, or edge map.<br > Invert colors if your image has white background.</p>')
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
@@ -268,8 +273,8 @@ class Script(scripts.Script):
             webcam_mirrored = not webcam_mirrored
             return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
             
-        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=upload_image)
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=upload_image)
+        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
+        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
         def refresh_all_models(*inputs):
             global_state.update_cn_models()
@@ -409,7 +414,7 @@ class Script(scripts.Script):
                     base64_str = str(encoded_string, "utf-8")
                     base64_str = "data:image/png;base64,"+ base64_str
                     inputs['image'] = base64_str
-                return upload_image.orgpreprocess(inputs)
+                return input_image.orgpreprocess(inputs)
             return None
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
@@ -423,7 +428,7 @@ class Script(scripts.Script):
                 canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
                     
         create_button = gr.Button(value="Create blank canvas")
-        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[upload_image])
+        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
@@ -450,71 +455,44 @@ class Script(scripts.Script):
             annotator_button = gr.Button(value="Preview annotator result")
             annotator_button_hide = gr.Button(value="Hide annotator result")
         
-        annotator_button.click(fn=run_annotator, inputs=[upload_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
+        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
         annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
 
         if is_img2img:
-            send_dimen_button.click(fn=send_dimensions, inputs=[upload_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[upload_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
         input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
-        input_image = gr.State()
         batch_image_dir_state = gr.State('')
         output_dir_state = gr.State('')
         unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, scribble_mode, resize_mode, rgbbgr_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
         self.register_modules(tabname, unit_args)
 
-        upload_image.orgpreprocess=upload_image.preprocess
-        upload_image.preprocess=svgPreprocess
+        input_image.orgpreprocess=input_image.preprocess
+        input_image.preprocess=svgPreprocess
 
-        # update unit when any of its properties changes
         unit = gr.State(default_unit)
-        for comp in unit_args:
-            for events in (
-                ('edit', 'clear'),
-                ('click',),
-                ('change',),
-            ):
-                if not all(hasattr(comp, event) for event in events): continue
-                for event in events:
-                    getattr(comp, event)(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit)
-
-                break
 
         def index_of_init_parameter(parameter):
             parameters = inspect.getfullargspec(UiControlNetUnit.__init__)[0][1:] + inspect.getfullargspec(external_code.ControlNetUnit.__init__)[0][1:]
             index = parameters.index(parameter)
             return index
 
-        # keep upload_image in sync with input_image
-        upload_image_index = index_of_init_parameter('image')
-        components = list(unit_args)
-        components[upload_image_index] = upload_image
-        for event in 'edit', 'clear':
-            getattr(upload_image, event)(fn=lambda *args: (args[upload_image_index], UiControlNetUnit(*args)), inputs=components, outputs=[input_image, unit])
-
         # keep input_mode in sync
-        input_mode_index = index_of_init_parameter('input_mode')
-        components = list(unit_args)
         for input_tab in (
             (upload_tab, batch_hijack.InputMode.SIMPLE),
             (batch_tab, batch_hijack.InputMode.BATCH)
         ):
-            components[input_mode_index] = gr.State(input_tab[1])
-            input_tab[0].select(fn=lambda *args: (args[input_mode_index], UiControlNetUnit(*args)), inputs=components, outputs=[input_mode, unit])
+            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode])
 
-        batch_dir_index = index_of_init_parameter('batch_images')
-        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir, *args):
-            args = list(args)
+        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
-                args[batch_dir_index] = batch_dir
+                return batch_dir
             elif fallback_dir:
-                args[batch_dir_index] = fallback_dir
+                return fallback_dir
             else:
-                args[batch_dir_index] = fallback_fallback_dir
-
-            return args[batch_dir_index], UiControlNetUnit(*args)
+                return fallback_fallback_dir
 
         # keep batch_dir in sync with global batch input textboxes
         global img2img_batch_input_dir, img2img_batch_input_dir_callbacks
@@ -525,8 +503,8 @@ class Script(scripts.Script):
                 if not hasattr(batch_dir_comp, 'change'): continue
                 batch_dir_comp.change(
                     fn=determine_batch_dir,
-                    inputs=batch_dirs + list(unit_args),
-                    outputs=[batch_image_dir_state, unit])
+                    inputs=batch_dirs,
+                    outputs=[batch_image_dir_state])
 
         if img2img_batch_input_dir is None:
             # we are too soon, subscribe later when available
@@ -537,17 +515,11 @@ class Script(scripts.Script):
         # keep output_dir in sync with global batch output textbox
         global img2img_batch_output_dir, img2img_batch_output_dir_callbacks
         def subscribe_for_output_dir():
-            output_dir_index = index_of_init_parameter('output_dir')
-            def update_output_dir(output_dir, *args):
-                args = list(args)
-                args[output_dir_index] = output_dir
-                return output_dir, UiControlNetUnit(*args)
-
             global img2img_batch_output_dir
             img2img_batch_output_dir.change(
-                fn=update_output_dir,
-                inputs=[img2img_batch_output_dir] + list(unit_args),
-                outputs=[output_dir_state, unit]
+                fn=lambda a: a,
+                inputs=[img2img_batch_output_dir],
+                outputs=[output_dir_state]
             )
 
         if img2img_batch_input_dir is None:
@@ -555,6 +527,11 @@ class Script(scripts.Script):
             img2img_batch_output_dir_callbacks.append(subscribe_for_output_dir)
         else:
             subscribe_for_output_dir()
+
+        if is_img2img:
+            img2img_submit_button.click(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit, queue=False)
+        else:
+            txt2img_submit_button.click(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit, queue=False)
 
         return unit
 
@@ -586,9 +563,9 @@ class Script(scripts.Script):
         return controls
 
     def register_modules(self, tabname, params):
-        enabled, module, model, weight = params[:4]
+        enabled, module, model, weight = params[4:8]
         guidance_start, guidance_end, guess_mode = params[-3:]
-        
+
         self.infotext_fields.extend([
             (enabled, f"{tabname} Enabled"),
             (module, f"{tabname} Preprocessor"),
@@ -1071,6 +1048,16 @@ def on_ui_settings():
 
 
 def on_after_component(component, **_kwargs):
+    global txt2img_submit_button
+    if getattr(component, 'elem_id', None) == 'txt2img_generate':
+        txt2img_submit_button = component
+        return
+
+    global img2img_submit_button
+    if getattr(component, 'elem_id', None) == 'img2img_generate':
+        img2img_submit_button = component
+        return
+
     global img2img_batch_input_dir
     if getattr(component, 'elem_id', None) == 'img2img_batch_input_dir':
         img2img_batch_input_dir = component
