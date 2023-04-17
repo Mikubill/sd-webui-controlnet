@@ -41,6 +41,8 @@ Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNe
 
 Update: now we have already included all YAML files. You only need to download YAML files.
 
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites as save them as YAML files. They are not downloading YAML files. Instead, click the small download arror icon “↓” in HuggingFace to download.**
+
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
 
 In 1.1, the previous depth is now called "depth_midas", the previous normal is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
