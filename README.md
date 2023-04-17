@@ -14,9 +14,15 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 2. Open "Install from URL" tab in the tab.
 3. Enter " https://github.com/Mikubill/sd-webui-controlnet " (excluding quotation marks) to "URL for extension's git repository".
 4. Press "Install" button.
-5. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet)
-6. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again)
-7. Download models (see below)
+5. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet.)
+6. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again.)
+7. Download models (see below).
+
+### Update from ControlNet 1.0 to 1.1
+
+* If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
+
+* Or you can start from the step 5 in the above Install section.
 
 ### Download Models
 
