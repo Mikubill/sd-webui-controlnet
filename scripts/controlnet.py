@@ -479,7 +479,7 @@ class Script(scripts.Script):
             (upload_tab, batch_hijack.InputMode.SIMPLE),
             (batch_tab, batch_hijack.InputMode.BATCH)
         ):
-            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode], queue=False)
+            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode])
 
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
