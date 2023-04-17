@@ -47,6 +47,7 @@ cn_preprocessor_modules = {
     "lineart_anime": lineart_anime,
     "shuffle": shuffle,
     "tile_gaussian": tile_gaussian,
+    "inpaint": inpaint,
 }
 
 cn_preprocessor_unloadable = {
@@ -90,7 +91,8 @@ update_names = {
     "segmentation": "seg_ufade20k",
     "oneformer_coco": "seg_ofcoco",
     "oneformer_ade20k": "seg_ofade20k",
-    "pidinet_scribble": "scribble_pidinet"
+    "pidinet_scribble": "scribble_pidinet",
+    "inpaint": "inpaint_global_harmonious"
 }
 
 for k, v in update_names.items():
