@@ -22,17 +22,17 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Download Models
 
-Right now 14 models of ControlNet 1.1 are in the beta test. (Update: inpaint and tile is supported.)
+Right now all the 14 models of ControlNet 1.1 are in the beta test.
 
 Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
 You need to download model files ending with ".pth" .
 
-**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all YAML files. You only need to download PTH files.** 
+**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all "yaml" files. You only need to download "pth" files.** 
 
 Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
 
-**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and save them as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, click the small download arrow “↓” icon in HuggingFace to download.**
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
 
 ### See Also
 
@@ -44,7 +44,7 @@ If you are a previous user of ControlNet 1.0, you may:
 
 * If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
 
-* Or you can start from the step 5 in the above Install section.
+* Or you can start from the step 6 in the above Install section.
 
 ### Previous Models
 
