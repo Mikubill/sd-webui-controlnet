@@ -98,6 +98,21 @@ def scribble_hed(img, res=512, **kwargs):
     return result, True
 
 
+model_mediapipe_face = None
+
+
+def mediapipe_face(img, res=512, thr_a: int = 10, thr_b: float = 0.5, **kwargs):
+    max_faces = thr_a
+    min_confidence = thr_b
+    img = resize_image(HWC3(img), res)
+    global model_mediapipe_face
+    if model_mediapipe_face is None:
+        from annotator.mediapipe_face import apply_mediapipe_face
+        model_mediapipe_face = apply_mediapipe_face
+    result = model_mediapipe_face(img, max_faces=max_faces, min_confidence=min_confidence)
+    return result, True
+
+
 model_mlsd = None
 
 
@@ -337,7 +352,7 @@ def lineart(img, res=512, **kwargs):
     if model_lineart is None:
         from annotator.lineart import LineartDetector
         model_lineart = LineartDetector(LineartDetector.model_default)
-    
+
     # applied auto inversion
     result = 255-model_lineart(img)
     return result, True
@@ -357,7 +372,7 @@ def lineart_coarse(img, res=512, **kwargs):
     if model_lineart_coarse is None:
         from annotator.lineart import LineartDetector
         model_lineart_coarse = LineartDetector(LineartDetector.model_coarse)
-    
+
     # applied auto inversion
     result = 255-model_lineart_coarse(img)
     return result, True
@@ -377,7 +392,7 @@ def lineart_anime(img, res=512, **kwargs):
     if model_lineart_anime is None:
         from annotator.lineart_anime import LineartAnimeDetector
         model_lineart_anime = LineartAnimeDetector()
-        
+
     # applied auto inversion
     result = 255-model_lineart_anime(img)
     return result, True
@@ -404,8 +419,8 @@ def unload_zoe_depth():
     global model_zoe_depth
     if model_zoe_depth is not None:
         model_zoe_depth.unload_model()
-        
-        
+
+
 model_normal_bae = None
 
 
@@ -440,8 +455,8 @@ def unload_oneformer_coco():
     global model_oneformer_coco
     if model_oneformer_coco is not None:
         model_oneformer_coco.unload_model()
-        
-        
+
+
 model_oneformer_ade20k = None
 
 
@@ -458,8 +473,8 @@ def unload_oneformer_ade20k():
     global model_oneformer_ade20k
     if model_oneformer_ade20k is not None:
         model_oneformer_ade20k.unload_model()
-        
-        
+
+
 model_shuffle = None
 
 

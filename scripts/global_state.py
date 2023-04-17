@@ -19,6 +19,7 @@ cn_preprocessor_modules = {
     "depth_leres": leres,
     "hed": hed,
     "hed_safe": hed_safe,
+    "mediapipe_face": mediapipe_face,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,

@@ -208,7 +208,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "none",
 
             "canny",
-            
+
             "depth_midas",                  # Unload
             "depth_leres",                  # Unload
             "depth_zoe",                    # Unload
@@ -216,7 +216,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "lineart",                      # Unload
             "lineart_coarse",               # Unload
             "lineart_anime",                # Unload
-            
+
+            "mediapipe_face",
+
             "mlsd",                         # Unload
 
             "normal_midas",                 # Unload
@@ -227,7 +229,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "openpose_faceonly",            # Unload
             "openpose_hand",                # Unload
             "openpose_full",                # Unload
-            
+
             "scribble_hed",
             "scribble_pidinet",
             "scribble_xdog",
@@ -269,22 +271,25 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "depth_zoe":
                 results.append(zoe_depth(img, controlnet_processor_res)[0])
-            
+
             elif controlnet_module == "lineart":
                 results.append(lineart(img, controlnet_processor_res)[0])
             elif controlnet_module == "lineart_coarse":
                 results.append(lineart_coarse(img, controlnet_processor_res)[0])
             elif controlnet_module == "lineart_anime":
                 results.append(lineart_anime(img, controlnet_processor_res)[0])
-            
+
+            elif controlnet_module == "mediapipe_face":
+                results.append(mediapipe_face(img, controlnet_processor_res, int(controlnet_threshold_a), controlnet_threshold_b)[0])
+
             elif controlnet_module == "mlsd":
                 results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
-            
+
             elif controlnet_module == "normal_midas":
                 results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
             elif controlnet_module == "normal_bae":
                 results.append(normal_bae(img, controlnet_processor_res)[0])
-            
+
             elif controlnet_module == "openpose":
                 results.append(openpose(img, controlnet_processor_res)[0])
             elif controlnet_module == "openpose_face":
@@ -302,7 +307,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(scribble_pidinet(img, controlnet_processor_res)[0])
             elif controlnet_module == "scribble_xdog":
                 results.append(scribble_xdog(img, controlnet_processor_res, controlnet_threshold_a)[0])
-            
+
             elif controlnet_module == "seg_ofcoco":
                 results.append(oneformer_coco(img, controlnet_processor_res)[0])
             elif controlnet_module == "seg_ofade20k":
@@ -336,14 +341,14 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             unload_leres()
         elif controlnet_module == "depth_zoe":
             unload_zoe_depth()
-        
+
         elif controlnet_module == "lineart":
             unload_lineart()
         elif controlnet_module == "lineart_coarse":
             unload_lineart_coarse()
         elif controlnet_module == "lineart_anime":
             unload_lineart_anime()
-        
+
         elif controlnet_module == "mlsd":
             unload_mlsd()
 
