@@ -311,7 +311,7 @@ class Script(scripts.Script):
             elif module == "tile_gaussian":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                    gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(label="Noise", value=16.0, minimum=0.1, maximum=48.0, step=0.01, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]

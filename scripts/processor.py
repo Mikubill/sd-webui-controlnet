@@ -33,13 +33,15 @@ def scribble_xdog(img, res=512, thr_a=32, **kwargs):
     return result, True
 
 
-def tile_gaussian(img, res=512, **kwargs):
+def tile_gaussian(img, res=512, thr_a=16, **kwargs):
     img = resize_image(HWC3(img), res)
     y = img.astype(np.float32)
     for _ in range(3):
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
         y = cv2.pyrDown(y)
     for _ in range(3):
         y = cv2.pyrUp(y)
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
     return y.clip(0, 255).astype(np.uint8), True
 
 
