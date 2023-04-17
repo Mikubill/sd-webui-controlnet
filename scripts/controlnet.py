@@ -24,6 +24,7 @@ from scripts.hook import ControlParams, UnetHook
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 import cv2
+from pathlib import Path
 from PIL import Image
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
@@ -535,8 +536,13 @@ class Script(scripts.Script):
             network_config = shared.opts.data.get("control_net_model_adapter_config", global_state.default_conf_adapter)
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
-            
+
+        model_name = Path(model_path).name
         override_config = os.path.splitext(model_path)[0] + ".yaml"
+
+        if 'v11' in model_name or 'shuffle' in model_name:
+            assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
+
         if os.path.exists(override_config):
             network_config = override_config
 
