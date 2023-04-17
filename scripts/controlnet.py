@@ -474,17 +474,12 @@ class Script(scripts.Script):
 
         unit = gr.State(default_unit)
 
-        def index_of_init_parameter(parameter):
-            parameters = inspect.getfullargspec(UiControlNetUnit.__init__)[0][1:] + inspect.getfullargspec(external_code.ControlNetUnit.__init__)[0][1:]
-            index = parameters.index(parameter)
-            return index
-
         # keep input_mode in sync
         for input_tab in (
             (upload_tab, batch_hijack.InputMode.SIMPLE),
             (batch_tab, batch_hijack.InputMode.BATCH)
         ):
-            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode])
+            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode], queue=False)
 
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
@@ -501,10 +496,12 @@ class Script(scripts.Script):
             batch_dirs = [batch_image_dir, global_batch_input_dir, img2img_batch_input_dir]
             for batch_dir_comp in batch_dirs:
                 if not hasattr(batch_dir_comp, 'change'): continue
-                batch_dir_comp.change(
+                batch_dir_comp.blur(
                     fn=determine_batch_dir,
                     inputs=batch_dirs,
-                    outputs=[batch_image_dir_state])
+                    outputs=[batch_image_dir_state],
+                    queue=False,
+                )
 
         if img2img_batch_input_dir is None:
             # we are too soon, subscribe later when available
@@ -516,10 +513,11 @@ class Script(scripts.Script):
         global img2img_batch_output_dir, img2img_batch_output_dir_callbacks
         def subscribe_for_output_dir():
             global img2img_batch_output_dir
-            img2img_batch_output_dir.change(
+            img2img_batch_output_dir.blur(
                 fn=lambda a: a,
                 inputs=[img2img_batch_output_dir],
-                outputs=[output_dir_state]
+                outputs=[output_dir_state],
+                queue=False,
             )
 
         if img2img_batch_input_dir is None:
