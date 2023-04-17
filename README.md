@@ -20,12 +20,6 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 8. Download models (see below).
 9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
 
-### Update from ControlNet 1.0 to 1.1
-
-* If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
-
-* Or you can start from the step 5 in the above Install section.
-
 ### Download Models
 
 Right now 14 models of ControlNet 1.1 are in the beta test. (Update: inpaint and tile is supported.)
@@ -43,6 +37,14 @@ Note: If you download models elsewhere, please make sure that yaml file names an
 ### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
+
+### Update from ControlNet 1.0 to 1.1
+
+If you are a previous user of ControlNet 1.0, you may:
+
+* If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
+
+* Or you can start from the step 5 in the above Install section.
 
 ### Previous Models
 
