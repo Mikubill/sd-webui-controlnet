@@ -209,41 +209,44 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
             "canny",
             
-            "depth_midas",          # Unload
-            "depth_leres",          # Unload
-            "depth_zoe",            # Unload
-            
-            "lineart",              # Unload
-            "lineart_coarse",       # Unload
-            "lineart_anime",        # Unload
-            
-            "mlsd",                 # Unload
+            "depth_midas",                  # Unload
+            "depth_leres",                  # Unload
+            "depth_zoe",                    # Unload
 
-            "normal_midas",         # Unload
-            "normal_bae",           # Unload
+            "lineart",                      # Unload
+            "lineart_coarse",               # Unload
+            "lineart_anime",                # Unload
+            
+            "mlsd",                         # Unload
 
-            "openpose",             # Unload
-            "openpose_face",        # Unload
-            "openpose_faceonly",    # Unload
-            "openpose_hand",        # Unload
-            "openpose_full",        # Unload
+            "normal_midas",                 # Unload
+            "normal_bae",                   # Unload
+
+            "openpose",                     # Unload
+            "openpose_face",                # Unload
+            "openpose_faceonly",            # Unload
+            "openpose_hand",                # Unload
+            "openpose_full",                # Unload
             
             "scribble_hed",
             "scribble_pidinet",
+            "scribble_xdog",
 
-            "seg_ofcoco",           # Unload
-            "seg_ofade20k",         # Unload
-            "seg_ufade20k",         # Unload
+            "seg_ofcoco",                   # Unload
+            "seg_ofade20k",                 # Unload
+            "seg_ufade20k",                 # Unload
 
             "shuffle",
 
-            "softedge_hed",         # Unload
-            "softedge_hedsafe",     # Unload
-            "softedge_pidinet",     # Unload
-            "softedge_pidisafe",    # Unload
+            "softedge_hed",                 # Unload
+            "softedge_hedsafe",             # Unload
+            "softedge_pidinet",             # Unload
+            "softedge_pidisafe",            # Unload
 
             "t2ia_color_grid",
-            "t2ia_sketch_pidi"
+            "t2ia_sketch_pidi",
+
+            "threshold"
         ]
 
         if controlnet_module not in available_modules:
@@ -297,6 +300,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(scribble_hed(img, controlnet_processor_res)[0])
             elif controlnet_module == "scribble_pidinet":
                 results.append(scribble_pidinet(img, controlnet_processor_res)[0])
+            elif controlnet_module == "scribble_xdog":
+                results.append(scribble_xdog(img, controlnet_processor_res, controlnet_threshold_a)[0])
             
             elif controlnet_module == "seg_ofcoco":
                 results.append(oneformer_coco(img, controlnet_processor_res)[0])
@@ -321,6 +326,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             elif controlnet_module == "t2ia_sketch_pidi":
                 # Is this the right annotator for t2ia_sketch_pidi?
                 results.append(pidinet_ts(img, controlnet_processor_res)[0])
+
+            elif controlnet_module == "threshold":
+                results.append(threshold(img, controlnet_processor_res, controlnet_threshold_a)[0])
 
         if controlnet_module == "depth_midas":
             unload_midas()
