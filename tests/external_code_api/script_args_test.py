@@ -11,7 +11,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
         self.flat_control_unit = [
             True, "none", utils.get_model(), 1.0,
             utils.readImage("test/test_files/img2img_basic.png"),
-            False, "Scale to Fit (Inner Fit)", False, False,
+            False, "Inner Fit (Scale to Fit)", False, False,
             64, 64, 64, 0.0, 1.0, False
         ]
         self.object_unit = external_code.ControlNetUnit(*self.flat_control_unit)

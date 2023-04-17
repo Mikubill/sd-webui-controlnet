@@ -50,10 +50,16 @@ class ControlParams:
         stop_guidance_percent, 
         advanced_weighting, 
         is_adapter,
-        is_extra_cond
+        is_extra_cond,
+        hr_hint_cond,
+        global_average_pooling,
+        batch_size,
+        instance_counter,
+        is_vanilla_samplers,
+        cfg_scale
     ):
         self.control_model = control_model
-        self.hint_cond = hint_cond
+        self._hint_cond = hint_cond
         self.guess_mode = guess_mode
         self.weight = weight
         self.guidance_stopped = guidance_stopped
@@ -62,6 +68,43 @@ class ControlParams:
         self.advanced_weighting = advanced_weighting
         self.is_adapter = is_adapter
         self.is_extra_cond = is_extra_cond
+        self.global_average_pooling = global_average_pooling
+        self.hr_hint_cond = hr_hint_cond
+        self.used_hint_cond = None
+        self.batch_size = batch_size
+        self.instance_counter = instance_counter
+        self.is_vanilla_samplers = is_vanilla_samplers
+        self.cfg_scale = cfg_scale
+
+    def generate_uc_mask(self, length, dtype, device):
+        if self.is_vanilla_samplers and self.cfg_scale == 1:
+            return torch.tensor([1 for _ in range(length)], dtype=dtype, device=device)
+
+        y = []
+
+        for i in range(length):
+            p = (self.instance_counter + i) % (self.batch_size * 2)
+            if self.is_vanilla_samplers:
+                y += [0] if p < self.batch_size else [1]
+            else:
+                y += [1] if p < self.batch_size else [0]
+
+        self.instance_counter += length
+
+        return torch.tensor(y, dtype=dtype, device=device)
+
+    @property
+    def hint_cond(self):
+        return self._hint_cond
+
+    # fix for all the extensions that modify hint_cond,
+    # by forcing used_hint_cond to update on the next timestep
+    # hr_hint_cond can stay the same, since most extensions dont modify the hires pass
+    # but if they do, it will cause problems
+    @hint_cond.setter
+    def hint_cond(self, new_hint_cond):
+        self._hint_cond = new_hint_cond
+        self.used_hint_cond = None
 
 
 class UnetHook(nn.Module):
@@ -70,16 +113,16 @@ class UnetHook(nn.Module):
         self.lowvram = lowvram
         self.batch_cond_available = True
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
-        
+
+    def guidance_schedule_handler(self, x):
+        for param in self.control_params:
+            current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
+            param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
+
     def hook(self, model):
         outer = self
-        
-        def guidance_schedule_handler(x):
-            for param in self.control_params:
-                current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
-                param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
-   
-        def cfg_based_adder(base, x, require_autocast, is_adapter=False):
+
+        def cfg_based_adder(base, x, require_autocast):
             if isinstance(x, float):
                 return base + x
             
@@ -87,25 +130,7 @@ class UnetHook(nn.Module):
                 zeros = torch.zeros_like(base)
                 zeros[:, :x.shape[1], ...] = x
                 x = zeros
-                
-            # assume the input format is [cond, uncond] and they have same shape
-            # see https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/sd_samplers_kdiffusion.py#L114
-            if base.shape[0] % 2 == 0 and (self.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False)):
-                if self.is_vanilla_samplers:  
-                    uncond, cond = base.chunk(2)
-                    if x.shape[0] % 2 == 0:
-                        _, x_cond = x.chunk(2)
-                        return torch.cat([uncond, cond + x_cond], dim=0)
-                    if is_adapter:
-                        return torch.cat([uncond, cond + x], dim=0)
-                else:
-                    cond, uncond = base.chunk(2)
-                    if x.shape[0] % 2 == 0:
-                        x_cond, _ = x.chunk(2)
-                        return torch.cat([cond + x_cond, uncond], dim=0)
-                    if is_adapter:
-                        return torch.cat([cond + x, uncond], dim=0)
-            
+
             # resize to sample resolution
             base_h, base_w = base.shape[-2:]
             xh, xw = x.shape[-2:]
@@ -123,18 +148,26 @@ class UnetHook(nn.Module):
             
             # handle external cond first
             for param in outer.control_params:
+                # select which hint_cond to use
+
+                # when a batch starts
+                if param.used_hint_cond is None or x.shape[-1] - param.used_hint_cond.shape[-1] // 8 < 0:
+                    param.used_hint_cond = param.hint_cond
+
+                # true on first step of hires
+                if param.hr_hint_cond is not None and abs(x.shape[-1] - param.used_hint_cond.shape[-1] // 8) > 8:
+                    param.used_hint_cond = param.hr_hint_cond
+
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
-                control = param.control_model(x=x, hint=param.hint_cond, timesteps=timesteps, context=context)
+                control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
                 
             # check if it's non-batch-cond mode (lowvram, edit model etc)
             if context.shape[0] % 2 != 0 and outer.batch_cond_available:
                 outer.batch_cond_available = False
-                if len(total_extra_cond) > 0 or outer.guess_mode or shared.opts.data.get("control_net_cfg_based_guidance", False):
-                    print("Warning: StyleAdapter and cfg/guess mode may not works due to non-batch-cond inference")
                 
             # concat styleadapter to cond, pad uncond to same length
             if len(total_extra_cond) > 0 and outer.batch_cond_available:
@@ -154,16 +187,9 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.guidance_stopped or param.is_extra_cond:
                     continue
-                if outer.lowvram:
-                    param.control_model.to(devices.get_device_for("controlnet"))
-                    
-                # hires stuffs
-                # note that this method may not works if hr_scale < 1.1
-                if abs(x.shape[-1] - param.hint_cond.shape[-1] // 8) > 8:
-                    only_mid_control = shared.opts.data.get("control_net_only_midctrl_hires", True)
-                    # If you want to completely disable control net, uncomment this.
-                    # return self._original_forward(x, timesteps=timesteps, context=context, **kwargs)
-                    
+
+                param.control_model.to(devices.get_device_for("controlnet"))
+
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
@@ -172,12 +198,20 @@ class UnetHook(nn.Module):
                     x_in = x[:, :4, ...]
                     require_inpaint_hijack = True
                     
-                assert param.hint_cond is not None, f"Controlnet is enabled but no input image is given"  
-                control = param.control_model(x=x_in, hint=param.hint_cond, timesteps=timesteps, context=context)
+                assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
+                control = param.control_model(x=x_in, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
                 
                 if outer.lowvram:
                     param.control_model.to("cpu")
+
+                if param.guess_mode or param.global_average_pooling:
+                    query_size = int(x.shape[0])
+                    if param.is_adapter:
+                        control = [torch.concatenate([c.clone() for _ in range(query_size)], dim=0) for c in control]
+                    uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
+                    control = [c * uc_mask for c in control]
+
                 if param.guess_mode:
                     if param.is_adapter:
                         # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
@@ -188,9 +222,12 @@ class UnetHook(nn.Module):
                     control_scales = param.advanced_weighting
                     
                 control = [c * scale for c, scale in zip(control, control_scales)]
+                if param.global_average_pooling:
+                    control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
+                    
                 for idx, item in enumerate(control):
                     target = total_adapter if param.is_adapter else total_control
-                    target[idx] += item
+                    target[idx] = item + target[idx]
                         
             control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
@@ -203,8 +240,8 @@ class UnetHook(nn.Module):
                     h = module(h, emb, context)
                     
                     # t2i-adatper, same as openaimodel.py:744
-                    if ((i+1)%3 == 0) and len(total_adapter):
-                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack, is_adapter=True)
+                    if ((i+1) % 3 == 0) and len(total_adapter):
+                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
                         
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
@@ -237,15 +274,14 @@ class UnetHook(nn.Module):
                         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
-        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
+        scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
     
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
-        self.guess_mode = any([param.guess_mode for param in params])
 
     def restore(self, model):
-        scripts.script_callbacks.remove_current_script_callbacks()
+        scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
         if hasattr(self, "control_params"):
             del self.control_params
         

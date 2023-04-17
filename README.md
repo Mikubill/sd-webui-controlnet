@@ -1,55 +1,65 @@
 ## sd-webui-controlnet
-(WIP) WebUI extension for ControlNet and T2I-Adapter
+
+(WIP) WebUI extension for ControlNet and other injection-based SD controls.
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
 ControlNet is a neural network structure to control diffusion models by adding extra conditions. 
 
-Thanks & Inspired: kohya-ss/sd-webui-additional-networks
-
-### Limits
-
-* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
+Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Install
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. Enter URL of this repo to "URL for extension's git repository".
+3. Enter `https://github.com/Mikubill/sd-webui-controlnet.git` to "URL for extension's git repository".
 4. Press "Install" button.
-5. Reload/Restart Web UI.
+5. Wait 5 seconds, and you will see the message "Installed into stable-diffusion-webui\extensions\sd-webui-controlnet. Use Installed tab to restart".
+6. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet.)
+7. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again.)
+8. Download models (see below).
+9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
 
-Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
+### Download Models
+
+Right now all the 14 models of ControlNet 1.1 are in the beta test.
+
+Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
+
+You need to download model files ending with ".pth" .
+
+**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all "yaml" files. You only need to download "pth" files.** 
+
+Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
+
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
+
+### See Also
+
+Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
+
+### Update from ControlNet 1.0 to 1.1
+
+If you are a previous user of ControlNet 1.0, you may:
+
+* If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
+
+* Or you can start from the step 6 in the above Install section.
+
+### Previous Models
+
+Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
+
+Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
+
+You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
 
 ### Usage
 
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
-2. Open "txt2img" or "img2img" tab, write your prompts.
-3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
-4. Upload your image and select preprocessor, done.
+1. Open "txt2img" or "img2img" tab, write your prompts.
+2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
+3. Upload your image and select preprocessor, done.
 
-Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
-
-Pretrained Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
-
-### Extraction
-
-Two methods can be used to reduce the model's filesize:
-
-1. Directly extract controlnet from original .pth file using `extract_controlnet.py`.
-
-2. Transfer control from original checkpoint by making difference using `extract_controlnet_diff.py`.
-
-All type of models can be correctly recognized and loaded. The results of different extraction methods are discussed in https://github.com/lllyasviel/ControlNet/discussions/12 and https://github.com/Mikubill/sd-webui-controlnet/issues/73. 
-
-Pre-extracted model: https://huggingface.co/webui/ControlNet-modules-safetensors
-
-Pre-extracted difference model: https://huggingface.co/kohya-ss/ControlNet-diff-modules
-
-### Tips 
-
-* Don't forget to add some negative prompt, default negative prompt in ControlNet repo is "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality".
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
@@ -111,14 +121,6 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 ### Minimum Requirements
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
-
-### CFG Based ControlNet (Experimental)
-
-The original ControlNet applies control to both conditional (cond) and unconditional (uncond) parts. Enabling this option will make the control only apply to the cond part. Some experiments indicate that this approach improves image quality.
-
-To enable this option, tick `Enable CFG-Based guidance for ControlNet` in the settings.
-
-Note that you need to use a low cfg scale/guidance scale (such as 3-5) and proper weight tuning to get good result.
 
 ### Guess Mode (Non-Prompt Mode, Experimental)
 
@@ -183,3 +185,9 @@ pip install langchain==0.0.101 openai
 # Run exmaple
 python example/chatgpt.py
 ```
+
+### Limits
+
+* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
+* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
+
