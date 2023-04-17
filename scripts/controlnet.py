@@ -531,11 +531,25 @@ class Script(scripts.Script):
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
 
+        model_path = os.path.abspath(model_path)
         model_stem = Path(model_path).stem
-        override_config = os.path.splitext(model_path)[0] + ".yaml"
+        model_dir_name = os.path.dirname(model_path)
 
-        if not os.path.exists(override_config):
-            override_config = os.path.join(global_state.script_dir, 'models', model_stem + ".yaml")
+        possible_config_filenames = [
+            os.path.join(model_dir_name, model_stem + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('_fp16', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('_fp16', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('_diff', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('_diff', '') + ".yaml")
+        ]
+
+        override_config = possible_config_filenames[0]
+
+        for possible_config_filename in possible_config_filenames:
+            if os.path.exists(possible_config_filename):
+                override_config = possible_config_filename
+                break
 
         if 'v11' in model_stem.lower() or 'shuffle' in model_stem.lower():
             assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
