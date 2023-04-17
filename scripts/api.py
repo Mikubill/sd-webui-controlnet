@@ -13,7 +13,6 @@ from modules.api.models import *
 from modules.api import api
 
 from scripts import external_code, global_state
-from scripts.processor import *
 
 def encode_to_base64(image):
     if type(image) is str:
