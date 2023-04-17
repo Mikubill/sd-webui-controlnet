@@ -22,7 +22,7 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Download Models
 
-Right now all the 14 models of ControlNet 1.1 are in the beta test.
+Right now all the 14 models of ControlNet 1.1 are in the beta test. [Here is the discussion and bug report](https://github.com/Mikubill/sd-webui-controlnet/issues/736).
 
 Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
