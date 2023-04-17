@@ -32,10 +32,12 @@ cn_preprocessor_modules = {
     "pidinet_safe": pidinet_safe,
     "pidinet_sketch": pidinet_ts,
     "pidinet_scribble": scribble_pidinet,
-    "scribble_thr": scribble_thr,
+    # "scribble_thr": scribble_thr, # Removed by Lvmin to avoid confusing
+    "scribble_xdog": scribble_xdog,
     "scribble_hed": scribble_hed,
     "segmentation": uniformer,
-    "binary": binary,
+    # "binary": binary, # Removed by Lvmin to avoid confusing
+    "threshold": threshold,
     "depth_zoe": zoe_depth,
     "normal_bae": normal_bae,
     "oneformer_coco": oneformer_coco,
@@ -43,7 +45,8 @@ cn_preprocessor_modules = {
     "lineart": lineart,
     "lineart_coarse": lineart_coarse,
     "lineart_anime": lineart_anime,
-    "shuffle": shuffle
+    "shuffle": shuffle,
+    "tile_gaussian": tile_gaussian,
 }
 
 cn_preprocessor_unloadable = {

@@ -215,7 +215,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "normal_map",
             "openpose",
             "segmentation",
-            "binary",
             "color"
         ]
 
@@ -249,8 +248,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(fake_scribble(img, controlnet_processor_res)[0])
             elif controlnet_module == "segmentation":
                 results.append(uniformer(img, controlnet_processor_res)[0])
-            elif controlnet_module == "binary":
-                results.append(binary(img, controlnet_processor_res, controlnet_threshold_a)[0])
             elif controlnet_module == "color":
                 results.append(color(img, controlnet_processor_res)[0])
 
