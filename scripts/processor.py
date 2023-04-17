@@ -46,6 +46,14 @@ def threshold(img, res=512, thr_a=127, **kwargs):
     return result, True
 
 
+def inpaint(img, res=512, **kwargs):
+    color = resize_image(img[:, :, 0:3], res)
+    mask = resize_image(img[:, :, 3:4], res)
+    img = color.astype(np.int32)
+    img[mask > 127] = - 255
+    return img, True
+
+
 model_hed = None
 
 

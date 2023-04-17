@@ -379,9 +379,14 @@ class Script(scripts.Script):
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+            if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
                 img = HWC3(image['mask'][:, :, 0])
-                
+
+            if 'inpaint' in module:
+                color = HWC3(image['image'])
+                alpha = image['mask'][:, :, 0:1]
+                img = np.concatenate([color, alpha], axis=2)
+
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
             result = None
@@ -585,7 +590,11 @@ class Script(scripts.Script):
         return unit
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
-        detected_map = HWC3(detected_map)
+
+        if detected_map.dtype == np.uint8:
+            detected_map = HWC3(detected_map)
+        else:
+            detected_map = detected_map.astype(np.float32)
 
         if module == "normal_map" or rgbbgr_mode:
             detected_map = detected_map[:, :, ::-1].copy()
@@ -720,10 +729,16 @@ class Script(scripts.Script):
                     input_image = HWC3(image['image'])
 
                 # Adding 'mask' check for API compatibility
-                if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                    print("using mask as input")
-                    input_image = HWC3(image['mask'][:, :, 0])
-                    invert_image = True
+                if 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
+                    if 'inpaint' in unit.module:
+                        print("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    else:
+                        print("using mask as input")
+                        input_image = HWC3(image['mask'][:, :, 0])
+                        invert_image = True
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
@@ -843,7 +858,7 @@ class Script(scripts.Script):
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
-                processed.images.extend([Image.fromarray(detect_map)])
+                processed.images.extend([Image.fromarray(detect_map.clip(0, 255).astype(np.uint8))])
 
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)
