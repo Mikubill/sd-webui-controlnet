@@ -1,5 +1,6 @@
 ## sd-webui-controlnet
-(WIP) WebUI extension for ControlNet and T2I-Adapter
+
+(WIP) WebUI extension for ControlNet and other injection-based SD controls.
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
@@ -7,45 +8,33 @@ ControlNet is a neural network structure to control diffusion models by adding e
 
 Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
-### Limits
-
-* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
-
 ### Install
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. Enter URL of this repo to "URL for extension's git repository".
+3. Enter " https://github.com/Mikubill/sd-webui-controlnet " (excluding quotation marks) to "URL for extension's git repository".
 4. Press "Install" button.
-5. Reload/Restart Web UI.
+5. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet)
+6. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again)
+7. Download models (see below)
 
-Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
+### Download Models
 
-### Usage
+Right now 14 models of ControlNet 1.1 are in the beta test. (Update: inpaint and tile is supported.)
 
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
-2. Open "txt2img" or "img2img" tab, write your prompts.
-3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
-4. Upload your image and select preprocessor, done.
+Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
-Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
+You need to download model files ending with ".pth" .
 
-### ControlNet 1.1 is in the beta test.
+**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all YAML files. You only need to download PTH files.** 
 
-Right now 12 models of ControlNet 1.1 are in the beta test. (Update: inpaint and tile is supported.)
+Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
 
-Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and save them as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, click the small download arrow “↓” icon in HuggingFace to download.**
 
-**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all YAML files. You only need to download PTH files.**
-
-(If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) Some 3rd-party CivitAI and fp16 models are renamed randomly, making YAML files mismatch. Please download models from our huggingface website with correct YAML file names.
-
-**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites as save them as PTH/YAML files. They are not downloading PTH/YAML files. Instead, click the small download arrow icon “↓” in HuggingFace to download.**
+### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
-
-In 1.1, the previous depth is now called "depth_midas", the previous normal is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
 
 ### Previous Models
 
@@ -53,9 +42,19 @@ Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
-### Tips 
+You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+
+### Usage
+
+1. Open "txt2img" or "img2img" tab, write your prompts.
+2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
+3. Upload your image and select preprocessor, done.
 
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
+
+### Tips 
+
+* Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
 
 ### Examples
 
@@ -180,3 +179,9 @@ pip install langchain==0.0.101 openai
 # Run exmaple
 python example/chatgpt.py
 ```
+
+### Limits
+
+* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
+* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
+
