@@ -209,7 +209,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
             "binary",                 
             "canny",
-
+            
             "depth_midas",          # Unload
             "depth_leres",          # Unload
             "depth_zoe",            # Unload
@@ -311,7 +311,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(oneformer_ade20k(img, controlnet_processor_res)[0])
             elif controlnet_module == "seg_ufade20k":
                 results.append(uniformer(img, controlnet_processor_res)[0])
-
             elif controlnet_module == "shuffle":
                 results.append(shuffle(img, controlnet_processor_res)[0])
 

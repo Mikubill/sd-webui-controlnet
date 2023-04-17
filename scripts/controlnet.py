@@ -293,10 +293,24 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module == "binary":
+            elif module == "threshold":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                    gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
+                    gr.update(label="Binarization Threshold", minimum=0, maximum=255, value=127, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "scribble_xdog":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="XDoG Threshold", minimum=1, maximum=64, value=32, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "tile_gaussian":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Gaussian Sigma", minimum=0.5, maximum=16, value=5, step=0.01, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -326,12 +340,12 @@ class Script(scripts.Script):
         advanced = gr.Column(visible=False)
         with advanced:
             processor_res = gr.Slider(label="Annotator resolution", value=default_unit.processor_res, minimum=64, maximum=2048, interactive=False)
-            threshold_a =  gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
-            threshold_b =  gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
+            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
+            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
             
         if gradio_compat:    
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
-                
+
         # infotext_fields.extend((module, model, weight))
 
         def create_canvas(h, w):
