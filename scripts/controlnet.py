@@ -185,7 +185,7 @@ class Script(scripts.Script):
             generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to none If your image is lineart, scribble, or edge map.<br > Invert colors if your image has white background.</p>')
+            gr.HTML(value='<p>Set the preprocessor to none If your image is lineart, scribble, or edge map.<br > Turn on "Invert Input Color" if your image has white background and black lines.</p>')
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
