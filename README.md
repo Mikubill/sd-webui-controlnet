@@ -12,7 +12,7 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. Enter " https://github.com/Mikubill/sd-webui-controlnet.git " (excluding quotation marks) to "URL for extension's git repository".
+3. Enter `https://github.com/Mikubill/sd-webui-controlnet.git` to "URL for extension's git repository".
 4. Press "Install" button.
 5. Wait 5 seconds, and you will see the message "Installed into stable-diffusion-webui\extensions\sd-webui-controlnet. Use Installed tab to restart".
 6. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet.)
