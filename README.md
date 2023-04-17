@@ -18,6 +18,7 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 6. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet.)
 7. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again.)
 8. Download models (see below).
+9. After you put models in the correct folder, you may need to refresh to see the models.
 
 ### Update from ControlNet 1.0 to 1.1
 
