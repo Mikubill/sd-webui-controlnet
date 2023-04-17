@@ -113,15 +113,15 @@ class UnetHook(nn.Module):
         self.lowvram = lowvram
         self.batch_cond_available = True
         self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
-        
+
+    def guidance_schedule_handler(self, x):
+        for param in self.control_params:
+            current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
+            param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
+
     def hook(self, model):
         outer = self
-        
-        def guidance_schedule_handler(x):
-            for param in self.control_params:
-                current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
-                param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
-   
+
         def cfg_based_adder(base, x, require_autocast):
             if isinstance(x, float):
                 return base + x
@@ -274,14 +274,14 @@ class UnetHook(nn.Module):
                         
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
-        scripts.script_callbacks.on_cfg_denoiser(guidance_schedule_handler)
+        scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
     
     def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
 
     def restore(self, model):
-        scripts.script_callbacks.remove_current_script_callbacks()
+        scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
         if hasattr(self, "control_params"):
             del self.control_params
         
