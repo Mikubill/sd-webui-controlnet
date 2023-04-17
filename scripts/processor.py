@@ -60,6 +60,12 @@ def inpaint(img, res=512, **kwargs):
     return img, True
 
 
+def invert(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    img = 255 - img
+    return img, True
+
+
 model_hed = None
 
 

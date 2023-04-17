@@ -49,6 +49,7 @@ cn_preprocessor_modules = {
     "shuffle": shuffle,
     "tile_gaussian": tile_gaussian,
     "inpaint": inpaint,
+    "invert": invert,
 }
 
 cn_preprocessor_unloadable = {
@@ -100,8 +101,10 @@ for k, v in update_names.items():
     module_names[k] = v
 
 del module_names['none']
+del module_names['invert']
 
-module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
+module_names = OrderedDict([('none', 'none'), ('invert', 'invert (from white bg & black line)')]
+                           + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
