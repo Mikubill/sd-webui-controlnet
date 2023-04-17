@@ -181,13 +181,11 @@ class Script(scripts.Script):
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+            input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
             generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
-            gr.HTML(value='<p>If your image is lineart, scribble, or edge map, set preprocessor as none. '
-                          'If your lineart, scribble, or edge map has white background, set Invert Input Color. '
-                          'If you want to draw in the above canvas, you can make the brush width thinner.</p>')
+            gr.HTML(value='<p>Set the preprocessor to none If your image is lineart, scribble, or edge map.<br > Invert colors if your image has white background.</p>')
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
