@@ -41,7 +41,7 @@ Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNe
 
 (If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) Some 3rd-party CivitAI and fp16 models are renamed randomly, making YAML files mismatch. Please download models from our huggingface website with correct YAML file names.
 
-**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites as save them as YAML files. They are not downloading YAML files. Instead, click the small download arrow icon “↓” in HuggingFace to download.**
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites as save them as PTH/YAML files. They are not downloading PTH/YAML files. Instead, click the small download arrow icon “↓” in HuggingFace to download.**
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
 
