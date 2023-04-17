@@ -591,13 +591,12 @@ class Script(scripts.Script):
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
 
-        if detected_map.dtype == np.uint8:
-            detected_map = HWC3(detected_map)
-        else:
+        if 'inpaint' in module:
             detected_map = detected_map.astype(np.float32)
-
-        if module == "normal_map" or rgbbgr_mode:
-            detected_map = detected_map[:, :, ::-1].copy()
+        else:
+            detected_map = HWC3(detected_map)
+            if module == "normal_map" or rgbbgr_mode:
+                detected_map = detected_map[:, :, ::-1].copy()
 
         def get_pytorch_control(x):
             y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
