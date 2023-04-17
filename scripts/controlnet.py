@@ -537,10 +537,13 @@ class Script(scripts.Script):
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
 
-        model_name = Path(model_path).name
+        model_stem = Path(model_path).stem
         override_config = os.path.splitext(model_path)[0] + ".yaml"
 
-        if 'v11' in model_name or 'shuffle' in model_name:
+        if not os.path.exists(override_config):
+            override_config = os.path.join(global_state.script_dir, 'models', model_stem + ".yaml")
+
+        if 'v11' in model_stem or 'shuffle' in model_stem:
             assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
 
         if os.path.exists(override_config):
