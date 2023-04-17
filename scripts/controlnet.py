@@ -549,6 +549,7 @@ class Script(scripts.Script):
         if os.path.exists(override_config):
             network_config = override_config
 
+        print(f"Loading config: {network_config}")
         network = network_module(
             state_dict=state_dict, 
             config_path=network_config,  
