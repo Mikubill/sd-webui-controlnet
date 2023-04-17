@@ -62,10 +62,6 @@ You can still use all previous models in the previous ControlNet 1.0. Now, the p
 
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
-### Tips 
-
-* Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
-
 ### Examples
 
 | Source | Input | Output |
