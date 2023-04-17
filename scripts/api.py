@@ -12,7 +12,7 @@ import gradio as gr
 from modules.api.models import *
 from modules.api import api
 
-from scripts import external_code
+from scripts import external_code, global_state
 from scripts.processor import *
 
 def encode_to_base64(image):
@@ -204,52 +204,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
     ):
 
-        available_modules = [
-            "none",
-
-            "canny",
-            
-            "depth_midas",                  # Unload
-            "depth_leres",                  # Unload
-            "depth_zoe",                    # Unload
-
-            "lineart",                      # Unload
-            "lineart_coarse",               # Unload
-            "lineart_anime",                # Unload
-            
-            "mlsd",                         # Unload
-
-            "normal_midas",                 # Unload
-            "normal_bae",                   # Unload
-
-            "openpose",                     # Unload
-            "openpose_face",                # Unload
-            "openpose_faceonly",            # Unload
-            "openpose_hand",                # Unload
-            "openpose_full",                # Unload
-            
-            "scribble_hed",
-            "scribble_pidinet",
-            "scribble_xdog",
-
-            "seg_ofcoco",                   # Unload
-            "seg_ofade20k",                 # Unload
-            "seg_ufade20k",                 # Unload
-
-            "shuffle",
-
-            "softedge_hed",                 # Unload
-            "softedge_hedsafe",             # Unload
-            "softedge_pidinet",             # Unload
-            "softedge_pidisafe",            # Unload
-
-            "t2ia_color_grid",
-            "t2ia_sketch_pidi",
-
-            "threshold"
-        ]
-
-        if controlnet_module not in available_modules:
+        if controlnet_module not in global_state.cn_preprocessor_modules:
             return {"images": [], "info": "Module not available"}
         if len(controlnet_input_images) == 0:
             return {"images": [], "info": "No image selected"}
@@ -258,114 +213,13 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         results = []
 
+        processor_module = global_state.cn_preprocessor_modules[controlnet_module]
+
         for input_image in controlnet_input_images:
             img = external_code.to_base64_nparray(input_image)
+            results.append(processor_module(img=img, res=controlnet_processor_res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b))
 
-            if controlnet_module == "canny":
-                results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
-            elif controlnet_module == "depth_midas":
-                results.append(midas(img, controlnet_processor_res, np.pi * 2.0)[0])
-            elif controlnet_module == "depth_leres":
-                results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
-            elif controlnet_module == "depth_zoe":
-                results.append(zoe_depth(img, controlnet_processor_res)[0])
-            
-            elif controlnet_module == "lineart":
-                results.append(lineart(img, controlnet_processor_res)[0])
-            elif controlnet_module == "lineart_coarse":
-                results.append(lineart_coarse(img, controlnet_processor_res)[0])
-            elif controlnet_module == "lineart_anime":
-                results.append(lineart_anime(img, controlnet_processor_res)[0])
-            
-            elif controlnet_module == "mlsd":
-                results.append(mlsd(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
-            
-            elif controlnet_module == "normal_midas":
-                results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
-            elif controlnet_module == "normal_bae":
-                results.append(normal_bae(img, controlnet_processor_res)[0])
-            
-            elif controlnet_module == "openpose":
-                results.append(openpose(img, controlnet_processor_res)[0])
-            elif controlnet_module == "openpose_face":
-                results.append(openpose_face(img, controlnet_processor_res)[0])
-            elif controlnet_module == "openpose_faceonly":
-                results.append(openpose_faceonly(img, controlnet_processor_res)[0])
-            elif controlnet_module == "openpose_hand":
-                results.append(openpose_hand(img, controlnet_processor_res)[0])
-            elif controlnet_module == "openpose_full":
-                results.append(openpose_full(img, controlnet_processor_res)[0])
-
-            elif controlnet_module == "scribble_hed":
-                results.append(scribble_hed(img, controlnet_processor_res)[0])
-            elif controlnet_module == "scribble_pidinet":
-                results.append(scribble_pidinet(img, controlnet_processor_res)[0])
-            elif controlnet_module == "scribble_xdog":
-                results.append(scribble_xdog(img, controlnet_processor_res, controlnet_threshold_a)[0])
-            
-            elif controlnet_module == "seg_ofcoco":
-                results.append(oneformer_coco(img, controlnet_processor_res)[0])
-            elif controlnet_module == "seg_ofade20k":
-                results.append(oneformer_ade20k(img, controlnet_processor_res)[0])
-            elif controlnet_module == "seg_ufade20k":
-                results.append(uniformer(img, controlnet_processor_res)[0])
-            elif controlnet_module == "shuffle":
-                results.append(shuffle(img, controlnet_processor_res)[0])
-
-            elif controlnet_module == "softedge_hed":
-                results.append(hed(img, controlnet_processor_res)[0])
-            elif controlnet_module == "softedge_hedsafe":
-                results.append(hed_safe(img, controlnet_processor_res)[0])
-            elif controlnet_module == "softedge_pidinet":
-                results.append(pidinet(img, controlnet_processor_res)[0])
-            elif controlnet_module == "softedge_pidisafe":
-                results.append(pidinet_safe(img, controlnet_processor_res)[0])
-
-            elif controlnet_module == "t2ia_color_grid":
-                results.append(color(img, controlnet_processor_res)[0])
-            elif controlnet_module == "t2ia_sketch_pidi":
-                # Is this the right annotator for t2ia_sketch_pidi?
-                results.append(pidinet_ts(img, controlnet_processor_res)[0])
-
-            elif controlnet_module == "threshold":
-                results.append(threshold(img, controlnet_processor_res, controlnet_threshold_a)[0])
-
-        if controlnet_module == "depth_midas":
-            unload_midas()
-        elif controlnet_module == "depth_leres":
-            unload_leres()
-        elif controlnet_module == "depth_zoe":
-            unload_zoe_depth()
-        
-        elif controlnet_module == "lineart":
-            unload_lineart()
-        elif controlnet_module == "lineart_coarse":
-            unload_lineart_coarse()
-        elif controlnet_module == "lineart_anime":
-            unload_lineart_anime()
-        
-        elif controlnet_module == "mlsd":
-            unload_mlsd()
-
-        elif controlnet_module == "normal_midas":
-            unload_midas()
-        elif controlnet_module == "normal_bae":
-            unload_normal_bae()
-
-        elif controlnet_module == "openpose" or controlnet_module == "openpose_face" or controlnet_module == "openpose_faceonly" or controlnet_module == "openpose_hand" or controlnet_module == "openpose_full":
-            unload_openpose()
-
-        elif controlnet_module == "seg_ofcoco":
-            unload_oneformer_coco()
-        elif controlnet_module == "seg_ofade20k":
-            unload_oneformer_ade20k()
-        elif controlnet_module == "seg_ufade20k":
-            unload_uniformer()
-
-        elif controlnet_module == "softedge_hed" or controlnet_module == "softedge_hedsafe":
-            unload_hed()
-        elif controlnet_module == "softedge_pidinet" or controlnet_module == "softedge_pidisafe" or controlnet_module == "t2ia_sketch_pidi":
-            unload_pidinet()
+        global_state.cn_preprocessor_unloadable[controlnet_module]()
 
         results64 = list(map(encode_to_base64, results))
         return {"images": results64, "info": "Success"}
