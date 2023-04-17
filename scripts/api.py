@@ -219,7 +219,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             img = external_code.to_base64_nparray(input_image)
             results.append(processor_module(img=img, res=controlnet_processor_res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b))
 
-        global_state.cn_preprocessor_unloadable[controlnet_module]()
+        global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
 
         results64 = list(map(encode_to_base64, results))
         return {"images": results64, "info": "Success"}
