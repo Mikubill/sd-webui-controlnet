@@ -746,19 +746,22 @@ class Script(scripts.Script):
                 input_image = HWC3(np.asarray(input_image))
 
             if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
-                input_image = Image.fromarray(input_image)
+                input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
+                input_image = [Image.fromarray(x) for x in input_image]
+
                 mask = p.image_mask.convert('L')
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
                 # scale crop region to the size of our image
                 x1, y1, x2, y2 = crop_region
-                scale_x, scale_y = mask.width / float(input_image.width), mask.height / float(input_image.height)
+                scale_x, scale_y = mask.width / float(input_image[0].width), mask.height / float(input_image[0].height)
                 crop_region = int(x1 / scale_x), int(y1 / scale_y), int(x2 / scale_x), int(y2 / scale_y)
 
-                input_image = input_image.crop(crop_region)
-                input_image = images.resize_image(2, input_image, p.width, p.height)
-                input_image = HWC3(np.asarray(input_image))
+                input_image = [x.crop(crop_region) for x in input_image]
+                input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
+                input_image = [np.asarray(x)[:, :, 0] for x in input_image]
+                input_image = np.stack(input_image, axis=2)
 
             tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed),0))
             tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed),0))
