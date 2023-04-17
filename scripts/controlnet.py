@@ -293,10 +293,24 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module == "binary":
+            elif module == "threshold":
                 return [
                     gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
-                    gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
+                    gr.update(label="Binarization Threshold", minimum=0, maximum=255, value=127, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "scribble_xdog":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="XDoG Threshold", minimum=1, maximum=64, value=32, step=1, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "tile_gaussian":
+                return [
+                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Gaussian Sigma", minimum=0.5, maximum=16, value=5, step=0.01, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -326,12 +340,12 @@ class Script(scripts.Script):
         advanced = gr.Column(visible=False)
         with advanced:
             processor_res = gr.Slider(label="Annotator resolution", value=default_unit.processor_res, minimum=64, maximum=2048, interactive=False)
-            threshold_a =  gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
-            threshold_b =  gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
+            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, interactive=False)
+            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, interactive=False)
             
         if gradio_compat:    
             module.change(build_sliders, inputs=[module], outputs=[processor_res, threshold_a, threshold_b, advanced])
-                
+
         # infotext_fields.extend((module, model, weight))
 
         def create_canvas(h, w):
@@ -365,9 +379,14 @@ class Script(scripts.Script):
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
+            if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
                 img = HWC3(image['mask'][:, :, 0])
-                
+
+            if 'inpaint' in module:
+                color = HWC3(image['image'])
+                alpha = image['mask'][:, :, 0:1]
+                img = np.concatenate([color, alpha], axis=2)
+
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
             result = None
@@ -571,7 +590,11 @@ class Script(scripts.Script):
         return unit
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
-        detected_map = HWC3(detected_map)
+
+        if detected_map.dtype == np.uint8:
+            detected_map = HWC3(detected_map)
+        else:
+            detected_map = detected_map.astype(np.float32)
 
         if module == "normal_map" or rgbbgr_mode:
             detected_map = detected_map[:, :, ::-1].copy()
@@ -706,10 +729,16 @@ class Script(scripts.Script):
                     input_image = HWC3(image['image'])
 
                 # Adding 'mask' check for API compatibility
-                if 'mask' in image and not ((image['mask'][:, :, 0]==0).all() or (image['mask'][:, :, 0]==255).all()):
-                    print("using mask as input")
-                    input_image = HWC3(image['mask'][:, :, 0])
-                    invert_image = True
+                if 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
+                    if 'inpaint' in unit.module:
+                        print("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    else:
+                        print("using mask as input")
+                        input_image = HWC3(image['mask'][:, :, 0])
+                        invert_image = True
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
@@ -777,6 +806,8 @@ class Script(scripts.Script):
                     fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
                     detected_maps.append((fake_detected_map, unit.module))
 
+            is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
+
 
             forward_param = ControlParams(
                 control_model=model_net,
@@ -790,7 +821,11 @@ class Script(scripts.Script):
                 is_adapter=isinstance(model_net, PlugableAdapter),
                 is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
                 global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
-                hr_hint_cond=hr_control
+                hr_hint_cond=hr_control,
+                batch_size=p.batch_size,
+                instance_counter=0,
+                is_vanilla_samplers=is_vanilla_samplers,
+                cfg_scale=p.cfg_scale
             )
             forward_params.append(forward_param)
 
@@ -798,7 +833,7 @@ class Script(scripts.Script):
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)    
         self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, p.sampler_name in ["DDIM", "PLMS", "UniPC"])
+        self.latest_network.notify(forward_params, is_vanilla_samplers)
         self.detected_map = detected_maps
 
         if len(enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
@@ -825,7 +860,7 @@ class Script(scripts.Script):
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
-                processed.images.extend([Image.fromarray(detect_map)])
+                processed.images.extend([Image.fromarray(detect_map.clip(0, 255).astype(np.uint8))])
 
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)
