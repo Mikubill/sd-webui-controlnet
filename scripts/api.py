@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 from fastapi import FastAPI, Body
+from fastapi.exceptions import HTTPException
 from PIL import Image
 import copy
 import pydantic
@@ -205,9 +206,59 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(controlnet_module, controlnet_module)
 
         if controlnet_module not in global_state.cn_preprocessor_modules:
-            return {"images": [], "info": "Module not available"}
+            raise HTTPException(
+                status_code=500, detail="Module not available")
+        
+        available_modules = [
+            "none",
+
+            "canny",
+
+            "depth_midas",                  # Unload
+            "depth_leres",                  # Unload
+            "depth_zoe",                    # Unload
+
+            "lineart",                      # Unload
+            "lineart_coarse",               # Unload
+            "lineart_anime",                # Unload
+
+            "mediapipe_face",
+
+            "mlsd",                         # Unload
+
+            "normal_midas",                 # Unload
+            "normal_bae",                   # Unload
+
+            "openpose",                     # Unload
+            "openpose_face",                # Unload
+            "openpose_faceonly",            # Unload
+            "openpose_hand",                # Unload
+            "openpose_full",                # Unload
+
+            "scribble_hed",
+            "scribble_pidinet",
+            "scribble_xdog",
+
+            "seg_ofcoco",                   # Unload
+            "seg_ofade20k",                 # Unload
+            "seg_ufade20k",                 # Unload
+
+            "shuffle",
+
+            "softedge_hed",                 # Unload
+            "softedge_hedsafe",             # Unload
+            "softedge_pidinet",             # Unload
+            "softedge_pidisafe",            # Unload
+
+            "t2ia_color_grid",
+            "t2ia_sketch_pidi",
+
+            "threshold"
+        ]
+
         if len(controlnet_input_images) == 0:
-            return {"images": [], "info": "No image selected"}
+            raise HTTPException(
+                status_code=500, detail="No image selected")
         
         print(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
 
