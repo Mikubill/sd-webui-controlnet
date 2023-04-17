@@ -1,2 +1,3 @@
 svglib
 fvcore
+opencv-contrib-python==4.7.0.68
