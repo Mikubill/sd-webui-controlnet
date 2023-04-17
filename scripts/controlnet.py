@@ -57,6 +57,9 @@ tossup_symbol = '\u2934'
 webcam_enabled = False
 webcam_mirrored = False
 
+txt2img_submit_button = None
+img2img_submit_button = None
+
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -427,20 +430,11 @@ class Script(scripts.Script):
             return unit
 
         unit = gr.State(default_unit)
-        for comp in ctrls:
-            event_subscribers = []
-            if hasattr(comp, 'edit'):
-                event_subscribers.append(comp.edit)
-            elif hasattr(comp, 'click'):
-                event_subscribers.append(comp.click)
-            else:
-                event_subscribers.append(comp.change)
 
-            if hasattr(comp, 'clear'):
-                event_subscribers.append(comp.clear)
-
-            for event_subscriber in event_subscribers:
-                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+        if is_img2img:
+            img2img_submit_button.click(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit, queue=False)
+        else:
+            txt2img_submit_button.click(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit, queue=False)
 
         return unit
 
@@ -958,6 +952,19 @@ class Img2ImgTabTracker:
             return
 
 
+def on_after_component(component, **_kwargs):
+    global txt2img_submit_button
+    if getattr(component, 'elem_id', None) == 'txt2img_generate':
+        txt2img_submit_button = component
+        return
+
+    global img2img_submit_button
+    if getattr(component, 'elem_id', None) == 'img2img_generate':
+        img2img_submit_button = component
+        return
+
+
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
+script_callbacks.on_after_component(on_after_component)
