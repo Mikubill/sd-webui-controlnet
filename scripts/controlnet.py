@@ -185,15 +185,13 @@ class Script(scripts.Script):
             generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to none If your image is lineart, scribble, or edge map.<br > Turn on "Invert Input Color" if your image has white background and black lines.</p>')
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image is lineart (or any line images) with white background and black lines.</p>')
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
-            scribble_mode = gr.Checkbox(label='Invert Input Color', value=default_unit.invert_image)
-            rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=default_unit.rgbbgr_mode)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
 
@@ -376,17 +374,6 @@ class Script(scripts.Script):
             return None
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
-        with gr.Row():
-            with gr.Column():
-                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    
-            if gradio_compat:
-                canvas_swap_res = ToolButton(value=switch_values_symbol)
-                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-                    
-        create_button = gr.Button(value="Create blank canvas")
-        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
@@ -419,9 +406,20 @@ class Script(scripts.Script):
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
+
+        with gr.Accordion(label='Drawing Canvas', open=False):
+            with gr.Row():
+                with gr.Column():
+                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                if gradio_compat:
+                    canvas_swap_res = ToolButton(value=switch_values_symbol)
+                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+            create_button = gr.Button(value="Create blank canvas")
+            create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
-        ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
+        ctrls += (input_image, resize_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
         self.register_modules(tabname, ctrls)
@@ -604,9 +602,7 @@ class Script(scripts.Script):
         unit.model = selector(p, "control_net_model", unit.model, idx)
         unit.weight = selector(p, "control_net_weight", unit.weight, idx)
         unit.image = selector(p, "control_net_image", unit.image, idx)
-        unit.scribble_mode = selector(p, "control_net_scribble_mode", unit.invert_image, idx)
         unit.resize_mode = selector(p, "control_net_resize_mode", unit.resize_mode, idx)
-        unit.rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", unit.rgbbgr_mode, idx)
         unit.low_vram = selector(p, "control_net_lowvram", unit.low_vram, idx)
         unit.processor_res = selector(p, "control_net_pres", unit.processor_res, idx)
         unit.threshold_a = selector(p, "control_net_pthr_a", unit.threshold_a, idx)
@@ -618,14 +614,12 @@ class Script(scripts.Script):
 
         return unit
 
-    def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
+    def detectmap_proc(self, detected_map, module, resize_mode, h, w):
 
         if 'inpaint' in module:
             detected_map = detected_map.astype(np.float32)
         else:
             detected_map = HWC3(detected_map)
-            if module == "normal_map" or rgbbgr_mode:
-                detected_map = detected_map[:, :, ::-1].copy()
 
         def get_pytorch_control(x):
             y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
@@ -734,7 +728,6 @@ class Script(scripts.Script):
                     image['mask'] = image['mask'][..., np.newaxis]
 
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
-            invert_image = unit.invert_image
 
             if unit.low_vram:
                 hook_lowvram = True
@@ -775,7 +768,7 @@ class Script(scripts.Script):
                     if have_mask:
                         print("using mask as input")
                         input_image = HWC3(image['mask'][:, :, 0])
-                        invert_image = False  # Always use black bg and white line
+                        unit.module = 'none'  # Always use black bg and white line
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
@@ -812,9 +805,6 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-                
-            if invert_image:
-                detected_map = 255 - detected_map.copy() 
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
@@ -830,14 +820,14 @@ class Script(scripts.Script):
                     hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
 
                 if is_image:
-                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, hr_y, hr_x)
+                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
                 else:
                     hr_control = detected_map
             else:
                 hr_control = None
 
             if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
+                control, detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map

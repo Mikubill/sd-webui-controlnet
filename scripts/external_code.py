@@ -44,9 +44,7 @@ class ControlNetUnit:
         model: Optional[str]=None,
         weight: float=1.0,
         image: Optional[Union[Dict[str, Union[np.ndarray, str]], Tuple[Union[np.ndarray, str], Union[np.ndarray, str]], np.ndarray, str]]=None,
-        invert_image: bool=False,
         resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
-        rgbbgr_mode: bool=False,
         low_vram: bool=False,
         processor_res: int=64,
         threshold_a: float=64,
@@ -60,9 +58,7 @@ class ControlNetUnit:
         self.model = model
         self.weight = weight
         self.image = image
-        self.invert_image = invert_image
         self.resize_mode = resize_mode
-        self.rgbbgr_mode = rgbbgr_mode
         self.low_vram = low_vram
         self.processor_res = processor_res
         self.threshold_a = threshold_a
@@ -161,8 +157,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
         'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
         'lowvram': 'low_vram',
-        'input_image': 'image',
-        'scribble_mode': 'invert_image'
+        'input_image': 'image'
     }
 
     if isinstance(unit, dict):
