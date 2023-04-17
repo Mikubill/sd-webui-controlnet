@@ -32,6 +32,8 @@ You need to download model files ending with ".pth" .
 
 Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
 
+(For authors of other ControlNet model extractions or fp16 model providers: now some models like "shuffle" needs the YAML file so that we know the outputs of ControlNet should pass a global average pooling before inject to SD U-Nets. Please add yaml files with same filenames to your renaming when delivering your processed models.)
+
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
 
 ### See Also

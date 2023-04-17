@@ -537,7 +537,7 @@ class Script(scripts.Script):
         if not os.path.exists(override_config):
             override_config = os.path.join(global_state.script_dir, 'models', model_stem + ".yaml")
 
-        if 'v11' in model_stem or 'shuffle' in model_stem:
+        if 'v11' in model_stem.lower() or 'shuffle' in model_stem.lower():
             assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
 
         if os.path.exists(override_config):
