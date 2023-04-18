@@ -349,6 +349,16 @@ def binary(img, res=512, thr_a=0, **kwargs):
     return result, True
 
 
+def lineart_standard(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    x = img.astype(np.float32)
+    g = cv2.GaussianBlur(x, (0, 0), 6.0)
+    intensity = np.min(g - x, axis=2).clip(0, 255)
+    intensity /= max(16, np.median(intensity[intensity > 8]))
+    intensity *= 127
+    return intensity.clip(0, 255).astype(np.uint8), True
+
+
 model_lineart = None
 
 
