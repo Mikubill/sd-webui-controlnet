@@ -164,6 +164,16 @@ To use the API: start WebUI with argument `--api` and go to `http://webui-addres
 
 To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
+### Command Line Arguments
+
+This extension adds these command line arguments to the webui:
+
+```
+    --controlnet-dir <path to directory with controlnet models>                                ADD a controlnet models directory
+    --controlnet-annotator-models-path <path to directory with annotator model directories>    SET the directory for annotator models
+    --no-half-controlnet                                                                       load controlnet models in full precision
+```
+
 ### MacOS Support
 
 Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
