@@ -9,3 +9,4 @@ if not models_path:
 
 models_path = os.path.realpath(models_path)
 os.makedirs(models_path, exist_ok=True)
+print(f'ControlNet preprocessor location: {models_path}')
