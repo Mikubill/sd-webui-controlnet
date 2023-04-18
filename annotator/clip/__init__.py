@@ -1,11 +1,13 @@
 from transformers import CLIPProcessor, CLIPVisionModel
 from modules import devices
 import os
-from annotator.annotator_path import models_path
+from annotator.annotator_path import clip_vision_path
 
 
 remote_model_path = "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin"
-clip_path = os.path.join(os.path.dirname(models_path), 'clip_vision')
+clip_path = clip_vision_path
+print(f'ControlNet ClipVision location: {clip_path}')
+
 clip_proc = None
 clip_vision_model = None
 
