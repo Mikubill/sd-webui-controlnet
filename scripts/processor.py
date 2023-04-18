@@ -108,7 +108,7 @@ model_mediapipe_face = None
 
 
 def mediapipe_face(img, res=512, thr_a: int = 10, thr_b: float = 0.5, **kwargs):
-    max_faces = thr_a
+    max_faces = int(thr_a)
     min_confidence = thr_b
     img = resize_image(HWC3(img), res)
     global model_mediapipe_face
