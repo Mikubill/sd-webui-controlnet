@@ -23,6 +23,7 @@ from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
+from modules.ui_components import FormRow
 import cv2
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
@@ -53,6 +54,7 @@ switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
 tossup_symbol = '\u2934'
+trigger_symbol = '\U0001F4A5'  # 💥
 
 webcam_enabled = False
 webcam_mirrored = False
@@ -179,7 +181,7 @@ class Script(scripts.Script):
         default_unit = self.get_default_ui_unit()
         with gr.Row():
             input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
-            generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
+            generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
@@ -188,10 +190,11 @@ class Script(scripts.Script):
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
 
-        with gr.Row():
+        with FormRow(elem_classes="checkboxes-row", variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=default_unit.guess_mode)
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -231,17 +234,17 @@ class Script(scripts.Script):
 
         with gr.Row():
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module)
+            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=False)
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
-                # ctrls += (refresh_models, )
+
         with gr.Row():
             weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05)
             guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True)
             guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True)
-
             ctrls += (module, model, weight,)
-                # model_dropdowns.append(model)
+
         def build_sliders(module):
             module = self.get_module_basename(module)
             if module == "canny":
@@ -371,9 +374,11 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
-        
+
         def run_annotator(image, module, pres, pthr_a, pthr_b):
+            if image is None:
+                return gr.update(value=None, visible=True)
+
             img = HWC3(image['image'])
             if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
                 img = HWC3(image['mask'][:, :, 0])
@@ -385,7 +390,7 @@ class Script(scripts.Script):
 
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
-            result = None
+
             if pres > 64:
                 result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
             else:
@@ -393,18 +398,24 @@ class Script(scripts.Script):
             
             if is_image:
                 return gr.update(value=result, visible=True, interactive=False)
-        
-        with gr.Row():
-            annotator_button = gr.Button(value="Preview Preprocessor")
-            annotator_button_hide = gr.Button(value="Close Preview")
-        
-        annotator_button.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
-        annotator_button_hide.click(fn=lambda: gr.update(visible=False), inputs=None, outputs=[generated_image])
+
+            return gr.update(value=None, visible=True)
+
+        def shift_preview(is_on):
+            if is_on:
+                return gr.update(visible=True), gr.update(value=None, visible=True)
+            else:
+                return gr.update(visible=False), gr.update(visible=False)
+
+        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], outputs=[trigger_preprocessor, generated_image])
+        trigger_preprocessor.click(fn=run_annotator, inputs=[input_image, module, processor_res, threshold_a, threshold_b], outputs=[generated_image])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
+
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
 
         with gr.Accordion(label='Drawing Canvas', open=False):
             with gr.Row():
