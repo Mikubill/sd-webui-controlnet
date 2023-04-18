@@ -46,6 +46,7 @@ cn_preprocessor_modules = {
     "lineart": lineart,
     "lineart_coarse": lineart_coarse,
     "lineart_anime": lineart_anime,
+    "lineart_standard": lineart_standard,
     "shuffle": shuffle,
     "tile_gaussian": tile_gaussian,
     "inpaint": inpaint,
@@ -81,6 +82,8 @@ for key in cn_preprocessor_modules.keys():
     module_names[key] = key
 
 update_names = {
+    "lineart_standard": "lineart_standard (from white bg & black line)",
+    "lineart": "lineart_realistic",
     "color": "t2ia_color_grid",
     "clip_vision": "t2ia_style_clipvision",
     "pidinet_sketch": "t2ia_sketch_pidi",
