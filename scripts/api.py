@@ -35,7 +35,7 @@ cn_fields = {
     "module": (str, Field(default="none", title='Controlnet Module')),
     "model": (str, Field(default="None", title='Controlnet Model')),
     "weight": (float, Field(default=1.0, title='Controlnet Weight')),
-    "resize_mode": (Union[int, str], Field(default="Inner Fit (Scale to Fit)", title='Controlnet Resize Mode')),
+    "resize_mode": (Union[int, str], Field(default="Crop and Resize", title='Controlnet Resize Mode')),
     "lowvram": (bool, Field(default=False, title='Controlnet Low VRAM')),
     "processor_res": (int, Field(default=64, title='Controlnet Processor Res')),
     "threshold_a": (float, Field(default=64, title='Controlnet Threshold a')),
