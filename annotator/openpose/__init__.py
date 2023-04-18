@@ -8,7 +8,7 @@ from .body import Body
 from .hand import Hand
 from .face import Face
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"

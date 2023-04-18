@@ -7,7 +7,7 @@ from einops import rearrange
 from .zoedepth.models.zoedepth.zoedepth_v1 import ZoeDepth
 from .zoedepth.utils.config import get_config
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 
 class ZoeDetector:

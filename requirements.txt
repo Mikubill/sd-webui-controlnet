@@ -1,2 +1,4 @@
+mediapipe==0.9.1.0
 svglib
 fvcore
+opencv-python

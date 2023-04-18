@@ -6,7 +6,7 @@ import numpy as np
 from einops import rearrange
 from .models.NNET import NNET
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 import torchvision.transforms as transforms
 
 

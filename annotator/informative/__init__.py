@@ -6,7 +6,7 @@ from einops import rearrange
 
 import os 
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 class Network(torch.nn.Module):
     def __init__(self, model_path):

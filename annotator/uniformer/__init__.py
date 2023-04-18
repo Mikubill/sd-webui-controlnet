@@ -1,5 +1,5 @@
 import os
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 from modules import devices
 from annotator.uniformer.inference import init_segmentor, inference_segmentor, show_result_pyplot
 

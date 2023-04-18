@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn as nn
 from einops import rearrange
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 
 norm_layer = nn.InstanceNorm2d

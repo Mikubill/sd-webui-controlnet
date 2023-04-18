@@ -7,7 +7,7 @@ import os
 import cv2
 from einops import rearrange
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 
 class UnetGenerator(nn.Module):

@@ -1,4 +1,4 @@
-
+import cv2
 import numpy as np
 from annotator.util import resize_image, HWC3
 
@@ -21,6 +21,49 @@ def scribble_thr(img, res=512, **kwargs):
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) < 127] = 255
     return result, True
+
+
+def scribble_xdog(img, res=512, thr_a=32, **kwargs):
+    img = resize_image(HWC3(img), res)
+    g1 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 0.5)
+    g2 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 5.0)
+    dog = (255 - np.min(g2 - g1, axis=2)).clip(0, 255).astype(np.uint8)
+    result = np.zeros_like(img, dtype=np.uint8)
+    result[2 * (255 - dog) > thr_a] = 255
+    return result, True
+
+
+def tile_gaussian(img, res=512, thr_a=16, **kwargs):
+    img = resize_image(HWC3(img), res)
+    y = img.astype(np.float32)
+    for _ in range(3):
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
+        y = cv2.pyrDown(y)
+    for _ in range(3):
+        y = cv2.pyrUp(y)
+        y += np.random.normal(loc=0.0, scale=float(thr_a), size=y.shape)
+    return y.clip(0, 255).astype(np.uint8), True
+
+
+def threshold(img, res=512, thr_a=127, **kwargs):
+    img = resize_image(HWC3(img), res)
+    result = np.zeros_like(img, dtype=np.uint8)
+    result[np.min(img, axis=2) > thr_a] = 255
+    return result, True
+
+
+def inpaint(img, res=512, **kwargs):
+    color = resize_image(img[:, :, 0:3], res)
+    mask = resize_image(img[:, :, 3:4], res)
+    img = color.astype(np.int32)
+    img[mask > 127] = - 255
+    return img, True
+
+
+def invert(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    img = 255 - img
+    return img, True
 
 
 model_hed = None
@@ -58,6 +101,21 @@ def scribble_hed(img, res=512, **kwargs):
     result = cv2.GaussianBlur(result, (0, 0), 3.0)
     result[result > 4] = 255
     result[result < 255] = 0
+    return result, True
+
+
+model_mediapipe_face = None
+
+
+def mediapipe_face(img, res=512, thr_a: int = 10, thr_b: float = 0.5, **kwargs):
+    max_faces = int(thr_a)
+    min_confidence = thr_b
+    img = resize_image(HWC3(img), res)
+    global model_mediapipe_face
+    if model_mediapipe_face is None:
+        from annotator.mediapipe_face import apply_mediapipe_face
+        model_mediapipe_face = apply_mediapipe_face
+    result = model_mediapipe_face(img, max_faces=max_faces, min_confidence=min_confidence)
     return result, True
 
 
@@ -291,6 +349,16 @@ def binary(img, res=512, thr_a=0, **kwargs):
     return result, True
 
 
+def lineart_standard(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    x = img.astype(np.float32)
+    g = cv2.GaussianBlur(x, (0, 0), 6.0)
+    intensity = np.min(g - x, axis=2).clip(0, 255)
+    intensity /= max(16, np.median(intensity[intensity > 8]))
+    intensity *= 127
+    return intensity.clip(0, 255).astype(np.uint8), True
+
+
 model_lineart = None
 
 
@@ -300,7 +368,7 @@ def lineart(img, res=512, **kwargs):
     if model_lineart is None:
         from annotator.lineart import LineartDetector
         model_lineart = LineartDetector(LineartDetector.model_default)
-    
+
     # applied auto inversion
     result = 255-model_lineart(img)
     return result, True
@@ -320,7 +388,7 @@ def lineart_coarse(img, res=512, **kwargs):
     if model_lineart_coarse is None:
         from annotator.lineart import LineartDetector
         model_lineart_coarse = LineartDetector(LineartDetector.model_coarse)
-    
+
     # applied auto inversion
     result = 255-model_lineart_coarse(img)
     return result, True
@@ -340,7 +408,7 @@ def lineart_anime(img, res=512, **kwargs):
     if model_lineart_anime is None:
         from annotator.lineart_anime import LineartAnimeDetector
         model_lineart_anime = LineartAnimeDetector()
-        
+
     # applied auto inversion
     result = 255-model_lineart_anime(img)
     return result, True
@@ -367,8 +435,8 @@ def unload_zoe_depth():
     global model_zoe_depth
     if model_zoe_depth is not None:
         model_zoe_depth.unload_model()
-        
-        
+
+
 model_normal_bae = None
 
 
@@ -403,8 +471,8 @@ def unload_oneformer_coco():
     global model_oneformer_coco
     if model_oneformer_coco is not None:
         model_oneformer_coco.unload_model()
-        
-        
+
+
 model_oneformer_ade20k = None
 
 
@@ -421,8 +489,8 @@ def unload_oneformer_ade20k():
     global model_oneformer_ade20k
     if model_oneformer_ade20k is not None:
         model_oneformer_ade20k.unload_model()
-        
-        
+
+
 model_shuffle = None
 
 

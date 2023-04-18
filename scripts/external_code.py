@@ -6,7 +6,7 @@ from scripts.global_state import update_cn_models, cn_models_names, cn_preproces
 
 from modules.api import api
 
-PARAM_COUNT = 15
+PARAM_COUNT = 13
 
 
 def get_api_version() -> int:
@@ -19,8 +19,8 @@ class ResizeMode(Enum):
     """
 
     RESIZE = "Just Resize"
-    INNER_FIT = "Inner Fit (Scale to Fit)"
-    OUTER_FIT = "Outer Fit (Shrink to Fit)"
+    INNER_FIT = "Crop and Resize"
+    OUTER_FIT = "Resize and Fill"
 
 
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
@@ -44,25 +44,21 @@ class ControlNetUnit:
         model: Optional[str]=None,
         weight: float=1.0,
         image: Optional[Union[Dict[str, Union[np.ndarray, str]], Tuple[Union[np.ndarray, str], Union[np.ndarray, str]], np.ndarray, str]]=None,
-        invert_image: bool=False,
-        resize_mode: Union[ResizeMode, int, str]=ResizeMode.OUTER_FIT,
-        rgbbgr_mode: bool=False,
+        resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
         low_vram: bool=False,
         processor_res: int=64,
         threshold_a: float=64,
         threshold_b: float=64,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
-        guess_mode: bool=True,
+        guess_mode: bool=False,
     ):
         self.enabled = enabled
         self.module = module
         self.model = model
         self.weight = weight
         self.image = image
-        self.invert_image = invert_image
         self.resize_mode = resize_mode
-        self.rgbbgr_mode = rgbbgr_mode
         self.low_vram = low_vram
         self.processor_res = processor_res
         self.threshold_a = threshold_a
@@ -161,8 +157,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
         'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
         'lowvram': 'low_vram',
-        'input_image': 'image',
-        'scribble_mode': 'invert_image'
+        'input_image': 'image'
     }
 
     if isinstance(unit, dict):
