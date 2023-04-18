@@ -12,10 +12,13 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-from scripts import global_state, hook, external_code
+import annotator
+from scripts import global_state, hook, external_code, processor
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
+importlib.reload(annotator)
+importlib.reload(processor)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
@@ -938,6 +941,8 @@ def on_ui_settings():
         global_state.default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
+    shared.opts.add_option("control_net_modules_path", shared.OptionInfo(
+        "", "Path to directory containing annotator model directories (requires restart, overrides corresponding command line flag)", section=section))
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
