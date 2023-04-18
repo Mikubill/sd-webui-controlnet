@@ -625,6 +625,11 @@ class Script(scripts.Script):
             y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
             return rearrange(y.float() / 255.0, 'h w c -> c h w')
 
+        def high_quality_resize(x, size):
+            old_size = x.shape[0] * x.shape[1]
+            new_size = size[0] * size[1]
+            return cv2.resize(x, size, interpolation=cv2.INTER_LANCZOS4 if new_size > old_size else cv2.INTER_AREA)
+
         if resize_mode == external_code.ResizeMode.RESIZE:
             detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
             return get_pytorch_control(detected_map), detected_map
@@ -641,8 +646,8 @@ class Script(scripts.Script):
             k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
-            high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
-            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_AREA)
+            high_quality_background = np.tile(high_quality_border_color[None, None], [w, h, 1])
+            detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (h - new_h) // 2)
             pad_w = max(0, (w - new_w) // 2)
@@ -651,7 +656,7 @@ class Script(scripts.Script):
             return get_pytorch_control(detected_map), detected_map
         else:
             k = max(k0, k1)
-            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_LANCZOS4)
+            detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (new_h - h) // 2)
             pad_w = max(0, (new_w - w) // 2)
