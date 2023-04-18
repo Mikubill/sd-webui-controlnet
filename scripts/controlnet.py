@@ -640,7 +640,7 @@ class Script(scripts.Script):
         def high_quality_resize(x, size):
             old_size = x.shape[0] * x.shape[1]
             new_size = size[0] * size[1]
-            return cv2.resize(x, size, interpolation=cv2.INTER_LANCZOS4 if new_size > old_size else cv2.INTER_AREA)
+            return cv2.resize(x, size, interpolation=cv2.INTER_CUBIC if new_size > old_size else cv2.INTER_AREA)
 
         if resize_mode == external_code.ResizeMode.RESIZE:
             detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
