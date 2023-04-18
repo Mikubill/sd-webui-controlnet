@@ -57,6 +57,9 @@ tossup_symbol = '\u2934'
 webcam_enabled = False
 webcam_mirrored = False
 
+txt2img_submit_button = None
+img2img_submit_button = None
+
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -178,21 +181,18 @@ class Script(scripts.Script):
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Row():
-            input_image = gr.Image(source='upload', mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
+            input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
             generated_image = gr.Image(label="Annotator result", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
         with gr.Row():
-            gr.HTML(value='<p>If your image is lineart, scribble, or edge map, set preprocessor as none. '
-                          'If your lineart, scribble, or edge map has white background, set Invert Input Color. '
-                          'If you want to draw in the above canvas, you can make the brush width thinner.</p>')
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
-            scribble_mode = gr.Checkbox(label='Invert Input Color', value=default_unit.invert_image)
-            rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=default_unit.rgbbgr_mode)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
 
@@ -324,6 +324,13 @@ class Script(scripts.Script):
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
+            elif module == "mediapipe_face":
+                return [
+                    gr.update(label="Annotator Resolution", value=512, minimum=64, maximum=2048, step=8, interactive=True),
+                    gr.update(label="Max Faces", value=1, minimum=1, maximum=10, step=1, interactive=True),
+                    gr.update(label="Min Face Confidence", value=0.5, minimum=0.01, maximum=1.0, step=0.01, interactive=True),
+                    gr.update(visible=True)
+                ]
             elif module == "none":
                 return [
                     gr.update(label="Normal Resolution", value=64, minimum=64, maximum=2048, interactive=False),
@@ -368,17 +375,6 @@ class Script(scripts.Script):
             return None
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
-        with gr.Row():
-            with gr.Column():
-                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                    
-            if gradio_compat:
-                canvas_swap_res = ToolButton(value=switch_values_symbol)
-                canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-                    
-        create_button = gr.Button(value="Create blank canvas")
-        create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             img = HWC3(image['image'])
@@ -411,9 +407,20 @@ class Script(scripts.Script):
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
         else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])                                        
+            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
+
+        with gr.Accordion(label='Drawing Canvas', open=False):
+            with gr.Row():
+                with gr.Column():
+                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                if gradio_compat:
+                    canvas_swap_res = ToolButton(value=switch_values_symbol)
+                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
+            create_button = gr.Button(value="Create blank canvas")
+            create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
-        ctrls += (input_image, scribble_mode, resize_mode, rgbbgr_mode)
+        ctrls += (input_image, resize_mode)
         ctrls += (lowvram,)
         ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
         self.register_modules(tabname, ctrls)
@@ -427,20 +434,11 @@ class Script(scripts.Script):
             return unit
 
         unit = gr.State(default_unit)
-        for comp in ctrls:
-            event_subscribers = []
-            if hasattr(comp, 'edit'):
-                event_subscribers.append(comp.edit)
-            elif hasattr(comp, 'click'):
-                event_subscribers.append(comp.click)
-            else:
-                event_subscribers.append(comp.change)
 
-            if hasattr(comp, 'clear'):
-                event_subscribers.append(comp.clear)
-
-            for event_subscriber in event_subscribers:
-                event_subscriber(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit)
+        if is_img2img:
+            img2img_submit_button.click(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit, queue=False)
+        else:
+            txt2img_submit_button.click(fn=controlnet_unit_from_args, inputs=list(ctrls), outputs=unit, queue=False)
 
         return unit
 
@@ -539,13 +537,31 @@ class Script(scripts.Script):
             if not os.path.isabs(network_config):
                 network_config = os.path.join(global_state.script_dir, network_config)
 
+        model_path = os.path.abspath(model_path)
         model_stem = Path(model_path).stem
-        override_config = os.path.splitext(model_path)[0] + ".yaml"
+        model_dir_name = os.path.dirname(model_path)
 
-        if not os.path.exists(override_config):
-            override_config = os.path.join(global_state.script_dir, 'models', model_stem + ".yaml")
+        possible_config_filenames = [
+            os.path.join(model_dir_name, model_stem + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('_fp16', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('_fp16', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('_diff', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('_diff', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('-fp16', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('-fp16', '') + ".yaml"),
+            os.path.join(model_dir_name, model_stem.replace('-diff', '') + ".yaml"),
+            os.path.join(global_state.script_dir, 'models', model_stem.replace('-diff', '') + ".yaml")
+        ]
 
-        if 'v11' in model_stem or 'shuffle' in model_stem:
+        override_config = possible_config_filenames[0]
+
+        for possible_config_filename in possible_config_filenames:
+            if os.path.exists(possible_config_filename):
+                override_config = possible_config_filename
+                break
+
+        if 'v11' in model_stem.lower() or 'shuffle' in model_stem.lower():
             assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
 
         if os.path.exists(override_config):
@@ -587,9 +603,7 @@ class Script(scripts.Script):
         unit.model = selector(p, "control_net_model", unit.model, idx)
         unit.weight = selector(p, "control_net_weight", unit.weight, idx)
         unit.image = selector(p, "control_net_image", unit.image, idx)
-        unit.scribble_mode = selector(p, "control_net_scribble_mode", unit.invert_image, idx)
         unit.resize_mode = selector(p, "control_net_resize_mode", unit.resize_mode, idx)
-        unit.rgbbgr_mode = selector(p, "control_net_rgbbgr_mode", unit.rgbbgr_mode, idx)
         unit.low_vram = selector(p, "control_net_lowvram", unit.low_vram, idx)
         unit.processor_res = selector(p, "control_net_pres", unit.processor_res, idx)
         unit.threshold_a = selector(p, "control_net_pthr_a", unit.threshold_a, idx)
@@ -601,18 +615,21 @@ class Script(scripts.Script):
 
         return unit
 
-    def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
+    def detectmap_proc(self, detected_map, module, resize_mode, h, w):
 
         if 'inpaint' in module:
             detected_map = detected_map.astype(np.float32)
         else:
             detected_map = HWC3(detected_map)
-            if module == "normal_map" or rgbbgr_mode:
-                detected_map = detected_map[:, :, ::-1].copy()
 
         def get_pytorch_control(x):
             y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
             return rearrange(y.float() / 255.0, 'h w c -> c h w')
+
+        def high_quality_resize(x, size):
+            old_size = x.shape[0] * x.shape[1]
+            new_size = size[0] * size[1]
+            return cv2.resize(x, size, interpolation=cv2.INTER_LANCZOS4 if new_size > old_size else cv2.INTER_AREA)
 
         if resize_mode == external_code.ResizeMode.RESIZE:
             detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
@@ -630,8 +647,8 @@ class Script(scripts.Script):
             k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
-            high_quality_background = cv2.resize(high_quality_border_color[None, None], (w, h), interpolation=cv2.INTER_NEAREST)
-            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_AREA)
+            high_quality_background = np.tile(high_quality_border_color[None, None], [h, w, 1])
+            detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (h - new_h) // 2)
             pad_w = max(0, (w - new_w) // 2)
@@ -640,7 +657,7 @@ class Script(scripts.Script):
             return get_pytorch_control(detected_map), detected_map
         else:
             k = max(k0, k1)
-            detected_map = cv2.resize(detected_map, (safeint(old_w * k), safeint(old_h * k)), interpolation=cv2.INTER_LANCZOS4)
+            detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (new_h - h) // 2)
             pad_w = max(0, (new_w - w) // 2)
@@ -717,7 +734,6 @@ class Script(scripts.Script):
                     image['mask'] = image['mask'][..., np.newaxis]
 
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
-            invert_image = unit.invert_image
 
             if unit.low_vram:
                 hook_lowvram = True
@@ -730,7 +746,12 @@ class Script(scripts.Script):
             if is_img2img_batch_tab and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
             elif p_input_image is not None:
-                input_image = HWC3(np.asarray(p_input_image))
+                if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
+                    color = HWC3(np.asarray(p_input_image['image']))
+                    alpha = np.asarray(p_input_image['mask'])[..., None]
+                    input_image = np.concatenate([color, alpha], axis=2)
+                else:
+                    input_image = HWC3(np.asarray(p_input_image))
             elif image is not None:
                 # Need to check the image for API compatibility
                 if isinstance(image['image'], str):
@@ -739,17 +760,21 @@ class Script(scripts.Script):
                 else:
                     input_image = HWC3(image['image'])
 
-                # Adding 'mask' check for API compatibility
-                if 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
-                    if 'inpaint' in unit.module:
-                        print("using inpaint as input")
-                        color = HWC3(image['image'])
+                have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
+
+                if 'inpaint' in unit.module:
+                    print("using inpaint as input")
+                    color = HWC3(image['image'])
+                    if have_mask:
                         alpha = image['mask'][:, :, 0:1]
-                        input_image = np.concatenate([color, alpha], axis=2)
                     else:
+                        alpha = np.zeros_like(color)[:, :, 0:1]
+                    input_image = np.concatenate([color, alpha], axis=2)
+                else:
+                    if have_mask:
                         print("using mask as input")
                         input_image = HWC3(image['mask'][:, :, 0])
-                        invert_image = True
+                        unit.module = 'none'  # Always use black bg and white line
             else:
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0] 
@@ -786,9 +811,6 @@ class Script(scripts.Script):
                 detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
-                
-            if invert_image:
-                detected_map = 255 - detected_map.copy() 
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
@@ -804,14 +826,14 @@ class Script(scripts.Script):
                     hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
 
                 if is_image:
-                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, hr_y, hr_x)
+                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
                 else:
                     hr_control = detected_map
             else:
                 hr_control = None
 
             if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, unit.module, unit.rgbbgr_mode, resize_mode, h, w)
+                control, detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map
@@ -958,6 +980,19 @@ class Img2ImgTabTracker:
             return
 
 
+def on_after_component(component, **_kwargs):
+    global txt2img_submit_button
+    if getattr(component, 'elem_id', None) == 'txt2img_generate':
+        txt2img_submit_button = component
+        return
+
+    global img2img_submit_button
+    if getattr(component, 'elem_id', None) == 'img2img_generate':
+        img2img_submit_button = component
+        return
+
+
 img2img_tab_tracker = Img2ImgTabTracker()
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_after_component(img2img_tab_tracker.on_after_component_callback)
+script_callbacks.on_after_component(on_after_component)

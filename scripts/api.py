@@ -43,8 +43,7 @@ cn_fields = {
     "guidance": (float, Field(default=1.0, title='ControlNet Guidance Strength')),
     "guidance_start": (float, Field(0.0, title='ControlNet Guidance Start')),
     "guidance_end": (float, Field(1.0, title='ControlNet Guidance End')),
-    "guessmode": (bool, Field(default=True, title="Guess Mode")),
-    "rgbbgr_mode": (bool, Field(default=False, title="RGB to BGR")),
+    "guessmode": (bool, Field(default=True, title="Guess Mode"))
 }
 
 def get_deprecated_cn_field(field_name: str, field):
@@ -167,8 +166,7 @@ def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.Control
         threshold_b=unit_request.threshold_b,
         guidance_start=unit_request.guidance_start,
         guidance_end=unit_request.guidance_end,
-        guess_mode=unit_request.guessmode,
-        rgbbgr_mode=unit_request.rgbbgr_mode,
+        guess_mode=unit_request.guessmode
     )
 
 def warn_deprecated_route(is_img2img):
@@ -219,7 +217,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             results.append(processor_module(img=img, res=controlnet_processor_res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b))
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
-
         results64 = list(map(encode_to_base64, results))
         return {"images": results64, "info": "Success"}
 

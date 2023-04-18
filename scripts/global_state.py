@@ -19,6 +19,7 @@ cn_preprocessor_modules = {
     "depth_leres": leres,
     "hed": hed,
     "hed_safe": hed_safe,
+    "mediapipe_face": mediapipe_face,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,
@@ -45,9 +46,11 @@ cn_preprocessor_modules = {
     "lineart": lineart,
     "lineart_coarse": lineart_coarse,
     "lineart_anime": lineart_anime,
+    "lineart_standard": lineart_standard,
     "shuffle": shuffle,
     "tile_gaussian": tile_gaussian,
     "inpaint": inpaint,
+    "invert": invert,
 }
 
 cn_preprocessor_unloadable = {
@@ -79,6 +82,8 @@ for key in cn_preprocessor_modules.keys():
     module_names[key] = key
 
 update_names = {
+    "lineart_standard": "lineart_standard (from white bg & black line)",
+    "lineart": "lineart_realistic",
     "color": "t2ia_color_grid",
     "clip_vision": "t2ia_style_clipvision",
     "pidinet_sketch": "t2ia_sketch_pidi",
@@ -99,8 +104,10 @@ for k, v in update_names.items():
     module_names[k] = v
 
 del module_names['none']
+del module_names['invert']
 
-module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
+module_names = OrderedDict([('none', 'none'), ('invert', 'invert (from white bg & black line)')]
+                           + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
