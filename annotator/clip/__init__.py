@@ -1,7 +1,7 @@
 from transformers import CLIPProcessor, CLIPVisionModel
 from modules import devices
 import os
-from ..annotator_path import models_path
+from annotator.annotator_path import models_path
 
 
 remote_model_path = "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin"

@@ -6,7 +6,7 @@ from einops import rearrange
 
 import os 
 from modules import devices
-from ..annotator_path import models_path
+from annotator.annotator_path import models_path
 from annotator.util import safe_step, nms
 
 class Network(torch.nn.Module):
