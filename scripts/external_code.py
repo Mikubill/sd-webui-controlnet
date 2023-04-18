@@ -26,6 +26,8 @@ class ResizeMode(Enum):
 resize_mode_aliases = {
     'Inner Fit (Scale to Fit)': 'Crop and Resize',
     'Outer Fit (Shrink to Fit)': 'Resize and Fill',
+    'Scale to Fit (Inner Fit)': 'Crop and Resize',
+    'Envelope (Outer Fit)': 'Resize and Fill',
 }
 
 
