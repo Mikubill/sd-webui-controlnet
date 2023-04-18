@@ -23,9 +23,15 @@ class ResizeMode(Enum):
     OUTER_FIT = "Resize and Fill"
 
 
+resize_mode_aliases = {
+    'Inner Fit (Scale to Fit)': 'Crop and Resize',
+    'Outer Fit (Shrink to Fit)': 'Resize and Fill',
+}
+
+
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
     if isinstance(value, str):
-        return ResizeMode(value)
+        return ResizeMode(resize_mode_aliases.get(value, value))
     elif isinstance(value, int):
         return [e for e in ResizeMode][value]
     else:
