@@ -200,6 +200,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
     ):
+        controlnet_module = global_state.preprocessor_aliases.get(controlnet_module, controlnet_module)
 
         if controlnet_module not in global_state.cn_preprocessor_modules:
             return {"images": [], "info": "Module not available"}

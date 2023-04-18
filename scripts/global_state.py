@@ -81,27 +81,28 @@ module_names = OrderedDict()
 for key in cn_preprocessor_modules.keys():
     module_names[key] = key
 
-update_names = {
-    "lineart_standard": "lineart_standard (from white bg & black line)",
-    "lineart": "lineart_realistic",
-    "color": "t2ia_color_grid",
-    "clip_vision": "t2ia_style_clipvision",
-    "pidinet_sketch": "t2ia_sketch_pidi",
-    "depth": "depth_midas",
-    "normal_map": "normal_midas",
-    "hed": "softedge_hed",
-    "hed_safe": "softedge_hedsafe",
-    "pidinet": "softedge_pidinet",
-    "pidinet_safe": "softedge_pidisafe",
-    "segmentation": "seg_ufade20k",
-    "oneformer_coco": "seg_ofcoco",
-    "oneformer_ade20k": "seg_ofade20k",
-    "pidinet_scribble": "scribble_pidinet",
-    "inpaint": "inpaint_global_harmonious"
+preprocessor_aliases = {
+    "invert (from white bg & black line)": "invert",
+    "lineart_standard (from white bg & black line)": "lineart_standard",
+    "lineart_realistic": "lineart",
+    "t2ia_color_grid": "color",
+    "t2ia_style_clipvision": "clip_vision",
+    "t2ia_sketch_pidi": "pidinet_sketch",
+    "depth_midas": "depth",
+    "normal_midas": "normal_map",
+    "softedge_hed": "hed",
+    "softedge_hedsafe": "hed_safe",
+    "softedge_pidinet": "pidinet",
+    "softedge_pidisafe": "pidinet_safe",
+    "seg_ufade20k": "segmentation",
+    "seg_ofcoco": "oneformer_coco",
+    "seg_ofade20k": "oneformer_ade20k",
+    "scribble_pidinet": "pidinet_scribble",
+    "inpaint_global_harmonious": "inpaint"
 }
 
-for k, v in update_names.items():
-    module_names[k] = v
+for k, v in preprocessor_aliases.items():
+    module_names[v] = k
 
 del module_names['none']
 del module_names['invert']

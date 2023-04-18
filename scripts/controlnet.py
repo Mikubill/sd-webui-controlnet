@@ -159,12 +159,10 @@ class Script(scripts.Script):
         if component.elem_id == "img2img_height":
             self.img2img_h_slider = component
             return self.img2img_h_slider
-        
+
     def get_module_basename(self, module):
-        for k, v in self.preprocessor_keys.items():
-            if v == module or k == module:
-                return k
-        
+        return global_state.preprocessor_aliases.get(module, module)
+
     def get_threshold_block(self, proc):
         pass
 
