@@ -19,8 +19,8 @@ class ResizeMode(Enum):
     """
 
     RESIZE = "Just Resize"
-    INNER_FIT = "Inner Fit (Scale to Fit)"
-    OUTER_FIT = "Outer Fit (Shrink to Fit)"
+    INNER_FIT = "Crop and Resize"
+    OUTER_FIT = "Resize and Fill"
 
 
 def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
