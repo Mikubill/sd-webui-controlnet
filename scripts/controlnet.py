@@ -25,7 +25,7 @@ from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusion
 from modules.images import save_image
 import cv2
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
@@ -787,6 +787,11 @@ class Script(scripts.Script):
                 input_image = [Image.fromarray(x) for x in input_image]
 
                 mask = p.image_mask.convert('L')
+                if p.inpainting_mask_invert:
+                    mask = ImageOps.invert(mask)
+                if p.mask_blur > 0:
+                    mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
