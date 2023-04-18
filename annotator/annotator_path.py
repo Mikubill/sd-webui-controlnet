@@ -7,5 +7,8 @@ if not models_path:
 if not models_path:
     models_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'downloads')
 
+if not os.path.isabs(models_path):
+    models_path = os.path.join(shared.data_path, models_path)
+
 models_path = os.path.realpath(models_path)
 os.makedirs(models_path, exist_ok=True)
