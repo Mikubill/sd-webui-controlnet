@@ -101,9 +101,7 @@ ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
                                 for k in cn_preprocessor_modules.keys()
                                 if preprocessor_aliases.get(k, k) not in ui_preprocessor_keys])
 
-reverse_preprocessor_aliases = {preprocessor_aliases[k]: k
-                                for k in cn_preprocessor_modules.keys()
-                                if k in preprocessor_aliases}
+reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
 
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
