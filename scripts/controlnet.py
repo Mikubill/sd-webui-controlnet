@@ -128,7 +128,6 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor_keys = global_state.module_names
         self.preprocessor = global_state.cn_preprocessor_modules
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
@@ -161,7 +160,7 @@ class Script(scripts.Script):
             return self.img2img_h_slider
 
     def get_module_basename(self, module):
-        return global_state.preprocessor_aliases.get(module, module)
+        return global_state.reverse_preprocessor_aliases.get(module, module)
 
     def get_threshold_block(self, proc):
         pass
@@ -225,13 +224,13 @@ class Script(scripts.Script):
 
         def refresh_all_models(*inputs):
             global_state.update_cn_models()
-                
+
             dd = inputs[0]
             selected = dd if dd in global_state.cn_models else "None"
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(list(self.preprocessor_keys.values()), label=f"Preprocessor", value=default_unit.module)
+            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module)
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
