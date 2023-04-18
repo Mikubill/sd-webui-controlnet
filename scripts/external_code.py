@@ -51,7 +51,7 @@ class ControlNetUnit:
         threshold_b: float=64,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
-        guess_mode: bool=True,
+        guess_mode: bool=False,
     ):
         self.enabled = enabled
         self.module = module
