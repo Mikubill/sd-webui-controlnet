@@ -14,11 +14,11 @@ import numpy as np
 from einops import rearrange
 import annotator
 from scripts import global_state, hook, external_code, processor
+importlib.reload(annotator)
+importlib.reload(processor)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
-importlib.reload(annotator)
-importlib.reload(processor)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
