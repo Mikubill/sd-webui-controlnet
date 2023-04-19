@@ -77,7 +77,11 @@ class OpenposeDetector:
         self.body_estimation.model.to(self.device)
         self.hand_estimation.model.to(self.device)
         self.face_estimation.model.to(self.device)
-            
+
+        self.body_estimation.cn_device = self.device
+        self.hand_estimation.cn_device = self.device
+        self.face_estimation.cn_device = self.device
+
         oriImg = oriImg[:, :, ::-1].copy()
         H, W, C = oriImg.shape
         with torch.no_grad():
