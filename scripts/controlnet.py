@@ -642,6 +642,11 @@ class Script(scripts.Script):
             # Written by lvmin
             # Super high-quality control map up-scaling, considering binary, seg, and one-pixel edges
 
+            inpaint_mask = None
+            if x.ndim == 3 and x.shape[2] == 4:
+                inpaint_mask = x[:, :, 3]
+                x = x[:, :, 0:3]
+
             new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
             unique_color_count = np.unique(x.reshape(-1, x.shape[2]), axis=0).shape[0]
             is_one_pixel_edge = False
@@ -664,6 +669,8 @@ class Script(scripts.Script):
                 interpolation = cv2.INTER_CUBIC
 
             y = cv2.resize(x, size, interpolation=interpolation)
+            if inpaint_mask is not None:
+                inpaint_mask = cv2.resize(inpaint_mask, size, interpolation=interpolation)
 
             if is_binary:
                 m = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
@@ -672,6 +679,9 @@ class Script(scripts.Script):
                 if is_one_pixel_edge:
                     y = lvmin_thin(y)
                 y = np.stack([y] * 3, axis=2)
+
+            if inpaint_mask is not None:
+                y[inpaint_mask > 127] = - 255
 
             return y
 
@@ -689,7 +699,7 @@ class Script(scripts.Script):
 
         if resize_mode == external_code.ResizeMode.OUTER_FIT:
             k = min(k0, k1)
-            borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
+            borders = np.concatenate([detected_map[0, :, 0:3], detected_map[-1, :, 0:3], detected_map[:, 0, 0:3], detected_map[:, -1, 0:3]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
             high_quality_background = np.tile(high_quality_border_color[None, None], [h, w, 1])
             detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
