@@ -671,7 +671,7 @@ class Script(scripts.Script):
             return y
 
         if resize_mode == external_code.ResizeMode.RESIZE:
-            detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
+            detected_map = high_quality_resize(detected_map, (w, h))
             return get_pytorch_control(detected_map), detected_map
 
         old_h, old_w, _ = detected_map.shape
