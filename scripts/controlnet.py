@@ -656,7 +656,7 @@ class Script(scripts.Script):
                     all_edge_count = np.where(x > 127)[0].shape[0]
                     is_one_pixel_edge = one_pixel_edge_count * 2 > all_edge_count
 
-            if 2 < unique_color_count < 128:
+            if 2 < unique_color_count < 200:
                 interpolation = cv2.INTER_NEAREST
             elif new_size_is_smaller:
                 interpolation = cv2.INTER_AREA
