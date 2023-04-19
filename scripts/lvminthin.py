@@ -71,7 +71,6 @@ def lvmin_thin(x):
         y, is_done = thin_one_time(y, lvmin_kernels)
         if is_done:
             break
-        print(i)
     y, _ = thin_one_time(y, lvmin_prunings)
     return y
 
