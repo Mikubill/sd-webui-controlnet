@@ -648,8 +648,13 @@ class Script(scripts.Script):
             is_binary = False
             if unique_color_count == 2:
                 is_binary = np.min(x) < 16 and np.max(x) > 240
-                e = cv2.erode(x, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
-                is_one_pixel_edge = is_binary and np.max(e) < 16
+                if is_binary:
+                    xc = x
+                    xc = cv2.erode(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
+                    xc = cv2.dilate(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
+                    one_pixel_edge_count = np.where(xc < x)[0].shape[0]
+                    all_edge_count = np.where(x > 127)[0].shape[0]
+                    is_one_pixel_edge = one_pixel_edge_count * 2 > all_edge_count
 
             if 2 < unique_color_count < 128:
                 interpolation = cv2.INTER_NEAREST
