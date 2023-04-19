@@ -30,6 +30,7 @@ from modules.ui_components import FormRow
 import cv2
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
+from scripts.lvminthin import lvmin_thin
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
@@ -638,9 +639,36 @@ class Script(scripts.Script):
             return rearrange(y.float() / 255.0, 'h w c -> c h w')
 
         def high_quality_resize(x, size):
-            old_size = x.shape[0] * x.shape[1]
-            new_size = size[0] * size[1]
-            return cv2.resize(x, size, interpolation=cv2.INTER_CUBIC if new_size > old_size else cv2.INTER_AREA)
+            # Written by lvmin
+            # Super high-quality control map up-scaling, considering binary, seg, and one-pixel edges
+
+            new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
+            unique_color_count = np.unique(x.reshape(-1, x.shape[2]), axis=0).shape[0]
+            is_one_pixel_edge = False
+            is_binary = False
+            if unique_color_count == 2:
+                is_binary = np.min(x) < 16 and np.max(x) > 240
+                e = cv2.erode(x, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
+                is_one_pixel_edge = is_binary and np.max(e) < 16
+
+            if 2 < unique_color_count < 128:
+                interpolation = cv2.INTER_NEAREST
+            elif new_size_is_smaller:
+                interpolation = cv2.INTER_AREA
+            else:
+                interpolation = cv2.INTER_CUBIC
+
+            y = cv2.resize(x, size, interpolation=interpolation)
+
+            if is_binary:
+                m = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
+                y = np.zeros_like(m)
+                y[m > 16] = 255
+                if is_one_pixel_edge:
+                    y = lvmin_thin(y)
+                y = np.stack([y] * 3, axis=2)
+
+            return y
 
         if resize_mode == external_code.ResizeMode.RESIZE:
             detected_map = cv2.resize(detected_map, (w, h), interpolation=cv2.INTER_CUBIC)
@@ -842,7 +870,8 @@ class Script(scripts.Script):
                     hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
 
                 if is_image:
-                    hr_control, _ = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                    hr_control, hr_detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                    detected_maps.append((hr_detected_map, unit.module))
                 else:
                     hr_control = detected_map
             else:
