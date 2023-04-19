@@ -222,12 +222,14 @@ class UnetHook(nn.Module):
                     control = [c * uc_mask for c in control]
 
                 if param.guess_mode or is_in_high_res_fix:
+                    # important! use the soft weights with high-res fix can significantly reduce artifacts.
+                    # Note that guess_mode is soft weights + cfg masks
+                    # only use soft weights will not trigger guess mode
                     if param.is_adapter:
-                        # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
                         control_scales = param.weight * [0.25, 0.62, 0.825, 1.0]
                     else:    
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
-                
+
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting
                     
