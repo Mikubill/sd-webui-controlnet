@@ -31,7 +31,7 @@ from modules.ui_components import FormRow
 import cv2
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
-from scripts.lvminthin import lvmin_thin
+from scripts.lvminthin import lvmin_thin, nake_nms
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
 
 gradio_compat = True
@@ -670,18 +670,20 @@ class Script(scripts.Script):
             elif new_size_is_smaller:
                 interpolation = cv2.INTER_AREA
             else:
-                interpolation = cv2.INTER_CUBIC
+                interpolation = cv2.INTER_CUBIC  # Must be CUBIC because we now use nms. NEVER CHANGE THIS
 
             y = cv2.resize(x, size, interpolation=interpolation)
             if inpaint_mask is not None:
                 inpaint_mask = cv2.resize(inpaint_mask, size, interpolation=interpolation)
 
             if is_binary:
-                m = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
-                y = np.zeros_like(m)
-                y[m > 16] = 255
+                y = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
                 if is_one_pixel_edge:
+                    y = nake_nms(y)
+                    _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                     y = lvmin_thin(y)
+                else:
+                    _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 y = np.stack([y] * 3, axis=2)
 
             if inpaint_mask is not None:
