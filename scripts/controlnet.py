@@ -681,7 +681,7 @@ class Script(scripts.Script):
                 if is_one_pixel_edge:
                     y = nake_nms(y)
                     _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    y = lvmin_thin(y, prunings=False)
+                    y = lvmin_thin(y, prunings=not new_size_is_smaller)
                 else:
                     _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 y = np.stack([y] * 3, axis=2)
