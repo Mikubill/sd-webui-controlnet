@@ -198,7 +198,7 @@ class Script(scripts.Script):
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=default_unit.guess_mode)
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False)
 
         ctrls += (enabled,)
         # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -486,7 +486,7 @@ class Script(scripts.Script):
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
-        guidance_start, guidance_end, guess_mode = params[-3:]
+        guidance_start, guidance_end, guess_mode, pixel_perfect = params[-3:]
         
         self.infotext_fields.extend([
             (enabled, f"{tabname} Enabled"),
@@ -626,6 +626,7 @@ class Script(scripts.Script):
         unit.guidance_end = selector(p, "control_net_guidance_end", unit.guidance_end, idx)
         unit.guidance_end = selector(p, "control_net_guidance_strength", unit.guidance_end, idx)
         unit.guess_mode = selector(p, "control_net_guess_mode", unit.guess_mode, idx)
+        unit.pixel_perfect = selector(p, "control_net_pixel_perfect", unit.pixel_perfect, idx)
 
         return unit
 

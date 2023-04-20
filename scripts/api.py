@@ -166,7 +166,8 @@ def to_api_cn_unit(unit_request: ControlNetUnitRequest) -> external_code.Control
         threshold_b=unit_request.threshold_b,
         guidance_start=unit_request.guidance_start,
         guidance_end=unit_request.guidance_end,
-        guess_mode=unit_request.guessmode
+        guess_mode=unit_request.guessmode,
+        pixel_perfect=unit_request.pixel_perfect
     )
 
 def warn_deprecated_route(is_img2img):
