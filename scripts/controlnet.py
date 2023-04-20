@@ -870,7 +870,11 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
             if unit.processor_res > 64:
-                detected_map, is_image = preprocessor(input_image, res=unit.processor_res, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+                recommended_resolution = unit.processor_res
+                if unit.pixel_perfect:
+                    recommended_resolution = 512
+                    print(f'Pixel Perfect Mode Enabled. The computed recommended resolution is {recommended_resolution}.')
+                detected_map, is_image = preprocessor(input_image, res=recommended_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
 
