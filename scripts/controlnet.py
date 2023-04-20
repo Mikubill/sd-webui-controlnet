@@ -652,6 +652,7 @@ class Script(scripts.Script):
                 x = x[:, :, 0:3]
 
             new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
+            new_size_is_bigger = (size[0] * size[1]) > (x.shape[0] * x.shape[1])
             unique_color_count = np.unique(x.reshape(-1, x.shape[2]), axis=0).shape[0]
             is_one_pixel_edge = False
             is_binary = False
@@ -681,7 +682,7 @@ class Script(scripts.Script):
                 if is_one_pixel_edge:
                     y = nake_nms(y)
                     _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    y = lvmin_thin(y, prunings=not new_size_is_smaller)
+                    y = lvmin_thin(y, prunings=new_size_is_bigger)
                 else:
                     _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 y = np.stack([y] * 3, axis=2)
