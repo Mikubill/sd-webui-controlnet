@@ -12,7 +12,6 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-from scripts import global_state, hook, external_code
 import annotator
 from scripts import global_state, hook, external_code, processor, xyz_grid_support
 importlib.reload(annotator)
