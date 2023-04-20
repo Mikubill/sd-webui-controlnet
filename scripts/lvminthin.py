@@ -65,13 +65,14 @@ def thin_one_time(x, kernels):
     return y, is_done
 
 
-def lvmin_thin(x):
+def lvmin_thin(x, prunings=True):
     y = x
     for i in range(32):
         y, is_done = thin_one_time(y, lvmin_kernels)
         if is_done:
             break
-    y, _ = thin_one_time(y, lvmin_prunings)
+    if prunings:
+        y, _ = thin_one_time(y, lvmin_prunings)
     return y
 
 
