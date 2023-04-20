@@ -870,7 +870,7 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
             if unit.processor_res > 64:
-                recommended_resolution = unit.processor_res
+                preprocessor_resolution = unit.processor_res
                 if unit.pixel_perfect:
                     raw_H, raw_W, _ = input_image.shape
                     target_H, target_W = p.height, p.width
@@ -883,7 +883,7 @@ class Script(scripts.Script):
                     else:
                         estimation = max(k0, k1) * float(min(raw_H, raw_W))
 
-                    recommended_resolution = int(np.ceil(float(estimation) / 64.0)) * 64
+                    preprocessor_resolution = int(np.ceil(float(estimation) / 64.0)) * 64
                     print(f'Pixel Perfect Mode Enabled.')
                     print(f'resize_mode = {str(resize_mode)}')
                     print(f'raw_H = {raw_H}')
@@ -892,8 +892,8 @@ class Script(scripts.Script):
                     print(f'target_W = {target_W}')
                     print(f'estimation = {estimation}')
 
-                print(f'preprocessor resolution = {recommended_resolution}')
-                detected_map, is_image = preprocessor(input_image, res=recommended_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+                print(f'preprocessor resolution = {preprocessor_resolution}')
+                detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
 
