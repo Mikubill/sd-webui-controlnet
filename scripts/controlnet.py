@@ -436,7 +436,7 @@ class Script(scripts.Script):
         
         ctrls += (input_image, resize_mode)
         ctrls += (lowvram,)
-        ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode)
+        ctrls += (processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode, pixel_perfect)
         self.register_modules(tabname, ctrls)
 
         input_image.orgpreprocess=input_image.preprocess
