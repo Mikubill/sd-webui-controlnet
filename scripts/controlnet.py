@@ -486,7 +486,7 @@ class Script(scripts.Script):
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[:4]
-        guidance_start, guidance_end, guess_mode, pixel_perfect = params[-3:]
+        guidance_start, guidance_end, guess_mode, pixel_perfect = params[-4:]
         
         self.infotext_fields.extend([
             (enabled, f"{tabname} Enabled"),
