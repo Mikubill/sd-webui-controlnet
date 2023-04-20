@@ -189,7 +189,6 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
-
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
@@ -421,16 +420,13 @@ class Script(scripts.Script):
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
 
-        with gr.Accordion(label='Drawing Canvas', open=False):
+        with gr.Accordion(label='Directly Draw Scribbles', open=False):
             with gr.Row():
-                with gr.Column():
-                    canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                    canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
-                if gradio_compat:
-                    canvas_swap_res = ToolButton(value=switch_values_symbol)
-                    canvas_swap_res.click(lambda w, h: (h, w), inputs=[canvas_width, canvas_height], outputs=[canvas_width, canvas_height])
-            create_button = gr.Button(value="Create blank canvas")
-            create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+                canvas_width = gr.Slider(label="New Scribble Drawing Width", minimum=256, maximum=1024, value=512, step=64)
+                canvas_height = gr.Slider(label="New Scribble Drawing Height", minimum=256, maximum=1024, value=512, step=64)
+            with gr.Row():
+                create_button = gr.Button(value="Open New Scribble Drawing Canvas")
+                create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
         
         ctrls += (input_image, resize_mode)
         ctrls += (lowvram,)
