@@ -60,6 +60,7 @@ class ControlNetUnit:
         guidance_start: float=0.0,
         guidance_end: float=1.0,
         guess_mode: bool=False,
+        pixel_perfect: bool=False
     ):
         self.enabled = enabled
         self.module = module
@@ -74,6 +75,7 @@ class ControlNetUnit:
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
+        self.pixel_perfect = pixel_perfect
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
