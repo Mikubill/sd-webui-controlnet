@@ -6,7 +6,7 @@ from scripts.global_state import update_cn_models, cn_models_names, cn_preproces
 
 from modules.api import api
 
-PARAM_COUNT = 13
+PARAM_COUNT = 14
 
 
 def get_api_version() -> int:
@@ -60,6 +60,7 @@ class ControlNetUnit:
         guidance_start: float=0.0,
         guidance_end: float=1.0,
         guess_mode: bool=False,
+        pixel_perfect: bool=False
     ):
         self.enabled = enabled
         self.module = module
@@ -74,6 +75,7 @@ class ControlNetUnit:
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
+        self.pixel_perfect = pixel_perfect
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
@@ -177,7 +179,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             del unit['mask']
 
         if 'image' in unit and not isinstance(unit['image'], dict):
-            unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
+            unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
 
         unit = ControlNetUnit(**unit)
 
