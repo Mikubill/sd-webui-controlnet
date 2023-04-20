@@ -12,9 +12,9 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-import annotator
+from annotator import annotator_path
 from scripts import global_state, hook, external_code, processor
-importlib.reload(annotator)
+importlib.reload(annotator_path)
 importlib.reload(processor)
 importlib.reload(global_state)
 importlib.reload(hook)
