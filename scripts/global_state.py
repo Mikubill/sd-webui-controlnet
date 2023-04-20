@@ -51,6 +51,7 @@ cn_preprocessor_modules = {
     "tile_gaussian": tile_gaussian,
     "inpaint": inpaint,
     "invert": invert,
+    "resize": resize,
 }
 
 cn_preprocessor_unloadable = {

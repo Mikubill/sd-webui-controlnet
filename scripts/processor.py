@@ -498,3 +498,7 @@ def shuffle(img, res=512, **kwargs):
         model_shuffle = ContentShuffleDetector()
     result = model_shuffle(img)
     return result, True
+
+def resize(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    return img, True
