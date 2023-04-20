@@ -4,7 +4,7 @@ import cv2
 import torch
 import torch.nn as nn
 import os
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 from torchvision.transforms import Compose
 

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import os
 from modules import devices, shared
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 from torchvision.transforms import transforms
 
 # AdelaiDepth/LeReS imports

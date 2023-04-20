@@ -4,7 +4,7 @@ import torch
 
 import os
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 import mmcv
 from mmdet.apis import inference_detector, init_detector

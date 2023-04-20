@@ -1,5 +1,6 @@
 ## sd-webui-controlnet
-(WIP) WebUI extension for ControlNet and T2I-Adapter
+
+(WIP) WebUI extension for ControlNet and other injection-based SD controls.
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
@@ -7,39 +8,45 @@ ControlNet is a neural network structure to control diffusion models by adding e
 
 Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
-### Limits
-
-* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
-
 ### Install
 
 1. Open "Extensions" tab.
 2. Open "Install from URL" tab in the tab.
-3. Enter URL of this repo to "URL for extension's git repository".
+3. Enter `https://github.com/Mikubill/sd-webui-controlnet.git` to "URL for extension's git repository".
 4. Press "Install" button.
-5. Reload/Restart Web UI.
+5. Wait 5 seconds, and you will see the message "Installed into stable-diffusion-webui\extensions\sd-webui-controlnet. Use Installed tab to restart".
+6. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use this method to update ControlNet.)
+7. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer: turn your computer off and turn it on again.)
+8. Download models (see below).
+9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
 
-Upgrade gradio if any ui issues occured: `pip install gradio==3.16.2`
+### Download Models
 
-### Usage
+Right now all the 14 models of ControlNet 1.1 are in the beta test. [Here is the discussion and bug report](https://github.com/Mikubill/sd-webui-controlnet/issues/736).
 
-1. Put the ControlNet models (`.pt`, `.pth`, `.ckpt` or `.safetensors`) inside the `models/ControlNet` folder.
-2. Open "txt2img" or "img2img" tab, write your prompts.
-3. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
-4. Upload your image and select preprocessor, done.
+Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
-Currently it supports both full models and trimmed models. Use `extract_controlnet.py` to extract controlnet from original `.pth` file.
+You need to download model files ending with ".pth" .
 
-### ControlNet 1.1 is in the beta test.
+**Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all "yaml" files. You only need to download "pth" files.** 
 
-Right now 12 models of ControlNet 1.1 are in the beta test (all models expect the inpaint and tile).
+Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
 
-Download models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
+(For authors of other ControlNet model extractions or fp16 model providers: now some models like "shuffle" needs the YAML file so that we know the outputs of ControlNet should pass a global average pooling before inject to SD U-Nets. Please add yaml files with same filenames to your renaming when delivering your processed models.)
 
-(If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors.) **Some 3rd-party CivitAI and fp16 models are renamed randomly, making YAML files mismatch. The performance of some of these models (like shuffle) will be significantly worse than official ones. Please download models from our huggingface website with correct YAML file names.**
+**Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
+
+### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
+
+### Update from ControlNet 1.0 to 1.1
+
+If you are a previous user of ControlNet 1.0, you may:
+
+* If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
+
+* Or you can start from the step 6 in the above Install section.
 
 ### Previous Models
 
@@ -47,7 +54,13 @@ Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
-### Tips 
+You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+
+### Usage
+
+1. Open "txt2img" or "img2img" tab, write your prompts.
+2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
+3. Upload your image and select preprocessor, done.
 
 * Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
@@ -174,3 +187,9 @@ pip install langchain==0.0.101 openai
 # Run exmaple
 python example/chatgpt.py
 ```
+
+### Limits
+
+* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
+* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
+
