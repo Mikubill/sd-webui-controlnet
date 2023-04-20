@@ -852,6 +852,13 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
+                if resize_mode == external_code.ResizeMode.INNER_FIT:
+                    input_image = [images.resize_image(2, i, mask.width, mask.height) for i in input_image]
+                elif resize_mode == external_code.ResizeMode.OUTER_FIT:
+                    input_image = [images.resize_image(1, i, mask.width, mask.height) for i in input_image]
+                elif resize_mode == external_code.ResizeMode.RESIZE:
+                    input_image = [images.resize_image(0, i, mask.width, mask.height) for i in input_image]
+
                 # scale crop region to the size of our image
                 x1, y1, x2, y2 = crop_region
                 scale_x, scale_y = mask.width / float(input_image[0].width), mask.height / float(input_image[0].height)
