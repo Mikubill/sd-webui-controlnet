@@ -177,7 +177,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             del unit['mask']
 
         if 'image' in unit and not isinstance(unit['image'], dict):
-            unit['image'] = {'image': unit['image'], 'mask': mask} if mask else unit['image'] if unit['image'] else None
+            unit['image'] = {'image': unit['image'], 'mask': mask} if not(mask is None) else unit['image'] if unit['image'] else None
 
         unit = ControlNetUnit(**unit)
 
