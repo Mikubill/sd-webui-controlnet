@@ -400,6 +400,10 @@ class Script(scripts.Script):
                 result, is_image = preprocessor(img)
             
             if is_image:
+                if result.ndim == 3 and result.shape[2] == 4:
+                    inpaint_mask = result[:, :, 3]
+                    result = result[:, :, 0:3]
+                    result[inpaint_mask > 127] = 0
                 return gr.update(value=result, visible=True, interactive=False)
 
             return gr.update(value=None, visible=True)
