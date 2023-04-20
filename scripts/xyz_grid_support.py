@@ -6,7 +6,7 @@ from modules import scripts, shared
 try:
     from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
     from scripts.external_code import ResizeMode
-except ImportError:
+except (ImportError, NameError):
     import_error = True
 else:
     import_error = False
