@@ -142,9 +142,11 @@ class UnetHook(nn.Module):
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_control = [0.0] * 13
             total_adapter = [0.0] * 4
-            total_extra_cond = torch.zeros([0, context.shape[-1]]).to(devices.get_device_for("controlnet"))
+            total_extra_cond = None
             only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
+
+            is_in_high_res_fix = False
             
             # handle external cond first
             for param in outer.control_params:
@@ -163,20 +165,24 @@ class UnetHook(nn.Module):
                     else:
                         # we are in high-res path
                         param.used_hint_cond = param.hr_hint_cond
+                        is_in_high_res_fix = True
 
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
-                total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
+                if total_extra_cond is None:
+                    total_extra_cond = control.clone().squeeze(0) * param.weight
+                else:
+                    total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
                 
             # check if it's non-batch-cond mode (lowvram, edit model etc)
             if context.shape[0] % 2 != 0 and outer.batch_cond_available:
                 outer.batch_cond_available = False
                 
             # concat styleadapter to cond, pad uncond to same length
-            if len(total_extra_cond) > 0 and outer.batch_cond_available:
+            if total_extra_cond is not None and outer.batch_cond_available:
                 total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
                 if outer.is_vanilla_samplers:  
                     uncond, cond = context.chunk(2)
@@ -218,12 +224,15 @@ class UnetHook(nn.Module):
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
-                if param.guess_mode:
+                if param.guess_mode or is_in_high_res_fix:
+                    # important! use the soft weights with high-res fix can significantly reduce artifacts.
+                    # Note that guess_mode is soft weights + cfg masks
+                    # only use soft weights will not trigger guess mode
                     if param.is_adapter:
-                        # see https://github.com/Mikubill/sd-webui-controlnet/issues/269
-                        control_scales = param.weight * [0.25, 0.62, 0.825, 1.0]
+                        control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
                     else:    
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
+
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting
                     

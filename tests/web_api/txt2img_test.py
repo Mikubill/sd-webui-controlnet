@@ -54,8 +54,8 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         controlnet_unit = [
             True, "none", utils.get_model(), 1.0,
             utils.readImage("test/test_files/img2img_basic.png"),
-            False, "Crop and Resize", False, False,
-            64, 64, 64, 0.0, 1.0, False
+            False, "Crop and Resize", False,
+            64, 64, 64, 0.0, 1.0, False, False
         ]
         setup_args = [
             *controlnet_unit * getattr(self, 'units_count', 1)
@@ -96,6 +96,7 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             "guidance_start": 0.0,
             "guidance_end": 1.0,
             "guessmode": False,
+            "pixel_perfect": False
         }
         setup_args = [
             [controlnet_unit] * getattr(self, 'units_count', 1)
