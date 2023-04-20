@@ -7,6 +7,9 @@ if not models_path:
 if not models_path:
     models_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'downloads')
 
+if not os.path.isabs(models_path):
+    models_path = os.path.join(shared.data_path, models_path)
+
 clip_vision_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision')
 # clip vision is always inside controlnet "extensions\sd-webui-controlnet"
 # and any problem can be solved by removing controlnet and reinstall
