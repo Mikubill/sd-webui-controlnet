@@ -6,7 +6,7 @@ from scripts.global_state import update_cn_models, cn_models_names, cn_preproces
 
 from modules.api import api
 
-PARAM_COUNT = 13
+PARAM_COUNT = 14
 
 
 def get_api_version() -> int:
