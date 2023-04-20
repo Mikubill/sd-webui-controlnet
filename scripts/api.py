@@ -43,7 +43,8 @@ cn_fields = {
     "guidance": (float, Field(default=1.0, title='ControlNet Guidance Strength')),
     "guidance_start": (float, Field(0.0, title='ControlNet Guidance Start')),
     "guidance_end": (float, Field(1.0, title='ControlNet Guidance End')),
-    "guessmode": (bool, Field(default=True, title="Guess Mode"))
+    "guessmode": (bool, Field(default=True, title="Guess Mode")),
+    "pixel_perfect": (bool, Field(default=False, title="Pixel Perfect"))
 }
 
 def get_deprecated_cn_field(field_name: str, field):
