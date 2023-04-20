@@ -874,15 +874,13 @@ class Script(scripts.Script):
                 if unit.pixel_perfect:
                     raw_H, raw_W, _ = input_image.shape
                     target_H, target_W = p.height, p.width
-                    estimation = 512.0
-                    if resize_mode == external_code.ResizeMode.RESIZE:
-                        estimation = float(min(target_H, target_W))
-                    elif resize_mode == external_code.ResizeMode.OUTER_FIT:
+                    if resize_mode == external_code.ResizeMode.OUTER_FIT:
                         estimation = float(min(raw_H, raw_W)) * float(min(target_H, target_W)) / float(max(raw_H, raw_W))
-                    elif resize_mode == external_code.ResizeMode.INNER_FIT:
+                    else:
                         estimation = float(max(target_H, target_W))
                     recommended_resolution = int(np.ceil(float(estimation) / 64.0)) * 64
                     print(f'Pixel Perfect Mode Enabled.')
+                    print(f'resize_mode = {str(resize_mode)}')
                     print(f'raw_H = {raw_H}')
                     print(f'raw_W = {raw_W}')
                     print(f'target_H = {target_H}')
