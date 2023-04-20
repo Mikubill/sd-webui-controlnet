@@ -874,10 +874,15 @@ class Script(scripts.Script):
                 if unit.pixel_perfect:
                     raw_H, raw_W, _ = input_image.shape
                     target_H, target_W = p.height, p.width
+
+                    k0 = float(target_H) / float(raw_H)
+                    k1 = float(target_W) / float(raw_W)
+
                     if resize_mode == external_code.ResizeMode.OUTER_FIT:
-                        estimation = float(min(raw_H, raw_W)) * float(min(target_H, target_W)) / float(max(raw_H, raw_W))
+                        estimation = min(k0, k1) * float(min(raw_H, raw_W))
                     else:
-                        estimation = float(max(target_H, target_W))
+                        estimation = max(k0, k1) * float(min(raw_H, raw_W))
+
                     recommended_resolution = int(np.ceil(float(estimation) / 64.0)) * 64
                     print(f'Pixel Perfect Mode Enabled.')
                     print(f'resize_mode = {str(resize_mode)}')
@@ -886,7 +891,8 @@ class Script(scripts.Script):
                     print(f'target_H = {target_H}')
                     print(f'target_W = {target_W}')
                     print(f'estimation = {estimation}')
-                    print(f'recommended_resolution = {recommended_resolution}')
+
+                print(f'preprocessor resolution = {recommended_resolution}')
                 detected_map, is_image = preprocessor(input_image, res=recommended_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
             else:
                 detected_map, is_image = preprocessor(input_image)
