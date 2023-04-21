@@ -653,8 +653,13 @@ class Script(scripts.Script):
             detected_map = HWC3(detected_map)
 
         def get_pytorch_control(x):
-            y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
-            return rearrange(y.float() / 255.0, 'h w c -> c h w')
+            y = x.copy()
+            y = torch.from_numpy(y)
+            y = y.float() / 255.0
+            y = rearrange(y, 'h w c -> c h w')
+            y = y.to(devices.get_device_for("controlnet"))
+            y = y.clone()
+            return y
 
         def high_quality_resize(x, size):
             # Written by lvmin
