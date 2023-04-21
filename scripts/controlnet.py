@@ -658,7 +658,7 @@ class Script(scripts.Script):
 
             # below is very boring but do not change these. If you change these Apple or Mac may fail.
             y = y.copy()
-            y = y.ascontiguousarray()
+            y = np.ascontiguousarray(y)
             y = y.copy()
             y = torch.from_numpy(y)
             y = y.float() / 255.0
