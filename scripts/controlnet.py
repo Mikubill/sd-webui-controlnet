@@ -184,8 +184,8 @@ class Script(scripts.Script):
         default_unit = self.get_default_ui_unit()
         with gr.Row(equal_height=True):
             input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
-            generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
             # Gradio's magic number. Only 242 works.
+            generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
 
         with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
             canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64)
