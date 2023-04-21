@@ -60,6 +60,7 @@ camera_symbol = '\U0001F4F7'        # 📷
 reverse_symbol = '\U000021C4'       # ⇄
 tossup_symbol = '\u2934'
 trigger_symbol = '\U0001F4A5'  # 💥
+open_symbol = '\U0001F4DD'  # 📝
 
 webcam_enabled = False
 webcam_mirrored = False
@@ -188,11 +189,22 @@ class Script(scripts.Script):
             input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
             generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image')
 
+        with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
+            canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64)
+            canvas_height = gr.Slider(label="New Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+            with gr.Row():
+                canvas_create_button = gr.Button(value="Create New Canvas")
+                canvas_cancel_button = gr.Button(value="Cancel")
+
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+            open_new_canvas_button = ToolButton(value=open_symbol)
             webcam_enable = ToolButton(value=camera_symbol)
             webcam_mirror = ToolButton(value=reverse_symbol)
             send_dimen_button = ToolButton(value=tossup_symbol)
+
+        open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
+        canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
         with FormRow(elem_classes="checkboxes-row", variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
@@ -364,9 +376,6 @@ class Script(scripts.Script):
 
         # infotext_fields.extend((module, model, weight))
 
-        def create_canvas(h, w):
-            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255
-
         def svgPreprocess(inputs):
             if (inputs):
                 if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
@@ -427,13 +436,10 @@ class Script(scripts.Script):
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
 
-        with gr.Accordion(label='Directly Draw Scribbles', open=False):
-            with gr.Row():
-                canvas_width = gr.Slider(label="New Scribble Drawing Width", minimum=256, maximum=1024, value=512, step=64)
-                canvas_height = gr.Slider(label="New Scribble Drawing Height", minimum=256, maximum=1024, value=512, step=64)
-            with gr.Row():
-                create_button = gr.Button(value="Open New Scribble Drawing Canvas")
-                create_button.click(fn=create_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image])
+        def fn_canvas(h, w):
+            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
+
+        canvas_create_button.click(fn=fn_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image, create_canvas])
 
         ctrls += (input_image, resize_mode)
         ctrls += (lowvram,)
