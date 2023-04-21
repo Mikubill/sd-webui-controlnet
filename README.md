@@ -36,6 +36,24 @@ Note: If you download models elsewhere, please make sure that yaml file names an
 
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
 
+### New Features in A1111 ControlNet Extension 1.1
+
+**Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.**
+
+Now we have perfect support all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are same, see also YAMl files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
+
+**Perfect Support for A1111 High-Res. Fix**
+
+Now if you turn on High-Res Fix in A1111, each controlnet will output two different control images: a small one and a large one. The small one is for your basic generating, and the big one is for your High-Res Fix generating. The two control images are computed by a smart algorithm called "super high-quality control image resampling". This is turned on by default, and you do not need to change any setting.
+
+**Pixel Perfect Mode**
+
+Now if you turn on pixel-perfect mode, you do not need to set preprocessor (annotator) resolutions manually. The ControlNet will automatically compute the best annotator resolution for you so that each pixel perfectly matches Stable Diffusion.
+
+**User-Friendly GUI and Preprocessor Preview**
+
+We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
+
 ### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
@@ -61,8 +79,6 @@ You can still use all previous models in the previous ControlNet 1.0. Now, the p
 1. Open "txt2img" or "img2img" tab, write your prompts.
 2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
 3. Upload your image and select preprocessor, done.
-
-* Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
 
