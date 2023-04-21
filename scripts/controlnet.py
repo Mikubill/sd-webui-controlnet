@@ -653,8 +653,20 @@ class Script(scripts.Script):
             detected_map = HWC3(detected_map)
 
         def get_pytorch_control(x):
-            y = torch.from_numpy(x).to(devices.get_device_for("controlnet"))
-            return rearrange(y.float() / 255.0, 'h w c -> c h w')
+            # A very safe method to make sure that Apple/Mac works
+            y = x
+
+            # below is very boring but do not change these. If you change these Apple or Mac may fail.
+            y = y.copy()
+            y = np.ascontiguousarray(y)
+            y = y.copy()
+            y = torch.from_numpy(y)
+            y = y.float() / 255.0
+            y = rearrange(y, 'h w c -> c h w')
+            y = y.clone()
+            y = y.to(devices.get_device_for("controlnet"))
+            y = y.clone()
+            return y
 
         def high_quality_resize(x, size):
             # Written by lvmin
