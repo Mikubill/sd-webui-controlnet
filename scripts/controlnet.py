@@ -1056,6 +1056,8 @@ def on_ui_settings():
         False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("control_net_high_res_only_mid", shared.OptionInfo(
+        False, "Use only-mid-control on high-res. fix (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
         False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(

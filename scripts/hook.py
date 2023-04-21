@@ -166,6 +166,8 @@ class UnetHook(nn.Module):
                         # we are in high-res path
                         param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
+                        if shared.opts.data.get("control_net_high_res_only_mid", False):
+                            only_mid_control = True
 
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
