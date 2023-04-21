@@ -56,7 +56,7 @@ We reorganized some previously confusing UI like "canvas width/height for new ca
 
 **Bug fix of Previous Guess Mode**
 
-One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all control units will become Guess Mode - users cannot turn on/off guess mode for each ControlNets. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
+One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all ControlNets will become Guess Mode - users cannot separately turn on/off guess mode for each ControlNets independently. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
 
 ### See Also
 
