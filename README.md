@@ -40,7 +40,7 @@ Note: If you download models elsewhere, please make sure that yaml file names an
 
 **Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.**
 
-Now we have perfect support all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are same, see also YAMl files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
+Now we have perfect support all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are same, see also YAML files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
 
 **Perfect Support for A1111 High-Res. Fix**
 
