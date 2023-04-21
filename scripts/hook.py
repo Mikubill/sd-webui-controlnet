@@ -166,6 +166,8 @@ class UnetHook(nn.Module):
                         # we are in high-res path
                         param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
+                        if shared.opts.data.get("control_net_high_res_only_mid", False):
+                            only_mid_control = True
 
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
@@ -224,7 +226,7 @@ class UnetHook(nn.Module):
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
-                if param.guess_mode or is_in_high_res_fix:
+                if param.guess_mode or (is_in_high_res_fix and not only_mid_control):
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     # Note that guess_mode is soft weights + cfg masks
                     # only use soft weights will not trigger guess mode
