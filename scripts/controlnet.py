@@ -12,14 +12,11 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-from annotator import annotator_path
-from scripts import global_state, hook, external_code, processor, xyz_grid_support
-importlib.reload(annotator_path)
+from scripts import global_state, hook, external_code, processor
 importlib.reload(processor)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
-importlib.reload(xyz_grid_support)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
