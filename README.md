@@ -54,6 +54,10 @@ Now if you turn on pixel-perfect mode, you do not need to set preprocessor (anno
 
 We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
 
+**Bug fix of Previous Guess Mode**
+
+One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all ControlNets will become Guess Mode - users cannot separately turn on/off guess mode for each ControlNets independently. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
+
 ### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
