@@ -226,7 +226,7 @@ class UnetHook(nn.Module):
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
-                if param.guess_mode or (is_in_high_res_fix and not only_mid_control):
+                if param.guess_mode or is_in_high_res_fix:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     # Note that guess_mode is soft weights + cfg masks
                     # only use soft weights will not trigger guess mode
