@@ -2,12 +2,11 @@ import os.path
 import stat
 from collections import OrderedDict
 
-from modules import shared, scripts, sd_models
-from modules.paths import models_path
+from modules import shared, scripts, sd_models, paths
 from scripts.processor import *
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
-cn_models_dir = os.path.join(models_path, "ControlNet")
+cn_models_dir = os.path.join(paths.models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
@@ -175,3 +174,25 @@ def update_cn_models():
             continue
         name = os.path.splitext(os.path.basename(filename))[0].lower()
         cn_models_names[name] = name_and_hash
+
+
+# annotator models path
+annotator_models_path = shared.opts.data.get('control_net_modules_path', None)
+if not annotator_models_path:
+    annotator_models_path = getattr(shared.cmd_opts, 'controlnet_annotator_models_path', None)
+if not annotator_models_path:
+    annotator_models_path = os.path.join(scripts.basedir(), 'annotator', 'downloads')
+
+if not os.path.isabs(annotator_models_path):
+    annotator_models_path = os.path.join(shared.data_path, annotator_models_path)
+
+clip_vision_path = os.path.join(scripts.basedir(), 'annotator', 'clip_vision')
+# clip vision is always inside controlnet "extensions\sd-webui-controlnet"
+# and any problem can be solved by removing controlnet and reinstall
+
+annotator_models_path = os.path.realpath(annotator_models_path)
+os.makedirs(annotator_models_path, exist_ok=True)
+print(f'ControlNet preprocessor location: {annotator_models_path}')
+# Make sure that the default location is inside controlnet "extensions\sd-webui-controlnet"
+# so that any problem can be solved by removing controlnet and reinstall
+# if users do not change configs on their own (otherwise users will know what is wrong)
