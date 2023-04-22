@@ -872,18 +872,6 @@ class Script(scripts.Script):
                 if input_image is None:
                     raise ValueError('controlnet is enabled but no input image is given')
                 input_image = HWC3(np.asarray(input_image))
-                if p.image_mask is not None:
-                    a1111_mask = p.image_mask.convert('L')
-                    if p.inpainting_mask_invert:
-                        a1111_mask = ImageOps.invert(a1111_mask)
-                    if p.mask_blur > 0:
-                        a1111_mask = a1111_mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-                    a1111_mask = np.asarray(a1111_mask)
-                    if a1111_mask.ndim == 2 and input_image.ndim == 3:
-                        if a1111_mask.shape[0] == input_image.shape[0]:
-                            if a1111_mask.shape[1] == input_image.shape[1]:
-                                input_image = np.concatenate([input_image, a1111_mask[:, :, None]], axis=2)
-
                 a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                 if a1111_i2i_resize_mode is not None:
                     if a1111_i2i_resize_mode == 0:
@@ -892,6 +880,26 @@ class Script(scripts.Script):
                         resize_mode = external_code.ResizeMode.INNER_FIT
                     elif a1111_i2i_resize_mode == 2:
                         resize_mode = external_code.ResizeMode.OUTER_FIT
+
+            has_mask = False
+            if input_image.ndim == 3:
+                if input_image.shape[2] == 4:
+                    if np.max(input_image[:, :, 3]) > 127:
+                        has_mask = True
+
+            a1111_mask = getattr(p, "image_mask", None)
+            if not has_mask and a1111_mask is not None:
+                a1111_mask = a1111_mask.convert('L')
+                if getattr(p, "inpainting_mask_invert", False):
+                    a1111_mask = ImageOps.invert(a1111_mask)
+                if getattr(p, "mask_blur", 0) > 0:
+                    a1111_mask = a1111_mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+                a1111_mask = np.asarray(a1111_mask)
+                if a1111_mask.ndim == 2:
+                    if a1111_mask.shape[0] == input_image.shape[0]:
+                        if a1111_mask.shape[1] == input_image.shape[1]:
+                            input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
+                            input_image = np.ascontiguousarray(input_image.copy()).copy()
 
             if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
@@ -915,9 +923,6 @@ class Script(scripts.Script):
 
                 input_image = [x.crop(crop_region) for x in input_image]
                 input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
-
-                if len(input_image) == 3:
-                    input_image += [images.resize_image(2, mask.crop(crop_region), p.width, p.height)]
 
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
