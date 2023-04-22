@@ -76,7 +76,7 @@ Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
-You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
 
 ### Usage
 
