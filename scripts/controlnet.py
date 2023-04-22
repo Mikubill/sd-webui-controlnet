@@ -872,6 +872,18 @@ class Script(scripts.Script):
                 if input_image is None:
                     raise ValueError('controlnet is enabled but no input image is given')
                 input_image = HWC3(np.asarray(input_image))
+                if p.image_mask is not None:
+                    a1111_mask = p.image_mask.convert('L')
+                    if p.inpainting_mask_invert:
+                        a1111_mask = ImageOps.invert(a1111_mask)
+                    if p.mask_blur > 0:
+                        a1111_mask = a1111_mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+                    a1111_mask = np.asarray(a1111_mask)
+                    if a1111_mask.ndim == 2 and input_image.ndim == 3:
+                        if a1111_mask.shape[0] == input_image.shape[0]:
+                            if a1111_mask.shape[1] == input_image.shape[1]:
+                                input_image = np.concatenate([input_image, a1111_mask[:, :, None]], axis=2)
+
                 a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                 if a1111_i2i_resize_mode is not None:
                     if a1111_i2i_resize_mode == 0:
@@ -903,10 +915,6 @@ class Script(scripts.Script):
 
                 input_image = [x.crop(crop_region) for x in input_image]
                 input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
-
-                if len(input_image) == 3:
-                    input_image += [images.resize_image(2, mask.crop(crop_region), p.width, p.height)]
-
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
