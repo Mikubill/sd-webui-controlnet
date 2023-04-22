@@ -915,6 +915,10 @@ class Script(scripts.Script):
 
                 input_image = [x.crop(crop_region) for x in input_image]
                 input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
+
+                if len(input_image) == 3:
+                    input_image += [images.resize_image(2, mask.crop(crop_region), p.width, p.height)]
+
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
