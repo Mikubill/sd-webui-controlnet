@@ -977,7 +977,10 @@ class Script(scripts.Script):
                 # use img2img init_image as default
                 input_image = getattr(p, "init_images", [None])[0]
                 if input_image is None:
+                    if batch_hijack.instance.is_batch:
+                        shared.state.interrupted = True
                     raise ValueError('controlnet is enabled but no input image is given')
+
                 input_image = HWC3(np.asarray(input_image))
                 a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                 if a1111_i2i_resize_mode is not None:
