@@ -36,6 +36,8 @@ Note: If you download models elsewhere, please make sure that yaml file names an
 
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
 
+If your A1111 Extension's ControlNet displays a link look like 'jihulab.com/affair3547', then unfortunately, your A1111 does NOT support ControlNet 1.1. Please use official version of A1111.
+
 ### New Features in A1111 ControlNet Extension 1.1
 
 **Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.**
@@ -45,6 +47,10 @@ Now we have perfect support all available models and preprocessors, including pe
 **Perfect Support for A1111 High-Res. Fix**
 
 Now if you turn on High-Res Fix in A1111, each controlnet will output two different control images: a small one and a large one. The small one is for your basic generating, and the big one is for your High-Res Fix generating. The two control images are computed by a smart algorithm called "super high-quality control image resampling". This is turned on by default, and you do not need to change any setting.
+
+**Perfect Support for A1111 I2I and Mask**
+
+Now ControlNet is extensively tested with A1111's different types of masks, including "Inpaint masked"/"Inpaint not masked", and "Whole picture"/"Only masked", and "Only masked padding"&"Mask blur". The resizing perfectly matches A1111's "Just resize"/"Crop and resize"/"Resize and fill". This means you can use ControlNet in nearly everywhere in your A1111 UI without difficulty!
 
 **Pixel Perfect Mode**
 
@@ -77,6 +83,19 @@ Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+
+### Use Previous Version 1.0
+
+The previous version (sd-webui-controlnet 1.0) is archived in 
+
+https://github.com/lllyasviel/webui-controlnet-v1-archived
+
+Using this version is not a temporary stop of updates. You will stop all updates forever.
+
+Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
+
+In the new controlnet 1.1, your inputs are always correct as long as you follow the one and only one rule: set preprocessor as invert if your image has black lines and white background. If you prefer the previous 1.0 way to manually find out correct combinations by testing all correct/wrong combinations of preprocessors+invert+rgb2bgr, you may opt-out the updating and use the above old version 1.0.
+
 
 ### Usage
 
@@ -175,6 +194,12 @@ This option allows multiple ControlNet inputs for a single generation. To enable
 Weight is the weight of the controlnet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
 
 Guidance Start/End is the percentage of total steps the controlnet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
+
+### Batch Mode
+
+Put any unit into batch mode to activate batch mode for all units. Specify a batch directory for each unit, or use the new textbox in the img2img batch tab as a fallback. Although the textbox is located in the img2img batch tab, you can use it to generate images in the txt2img tab as well.
+
+Note that this feature is only available in the gradio user interface. Call the APIs as many times as you want for custom batch scheduling.
 
 ### API/Script Access
 
