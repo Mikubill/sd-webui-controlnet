@@ -243,7 +243,6 @@ class Script(scripts.Script):
                 canvas_create_button = gr.Button(value="Create New Canvas")
                 canvas_cancel_button = gr.Button(value="Cancel")
 
-
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
             open_new_canvas_button = ToolButton(value=open_symbol)
@@ -1195,7 +1194,7 @@ class Script(scripts.Script):
                 if output_images:
                     unit.image = np.array(output_images[0])
                 else:
-                    print(f'Warning: No loopback image found for ControlNet model {unit_i}. Using control map from last batch iteration instead')
+                    print(f'Warning: No loopback image found for controlnet unit {unit_i}. Using control map from last batch iteration instead')
 
     def batch_tab_postprocess(self, p, *args, **kwargs):
         self.enabled_units.clear()
