@@ -36,6 +36,8 @@ Note: If you download models elsewhere, please make sure that yaml file names an
 
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
 
+If your A1111 Extension's ControlNet displays a link look like 'jihulab.com/affair3547', then unfortunately, your A1111 does NOT support ControlNet 1.1. Please use official version of A1111.
+
 ### New Features in A1111 ControlNet Extension 1.1
 
 **Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.**
