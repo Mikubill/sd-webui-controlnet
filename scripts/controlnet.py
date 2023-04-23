@@ -435,7 +435,6 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-
         def run_annotator(image, module, pres, pthr_a, pthr_b):
             if image is None:
                 return gr.update(value=None, visible=True)
@@ -503,7 +502,7 @@ class Script(scripts.Script):
                 event_subscribers.append(comp.edit)
             elif hasattr(comp, 'click'):
                 event_subscribers.append(comp.click)
-            else:
+            elif hasattr(comp, 'change'):
                 event_subscribers.append(comp.change)
 
             if hasattr(comp, 'clear'):
