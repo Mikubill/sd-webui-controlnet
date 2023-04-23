@@ -195,6 +195,12 @@ Weight is the weight of the controlnet "influence". It's analogous to prompt att
 
 Guidance Start/End is the percentage of total steps the controlnet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
 
+### Batch Mode
+
+Put any unit into batch mode to activate batch mode for all units. Specify a batch directory for each unit, or use the new textbox in the img2img batch tab as a fallback. Although the textbox is located in the img2img batch tab, you can use it to generate images in the txt2img tab as well.
+
+Note that this feature is only available in the gradio user interface. Call the APIs as many times as you want for custom batch scheduling.
+
 ### API/Script Access
 
 This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.

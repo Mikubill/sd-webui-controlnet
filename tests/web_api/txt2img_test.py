@@ -57,9 +57,7 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             False, "Crop and Resize", False,
             64, 64, 64, 0.0, 1.0, False, False
         ]
-        setup_args = [
-            *controlnet_unit * getattr(self, 'units_count', 1)
-        ]
+        setup_args = controlnet_unit * getattr(self, 'units_count', 1)
         self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
@@ -98,9 +96,7 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             "guessmode": False,
             "pixel_perfect": False
         }
-        setup_args = [
-            [controlnet_unit] * getattr(self, 'units_count', 1)
-        ]
+        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
         self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
@@ -125,10 +121,12 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         self.assert_status_ok()
 
     def test_txt2img_default_params(self):
-        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = {
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "model": utils.get_model(),
-        }
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+            {
+                "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                "model": utils.get_model(),
+            }
+        ]
 
         self.assert_status_ok()
 
