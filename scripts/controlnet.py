@@ -1165,7 +1165,7 @@ class Script(scripts.Script):
                     detectmap_dir = os.path.join(p.outpath_samples, detectmap_dir)
                 if module != "none":
                     os.makedirs(detectmap_dir, exist_ok=True)
-                    img = Image.fromarray(detect_map)
+                    img = Image.fromarray(np.ascontiguousarray(detect_map.clip(0, 255).astype(np.uint8)).copy())
                     save_image(img, detectmap_dir, module)
 
         if self.latest_network is None:
