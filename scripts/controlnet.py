@@ -479,7 +479,7 @@ class Script(scripts.Script):
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
 
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to ControlNet', value=default_unit.loopback)
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback)
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
@@ -591,7 +591,7 @@ class Script(scripts.Script):
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"Control Unit {i}"):
+                            with gr.Tab(f"ControlNet Unit {i}"):
                                 controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
