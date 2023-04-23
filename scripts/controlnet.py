@@ -656,7 +656,7 @@ class Script(scripts.Script):
         else:
             detected_map = HWC3(detected_map)
 
-        def get_pytorch_control(x):
+        def safe_numpy(x):
             # A very safe method to make sure that Apple/Mac works
             y = x
 
@@ -664,6 +664,13 @@ class Script(scripts.Script):
             y = y.copy()
             y = np.ascontiguousarray(y)
             y = y.copy()
+            return y
+
+        def get_pytorch_control(x):
+            # A very safe method to make sure that Apple/Mac works
+            y = x
+
+            # below is very boring but do not change these. If you change these Apple or Mac may fail.
             y = torch.from_numpy(y)
             y = y.float() / 255.0
             y = rearrange(y, 'h w c -> c h w')
@@ -724,6 +731,7 @@ class Script(scripts.Script):
 
         if resize_mode == external_code.ResizeMode.RESIZE:
             detected_map = high_quality_resize(detected_map, (w, h))
+            detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
 
         old_h, old_w, _ = detected_map.shape
@@ -745,6 +753,7 @@ class Script(scripts.Script):
             pad_w = max(0, (w - new_w) // 2)
             high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
             detected_map = high_quality_background
+            detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
         else:
             k = max(k0, k1)
@@ -753,6 +762,7 @@ class Script(scripts.Script):
             pad_h = max(0, (new_h - h) // 2)
             pad_w = max(0, (new_w - w) // 2)
             detected_map = detected_map[pad_h:pad_h+h, pad_w:pad_w+w]
+            detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
 
     def is_ui(self, args):
@@ -930,6 +940,9 @@ class Script(scripts.Script):
             tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed),0))
             tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed),0))
             np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
+
+            # safe numpy
+            input_image = np.ascontiguousarray(input_image.copy()).copy()
 
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
