@@ -235,7 +235,6 @@ class Script(scripts.Script):
 
             with gr.Tab(label='Batch') as batch_tab:
                 batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
-                loopback = gr.Checkbox(label='Batch Loopback', value=default_unit.loopback)
 
         with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
             canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64)
@@ -479,6 +478,8 @@ class Script(scripts.Script):
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
+
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to ControlNet', value=default_unit.loopback)
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
