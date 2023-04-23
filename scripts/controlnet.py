@@ -536,8 +536,9 @@ class Script(scripts.Script):
             global global_batch_input_dir, img2img_batch_input_dir
             batch_dirs = [batch_image_dir, global_batch_input_dir, img2img_batch_input_dir]
             for batch_dir_comp in batch_dirs:
-                if not hasattr(batch_dir_comp, 'change'): continue
-                batch_dir_comp.blur(
+                subscriber = getattr(batch_dir_comp, 'blur', None)
+                if subscriber is None: continue
+                subscriber(
                     fn=determine_batch_dir,
                     inputs=batch_dirs,
                     outputs=[batch_image_dir_state],
