@@ -257,8 +257,8 @@ class Script(scripts.Script):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
-            loopback = gr.Checkbox(label='Loopback', value=default_unit.loopback)
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
+            loopback = gr.Checkbox(label='Loopback', value=default_unit.loopback)
             preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False)
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
