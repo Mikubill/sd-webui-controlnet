@@ -898,7 +898,7 @@ class Script(scripts.Script):
                         has_mask = True
 
             a1111_mask = getattr(p, "image_mask", None)
-            if not has_mask and a1111_mask is not None:
+            if 'inpaint' in unit.module and not has_mask and a1111_mask is not None:
                 a1111_mask = a1111_mask.convert('L')
                 if getattr(p, "inpainting_mask_invert", False):
                     a1111_mask = ImageOps.invert(a1111_mask)
@@ -910,6 +910,14 @@ class Script(scripts.Script):
                         if a1111_mask.shape[1] == input_image.shape[1]:
                             input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
                             input_image = np.ascontiguousarray(input_image.copy()).copy()
+                            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                            if a1111_i2i_resize_mode is not None:
+                                if a1111_i2i_resize_mode == 0:
+                                    resize_mode = external_code.ResizeMode.RESIZE
+                                elif a1111_i2i_resize_mode == 1:
+                                    resize_mode = external_code.ResizeMode.INNER_FIT
+                                elif a1111_i2i_resize_mode == 2:
+                                    resize_mode = external_code.ResizeMode.OUTER_FIT
 
             if issubclass(type(p), StableDiffusionProcessingImg2Img) and p.inpaint_full_res == True and p.image_mask is not None:
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
