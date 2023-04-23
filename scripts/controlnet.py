@@ -227,14 +227,15 @@ class Script(scripts.Script):
         infotext_fields = []
         default_unit = self.get_default_ui_unit()
         with gr.Tabs():
-            with gr.Tab(label='Upload') as upload_tab:
+            with gr.Tab(label='Single Image') as upload_tab:
                 with gr.Row(equal_height=True):
                     input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
                     # Gradio's magic number. Only 242 works.
                     generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
 
             with gr.Tab(label='Batch') as batch_tab:
-                batch_image_dir = gr.Textbox(label='Input directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
+                batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
+                loopback = gr.Checkbox(label='Batch Loopback', value=default_unit.loopback)
 
         with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
             canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64)
@@ -258,7 +259,6 @@ class Script(scripts.Script):
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode)
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
-            loopback = gr.Checkbox(label='Loopback', value=default_unit.loopback)
             preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False)
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
@@ -590,7 +590,7 @@ class Script(scripts.Script):
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"Unit {i}"):
+                            with gr.Tab(f"Control Unit {i}"):
                                 controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
