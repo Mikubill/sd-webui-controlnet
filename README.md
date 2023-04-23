@@ -82,7 +82,7 @@ Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
 You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
 
-### Use Previous Version
+### Use Previous Version 1.0
 
 The previous version (sd-webui-controlnet 1.0) is archived in 
 
@@ -91,6 +91,9 @@ https://github.com/lllyasviel/webui-controlnet-v1-archived
 Using this version is not a temporary stop of updates. You will stop all updates forever.
 
 Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
+
+In the new controlnet 1.1, your inputs are always correct as long as you follow the one and only one rule: set preprocessor as invert if your image has black lines and white background. If you prefer the previous 1.0 way to manually find out correct combinations by testing all correct/wrong combinations of preprocessors+invert+rgb2bgr, you may opt-out the updating and use the above old version 1.0.
+
 
 ### Usage
 
