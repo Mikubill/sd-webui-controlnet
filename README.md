@@ -88,6 +88,10 @@ The previous version (sd-webui-controlnet 1.0) is archived in
 
 https://github.com/lllyasviel/webui-controlnet-v1-archived
 
+Using this version is not a temporary stop of updates. You will stop all updates forever.
+
+Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
+
 ### Usage
 
 1. Open "txt2img" or "img2img" tab, write your prompts.
