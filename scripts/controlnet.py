@@ -511,11 +511,16 @@ class Script(scripts.Script):
                 event_subscriber(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit)
 
         # keep input_mode in sync
+        def ui_controlnet_unit_for_input_mode(input_mode, *args):
+            args = list(args)
+            args[0] = input_mode
+            return input_mode, UiControlNetUnit(*args)
+
         for input_tab in (
             (upload_tab, batch_hijack.InputMode.SIMPLE),
             (batch_tab, batch_hijack.InputMode.BATCH)
         ):
-            input_tab[0].select(fn=lambda a: a, inputs=[gr.State(input_tab[1])], outputs=[input_mode])
+            input_tab[0].select(fn=ui_controlnet_unit_for_input_mode, inputs=[gr.State(input_tab[1])] + list(unit_args), outputs=[input_mode, unit])
 
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
