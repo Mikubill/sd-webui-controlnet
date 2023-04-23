@@ -12,7 +12,7 @@ import gradio as gr
 import numpy as np
 
 from einops import rearrange
-from scripts import global_state, hook, external_code, processor
+from scripts import global_state, hook, external_code, processor, controlnet_version
 importlib.reload(processor)
 importlib.reload(global_state)
 importlib.reload(hook)
@@ -487,11 +487,11 @@ class Script(scripts.Script):
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
-            with gr.Accordion("ControlNet", open = False, elem_id="controlnet"):
+            with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"Control Model - {i}"):
+                            with gr.Tab(f"Unit {i}"):
                                 controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
