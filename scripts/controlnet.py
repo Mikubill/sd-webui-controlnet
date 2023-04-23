@@ -117,7 +117,15 @@ def image_dict_from_unit(unit) -> Optional[Dict[str, np.ndarray]]:
     result = {'image': image['image'], 'mask': image['mask']}
 
     if isinstance(result['image'], str):
-        result['image'] = external_code.to_base64_nparray(result['image'])
+        if result['image']:
+            result['image'] = external_code.to_base64_nparray(result['image'])        
+        else:
+            result['image'] = None
+    
+    # If there is no image, ignore the mask
+    if result['image'] is None:
+        result['mask'] = None
+        return None
 
     if isinstance(result['mask'], str):
         if result['mask']:
