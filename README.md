@@ -197,9 +197,9 @@ Guidance Start/End is the percentage of total steps the controlnet applies (guid
 
 ### Batch Mode
 
-Put any controlnet model into batch mode to activate batch mode for all models. Specify a batch directory for each model, or use the new textbox in the img2img batch tab as a fallback. Although the textbox is located in the img2img batch tab, you can use it to generate images in the txt2img tab as well.
+Put any unit into batch mode to activate batch mode for all units. Specify a batch directory for each unit, or use the new textbox in the img2img batch tab as a fallback. Although the textbox is located in the img2img batch tab, you can use it to generate images in the txt2img tab as well.
 
-Note that this feature is only available in the gradio user interface. Call the APIs as many times as you want for custom batch scripting.
+Note that this feature is only available in the gradio user interface. Call the APIs as many times as you want for custom batch scheduling.
 
 ### API/Script Access
 
