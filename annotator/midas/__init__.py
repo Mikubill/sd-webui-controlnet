@@ -44,6 +44,6 @@ def apply_midas(input_image, a=np.pi * 2.0, bg_th=0.1):
         y[depth_pt < bg_th] = 0
         normal = np.stack([x, y, z], axis=2)
         normal /= np.sum(normal ** 2.0, axis=2, keepdims=True) ** 0.5
-        normal_image = (normal * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
+        normal_image = (normal * 127.5 + 127.5).clip(0, 255).astype(np.uint8)[:, :, ::-1]
 
         return depth_image, normal_image

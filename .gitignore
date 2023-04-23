@@ -161,6 +161,9 @@ cython_debug/
 *.pt
 *.pth
 *.ckpt
+*.bin
 *.safetensors
 
+.idea/
 detected_maps/
+annotator/downloads/

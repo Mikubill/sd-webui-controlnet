@@ -22,7 +22,7 @@ Thanks & Inspired by: kohya-ss/sd-webui-additional-networks
 
 ### Download Models
 
-Right now all the 14 models of ControlNet 1.1 are in the beta test.
+Right now all the 14 models of ControlNet 1.1 are in the beta test. [Here is the discussion and bug report](https://github.com/Mikubill/sd-webui-controlnet/issues/736).
 
 Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
 
@@ -32,7 +32,37 @@ You need to download model files ending with ".pth" .
 
 Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
 
+(For authors of other ControlNet model extractions or fp16 model providers: now some models like "shuffle" needs the YAML file so that we know the outputs of ControlNet should pass a global average pooling before inject to SD U-Nets. Please add yaml files with same filenames to your renaming when delivering your processed models.)
+
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
+
+If your A1111 Extension's ControlNet displays a link look like 'jihulab.com/affair3547', then unfortunately, your A1111 does NOT support ControlNet 1.1. Please use official version of A1111.
+
+### New Features in A1111 ControlNet Extension 1.1
+
+**Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.**
+
+Now we have perfect support all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are same, see also YAML files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
+
+**Perfect Support for A1111 High-Res. Fix**
+
+Now if you turn on High-Res Fix in A1111, each controlnet will output two different control images: a small one and a large one. The small one is for your basic generating, and the big one is for your High-Res Fix generating. The two control images are computed by a smart algorithm called "super high-quality control image resampling". This is turned on by default, and you do not need to change any setting.
+
+**Perfect Support for A1111 I2I and Mask**
+
+Now ControlNet is extensively tested with A1111's different types of masks, including "Inpaint masked"/"Inpaint not masked", and "Whole picture"/"Only masked", and "Only masked padding"&"Mask blur". The resizing perfectly matches A1111's "Just resize"/"Crop and resize"/"Resize and fill". This means you can use ControlNet in nearly everywhere in your A1111 UI without difficulty!
+
+**Pixel Perfect Mode**
+
+Now if you turn on pixel-perfect mode, you do not need to set preprocessor (annotator) resolutions manually. The ControlNet will automatically compute the best annotator resolution for you so that each pixel perfectly matches Stable Diffusion.
+
+**User-Friendly GUI and Preprocessor Preview**
+
+We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
+
+**Bug fix of Previous Guess Mode**
+
+One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all ControlNets will become Guess Mode - users cannot separately turn on/off guess mode for each ControlNets independently. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
 
 ### See Also
 
@@ -52,15 +82,26 @@ Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
 
-You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_edge". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
+
+### Use Previous Version 1.0
+
+The previous version (sd-webui-controlnet 1.0) is archived in 
+
+https://github.com/lllyasviel/webui-controlnet-v1-archived
+
+Using this version is not a temporary stop of updates. You will stop all updates forever.
+
+Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
+
+In the new controlnet 1.1, your inputs are always correct as long as you follow the one and only one rule: set preprocessor as invert if your image has black lines and white background. If you prefer the previous 1.0 way to manually find out correct combinations by testing all correct/wrong combinations of preprocessors+invert+rgb2bgr, you may opt-out the updating and use the above old version 1.0.
+
 
 ### Usage
 
 1. Open "txt2img" or "img2img" tab, write your prompts.
 2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
 3. Upload your image and select preprocessor, done.
-
-* Regarding canvas height/width: they are designed for canvas generation. If you want to upload images directly, you can safely ignore them.
 
 ### Examples
 
@@ -167,6 +208,16 @@ This extension can accept txt2img or img2img tasks via API or external extension
 To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
 
 To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
+
+### Command Line Arguments
+
+This extension adds these command line arguments to the webui:
+
+```
+    --controlnet-dir <path to directory with controlnet models>                                ADD a controlnet models directory
+    --controlnet-annotator-models-path <path to directory with annotator model directories>    SET the directory for annotator models
+    --no-half-controlnet                                                                       load controlnet models in full precision
+```
 
 ### MacOS Support
 

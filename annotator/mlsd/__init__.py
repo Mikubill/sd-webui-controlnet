@@ -8,7 +8,7 @@ from .models.mbv2_mlsd_tiny import  MobileV2_MLSD_Tiny
 from .models.mbv2_mlsd_large import  MobileV2_MLSD_Large
 from .utils import  pred_lines
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 mlsdmodel = None
 remote_model_path = "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/mlsd_large_512_fp32.pth"

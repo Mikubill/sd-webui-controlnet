@@ -19,6 +19,7 @@ cn_preprocessor_modules = {
     "depth_leres": leres,
     "hed": hed,
     "hed_safe": hed_safe,
+    "mediapipe_face": mediapipe_face,
     "mlsd": mlsd,
     "normal_map": midas_normal,
     "openpose": openpose,
@@ -45,9 +46,11 @@ cn_preprocessor_modules = {
     "lineart": lineart,
     "lineart_coarse": lineart_coarse,
     "lineart_anime": lineart_anime,
+    "lineart_standard": lineart_standard,
     "shuffle": shuffle,
     "tile_gaussian": tile_gaussian,
     "inpaint": inpaint,
+    "invert": invert,
 }
 
 cn_preprocessor_unloadable = {
@@ -73,12 +76,10 @@ cn_preprocessor_unloadable = {
     "lineart_anime": unload_lineart_anime
 }
 
-module_names = OrderedDict()
-
-for key in cn_preprocessor_modules.keys():
-    module_names[key] = key
-
-update_names = {
+preprocessor_aliases = {
+    "invert": "invert (from white bg & black line)",
+    "lineart_standard": "lineart_standard (from white bg & black line)",
+    "lineart": "lineart_realistic",
     "color": "t2ia_color_grid",
     "clip_vision": "t2ia_style_clipvision",
     "pidinet_sketch": "t2ia_sketch_pidi",
@@ -92,15 +93,16 @@ update_names = {
     "oneformer_coco": "seg_ofcoco",
     "oneformer_ade20k": "seg_ofade20k",
     "pidinet_scribble": "scribble_pidinet",
-    "inpaint": "inpaint_global_harmonious"
+    "inpaint": "inpaint_global_harmonious",
 }
 
-for k, v in update_names.items():
-    module_names[k] = v
+ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
+ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
+                                for k in cn_preprocessor_modules.keys()
+                                if preprocessor_aliases.get(k, k) not in ui_preprocessor_keys])
 
-del module_names['none']
+reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
 
-module_names = OrderedDict([('none', 'none')] + sorted(module_names.items(), key=lambda x: x[1]))
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")

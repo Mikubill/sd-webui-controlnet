@@ -5,7 +5,7 @@ from einops import rearrange
 from annotator.pidinet.model import pidinet
 from annotator.util import safe_step
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 from scripts.utils import load_state_dict
 
 netNetwork = None

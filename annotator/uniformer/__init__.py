@@ -1,5 +1,5 @@
 import os
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 from modules import devices
 from annotator.uniformer.inference import init_segmentor, inference_segmentor, show_result_pyplot
 
@@ -30,7 +30,7 @@ def apply_uniformer(img):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(checkpoint_file, model_dir=modeldir)
             
-        model = init_segmentor(config_file, modelpath)
+        model = init_segmentor(config_file, modelpath, device=devices.get_device_for("controlnet"))
     model = model.to(devices.get_device_for("controlnet"))
     
     if devices.get_device_for("controlnet").type == 'mps':

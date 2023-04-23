@@ -51,6 +51,7 @@ class Hand(object):
                 data = data.cuda()
 
             with torch.no_grad():
+                data = data.to(self.cn_device)
                 output = self.model(data).cpu().numpy()
 
             # extract outputs, resize, and remove padding

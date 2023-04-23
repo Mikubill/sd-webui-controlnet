@@ -7,7 +7,7 @@ from einops import rearrange
 from .zoedepth.models.zoedepth.zoedepth_v1 import ZoeDepth
 from .zoedepth.utils.config import get_config
 from modules import devices
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 
 
 class ZoeDetector:
@@ -25,7 +25,7 @@ class ZoeDetector:
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
         conf = get_config("zoedepth", "infer")
         model = ZoeDepth.build_from_config(conf)
-        model.load_state_dict(torch.load(modelpath)['model'])
+        model.load_state_dict(torch.load(modelpath, map_location=model.device)['model'])
         model.eval()
         self.model = model.to(self.device)
 
