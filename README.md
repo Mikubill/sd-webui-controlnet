@@ -60,9 +60,17 @@ Now if you turn on pixel-perfect mode, you do not need to set preprocessor (anno
 
 We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
 
-**Bug fix of Previous Guess Mode**
+**Control Mode (previously called Guess Mode)**
 
-One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all ControlNets will become Guess Mode - users cannot separately turn on/off guess mode for each ControlNets independently. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
+We have fixed many bugs in previous 1.0’s Guess Mode and now it is called Control Mode
+
+![image](https://user-images.githubusercontent.com/19834515/233897484-e84232f5-be3f-418b-bdaa-d9d7393f3988.png)
+
+Now you can control which aspect is more important (your prompt or your ControlNet)
+
+| Input (depth+canny+hed) | Control Mode: "Balanced" | Control Mode: "My prompt is more important" | Control Mode: "ControlNet is more important"
+| --- | --- | --- | --- |
+| ![image](https://user-images.githubusercontent.com/19834515/233898012-3b7f970e-a599-42b2-a56a-65899b816085.png) | ![image](https://user-images.githubusercontent.com/19834515/233897765-8ecf4ee7-a605-46fc-b124-57474c3d7575.png) | ![image](https://user-images.githubusercontent.com/19834515/233897802-6bf46513-9203-482b-8997-e889d578a381.png) | ![image](https://user-images.githubusercontent.com/19834515/233897826-54033ff3-3251-4a6a-bf4a-62f877cb6434.png) |
 
 ### See Also
 
@@ -162,22 +170,6 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 ### Minimum Requirements
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
-
-### Guess Mode (Non-Prompt Mode, Experimental)
-
-Guess Mode is CFG Based ControlNet + Exponential decay in weighting. 
-
-See issue https://github.com/Mikubill/sd-webui-controlnet/issues/236 for more details.
-
-Original introduction from controlnet:
-
-The "guess mode" (or called non-prompt mode) will completely unleash all the power of the very powerful ControlNet encoder.
-
-In this mode, you can just remove all prompts, and then the ControlNet encoder will recognize the content of the input control map, like depth map, edge map, scribbles, etc.
-
-This mode is very suitable for comparing different methods to control stable diffusion because the non-prompted generating task is significantly more difficult than prompted task. In this mode, different methods' performance will be very salient.
-
-For this mode, we recommend to **use 50 steps and guidance scale between 3 and 5.**
 
 ### Multi-ControlNet / Joint Conditioning (Experimental)
 
