@@ -1177,7 +1177,7 @@ class Script(scripts.Script):
             return
 
         no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if not batch_hijack.instance.is_batch or not no_detectmap_opt and self.detected_map:
+        if not batch_hijack.instance.is_batch and not no_detectmap_opt and self.detected_map:
             for detect_map, module in self.detected_map:
                 if detect_map is None:
                     continue
