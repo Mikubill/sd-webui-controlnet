@@ -7,7 +7,7 @@ cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
-
+from external_code import ControlMode
 
 class TorchHijackForUnet:
     """
@@ -221,17 +221,15 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to("cpu")
 
-                if param.guess_mode or param.global_average_pooling:
+                if param.control_model == ControlMode.CONTROL or param.global_average_pooling:
                     query_size = int(x.shape[0])
                     if param.is_adapter:
                         control = [torch.concatenate([c.clone() for _ in range(query_size)], dim=0) for c in control]
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
-                if param.guess_mode or is_in_high_res_fix:
+                if param.control_model != ControlMode.BALANCED or is_in_high_res_fix:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
-                    # Note that guess_mode is soft weights + cfg masks
-                    # only use soft weights will not trigger guess mode
                     if param.is_adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
                     else:    
