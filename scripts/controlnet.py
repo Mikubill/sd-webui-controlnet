@@ -1144,7 +1144,8 @@ class Script(scripts.Script):
                 instance_counter=0,
                 is_vanilla_samplers=is_vanilla_samplers,
                 cfg_scale=p.cfg_scale,
-                control_mode=unit.control_mode
+                soft_injection=unit.control_mode != external_code.ControlMode.BALANCED,
+                cfg_injection=unit.control_mode == external_code.ControlMode.CONTROL
             )
             forward_params.append(forward_param)
 
