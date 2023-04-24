@@ -1143,7 +1143,8 @@ class Script(scripts.Script):
                 batch_size=p.batch_size,
                 instance_counter=0,
                 is_vanilla_samplers=is_vanilla_samplers,
-                cfg_scale=p.cfg_scale
+                cfg_scale=p.cfg_scale,
+                control_mode=unit.control_mode
             )
             forward_params.append(forward_param)
 

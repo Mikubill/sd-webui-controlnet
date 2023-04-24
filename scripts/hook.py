@@ -56,7 +56,8 @@ class ControlParams:
         batch_size,
         instance_counter,
         is_vanilla_samplers,
-        cfg_scale
+        cfg_scale,
+        control_mode
     ):
         self.control_model = control_model
         self._hint_cond = hint_cond
@@ -75,6 +76,7 @@ class ControlParams:
         self.instance_counter = instance_counter
         self.is_vanilla_samplers = is_vanilla_samplers
         self.cfg_scale = cfg_scale
+        self.control_mode = control_mode
 
     def generate_uc_mask(self, length, dtype, device):
         if self.is_vanilla_samplers and self.cfg_scale == 1:
