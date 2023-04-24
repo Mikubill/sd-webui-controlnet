@@ -55,7 +55,8 @@ class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
             True, "none", utils.get_model(), 1.0,
             utils.readImage("test/test_files/img2img_basic.png"),
             False, "Crop and Resize", False,
-            64, 64, 64, 0.0, 1.0, False, False
+            64, 64, 64, 0.0, 1.0, False, False,
+            "Balanced",
         ]
         setup_args = controlnet_unit * getattr(self, 'units_count', 1)
         self.setup_route(setup_args)

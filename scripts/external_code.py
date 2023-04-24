@@ -1,3 +1,4 @@
+import inspect
 from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
@@ -5,8 +6,6 @@ from modules import scripts, processing, shared
 from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
 
 from modules.api import api
-
-PARAM_COUNT = 14
 
 
 def get_api_version() -> int:
@@ -76,6 +75,7 @@ class ControlNetUnit:
         guess_mode: bool=False,
         pixel_perfect: bool=False,
         control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
+        **_kwargs, # for backwards compatibility
     ):
         self.enabled = enabled
         self.module = module
@@ -98,6 +98,9 @@ class ControlNetUnit:
             return False
 
         return vars(self) == vars(other)
+
+
+PARAM_COUNT = len(inspect.getfullargspec(ControlNetUnit.__init__)[0]) - 1
 
 
 def to_base64_nparray(encoding: str):
