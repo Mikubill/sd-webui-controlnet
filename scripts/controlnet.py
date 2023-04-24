@@ -55,6 +55,7 @@ try:
 except ImportError:
     pass
 
+# Note: Change symbol hints mapping in `javascript/hints.js` when you change the symbol values.
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
@@ -85,7 +86,7 @@ class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
     def __init__(self, **kwargs):
-        super().__init__(variant="tool", **kwargs)
+        super().__init__(variant="tool", elem_classes=['cnet-toolbutton'], **kwargs)
 
     def get_block_name(self):
         return "button"
