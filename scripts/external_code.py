@@ -277,6 +277,9 @@ def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Scri
     Find the ControlNet script in `script_runner`. Returns `None` if `script_runner` does not contain a ControlNet script.
     """
 
+    if script_runner is None:
+        return None:
+    
     for script in script_runner.alwayson_scripts:
         if is_cn_script(script):
             return script
