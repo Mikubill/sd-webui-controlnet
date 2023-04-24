@@ -6,7 +6,7 @@ from scripts.global_state import update_cn_models, cn_models_names, cn_preproces
 
 from modules.api import api
 
-PARAM_COUNT = 14
+PARAM_COUNT = 15
 
 
 def get_api_version() -> int:
@@ -76,6 +76,7 @@ class ControlNetUnit:
         guess_mode: bool=False,
         pixel_perfect: bool=False,
         control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
+        **_kwargs, # for backwards compatibility
     ):
         self.enabled = enabled
         self.module = module
