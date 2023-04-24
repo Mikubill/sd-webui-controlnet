@@ -56,7 +56,9 @@ class ControlParams:
         batch_size,
         instance_counter,
         is_vanilla_samplers,
-        cfg_scale
+        cfg_scale,
+        soft_injection,
+        cfg_injection
     ):
         self.control_model = control_model
         self._hint_cond = hint_cond
@@ -75,6 +77,8 @@ class ControlParams:
         self.instance_counter = instance_counter
         self.is_vanilla_samplers = is_vanilla_samplers
         self.cfg_scale = cfg_scale
+        self.soft_injection = soft_injection
+        self.cfg_injection = cfg_injection
 
     def generate_uc_mask(self, length, dtype, device):
         if self.is_vanilla_samplers and self.cfg_scale == 1:
@@ -219,17 +223,15 @@ class UnetHook(nn.Module):
                 if outer.lowvram:
                     param.control_model.to("cpu")
 
-                if param.guess_mode or param.global_average_pooling:
+                if param.cfg_injection or param.global_average_pooling:
                     query_size = int(x.shape[0])
                     if param.is_adapter:
                         control = [torch.concatenate([c.clone() for _ in range(query_size)], dim=0) for c in control]
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
-                if param.guess_mode or is_in_high_res_fix:
+                if param.soft_injection or is_in_high_res_fix:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
-                    # Note that guess_mode is soft weights + cfg masks
-                    # only use soft weights will not trigger guess mode
                     if param.is_adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
                     else:    

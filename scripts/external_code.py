@@ -13,6 +13,16 @@ def get_api_version() -> int:
     return 1
 
 
+class ControlMode(Enum):
+    """
+    The improved guess mode.
+    """
+
+    BALANCED = "Balanced"
+    PROMPT = "My prompt is more important"
+    CONTROL = "ControlNet is more important"
+
+
 class ResizeMode(Enum):
     """
     Resize modes for ControlNet input images.
@@ -64,7 +74,8 @@ class ControlNetUnit:
         guidance_start: float=0.0,
         guidance_end: float=1.0,
         guess_mode: bool=False,
-        pixel_perfect: bool=False
+        pixel_perfect: bool=False,
+        control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
     ):
         self.enabled = enabled
         self.module = module
@@ -80,6 +91,7 @@ class ControlNetUnit:
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
         self.pixel_perfect = pixel_perfect
+        self.control_mode = control_mode
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
