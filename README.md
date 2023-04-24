@@ -84,6 +84,13 @@ If you are a previous user of ControlNet 1.0, you may:
 
 * Or you can start from the step 6 in the above Install section.
 
+
+### Default Setting
+
+This is my setting. If you run into any problem, you can use this setting as a sanity check
+
+![image](https://user-images.githubusercontent.com/19834515/233909293-a6b75cb7-30fb-4679-8dad-d28b02755ebd.png)
+
 ### Previous Models
 
 Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
