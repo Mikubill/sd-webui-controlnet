@@ -5,7 +5,7 @@ titles = {
     '💥': 'Run preprocessor',
     '📝': 'Open new canvas',
     '📷': 'Enable webcam',
-    '⇄': 'Mirrow webcam',
+    '⇄': 'Mirror webcam',
 };
 
 onUiUpdate(function(){
