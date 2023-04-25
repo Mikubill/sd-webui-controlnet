@@ -944,6 +944,7 @@ class Script(scripts.Script):
                     image['mask'] = image['mask'][..., np.newaxis]
 
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
+            control_mode = external_code.control_mode_from_value(unit.control_mode)
 
             if unit.low_vram:
                 hook_lowvram = True
@@ -1144,8 +1145,8 @@ class Script(scripts.Script):
                 instance_counter=0,
                 is_vanilla_samplers=is_vanilla_samplers,
                 cfg_scale=p.cfg_scale,
-                soft_injection=unit.control_mode != external_code.ControlMode.BALANCED.value,
-                cfg_injection=unit.control_mode == external_code.ControlMode.CONTROL.value
+                soft_injection=control_mode != external_code.ControlMode.BALANCED,
+                cfg_injection=control_mode == external_code.ControlMode.CONTROL,
             )
             forward_params.append(forward_param)
 

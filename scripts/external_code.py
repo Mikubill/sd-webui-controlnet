@@ -49,6 +49,15 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return value
 
 
+def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
+    if isinstance(value, str):
+        return ControlMode(resize_mode_aliases.get(value, value))
+    elif isinstance(value, int):
+        return [e for e in ControlMode][value]
+    else:
+        return value
+
+
 InputImage = Union[np.ndarray, str]
 InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
 
