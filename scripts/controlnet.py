@@ -376,8 +376,8 @@ class Script(scripts.Script):
                 ]
             elif module == "tile_gaussian":
                 return [
-                    gr.update(label="Preprocessor resolution", value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
-                    gr.update(label="Noise", value=16.0, minimum=0.1, maximum=48.0, step=0.01, visible=True, interactive=True),
+                    gr.update(visible=False, interactive=False),
+                    gr.update(label="Down Sampling Rate", value=1.0, minimum=1.0, maximum=8.0, step=0.01, visible=True, interactive=True),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -451,10 +451,7 @@ class Script(scripts.Script):
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
 
-            if pres > 64:
-                result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
-            else:
-                result, is_image = preprocessor(img)
+            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
 
             if is_image:
                 if result.ndim == 3 and result.shape[2] == 4:
