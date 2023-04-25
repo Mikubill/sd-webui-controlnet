@@ -55,6 +55,7 @@ try:
 except ImportError:
     pass
 
+# Note: Change symbol hints mapping in `javascript/hints.js` when you change the symbol values.
 refresh_symbol = '\U0001f504'       # 🔄
 switch_values_symbol = '\U000021C5' # ⇅
 camera_symbol = '\U0001F4F7'        # 📷
@@ -85,7 +86,7 @@ class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
     def __init__(self, **kwargs):
-        super().__init__(variant="tool", **kwargs)
+        super().__init__(variant="tool", elem_classes=['cnet-toolbutton'], **kwargs)
 
     def get_block_name(self):
         return "button"
@@ -373,10 +374,10 @@ class Script(scripts.Script):
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module == "tile_gaussian":
+            elif module == "tile_resample":
                 return [
-                    gr.update(label="Preprocessor resolution", value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
-                    gr.update(label="Noise", value=16.0, minimum=0.1, maximum=48.0, step=0.01, visible=True, interactive=True),
+                    gr.update(visible=False, interactive=False),
+                    gr.update(label="Down Sampling Rate", value=1.0, minimum=1.0, maximum=8.0, step=0.01, visible=True, interactive=True),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
@@ -450,10 +451,7 @@ class Script(scripts.Script):
             module = self.get_module_basename(module)
             preprocessor = self.preprocessor[module]
 
-            if pres > 64:
-                result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
-            else:
-                result, is_image = preprocessor(img)
+            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
 
             if is_image:
                 if result.ndim == 3 and result.shape[2] == 4:

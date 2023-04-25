@@ -48,7 +48,7 @@ cn_preprocessor_modules = {
     "lineart_anime": lineart_anime,
     "lineart_standard": lineart_standard,
     "shuffle": shuffle,
-    "tile_gaussian": tile_gaussian,
+    "tile_resample": tile_resample,
     "inpaint": inpaint,
     "invert": invert,
 }
