@@ -33,7 +33,7 @@ def scribble_xdog(img, res=512, thr_a=32, **kwargs):
     return result, True
 
 
-def tile_gaussian(img, res=512, thr_a=1.0, **kwargs):
+def tile_resample(img, res=512, thr_a=1.0, **kwargs):
     img = HWC3(img)
     if thr_a < 1.1:
         return img, True
