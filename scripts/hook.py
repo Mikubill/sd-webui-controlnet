@@ -175,8 +175,7 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
-                if outer.lowvram:
-                    param.control_model.to(devices.get_device_for("controlnet"))
+                param.control_model.to(devices.get_device_for("controlnet"))
                 query_size = int(x.shape[0])
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None]
@@ -197,7 +196,6 @@ class UnetHook(nn.Module):
                     continue
 
                 param.control_model.to(devices.get_device_for("controlnet"))
-
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
