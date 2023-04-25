@@ -1,3 +1,4 @@
+import inspect
 from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
@@ -6,11 +7,19 @@ from scripts.global_state import update_cn_models, cn_models_names, cn_preproces
 
 from modules.api import api
 
-PARAM_COUNT = 14
-
 
 def get_api_version() -> int:
     return 1
+
+
+class ControlMode(Enum):
+    """
+    The improved guess mode.
+    """
+
+    BALANCED = "Balanced"
+    PROMPT = "My prompt is more important"
+    CONTROL = "ControlNet is more important"
 
 
 class ResizeMode(Enum):
@@ -40,6 +49,10 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return value
 
 
+InputImage = Union[np.ndarray, str]
+InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
+
+
 class ControlNetUnit:
     """
     Represents an entire ControlNet processing unit.
@@ -51,7 +64,7 @@ class ControlNetUnit:
         module: Optional[str]=None,
         model: Optional[str]=None,
         weight: float=1.0,
-        image: Optional[Union[Dict[str, Union[np.ndarray, str]], Tuple[Union[np.ndarray, str], Union[np.ndarray, str]], np.ndarray, str]]=None,
+        image: Optional[InputImage]=None,
         resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
         low_vram: bool=False,
         processor_res: int=64,
@@ -60,7 +73,9 @@ class ControlNetUnit:
         guidance_start: float=0.0,
         guidance_end: float=1.0,
         guess_mode: bool=False,
-        pixel_perfect: bool=False
+        pixel_perfect: bool=False,
+        control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
+        **_kwargs, # for backwards compatibility
     ):
         self.enabled = enabled
         self.module = module
@@ -76,12 +91,16 @@ class ControlNetUnit:
         self.guidance_end = guidance_end
         self.guess_mode = guess_mode
         self.pixel_perfect = pixel_perfect
+        self.control_mode = control_mode
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
             return False
 
         return vars(self) == vars(other)
+
+
+PARAM_COUNT = len(inspect.getfullargspec(ControlNetUnit.__init__)[0]) - 1
 
 
 def to_base64_nparray(encoding: str):
@@ -272,6 +291,9 @@ def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Scri
     """
     Find the ControlNet script in `script_runner`. Returns `None` if `script_runner` does not contain a ControlNet script.
     """
+
+    if script_runner is None:
+        return None
 
     for script in script_runner.alwayson_scripts:
         if is_cn_script(script):

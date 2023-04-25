@@ -2,6 +2,8 @@
 
 (WIP) WebUI extension for ControlNet and other injection-based SD controls.
 
+![image](https://user-images.githubusercontent.com/19834515/233910272-6ef975ec-c05a-43ef-9a82-42bd7d108244.png)
+
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
 ControlNet is a neural network structure to control diffusion models by adding extra conditions. 
@@ -60,9 +62,17 @@ Now if you turn on pixel-perfect mode, you do not need to set preprocessor (anno
 
 We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
 
-**Bug fix of Previous Guess Mode**
+**Control Mode (previously called Guess Mode)**
 
-One well known BUG of previous A1111 ControlNet Extension 1.0 is that if you use guess mode in one control unit in multiple ControlNets, all ControlNets will become Guess Mode - users cannot separately turn on/off guess mode for each ControlNets independently. Now we fixed this problem and each ControlNet's guess mode can be controlled independently. 
+We have fixed many bugs in previous 1.0’s Guess Mode and now it is called Control Mode
+
+![image](https://user-images.githubusercontent.com/19834515/233897484-e84232f5-be3f-418b-bdaa-d9d7393f3988.png)
+
+Now you can control which aspect is more important (your prompt or your ControlNet)
+
+| Input (depth+canny+hed) | Control Mode: "Balanced" | Control Mode: "My prompt is more important" | Control Mode: "ControlNet is more important"
+| --- | --- | --- | --- |
+| ![image](https://user-images.githubusercontent.com/19834515/233898012-3b7f970e-a599-42b2-a56a-65899b816085.png) | ![image](https://user-images.githubusercontent.com/19834515/233897765-8ecf4ee7-a605-46fc-b124-57474c3d7575.png) | ![image](https://user-images.githubusercontent.com/19834515/233897802-6bf46513-9203-482b-8997-e889d578a381.png) | ![image](https://user-images.githubusercontent.com/19834515/233897826-54033ff3-3251-4a6a-bf4a-62f877cb6434.png) |
 
 ### See Also
 
@@ -75,6 +85,13 @@ If you are a previous user of ControlNet 1.0, you may:
 * If you are not sure, you can back up and remove the folder "stable-diffusion-webui\extensions\sd-webui-controlnet", and then start from the step 1 in the above Install section. 
 
 * Or you can start from the step 6 in the above Install section.
+
+
+### Default Setting
+
+This is my setting. If you run into any problem, you can use this setting as a sanity check
+
+![image](https://user-images.githubusercontent.com/19834515/233909293-a6b75cb7-30fb-4679-8dad-d28b02755ebd.png)
 
 ### Previous Models
 
@@ -163,22 +180,6 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
 
-### Guess Mode (Non-Prompt Mode, Experimental)
-
-Guess Mode is CFG Based ControlNet + Exponential decay in weighting. 
-
-See issue https://github.com/Mikubill/sd-webui-controlnet/issues/236 for more details.
-
-Original introduction from controlnet:
-
-The "guess mode" (or called non-prompt mode) will completely unleash all the power of the very powerful ControlNet encoder.
-
-In this mode, you can just remove all prompts, and then the ControlNet encoder will recognize the content of the input control map, like depth map, edge map, scribbles, etc.
-
-This mode is very suitable for comparing different methods to control stable diffusion because the non-prompted generating task is significantly more difficult than prompted task. In this mode, different methods' performance will be very salient.
-
-For this mode, we recommend to **use 50 steps and guidance scale between 3 and 5.**
-
 ### Multi-ControlNet / Joint Conditioning (Experimental)
 
 This option allows multiple ControlNet inputs for a single generation. To enable this option, change `Multi ControlNet: Max models amount (requires restart)` in the settings. Note that you will need to restart the WebUI for changes to take effect.
@@ -194,6 +195,12 @@ This option allows multiple ControlNet inputs for a single generation. To enable
 Weight is the weight of the controlnet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
 
 Guidance Start/End is the percentage of total steps the controlnet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
+
+### Batch Mode
+
+Put any unit into batch mode to activate batch mode for all units. Specify a batch directory for each unit, or use the new textbox in the img2img batch tab as a fallback. Although the textbox is located in the img2img batch tab, you can use it to generate images in the txt2img tab as well.
+
+Note that this feature is only available in the gradio user interface. Call the APIs as many times as you want for custom batch scheduling.
 
 ### API/Script Access
 

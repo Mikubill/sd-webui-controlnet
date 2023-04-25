@@ -95,12 +95,12 @@ class TestControlNetUnitImageToDict(unittest.TestCase):
         self.expected_mask = external_code.to_base64_nparray(self.dummy_image)
 
     def assert_dict_is_valid(self):
-        actual_dict = controlnet.image_dict_from_unit(self.input)
+        actual_dict = controlnet.image_dict_from_any(self.input.image)
         self.assertEqual(actual_dict['image'].tolist(), self.expected_image.tolist())
         self.assertEqual(actual_dict['mask'].tolist(), self.expected_mask.tolist())
 
     def test_none(self):
-        self.assertEqual(controlnet.image_dict_from_unit(self.input), None)
+        self.assertEqual(controlnet.image_dict_from_any(self.input.image), None)
 
     def test_image_without_mask(self):
         self.input.image = self.dummy_image

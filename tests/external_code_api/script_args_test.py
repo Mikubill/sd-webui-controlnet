@@ -12,7 +12,8 @@ class TestGetAllUnitsFrom(unittest.TestCase):
             True, "none", utils.get_model(), 1.0,
             utils.readImage("test/test_files/img2img_basic.png"),
             "Crop and Resize", False,
-            64, 64, 64, 0.0, 1.0, False, False
+            64, 64, 64, 0.0, 1.0, False, False,
+            external_code.ControlMode.BALANCED.value,
         ]
         self.object_unit = external_code.ControlNetUnit(*self.flat_control_unit)
 
