@@ -49,6 +49,15 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
         return value
 
 
+def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
+    if isinstance(value, str):
+        return ControlMode(value)
+    elif isinstance(value, int):
+        return [e for e in ControlMode][value]
+    else:
+        return value
+
+
 InputImage = Union[np.ndarray, str]
 InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
 
@@ -199,6 +208,10 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
         if 'image' in unit and not isinstance(unit['image'], dict):
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
+
+        if 'guess_mode' in unit:
+            unit['control_mode'] = ControlMode.CONTROL if unit['guess_mode'] else ControlMode.BALANCED
+            del unit['guess_mode']
 
         unit = ControlNetUnit(**unit)
 
