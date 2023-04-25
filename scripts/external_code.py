@@ -51,7 +51,7 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
 
 def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
     if isinstance(value, str):
-        return ControlMode(resize_mode_aliases.get(value, value))
+        return ControlMode(value)
     elif isinstance(value, int):
         return [e for e in ControlMode][value]
     else:
