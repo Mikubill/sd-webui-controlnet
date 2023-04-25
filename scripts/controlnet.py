@@ -374,7 +374,7 @@ class Script(scripts.Script):
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module == "tile_gaussian":
+            elif module == "tile_resample":
                 return [
                     gr.update(visible=False, interactive=False),
                     gr.update(label="Down Sampling Rate", value=1.0, minimum=1.0, maximum=8.0, step=0.01, visible=True, interactive=True),
