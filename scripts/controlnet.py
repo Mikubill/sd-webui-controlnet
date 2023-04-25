@@ -1064,34 +1064,32 @@ class Script(scripts.Script):
             print(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
-            if unit.processor_res > 64:
-                preprocessor_resolution = unit.processor_res
-                if unit.pixel_perfect:
-                    raw_H, raw_W, _ = input_image.shape
-                    target_H, target_W = p.height, p.width
 
-                    k0 = float(target_H) / float(raw_H)
-                    k1 = float(target_W) / float(raw_W)
+            preprocessor_resolution = unit.processor_res
+            if unit.pixel_perfect:
+                raw_H, raw_W, _ = input_image.shape
+                target_H, target_W = p.height, p.width
 
-                    if resize_mode == external_code.ResizeMode.OUTER_FIT:
-                        estimation = min(k0, k1) * float(min(raw_H, raw_W))
-                    else:
-                        estimation = max(k0, k1) * float(min(raw_H, raw_W))
+                k0 = float(target_H) / float(raw_H)
+                k1 = float(target_W) / float(raw_W)
 
-                    preprocessor_resolution = int(np.round(float(estimation) / 64.0)) * 64
+                if resize_mode == external_code.ResizeMode.OUTER_FIT:
+                    estimation = min(k0, k1) * float(min(raw_H, raw_W))
+                else:
+                    estimation = max(k0, k1) * float(min(raw_H, raw_W))
 
-                    print(f'Pixel Perfect Mode Enabled.')
-                    print(f'resize_mode = {str(resize_mode)}')
-                    print(f'raw_H = {raw_H}')
-                    print(f'raw_W = {raw_W}')
-                    print(f'target_H = {target_H}')
-                    print(f'target_W = {target_W}')
-                    print(f'estimation = {estimation}')
+                preprocessor_resolution = int(np.round(float(estimation) / 64.0)) * 64
 
-                print(f'preprocessor resolution = {preprocessor_resolution}')
-                detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
-            else:
-                detected_map, is_image = preprocessor(input_image)
+                print(f'Pixel Perfect Mode Enabled.')
+                print(f'resize_mode = {str(resize_mode)}')
+                print(f'raw_H = {raw_H}')
+                print(f'raw_W = {raw_W}')
+                print(f'target_H = {target_H}')
+                print(f'target_W = {target_W}')
+                print(f'estimation = {estimation}')
+
+            print(f'preprocessor resolution = {preprocessor_resolution}')
+            detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
