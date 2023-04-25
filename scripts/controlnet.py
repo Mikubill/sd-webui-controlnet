@@ -132,35 +132,26 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         # copy to enable modifying the dict and prevent response serialization error
         image = dict(image)
 
-    # copy to enable modifying the dict and prevent response serialization error
-    result = {'image': image['image'], 'mask': image['mask']}
-
-    if isinstance(result['image'], str):
+    if isinstance(image['image'], str):
         if os.path.exists(image['image']):
             image['image'] = numpy.array(Image.open(image['image'])).astype('uint8')
-        elif result['image']:
-            result['image'] = external_code.to_base64_nparray(result['image'])        
+        elif image['image']:
+            image['image'] = external_code.to_base64_nparray(image['image'])
         else:
-            result['image'] = None
-    
-    # If there is no image, ignore the mask
-    if result['image'] is None:
-        result['mask'] = None
-        return None
+            image['image'] = None            
 
-    if isinstance(result['mask'], str):
-        if result['mask']:
-            result['mask'] = external_code.to_base64_nparray(result['mask'])
-        else:
-            result['mask'] = np.zeros_like(result['image'], dtype=np.uint8)    
-    elif result['mask'] is None:
-        result['mask'] = np.zeros_like(result['image'], dtype=np.uint8)
+    # If there is no image, return image with None image and None mask
+    if image['image'] is None:
+        image['mask'] = None
+        return image
 
     if isinstance(image['mask'], str):
         if os.path.exists(image['mask']):
             image['mask'] = numpy.array(Image.open(image['mask'])).astype('uint8')
-        else:
+        elif image['mask']:
             image['mask'] = external_code.to_base64_nparray(image['mask'])
+        else:
+            image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
     elif image['mask'] is None:
         image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
 
