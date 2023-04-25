@@ -150,13 +150,11 @@ class UnetHook(nn.Module):
             only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
 
+            # High-res fix
             is_in_high_res_fix = False
-            
-            # handle external cond first
             for param in outer.control_params:
                 # select which hint_cond to use
                 param.used_hint_cond = param.hint_cond
-
                 # has high-res fix
                 if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 3 and param.hr_hint_cond.ndim == 3:
                     _, h_lr, w_lr = param.hint_cond.shape
@@ -173,33 +171,25 @@ class UnetHook(nn.Module):
                         if shared.opts.data.get("control_net_high_res_only_mid", False):
                             only_mid_control = True
 
+            # handle external cond
+            for param in outer.control_params:
                 if param.guidance_stopped or not param.is_extra_cond:
                     continue
                 if outer.lowvram:
                     param.control_model.to(devices.get_device_for("controlnet"))
+                query_size = int(x.shape[0])
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
+                uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None]
+                control = torch.concatenate([control.clone() for _ in range(query_size)], dim=0)
+                control *= param.weight
+                control *= uc_mask
                 if total_extra_cond is None:
-                    total_extra_cond = control.clone().squeeze(0) * param.weight
+                    total_extra_cond = control.clone()
                 else:
-                    total_extra_cond = torch.cat([total_extra_cond, control.clone().squeeze(0) * param.weight])
+                    total_extra_cond = torch.cat([total_extra_cond, control.clone()], dim=1)
                 
-            # check if it's non-batch-cond mode (lowvram, edit model etc)
-            if context.shape[0] % 2 != 0 and outer.batch_cond_available:
-                outer.batch_cond_available = False
-                
-            # concat styleadapter to cond, pad uncond to same length
-            if total_extra_cond is not None and outer.batch_cond_available:
-                total_extra_cond = torch.repeat_interleave(total_extra_cond.unsqueeze(0), context.shape[0] // 2, dim=0)
-                if outer.is_vanilla_samplers:  
-                    uncond, cond = context.chunk(2)
-                    cond = torch.cat([cond, total_extra_cond], dim=1)
-                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
-                    context = torch.cat([uncond, cond], dim=0)
-                else:
-                    cond, uncond = context.chunk(2)
-                    cond = torch.cat([cond, total_extra_cond], dim=1)
-                    uncond = torch.cat([uncond, uncond[:, -total_extra_cond.shape[1]:, :]], dim=1)
-                    context = torch.cat([cond, uncond], dim=0)
+            if total_extra_cond is not None:
+                context = torch.cat([context, total_extra_cond], dim=1)
                 
             # handle unet injection stuff
             for param in outer.control_params:
