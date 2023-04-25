@@ -209,6 +209,10 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
         if 'image' in unit and not isinstance(unit['image'], dict):
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
 
+        if 'guess_mode' in unit:
+            unit['control_mode'] = ControlMode.CONTROL if unit['guess_mode'] else ControlMode.BALANCED
+            del unit['guess_mode']
+
         unit = ControlNetUnit(**unit)
 
     # temporary, check #602
