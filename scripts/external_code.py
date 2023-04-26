@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
 from modules import scripts, processing, shared
-from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
+from scripts import global_state
 
 from modules.api import api
 
@@ -284,20 +284,26 @@ def get_models(update: bool=False) -> List[str]:
     """
 
     if update:
-        update_cn_models()
+        global_state.update_cn_models()
 
-    return list(cn_models_names.values())
+    return list(global_state.cn_models_names.values())
 
 
-def get_modules() -> List[str]:
+def get_modules(alias_names: bool = False) -> List[str]:
     """
     Fetch the list of available preprocessors.
     Each value is a valid candidate of `ControlNetUnit.module`.
 
     Keyword arguments:
+    alias_names -- Whether to get the ui alias names instead of internal keys
     """
 
-    return list(cn_preprocessor_modules.keys())
+    modules = list(global_state.cn_preprocessor_modules.keys())
+
+    if alias_names:
+        _module_list = [global_state.preprocessor_aliases.get(module, module) for module in modules]
+
+    return modules
 
 
 def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
