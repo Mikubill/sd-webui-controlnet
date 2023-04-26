@@ -301,7 +301,7 @@ def get_modules(alias_names: bool = False) -> List[str]:
     modules = list(global_state.cn_preprocessor_modules.keys())
 
     if alias_names:
-        _module_list = [global_state.preprocessor_aliases.get(module, module) for module in modules]
+        modules = [global_state.preprocessor_aliases.get(module, module) for module in modules]
 
     return modules
 
