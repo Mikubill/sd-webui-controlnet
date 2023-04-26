@@ -190,10 +190,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
     @app.get("/controlnet/module_list")
     async def module_list(alias_names: bool = False):
-        _module_list = external_code.get_modules()
-        if alias_names:
-            _module_list = [global_state.preprocessor_aliases.get(module, module) for module in _module_list]
-
+        _module_list = external_code.get_modules(alias_names)
         print(_module_list)
         return {"module_list": _module_list}
 
