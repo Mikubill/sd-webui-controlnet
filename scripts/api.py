@@ -189,8 +189,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         return {"model_list": up_to_date_model_list}
 
     @app.get("/controlnet/module_list")
-    async def module_list():
+    async def module_list(alias_ui_keys: bool = False):
         _module_list = external_code.get_modules()
+        if alias_ui_keys:
+            _module_list = [global_state.preprocessor_aliases.get(module, module) for module in _module_list]
+
         print(_module_list)
         return {"module_list": _module_list}
 
