@@ -353,7 +353,6 @@ def lineart_standard(img, res=512, **kwargs):
     intensity *= 127
     return intensity.clip(0, 255).astype(np.uint8), True
 
-
 model_lineart = None
 
 
@@ -412,6 +411,27 @@ def unload_lineart_anime():
     global model_lineart_anime
     if model_lineart_anime is not None:
         model_lineart_anime.unload_model()
+
+
+model_manga_line = None
+
+
+def manga_line(img, res=512, **kwargs):
+    img = resize_image(HWC3(img), res)
+    global model_manga_line
+    if model_manga_line is None:
+        from annotator.manga_line import MangaLineExtration
+        model_manga_line = MangaLineExtration()
+
+    # applied auto inversion
+    result = 255-model_manga_line(img)
+    return result, True
+
+#def unload_manga_line():
+#    global model_manga_line
+#    if model_manga_line is not None:
+#        model_manga_line.unload_model()
+
 
 
 model_zoe_depth = None
