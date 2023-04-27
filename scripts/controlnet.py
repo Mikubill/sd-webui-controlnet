@@ -894,17 +894,21 @@ class Script(scripts.Script):
 
             enabled_units.append(copy(unit))
             if len(units) != 1:
-                prefix = f"ControlNet-{idx}"
+                prefix = f"ControlNet {idx}"
             else:
                 prefix = "ControlNet"
 
             p.extra_generation_params.update({
                 f"{prefix} Enabled": True,
-                f"{prefix} Module": unit.module,
+                f"{prefix} Preprocessor": unit.module,
                 f"{prefix} Model": unit.model,
                 f"{prefix} Weight": unit.weight,
-                f"{prefix} Guidance Start": unit.guidance_start,
-                f"{prefix} Guidance End": unit.guidance_end,
+                f"{prefix} Starting Step": unit.guidance_start,
+                f"{prefix} Ending Step": unit.guidance_end,
+                f"{prefix} Resize Mode": unit.resize_mode,
+                f"{prefix} Pixel Perfect": unit.pixel_perfect,
+                f"{prefix} Control Mode": unit.control_mode,
+                f"{prefix} Preprocessor Parameters": str((unit.processor_res, unit.threshold_a, unit.threshold_b)),
             })
 
         return enabled_units
