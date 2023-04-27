@@ -905,10 +905,10 @@ class Script(scripts.Script):
                 f"{prefix} Weight": unit.weight,
                 f"{prefix} Starting Step": unit.guidance_start,
                 f"{prefix} Ending Step": unit.guidance_end,
-                # f"{prefix} Resize Mode": unit.resize_mode,
-                # f"{prefix} Pixel Perfect": unit.pixel_perfect,
-                # f"{prefix} Control Mode": unit.control_mode,
-                # f"{prefix} Preprocessor Parameters": str((unit.processor_res, unit.threshold_a, unit.threshold_b)),
+                f"{prefix} Resize Mode": str(unit.resize_mode),
+                f"{prefix} Pixel Perfect": str(unit.pixel_perfect),
+                f"{prefix} Control Mode": str(unit.control_mode),
+                f"{prefix} Preprocessor Parameters": str((unit.processor_res, unit.threshold_a, unit.threshold_b)),
             })
 
         return enabled_units
