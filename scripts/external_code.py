@@ -76,7 +76,7 @@ class ControlNetUnit:
         image: Optional[InputImage]=None,
         resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
         low_vram: bool=False,
-        processor_res: int=64,
+        processor_res: int=512,
         threshold_a: float=64,
         threshold_b: float=64,
         guidance_start: float=0.0,
