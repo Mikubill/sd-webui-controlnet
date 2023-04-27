@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from annotator.util import resize_image, HWC3
 
+from typing import Callable, Tuple
 
 model_canny = None
 
@@ -179,58 +180,40 @@ def unload_leres():
         from annotator.leres import unload_leres_model
         unload_leres_model()
 
-model_openpose = None
+class OpenposeModel(object):
+    def __init__(self) -> None:
+        self.model_openpose = None
+        
+    def run_model(
+            self, 
+            img: np.ndarray, 
+            include_body: bool, 
+            include_hand: bool, 
+            include_face: bool, 
+            res: int = 512, 
+            **kwargs  # Ignore rest of kwargs
+        ) -> Tuple[np.ndarray, bool]:
+        """Run the openpose model. Returns a tuple of
+        - result image
+        - is_image flag
+        """
+        img = resize_image(HWC3(img), res)
+        if self.model_openpose is None:
+            from annotator.openpose import OpenposeDetector
+            self.model_openpose = OpenposeDetector()
+                
+        return self.model_openpose(
+            img, 
+            include_body=include_body, 
+            include_hand=include_hand, 
+            include_face=include_face
+        ), True
+    
+    def unload(self):
+        if self.model_openpose is not None:
+            self.model_openpose.unload_model()
 
-
-def openpose(img, res=512, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_openpose
-    if model_openpose is None:
-        from annotator.openpose import OpenposeDetector
-        model_openpose = OpenposeDetector()
-    result = model_openpose(img)
-    return result, True
-
-def openpose_face(img, res=512, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_openpose
-    if model_openpose is None:
-        from annotator.openpose import OpenposeDetector
-        model_openpose = OpenposeDetector()
-    result = model_openpose(img, include_hand=False, include_face=True)
-    return result, True
-
-def openpose_faceonly(img, res=512, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_openpose
-    if model_openpose is None:
-        from annotator.openpose import OpenposeDetector
-        model_openpose = OpenposeDetector()
-    result = model_openpose(img, include_body=False, include_face=True)
-    return result, True
-
-def openpose_hand(img, res=512, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_openpose
-    if model_openpose is None:
-        from annotator.openpose import OpenposeDetector
-        model_openpose = OpenposeDetector()
-    result = model_openpose(img, include_hand=True, include_face=False)
-    return result, True
-
-def openpose_full(img, res=512, **kwargs):
-    img = resize_image(HWC3(img), res)
-    global model_openpose
-    if model_openpose is None:
-        from annotator.openpose import OpenposeDetector
-        model_openpose = OpenposeDetector()
-    result = model_openpose(img, include_hand=True, include_face=True)
-    return result, True
-
-def unload_openpose():
-    global model_openpose
-    if model_openpose is not None:
-        model_openpose.unload_model()
+g_openpose_model = OpenposeModel()
 
 
 model_uniformer = None
