@@ -212,7 +212,7 @@ class MangaLineExtration:
         self.device = devices.get_device_for("controlnet")
 
     def load_model(self):
-        remote_model_path = "https://github.com/ljsabc/MangaLineExtraction_PyTorch/releases/download/v1/erika.pth"
+        remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/erika.pth"
         modelpath = os.path.join(self.model_dir, "erika.pth")
         if not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
@@ -236,25 +236,13 @@ class MangaLineExtration:
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
-
-        H, W, C = input_image.shape
-        Hn = 256 * int(np.ceil(float(H) / 256.0))
-        Wn = 256 * int(np.ceil(float(W) / 256.0))
-        img = cv2.resize(input_image, (Wn, Hn), interpolation=cv2.INTER_CUBIC)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        img = cv2.cvtColor(input_image, cv2.COLOR_RGB2GRAY)
+        img = np.ascontiguousarray(img.copy()).copy()
         with torch.no_grad():
             image_feed = torch.from_numpy(img).float().to(self.device)
-            #image_feed = image_feed / 127.5 - 1.0
             image_feed = rearrange(image_feed, 'h w -> 1 1 h w')
-
-            line = self.model(image_feed)#[0, 0] * 127.5 + 127.5
-            line = line.cpu().numpy()[0,0,:,:]
-
-            line[line > 255] = 255
-            line[line < 0] = 0
-
-            line = line.astype(np.uint8)
-            line = cv2.resize(line, (W, H), interpolation=cv2.INTER_CUBIC)
-            return line
+            line = self.model(image_feed)
+            line = 255 - line.cpu().numpy()[0, 0]
+            return line.clip(0, 255).astype(np.uint8)
 
     

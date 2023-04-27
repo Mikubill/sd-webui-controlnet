@@ -416,7 +416,7 @@ def unload_lineart_anime():
 model_manga_line = None
 
 
-def manga_line(img, res=512, **kwargs):
+def lineart_anime_denoise(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_manga_line
     if model_manga_line is None:
@@ -424,13 +424,14 @@ def manga_line(img, res=512, **kwargs):
         model_manga_line = MangaLineExtration()
 
     # applied auto inversion
-    result = 255-model_manga_line(img)
+    result = model_manga_line(img)
     return result, True
 
-#def unload_manga_line():
-#    global model_manga_line
-#    if model_manga_line is not None:
-#        model_manga_line.unload_model()
+
+def unload_lineart_anime_denoise():
+   global model_manga_line
+   if model_manga_line is not None:
+       model_manga_line.unload_model()
 
 
 

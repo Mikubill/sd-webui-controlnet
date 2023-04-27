@@ -51,7 +51,7 @@ cn_preprocessor_modules = {
     "tile_resample": tile_resample,
     "inpaint": inpaint,
     "invert": invert,
-    "manga_line": manga_line
+    "lineart_anime_denoise": lineart_anime_denoise
 }
 
 cn_preprocessor_unloadable = {
@@ -74,7 +74,8 @@ cn_preprocessor_unloadable = {
     "oneformer_ade20k": unload_oneformer_ade20k,
     "lineart": unload_lineart,
     "lineart_coarse": unload_lineart_coarse,
-    "lineart_anime": unload_lineart_anime
+    "lineart_anime": unload_lineart_anime,
+    "lineart_anime_denoise": unload_lineart_anime_denoise
 }
 
 preprocessor_aliases = {
