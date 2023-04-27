@@ -51,6 +51,7 @@ cn_preprocessor_modules = {
     "tile_resample": tile_resample,
     "inpaint": inpaint,
     "invert": invert,
+    "manga_line": manga_line
 }
 
 cn_preprocessor_unloadable = {
