@@ -68,6 +68,19 @@ def transfer(model, model_weights):
 
 
 def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
+    """
+    Draw keypoints and limbs representing body pose on a given canvas.
+
+    Args:
+        canvas (np.ndarray): A 3D numpy array representing the canvas (image) on which to draw the body pose.
+        keypoints (List[Keypoint]): A list of Keypoint objects representing the body keypoints to be drawn.
+
+    Returns:
+        np.ndarray: A 3D numpy array representing the modified canvas with the drawn body pose.
+
+    Note:
+        The function expects the x and y coordinates of the keypoints to be normalized between 0 and 1.
+    """
     H, W, C = canvas.shape
     stickwidth = 4
 
@@ -114,6 +127,20 @@ def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
 
 
 def draw_handpose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.ndarray:
+    """
+    Draw keypoints and connections representing hand pose on a given canvas.
+
+    Args:
+        canvas (np.ndarray): A 3D numpy array representing the canvas (image) on which to draw the hand pose.
+        keypoints (List[Keypoint] | None): A list of Keypoint objects representing the hand keypoints to be drawn
+                                          or None if no keypoints are present.
+
+    Returns:
+        np.ndarray: A 3D numpy array representing the modified canvas with the drawn hand pose.
+
+    Note:
+        The function expects the x and y coordinates of the keypoints to be normalized between 0 and 1.
+    """
     if not keypoints:
         return canvas
     
@@ -145,6 +172,20 @@ def draw_handpose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.nd
 
 
 def draw_facepose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.ndarray:
+    """
+    Draw keypoints representing face pose on a given canvas.
+
+    Args:
+        canvas (np.ndarray): A 3D numpy array representing the canvas (image) on which to draw the face pose.
+        keypoints (List[Keypoint] | None): A list of Keypoint objects representing the face keypoints to be drawn
+                                          or None if no keypoints are present.
+
+    Returns:
+        np.ndarray: A 3D numpy array representing the modified canvas with the drawn face pose.
+
+    Note:
+        The function expects the x and y coordinates of the keypoints to be normalized between 0 and 1.
+    """    
     if not keypoints:
         return canvas
     
@@ -161,6 +202,23 @@ def draw_facepose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.nd
 # detect hand according to body pose keypoints
 # please refer to https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/src/openpose/hand/handDetector.cpp
 def handDetect(body: BodyResult, oriImg) -> List[Tuple[int, int, int, bool]]:
+    """
+    Detect hands in the input body pose keypoints and calculate the bounding box for each hand.
+
+    Args:
+        body (BodyResult): A BodyResult object containing the detected body pose keypoints.
+        oriImg (numpy.ndarray): A 3D numpy array representing the original input image.
+
+    Returns:
+        List[Tuple[int, int, int, bool]]: A list of tuples, each containing the coordinates (x, y) of the top-left
+                                          corner of the bounding box, the width (height) of the bounding box, and
+                                          a boolean flag indicating whether the hand is a left hand (True) or a
+                                          right hand (False).
+
+    Notes:
+        - The width and height of the bounding boxes are equal since the network requires squared input.
+        - The minimum bounding box size is 20 pixels.
+    """
     ratioWristElbow = 0.33
     detect_result = []
     image_height, image_width = oriImg.shape[0:2]
@@ -238,6 +296,22 @@ def handDetect(body: BodyResult, oriImg) -> List[Tuple[int, int, int, bool]]:
 
 # Written by Lvmin
 def faceDetect(body: BodyResult, oriImg) -> Tuple[int, int, int] | None:
+    """
+    Detect the face in the input body pose keypoints and calculate the bounding box for the face.
+
+    Args:
+        body (BodyResult): A BodyResult object containing the detected body pose keypoints.
+        oriImg (numpy.ndarray): A 3D numpy array representing the original input image.
+
+    Returns:
+        Tuple[int, int, int] | None: A tuple containing the coordinates (x, y) of the top-left corner of the
+                                   bounding box and the width (height) of the bounding box, or None if the
+                                   face is not detected or the bounding box width is less than 20 pixels.
+
+    Notes:
+        - The width and height of the bounding box are equal.
+        - The minimum bounding box size is 20 pixels.
+    """
     # left right eye ear 14 15 16 17
     image_height, image_width = oriImg.shape[0:2]
     

@@ -16,7 +16,6 @@ body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/bod
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
 
-
 HandResult = List[Keypoint]
 FaceResult = List[Keypoint]
 
@@ -27,6 +26,20 @@ class PoseResult(NamedTuple):
     face: FaceResult | None
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
+    """
+    Draw the detected poses on an empty canvas.
+
+    Args:
+        poses (List[PoseResult]): A list of PoseResult objects containing the detected poses.
+        H (int): The height of the canvas.
+        W (int): The width of the canvas.
+        draw_body (bool, optional): Whether to draw body keypoints. Defaults to True.
+        draw_hand (bool, optional): Whether to draw hand keypoints. Defaults to True.
+        draw_face (bool, optional): Whether to draw face keypoints. Defaults to True.
+
+    Returns:
+        numpy.ndarray: A 3D numpy array representing the canvas with the drawn poses.
+    """
     canvas = np.zeros(shape=(H, W, 3), dtype=np.uint8)
 
     for pose in poses:
@@ -44,6 +57,12 @@ def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, dr
 
     
 class OpenposeDetector:
+    """
+    A class for detecting human poses in images using the Openpose model.
+
+    Attributes:
+        model_dir (str): Path to the directory where the pose models are stored.
+    """
     model_dir = os.path.join(models_path, "openpose")
 
     def __init__(self):
@@ -51,8 +70,11 @@ class OpenposeDetector:
         self.body_estimation = None
         self.hand_estimation = None
         self.face_estimation = None
-        
+
     def load_model(self):
+        """
+        Load the Openpose body, hand, and face models.
+        """
         body_modelpath = os.path.join(self.model_dir, "body_pose_model.pth")
         hand_modelpath = os.path.join(self.model_dir, "hand_pose_model.pth")
         face_modelpath = os.path.join(self.model_dir, "facenet.pth")
@@ -74,6 +96,9 @@ class OpenposeDetector:
         self.face_estimation = Face(face_modelpath)
 
     def unload_model(self):
+        """
+        Unload the Openpose models by moving them to the CPU.
+        """
         if self.body_estimation is not None:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
@@ -119,8 +144,18 @@ class OpenposeDetector:
             ]
         
         return None
-    
+
     def detect_poses(self, oriImg, include_hand=False, include_face=False) -> List[PoseResult]:
+        """
+        Detect poses in the given image.
+            Args:
+                oriImg (numpy.ndarray): The input image for pose detection.
+                include_hand (bool, optional): Whether to include hand detection. Defaults to False.
+                include_face (bool, optional): Whether to include face detection. Defaults to False.
+
+        Returns:
+            List[PoseResult]: A list of PoseResult objects containing the detected poses.
+        """
         if self.body_estimation is None:
             self.load_model()
             
@@ -161,6 +196,19 @@ class OpenposeDetector:
             return results
         
     def __call__(self, oriImg, include_body=True, include_hand=False, include_face=False):
+        """
+        Detect and draw poses in the given image.
+
+        Args:
+            oriImg (numpy.ndarray): The input image for pose detection and drawing.
+            include_body (bool, optional): Whether to include body keypoints. Defaults to True.
+            include_hand (bool, optional): Whether to include hand keypoints. Defaults to False.
+            include_face (bool, optional): Whether to include face keypoints. Defaults to False.
+
+        Returns:
+            numpy.ndarray: The image with detected and drawn poses.
+        """
         H, W, _ = oriImg.shape
         poses = self.detect_poses(oriImg, include_hand, include_face)
-        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face)
+        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face) 
+                     
