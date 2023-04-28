@@ -6,101 +6,102 @@ utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'u
 utils.setup_test_env()
 
 from annotator.openpose.util import faceDetect, handDetect
+from annotator.openpose.body import Keypoint, BodyResult
 
 class TestFaceDetect(unittest.TestCase):
     def test_no_faces(self):
-        candidate = np.array([])
-        subset = np.array([])
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
-
-        expected_result = []
-        result = faceDetect(candidate, subset, oriImg)
+        body = BodyResult([None] * 18, total_score=3, total_parts=0)
+        expected_result = None
+        result = faceDetect(body, oriImg)
 
         self.assertEqual(result, expected_result)
 
     def test_single_face(self):
-        candidate = np.array([
-            [50, 50], [30, 40], [70, 40], [20, 50], [80, 50]
-        ])
-        subset = np.array([
-            [0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 3, 4, 2, 0.5]
-        ])
+        body = BodyResult([
+            Keypoint(50, 50),
+            *([None] * 13),
+            Keypoint(30, 40),
+            Keypoint(70, 40),
+            Keypoint(20, 50),
+            Keypoint(80, 50),
+        ], total_score=2, total_parts=5)
+
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        expected_result = [[0, 0, 120]]
-        result = faceDetect(candidate, subset, oriImg)
+        expected_result = (0, 0, 120)
+        result = faceDetect(body, oriImg)
 
         self.assertEqual(result, expected_result)
-
-    def test_multiple_faces(self):
-        candidate = np.array([
-            [50, 50], [30, 40], [70, 40], [20, 50], [80, 50],
-            [25, 25], [10, 20], [40, 20], [5, 25], [45, 25]
-        ])
-        subset = np.array([
-            [0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 3, 4, 2, 0.5],
-            [5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 6, 7, 8, 9, 2, 0.5]
-        ])
-        oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
-
-        expected_result = [[0, 0, 120], [0, 0, 90]]
-        result = faceDetect(candidate, subset, oriImg)
-
-        self.assertEqual(result, expected_result)
-
 
 class TestHandDetect(unittest.TestCase):
     def test_no_hands(self):
-        candidate = np.array([])
-        subset = np.array([])
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
-
+        body = BodyResult([None] * 18, total_score=3, total_parts=0)
         expected_result = []
-        result = handDetect(candidate, subset, oriImg)
+        result = handDetect(body, oriImg)
 
         self.assertEqual(result, expected_result)
 
     def test_single_left_hand(self):
-        candidate = np.array([
-            [20, 20], [40, 30], [60, 40], [20, 60], [40, 70], [60, 80]
-        ])
-        subset = np.array([
-            [-1, -1, -1, -1, -1, 0, 1, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 3, 0.5]
-        ])
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        expected_result = [[49, 26, 33, True]]
-        result = handDetect(candidate, subset, oriImg)
+        body = BodyResult([
+            None, None, None, None, None,
+            Keypoint(20, 20),
+            Keypoint(40, 30),
+            Keypoint(60, 40),
+            *([None] * 8),
+            Keypoint(20, 60),
+            Keypoint(40, 70),
+            Keypoint(60, 80)
+        ], total_score=3, total_parts=0.5)
+
+        expected_result = [(49, 26, 33, True)]
+        result = handDetect(body, oriImg)
 
         self.assertEqual(result, expected_result)
 
     def test_single_right_hand(self):
-        candidate = np.array([
-            [20, 20], [40, 30], [60, 40], [20, 60], [40, 70], [60, 80]
-        ])
-        subset = np.array([
-            [-1, -1, 0, 1, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 3, 0.5]
-        ])
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        expected_result = [[49, 26, 33, False]]
-        result = handDetect(candidate, subset, oriImg)
+        body = BodyResult([
+            None, None,
+            Keypoint(20, 20),
+            Keypoint(40, 30),
+            Keypoint(60, 40),
+            *([None] * 11),
+            Keypoint(20, 60),
+            Keypoint(40, 70),
+            Keypoint(60, 80)
+        ], total_score=3, total_parts=0.5)
+
+        expected_result = [(49, 26, 33, False)]
+        result = handDetect(body, oriImg)
 
         self.assertEqual(result, expected_result)
 
     def test_multiple_hands(self):
-        candidate = np.array([
-            [20, 20], [40, 30], [60, 40], [20, 60], [40, 70], [60, 80],
-            [10, 10], [30, 20], [50, 30], [10, 50], [30, 60], [50, 70]
-        ])
-        subset = np.array([
-            [0, 1, 2, 3, 4, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 3, 0.5],
-            [6, 7, 8, 9, 10, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 3, 0.5]
-        ])
+        body = BodyResult([
+            Keypoint(20, 20),
+            Keypoint(40, 30),
+            Keypoint(60, 40),
+            Keypoint(20, 60),
+            Keypoint(40, 70),
+            Keypoint(60, 80),
+            Keypoint(10, 10),
+            Keypoint(30, 20),
+            Keypoint(50, 30),
+            Keypoint(10, 50),
+            Keypoint(30, 60),
+            Keypoint(50, 70),
+            *([None] * 6),
+        ], total_score=3, total_parts=0.5)
+
         oriImg = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        expected_result = [[16, 43, 56, False], [6, 33, 60, False]]
-        result = handDetect(candidate, subset, oriImg)
+        expected_result = [(0, 0, 100, True), (16, 43, 56, False)]
+        result = handDetect(body, oriImg)
         self.assertEqual(result, expected_result)
 
 
