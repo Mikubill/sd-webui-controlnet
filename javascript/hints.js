@@ -1,5 +1,5 @@
 // mouseover tooltips for various UI elements
-titles = {
+titles_controlnet = {
     '🔄': 'Refresh',
     '\u2934': 'Send dimensions to stable diffusion',
     '💥': 'Run preprocessor',
@@ -10,7 +10,7 @@ titles = {
 
 onUiUpdate(function(){
 	gradioApp().querySelectorAll('.cnet-toolbutton').forEach(function(button){
-		tooltip = titles[button.textContent];
+		tooltip = titles_controlnet[button.textContent];
 		if(tooltip){
 			button.title = tooltip;
 		}
