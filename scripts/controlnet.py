@@ -123,12 +123,22 @@ def update_json_download_link(json_string: str, file_name: str) -> Dict:
     data_uri = f'data:application/json;base64,{base64_encoded_json}'
     style = """ 
     position: absolute;
-    right: 10%;
+    right: var(--size-2);
+    bottom: var(--size-2);
     font-size: x-small;
+    font-weight: bold;
+    padding: 2px;
+
+    box-shadow: var(--shadow-drop);
+    border: 1px solid var(--button-secondary-border-color);
+    border-radius: var(--radius-sm);
+    background: var(--background-fill-primary);
+    height: var(--size-5);
+    color: var(--block-label-text-color);
     """
     hint = "Download the pose as .json file"
     html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
-                Download JSON</a>"""
+                {{JSON}}</a>"""
     return gr.update(
         value=html,
         visible=(json_string != '')
