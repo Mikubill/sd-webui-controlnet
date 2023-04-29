@@ -68,7 +68,7 @@ def encode_poses_as_json(poses: List[PoseResult], canvas_height: int, canvas_wid
             value
             for keypoint in keypoints
             for value in (
-                [keypoint.x, keypoint.y, 1.0]
+                [float(keypoint.x), float(keypoint.y), 1.0]
                 if keypoint is not None
                 else [0.0, 0.0, 0.0]
             )
