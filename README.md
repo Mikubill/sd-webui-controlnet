@@ -78,7 +78,11 @@ Now you can control which aspect is more important (your prompt or your ControlN
 | --- | --- | --- | --- |
 | ![image](https://user-images.githubusercontent.com/19834515/233898012-3b7f970e-a599-42b2-a56a-65899b816085.png) | ![image](https://user-images.githubusercontent.com/19834515/233897765-8ecf4ee7-a605-46fc-b124-57474c3d7575.png) | ![image](https://user-images.githubusercontent.com/19834515/233897802-6bf46513-9203-482b-8997-e889d578a381.png) | ![image](https://user-images.githubusercontent.com/19834515/233897826-54033ff3-3251-4a6a-bf4a-62f877cb6434.png) |
 
-Note that "Balanced" = turn off Guess Mode in ControlNet 1.0
+"Balanced" = put ControlNet on both sides of cfg scale, same as turn off "Guess Mode" in ControlNet 1.0
+
+"My prompt is more important" = put ControlNet on both sides of cfg scale and use progressively reduced SD U-Net injections (layer_weight*=0.825**I, where 0<=I <13, and the 13 means ControlNet injected SD 13 times). In this way, you can make sure that your prompts are perfectly displayed in your generated images.
+
+"ControlNet is more important" = put ControlNet only on the Conditional Side (the cond in A1111's batch-cond-uncond). This means the ControlNet will be X times stronger if your cfg-scale is X. For example, if your cfg-scale is 7, then ControlNet is 7 times stronger. Note that here the X times stronger is different from "Control Weights" since your weights are not modified. This "stronger" effect usually has less artifacts and give ControlNet more space to guess what is missing from your prompts (and in 1.0, it is called "Guess Mode"). 
 
 ### See Also
 
