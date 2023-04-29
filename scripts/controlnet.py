@@ -126,7 +126,8 @@ def update_json_download_link(json_string: str, file_name: str) -> Dict:
     right: 10%;
     font-size: x-small;
     """
-    html = f"""<a href='{data_uri}' download='{file_name}' class='cnet-download-json' style="{style}">
+    hint = "Download the pose as .json file"
+    html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
                 Download JSON</a>"""
     return gr.update(
         value=html,
