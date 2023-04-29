@@ -74,6 +74,8 @@ Now you can control which aspect is more important (your prompt or your ControlN
 | --- | --- | --- | --- |
 | ![image](https://user-images.githubusercontent.com/19834515/233898012-3b7f970e-a599-42b2-a56a-65899b816085.png) | ![image](https://user-images.githubusercontent.com/19834515/233897765-8ecf4ee7-a605-46fc-b124-57474c3d7575.png) | ![image](https://user-images.githubusercontent.com/19834515/233897802-6bf46513-9203-482b-8997-e889d578a381.png) | ![image](https://user-images.githubusercontent.com/19834515/233897826-54033ff3-3251-4a6a-bf4a-62f877cb6434.png) |
 
+Note that "Balanced" = turn off Guess Mode in ControlNet 1.0
+
 ### See Also
 
 Documents of ControlNet 1.1: https://github.com/lllyasviel/ControlNet-v1-1-nightly
