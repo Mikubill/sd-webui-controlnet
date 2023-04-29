@@ -3,6 +3,7 @@ import inspect
 import os
 from collections import OrderedDict
 from copy import copy
+import base64
 from typing import Union, Dict, Optional, List
 import importlib
 
@@ -115,6 +116,22 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
         if hasattr(p, k):
             continue
         setattr(p, k, v)
+
+
+def update_json_download_link(json_string: str, file_name: str) -> Dict:
+    base64_encoded_json = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
+    data_uri = f'data:application/json;base64,{base64_encoded_json}'
+    style = """ 
+    position: absolute;
+    right: 10%;
+    font-size: x-small;
+    """
+    html = f"""<a href='{data_uri}' download='{file_name}' class='cnet-download-json' style="{style}">
+                Download JSON</a>"""
+    return gr.update(
+        value=html,
+        visible=(json_string != '')
+    )
 
 
 global_state.update_cn_models()
@@ -241,7 +258,9 @@ class Script(scripts.Script):
                 with gr.Row(equal_height=True):
                     input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
                     # Gradio's magic number. Only 242 works.
-                    generated_image = gr.Image(label="Preprocessor Preview", visible=False, elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
+                    with gr.Group(visible=False) as generated_image_group:
+                        generated_image = gr.Image(label="Preprocessor Preview", elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
+                        download_pose_link = gr.HTML(value='', visible=False)
 
             with gr.Tab(label='Batch') as batch_tab:
                 batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
@@ -482,25 +501,43 @@ class Script(scripts.Script):
                 print(f'target_W = {target_W}')
                 print(f'estimation = {estimation}')
 
+            class JsonAcceptor:
+                def __init__(self) -> None:
+                    self.value = ''
+
+                def accept(self, json_string: str) -> None:
+                    self.value = json_string
+            json_acceptor = JsonAcceptor()
+
             print(f'Preview Resolution = {pres}')
-            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b)
+            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b, json_pose_callback=json_acceptor.accept)
 
             if is_image:
                 if result.ndim == 3 and result.shape[2] == 4:
                     inpaint_mask = result[:, :, 3]
                     result = result[:, :, 0:3]
                     result[inpaint_mask > 127] = 0
-                return gr.update(value=result, visible=True, interactive=False)
+                return (
+                    # Update to `generated_image`
+                    gr.update(value=result, visible=True, interactive=False),
+                    # Update to `download_pose_link`
+                    update_json_download_link(json_acceptor.value, 'pose.json'),
+                )
 
-            return gr.update(value=None, visible=True)
+            return (
+                # Update to `generated_image`
+                gr.update(value=None, visible=True),
+                # Update to `download_pose_link`
+                update_json_download_link(json_acceptor.value, 'pose.json'),
+            )
 
         def shift_preview(is_on):
             if is_on:
-                return gr.update(visible=True), gr.update(value=None, visible=True)
+                return gr.update(visible=True), gr.update(value=None), gr.update(visible=True)
             else:
-                return gr.update(visible=False), gr.update(visible=False)
+                return gr.update(visible=False), gr.update(), gr.update(visible=False)
 
-        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], outputs=[trigger_preprocessor, generated_image])
+        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], outputs=[trigger_preprocessor, generated_image, generated_image_group])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
@@ -518,7 +555,7 @@ class Script(scripts.Script):
             self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
             pixel_perfect, resize_mode
-        ], outputs=[generated_image])
+        ], outputs=[generated_image, download_pose_link])
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
