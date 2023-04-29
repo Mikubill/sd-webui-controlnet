@@ -62,6 +62,10 @@ Now if you turn on pixel-perfect mode, you do not need to set preprocessor (anno
 
 We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
 
+**Support for Upscaling Scripts**
+
+Now ControlNet 1.1 can support almost all Upscaling/Tile methods. But please note that because of a limitation of A1111, ControlNet cannot support the script "SD upscale". It is impossible to support "SD upscale". However, ControlNet 1.1 perfectly support the script "Ultimate SD upscale" and almost all other tile-based extensions. Please do not confuse "Ultimate SD upscale" with "SD upscale" - they are different scripts.
+
 **Control Mode (previously called Guess Mode)**
 
 We have fixed many bugs in previous 1.0’s Guess Mode and now it is called Control Mode
