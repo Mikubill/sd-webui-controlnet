@@ -1219,7 +1219,7 @@ class Script(scripts.Script):
 
         if not batch_hijack.instance.is_batch:
             if not shared.opts.data.get("control_net_no_detectmap", False):
-                if 'upscale' not in processor_params_flag:
+                if 'sd upscale' not in processor_params_flag:
                     if self.detected_map is not None:
                         for detect_map, module in self.detected_map:
                             if detect_map is None:
