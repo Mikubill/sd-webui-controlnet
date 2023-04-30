@@ -64,7 +64,7 @@ We reorganized some previously confusing UI like "canvas width/height for new ca
 
 **Support for Upscaling Scripts**
 
-Now ControlNet 1.1 can support almost all Upscaling/Tile methods. But please note that because of a limitation of A1111, ControlNet cannot support the script "SD upscale". It is impossible to support "SD upscale". However, ControlNet 1.1 perfectly support the script "Ultimate SD upscale" and almost all other tile-based extensions. Please do not confuse "Ultimate SD upscale" with "SD upscale" - they are different scripts. Note that the recommended upscaling method is [tiled diffusion](https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111) but we test as many methods/extensions as possible.
+Now ControlNet 1.1 can support almost all Upscaling/Tile methods. ControlNet 1.1 support the script "Ultimate SD upscale" and almost all other tile-based extensions. Please do not confuse ["Ultimate SD upscale"](https://github.com/Coyote-A/ultimate-upscale-for-automatic1111) with "SD upscale" - they are different scripts. Note that the most recommended upscaling method is ["Tiled VAE/Diffusion"](https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111) but we test as many methods/extensions as possible. Note that "SD upscale" is supported since 1.1.117, and if you use it, you need to leave all ControlNet images as blank (We do not recommend "SD upscale" since it is somewhat buggy and cannot be maintained).
 
 **Control Mode (previously called Guess Mode)**
 

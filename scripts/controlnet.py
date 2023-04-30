@@ -1215,12 +1215,18 @@ class Script(scripts.Script):
         if self.latest_network is None:
             return
 
-        no_detectmap_opt = shared.opts.data.get("control_net_no_detectmap", False)
-        if not batch_hijack.instance.is_batch and not no_detectmap_opt and self.detected_map:
-            for detect_map, module in self.detected_map:
-                if detect_map is None:
-                    continue
-                processed.images.extend([Image.fromarray(detect_map.clip(0, 255).astype(np.uint8))])
+        if not batch_hijack.instance.is_batch:
+            if not shared.opts.data.get("control_net_no_detectmap", False):
+                if 'SD upscale upscaler' not in getattr(processed, 'extra_generation_params', []):
+                    if self.detected_map is not None:
+                        for detect_map, module in self.detected_map:
+                            if detect_map is None:
+                                continue
+                            processed.images.extend([
+                                Image.fromarray(
+                                    np.ascontiguousarray(detect_map.copy()).copy().clip(0, 255).astype(np.uint8)
+                                )
+                            ])
 
         self.input_image = None
         self.latest_network.restore(p.sd_model.model.diffusion_model)
