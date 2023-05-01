@@ -543,12 +543,19 @@ class Script(scripts.Script):
             )
 
         def shift_preview(is_on):
-            if is_on:
-                return gr.update(visible=True), gr.update(value=None), gr.update(visible=True)
-            else:
-                return gr.update(visible=False), gr.update(), gr.update(visible=False)
+            return (
+                # trigger_preprocessor
+                gr.update(visible=is_on),
+                # generated_image
+                gr.update(value=None) if is_on else gr.update(),
+                # generated_image_group
+                gr.update(visible=is_on),
+                # download_pose_link
+                gr.update(value=None) if is_on else gr.update(),
+            )
 
-        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], outputs=[trigger_preprocessor, generated_image, generated_image_group])
+        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], 
+                                    outputs=[trigger_preprocessor, generated_image, generated_image_group, download_pose_link])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
