@@ -47,12 +47,10 @@ def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, dr
         if draw_body:
             canvas = util.draw_bodypose(canvas, pose.body.keypoints)
 
-    for pose in poses:
         if draw_hand:
             canvas = util.draw_handpose(canvas, pose.left_hand)
             canvas = util.draw_handpose(canvas, pose.right_hand)
 
-    for pose in poses:
         if draw_face:
             canvas = util.draw_facepose(canvas, pose.face)
 
