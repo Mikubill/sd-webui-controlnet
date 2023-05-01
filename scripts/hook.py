@@ -179,7 +179,7 @@ class UnetHook(nn.Module):
                 query_size = int(x.shape[0])
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None]
-                control = torch.concatenate([control.clone() for _ in range(query_size)], dim=0)
+                control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
                 control *= uc_mask
                 if total_extra_cond is None:
@@ -214,7 +214,7 @@ class UnetHook(nn.Module):
                 if param.cfg_injection or param.global_average_pooling:
                     query_size = int(x.shape[0])
                     if param.is_adapter:
-                        control = [torch.concatenate([c.clone() for _ in range(query_size)], dim=0) for c in control]
+                        control = [torch.cat([c.clone() for _ in range(query_size)], dim=0) for c in control]
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
