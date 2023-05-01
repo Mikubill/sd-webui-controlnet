@@ -47,8 +47,6 @@ def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, dr
         if draw_body:
             canvas = util.draw_bodypose(canvas, pose.body.keypoints)
 
-    canvas = (canvas * 0.6).astype(np.uint8)
-
     for pose in poses:
         if draw_hand:
             canvas = util.draw_handpose(canvas, pose.left_hand)
