@@ -3,6 +3,7 @@ from base64 import b64encode
 
 import requests
 
+BASE_URL = "http://localhost:7860"
 
 def setup_test_env():
     ext_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -26,3 +27,8 @@ def get_model():
             print("Using model: ", item)
             return item
     return "None"
+
+
+def get_modules():
+    return requests.get(f"{BASE_URL}/controlnet/module_list").json().get('module_list', [])
+    
