@@ -20,6 +20,7 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook, ControlModelType
+from scripts.ui.openpose_editor import OpenposeEditor
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from modules.ui_components import FormRow
@@ -115,31 +116,6 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
         setattr(p, k, v)
 
 
-def update_json_download_link(json_string: str, file_name: str) -> Dict:
-    base64_encoded_json = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
-    data_uri = f'data:application/json;base64,{base64_encoded_json}'
-    style = """ 
-    position: absolute;
-    right: var(--size-2);
-    bottom: calc(var(--size-2) * 4);
-    font-size: x-small;
-    font-weight: bold;
-    padding: 2px;
-
-    box-shadow: var(--shadow-drop);
-    border: 1px solid var(--button-secondary-border-color);
-    border-radius: var(--radius-sm);
-    background: var(--background-fill-primary);
-    height: var(--size-5);
-    color: var(--block-label-text-color);
-    """
-    hint = "Download the pose as .json file"
-    html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
-                Json</a>"""
-    return gr.update(
-        value=html,
-        visible=(json_string != '')
-    )
 
 
 global_state.update_cn_models()
@@ -265,31 +241,27 @@ class Script(scripts.Script):
         default_unit = self.get_default_ui_unit()
         with gr.Tabs():
             with gr.Tab(label='Single Image') as upload_tab:
-                with gr.Row().style(equal_height=True):
-                    input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
-                    # Gradio's magic number. Only 242 works.
-                    with gr.Group(visible=False) as generated_image_group:
-                        generated_image = gr.Image(label="Preprocessor Preview", elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
-                        download_pose_link = gr.HTML(value='', visible=False)
-                        preview_close_button_style = """ 
-                            position: absolute;
-                            right: var(--size-2);
-                            bottom: var(--size-2);
-                            font-size: x-small;
-                            font-weight: bold;
-                            padding: 2px;
-                            cursor: pointer;
+                with gr.Row(elem_classes=['cnet-image-row']).style(equal_height=True):
+                    with gr.Group(elem_classes=['cnet-input-image-group']):
+                        input_image = gr.Image(
+                            source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', 
+                            elem_id=f'{elem_id_tabname}_{tabname}_input_image',
+                            elem_classes=['cnet-image']
+                        )
 
-                            box-shadow: var(--shadow-drop);
-                            border: 1px solid var(--button-secondary-border-color);
-                            border-radius: var(--radius-sm);
-                            background: var(--background-fill-primary);
-                            height: var(--size-5);
-                            color: var(--block-label-text-color);
-                            """
-                        preview_check_elem_id = f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox'
-                        preview_close_button_js = f"document.querySelector(\'#{preview_check_elem_id} input[type=\\\'checkbox\\\']\').click();"
-                        gr.HTML(value=f'''<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
+                    with gr.Group(visible=False, elem_classes=['cnet-generated-image-group']) as generated_image_group:
+                        generated_image = gr.Image(
+                            label="Preprocessor Preview", 
+                            elem_id=f'{elem_id_tabname}_{tabname}_generated_image', 
+                            elem_classes=['cnet-image']
+                        ).style(height=242) # Gradio's magic number. Only 242 works.
+                        openpose_editor = OpenposeEditor(generated_image)
+                        
+                        with gr.Group(elem_classes=['cnet-generated-image-control-group']):
+                            openpose_editor.render()
+                            preview_check_elem_id = f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox'
+                            preview_close_button_js = f"document.querySelector(\'#{preview_check_elem_id} input[type=\\\'checkbox\\\']\').click();"
+                            gr.HTML(value=f'''<a class='cnet-close-preview' title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
 
             with gr.Tab(label='Batch') as batch_tab:
                 batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
@@ -306,7 +278,7 @@ class Script(scripts.Script):
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
-            send_dimen_button = ToolButton(value=tossup_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_send_dimen_button')
+            send_dimen_button = ToolButton(value=tossup_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_send_dimen_button')            
 
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
@@ -532,19 +504,19 @@ class Script(scripts.Script):
                 return (
                     # Update to `generated_image`
                     gr.update(value=result, visible=True, interactive=False),
-                    # Update to `download_pose_link`
-                    update_json_download_link(json_acceptor.value, 'pose.json'),
                     # preprocessor_preview
-                    gr.update(value=True)
+                    gr.update(value=True),
+                    # OpenposeEditor
+                    *openpose_editor.update(json_acceptor.value),
                 )
 
             return (
                 # Update to `generated_image`
                 gr.update(value=None, visible=True),
-                # Update to `download_pose_link`
-                update_json_download_link(json_acceptor.value, 'pose.json'),
                 # preprocessor_preview
-                gr.update(value=True)
+                gr.update(value=True),
+                # OpenposeEditor
+                *openpose_editor.update(json_acceptor.value),
             )
 
         def shift_preview(is_on):
@@ -555,10 +527,13 @@ class Script(scripts.Script):
                 gr.update(visible=is_on),
                 # download_pose_link
                 gr.update() if is_on else gr.update(value=None),
+                gr.update() if is_on else gr.update(visible=False),
             )
 
         preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], 
-                                    outputs=[generated_image, generated_image_group, download_pose_link])
+                                    outputs=[generated_image, generated_image_group, 
+                                             openpose_editor.download_link,
+                                             openpose_editor.modal])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
@@ -576,7 +551,7 @@ class Script(scripts.Script):
             self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
             pixel_perfect, resize_mode
-        ], outputs=[generated_image, download_pose_link, preprocessor_preview])
+        ], outputs=[generated_image, preprocessor_preview, *openpose_editor.outputs()])
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
