@@ -7,9 +7,22 @@ import matplotlib.pyplot as plt
 import matplotlib
 import torch
 from torchvision import transforms
+from typing import NamedTuple, List
 
 from . import util
 from .model import bodypose_model
+
+class Keypoint(NamedTuple):
+    x: float
+    y: float
+    score: float = 1.0
+    id: int = -1
+
+
+class BodyResult(NamedTuple):
+    keypoints: List[Keypoint | None]
+    total_score: float
+    total_parts: int
 
 class Body(object):
     def __init__(self, model_path):
@@ -208,6 +221,40 @@ class Body(object):
         # subset: n*20 array, 0-17 is the index in candidate, 18 is the total score, 19 is the total parts
         # candidate: x, y, score, id
         return candidate, subset
+    
+    @staticmethod
+    def format_body_result(candidate: np.ndarray, subset: np.ndarray) -> List[BodyResult]:
+        """
+        Format the body results from the candidate and subset arrays into a list of BodyResult objects.
+        
+        Args:
+            candidate (np.ndarray): An array of candidates containing the x, y coordinates, score, and id
+                for each body part.
+            subset (np.ndarray): An array of subsets containing indices to the candidate array for each
+                person detected. The last two columns of each row hold the total score and total parts
+                of the person.
+
+        Returns:
+            List[BodyResult]: A list of BodyResult objects, where each object represents a person with
+                detected keypoints, total score, and total parts.
+        """
+        return [
+            BodyResult(
+                keypoints=[
+                    Keypoint(
+                        x=candidate[candidate_index][0],
+                        y=candidate[candidate_index][1],
+                        score=candidate[candidate_index][2],
+                        id=candidate[candidate_index][3]
+                    ) if candidate_index != -1 else None
+                    for candidate_index in person[:18].astype(int)
+                ],
+                total_score=person[18],
+                total_parts=person[19]
+            )
+            for person in subset
+        ]
+    
 
 if __name__ == "__main__":
     body_estimation = Body('../model/body_pose_model.pth')
@@ -215,6 +262,11 @@ if __name__ == "__main__":
     test_image = '../images/ski.jpg'
     oriImg = cv2.imread(test_image)  # B,G,R order
     candidate, subset = body_estimation(oriImg)
-    canvas = util.draw_bodypose(oriImg, candidate, subset)
+    bodies = body_estimation.format_body_result(candidate, subset)
+
+    canvas = oriImg
+    for body in bodies:
+        canvas = util.draw_bodypose(canvas, body)
+        
     plt.imshow(canvas[:, :, [2, 1, 0]])
     plt.show()
