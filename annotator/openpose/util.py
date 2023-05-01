@@ -112,8 +112,6 @@ def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
         polygon = cv2.ellipse2Poly((int(mY), int(mX)), (int(length / 2), stickwidth), int(angle), 0, 360, 1)
         cv2.fillConvexPoly(canvas, polygon, color)
 
-    canvas = (canvas * 0.6).astype(np.uint8)
-
     for keypoint, color in zip(keypoints, colors):
         if keypoint is None:
             continue
