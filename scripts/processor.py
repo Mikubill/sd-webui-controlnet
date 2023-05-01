@@ -190,7 +190,7 @@ class OpenposeModel(object):
             include_body: bool, 
             include_hand: bool, 
             include_face: bool,
-            json_pose_callback: Callable[[str], None],
+            json_pose_callback: Callable[[str], None] = None,
             res: int = 512, 
             **kwargs  # Ignore rest of kwargs
         ) -> Tuple[np.ndarray, bool]:
@@ -200,6 +200,9 @@ class OpenposeModel(object):
 
         The JSON format pose string is passed to `json_pose_callback`.
         """
+        if json_pose_callback is None:
+            json_pose_callback = lambda x: None
+
         img = resize_image(HWC3(img), res)
         if self.model_openpose is None:
             from annotator.openpose import OpenposeDetector
