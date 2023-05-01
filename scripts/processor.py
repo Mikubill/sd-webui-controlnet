@@ -189,13 +189,16 @@ class OpenposeModel(object):
             img: np.ndarray, 
             include_body: bool, 
             include_hand: bool, 
-            include_face: bool, 
+            include_face: bool,
+            json_pose_callback: Callable[[str], None],
             res: int = 512, 
             **kwargs  # Ignore rest of kwargs
         ) -> Tuple[np.ndarray, bool]:
         """Run the openpose model. Returns a tuple of
         - result image
         - is_image flag
+
+        The JSON format pose string is passed to `json_pose_callback`.
         """
         img = resize_image(HWC3(img), res)
         if self.model_openpose is None:
@@ -206,7 +209,8 @@ class OpenposeModel(object):
             img, 
             include_body=include_body, 
             include_hand=include_hand, 
-            include_face=include_face
+            include_face=include_face,
+            json_pose_callback=json_pose_callback
         ), True
     
     def unload(self):
