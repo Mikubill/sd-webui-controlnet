@@ -523,6 +523,10 @@ class Script(scripts.Script):
             print(f'Preview Resolution = {pres}')
             result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b, json_pose_callback=json_acceptor.accept)
 
+            if preprocessor is processor.clip:
+                result = processor.clip_vision_visualization(result)
+                is_image = True
+
             if is_image:
                 if result.ndim == 3 and result.shape[2] == 4:
                     inpaint_mask = result[:, :, 3]
@@ -1214,10 +1218,8 @@ class Script(scripts.Script):
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map
-
                 if unit.module == 'clip_vision':
-                    fake_detected_map = np.ndarray((detected_map.shape[0]*4, detected_map.shape[1]),dtype="uint8", buffer=detected_map.detach().cpu().numpy().tobytes())
-                    detected_maps.append((fake_detected_map, unit.module))
+                    detected_maps.append((processor.clip_vision_visualization(detected_map), unit.module))
 
             is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
 
