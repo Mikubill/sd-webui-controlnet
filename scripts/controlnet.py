@@ -494,7 +494,7 @@ class Script(scripts.Script):
 
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
             if image is None:
-                return gr.update(value=None, visible=True)
+                return gr.update(value=None, visible=True), gr.update(), gr.update()
 
             img = HWC3(image['image'])
             if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
