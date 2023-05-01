@@ -1,7 +1,16 @@
-import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-import json
+# Openpose
+# Original from CMU https://github.com/CMU-Perceptual-Computing-Lab/openpose
+# 2nd Edited by https://github.com/Hzzone/pytorch-openpose
+# 3rd Edited by ControlNet
+# 4th Edited by ControlNet (added face and correct hands)
+# 5th Edited by ControlNet (Improved JSON serialization/deserialization, and lots of bug fixs)
+# This preprocessor is licensed by CMU for non-commercial use only.
 
+
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+import json
 import torch
 import numpy as np
 from . import util
