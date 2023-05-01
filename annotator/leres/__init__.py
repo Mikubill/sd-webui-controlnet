@@ -18,7 +18,7 @@ from .pix2pix.models.pix2pix4depth_model import Pix2Pix4DepthModel
 base_model_path = os.path.join(models_path, "leres")
 old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
-remote_model_path_leres = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
+remote_model_path_leres = "https://huggingface.co/ckpt/ControlNet-v1-1/resolve/main/res101.pth"
 remote_model_path_pix2pix = "https://sfu.ca/~yagiz/CVPR21/latest_net_G.pth"
 
 model = None
