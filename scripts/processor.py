@@ -302,6 +302,10 @@ def clip(img, res=512, **kwargs):
     return result, False
 
 
+def clip_vision_visualization(x):
+    return np.ndarray((x.shape[0] * 4, x.shape[1]), dtype="uint8", buffer=x.detach().cpu().numpy().tobytes())
+
+
 def unload_clip():
     global clip_encoder
     if clip_encoder is not None:
