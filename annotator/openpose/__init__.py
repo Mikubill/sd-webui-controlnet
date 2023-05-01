@@ -1,5 +1,6 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+import json
 
 import torch
 import numpy as np
@@ -55,6 +56,38 @@ def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, dr
 
     return canvas
 
+def encode_poses_as_json(poses: List[PoseResult], canvas_height: int, canvas_width: int) -> str:
+    """ Encode the pose as a JSON string following openpose JSON output format:
+    https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md
+    """
+    def compress_keypoints(keypoints: List[Keypoint] | None) -> List[float] | None:
+        if not keypoints:
+            return None
+        
+        return [
+            value
+            for keypoint in keypoints
+            for value in (
+                [float(keypoint.x), float(keypoint.y), 1.0]
+                if keypoint is not None
+                else [0.0, 0.0, 0.0]
+            )
+        ]
+
+    return json.dumps({
+        'people': [
+            {
+                'pose_keypoints_2d': compress_keypoints(pose.body.keypoints),
+                "face_keypoints_2d": compress_keypoints(pose.face),
+                "hand_left_keypoints_2d": compress_keypoints(pose.left_hand),
+                "hand_right_keypoints_2d":compress_keypoints(pose.right_hand),
+            }
+            for pose in poses
+        ],
+        'canvas_height': canvas_height,
+        'canvas_width': canvas_width,
+    }, indent=4)
+    
     
 class OpenposeDetector:
     """
