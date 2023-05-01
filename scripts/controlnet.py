@@ -124,7 +124,7 @@ def update_json_download_link(json_string: str, file_name: str) -> Dict:
     style = """ 
     position: absolute;
     right: var(--size-2);
-    bottom: var(--size-2);
+    bottom: calc(var(--size-2) * 4);
     font-size: x-small;
     font-weight: bold;
     padding: 2px;
@@ -138,7 +138,7 @@ def update_json_download_link(json_string: str, file_name: str) -> Dict:
     """
     hint = "Download the pose as .json file"
     html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
-                {{JSON}}</a>"""
+                Json</a>"""
     return gr.update(
         value=html,
         visible=(json_string != '')
@@ -272,6 +272,24 @@ class Script(scripts.Script):
                     with gr.Group(visible=False) as generated_image_group:
                         generated_image = gr.Image(label="Preprocessor Preview", elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
                         download_pose_link = gr.HTML(value='', visible=False)
+                        preview_close_button_style = """ 
+                            position: absolute;
+                            right: var(--size-2);
+                            bottom: var(--size-2);
+                            font-size: x-small;
+                            font-weight: bold;
+                            padding: 2px;
+                            cursor: pointer;
+
+                            box-shadow: var(--shadow-drop);
+                            border: 1px solid var(--button-secondary-border-color);
+                            border-radius: var(--radius-sm);
+                            background: var(--background-fill-primary);
+                            height: var(--size-5);
+                            color: var(--block-label-text-color);
+                            """
+                        preview_close_button_js = r'''document.querySelector('#controlnet_preprocessor_preview input[type=\'checkbox\']').click();'''
+                        gr.HTML(value=f'''<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
 
             with gr.Tab(label='Batch') as batch_tab:
                 batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
@@ -299,7 +317,7 @@ class Script(scripts.Script):
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode, interactive=False, visible=False)
             # Guess mode will be removed soon after API is fixed.
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False)
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id='controlnet_preprocessor_preview')
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
 
@@ -338,7 +356,7 @@ class Script(scripts.Script):
 
         with gr.Row():
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module)
-            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=False)
+            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True)
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
@@ -537,6 +555,8 @@ class Script(scripts.Script):
                     gr.update(value=result, visible=True, interactive=False),
                     # Update to `download_pose_link`
                     update_json_download_link(json_acceptor.value, 'pose.json'),
+                    # preprocessor_preview
+                    gr.update(value=True)
                 )
 
             return (
@@ -544,22 +564,22 @@ class Script(scripts.Script):
                 gr.update(value=None, visible=True),
                 # Update to `download_pose_link`
                 update_json_download_link(json_acceptor.value, 'pose.json'),
+                # preprocessor_preview
+                gr.update(value=True)
             )
 
         def shift_preview(is_on):
             return (
-                # trigger_preprocessor
-                gr.update(visible=is_on),
                 # generated_image
-                gr.update(value=None) if is_on else gr.update(),
+                gr.update() if is_on else gr.update(value=None),
                 # generated_image_group
                 gr.update(visible=is_on),
                 # download_pose_link
-                gr.update(value=None) if is_on else gr.update(),
+                gr.update() if is_on else gr.update(value=None),
             )
 
         preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], 
-                                    outputs=[trigger_preprocessor, generated_image, generated_image_group, download_pose_link])
+                                    outputs=[generated_image, generated_image_group, download_pose_link])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
@@ -577,7 +597,7 @@ class Script(scripts.Script):
             self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
             pixel_perfect, resize_mode
-        ], outputs=[generated_image, download_pose_link])
+        ], outputs=[generated_image, download_pose_link, preprocessor_preview])
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
