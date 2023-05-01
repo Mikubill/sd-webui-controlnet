@@ -164,6 +164,8 @@ cython_debug/
 *.bin
 *.safetensors
 
+# Editor setting metadata
 .idea/
+.vscode/
 detected_maps/
 annotator/downloads/
