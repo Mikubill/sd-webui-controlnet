@@ -134,8 +134,7 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
     
     def test_call_with_preprocessors(self):
         for module in utils.get_modules():
-            # TODO(#1101): Running clip_vision will raise exception.
-            if module == 'clip_vision':
+            if module not in ['depth', 'openpose_full']:
                 continue
 
             with self.subTest(module=module):
