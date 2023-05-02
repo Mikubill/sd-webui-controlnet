@@ -23,7 +23,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         self.assertEqual(utils.detect(detect_args).status_code, 500)
 
     def test_detect_with_no_input_images_performed(self):
-        detect_args = {
+        detect_args = self.base_detect_args ** {
             "controlnet_input_images": [],
         }
         self.assertEqual(utils.detect(detect_args).status_code, 500)
