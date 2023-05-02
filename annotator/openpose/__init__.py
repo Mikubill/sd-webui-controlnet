@@ -20,7 +20,7 @@ from .face import Face
 from modules import devices
 from annotator.annotator_path import models_path
 
-from typing import NamedTuple, Tuple, List, Callable
+from typing import NamedTuple, Tuple, List, Callable, Union
 
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
@@ -31,9 +31,9 @@ FaceResult = List[Keypoint]
 
 class PoseResult(NamedTuple):
     body: BodyResult
-    left_hand: HandResult | None
-    right_hand: HandResult | None
-    face: FaceResult | None
+    left_hand: Union[HandResult, None]
+    right_hand: Union[HandResult, None]
+    face: Union[FaceResult, None]
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
     """
@@ -69,7 +69,7 @@ def encode_poses_as_json(poses: List[PoseResult], canvas_height: int, canvas_wid
     """ Encode the pose as a JSON string following openpose JSON output format:
     https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md
     """
-    def compress_keypoints(keypoints: List[Keypoint] | None) -> List[float] | None:
+    def compress_keypoints(keypoints: Union[List[Keypoint], None]) -> Union[List[float], None]:
         if not keypoints:
             return None
         
@@ -146,7 +146,7 @@ class OpenposeDetector:
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
 
-    def detect_hands(self, body: BodyResult, oriImg) -> Tuple[HandResult | None, HandResult | None]:
+    def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
         right_hand = None
         H, W, _ = oriImg.shape
@@ -168,7 +168,7 @@ class OpenposeDetector:
 
         return left_hand, right_hand
 
-    def detect_face(self, body: BodyResult, oriImg) -> FaceResult | None:
+    def detect_face(self, body: BodyResult, oriImg) -> Union[FaceResult, None]:
         face = util.faceDetect(body, oriImg)
         if face is None:
             return None
