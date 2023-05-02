@@ -115,7 +115,6 @@ class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
         self.lowvram = lowvram
-        self.batch_cond_available = True
         self.only_mid_control = False
 
     def guidance_schedule_handler(self, x):
