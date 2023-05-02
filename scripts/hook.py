@@ -115,8 +115,7 @@ class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
         self.lowvram = lowvram
-        self.batch_cond_available = True
-        self.only_mid_control = shared.opts.data.get("control_net_only_mid_control", False)
+        self.only_mid_control = False
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -168,8 +167,6 @@ class UnetHook(nn.Module):
                         # we are in high-res path
                         param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
-                        if shared.opts.data.get("control_net_high_res_only_mid", False):
-                            only_mid_control = True
 
             # handle external cond
             for param in outer.control_params:

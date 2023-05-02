@@ -1281,9 +1281,6 @@ class Script(scripts.Script):
         self.latest_network.notify(forward_params, is_vanilla_samplers)
         self.detected_map = detected_maps
 
-        if len(self.enabled_units) > 0 and shared.opts.data.get("control_net_skip_img2img_processing") and hasattr(p, "init_images"):
-            swap_img2img_pipeline(p)
-
     def postprocess(self, p, processed, *args):
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
 
@@ -1370,30 +1367,18 @@ def on_ui_settings():
         1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
-    shared.opts.add_option("control_net_control_transfer", shared.OptionInfo(
-        False, "Apply transfer control when loading models", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_high_res_only_mid", shared.OptionInfo(
-        False, "Use only-mid-control on high-res. fix (second pass)", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
         False, "Allow detectmap auto saving", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_skip_img2img_processing", shared.OptionInfo(
-        False, "Skip img2img processing when using img2img initial image", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_monocular_depth_optim", shared.OptionInfo(
-        False, "Enable optimized monocular depth estimation", gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("control_net_only_mid_control", shared.OptionInfo(
-        False, "Only use mid-control when inference", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_sync_field_args", shared.OptionInfo(
         False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_show_batch_images_in_ui", shared.OptionInfo(
-        False, "Show batch images in gradio gallerie output", gr.Checkbox, {"interactive": True}, section=section))
+        False, "Show batch images in gradio gallery output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_increment_seed_during_batch", shared.OptionInfo(
         False, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
-    # shared.opts.add_option("control_net_advanced_weighting", shared.OptionInfo(
-    #     False, "Enable advanced weight tuning", gr.Checkbox, {"interactive": False}, section=section))
 
 
 def on_after_component(component, **_kwargs):
