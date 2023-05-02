@@ -101,7 +101,7 @@ If you are a previous user of ControlNet 1.0, you may:
 
 This is my setting. If you run into any problem, you can use this setting as a sanity check
 
-![image](https://user-images.githubusercontent.com/19834515/233909293-a6b75cb7-30fb-4679-8dad-d28b02755ebd.png)
+![image](https://user-images.githubusercontent.com/19834515/235620638-17937171-8ac1-45bc-a3cb-3aebf605b4ef.png)
 
 ### Previous Models
 
