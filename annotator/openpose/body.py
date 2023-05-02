@@ -20,7 +20,7 @@ class Keypoint(NamedTuple):
 
 
 class BodyResult(NamedTuple):
-    keypoints: List
+    keypoints: List[Keypoint | None]
     total_score: float
     total_parts: int
 
