@@ -86,11 +86,7 @@ class PlugableControlModel(nn.Module):
                     final_state_dict[key] = p_new
                 print(f'Diff model cloned: {counter} values')
                 state_dict = final_state_dict
-                
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
-        else:
-            # assume that model is done by user
-            pass
             
         self.control_model.load_state_dict(state_dict)
         if not lowvram:
