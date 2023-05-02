@@ -2,7 +2,7 @@ import math
 import numpy as np
 import matplotlib
 import cv2
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from .body import BodyResult, Keypoint
 
@@ -124,13 +124,13 @@ def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
     return canvas
 
 
-def draw_handpose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.ndarray:
+def draw_handpose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) -> np.ndarray:
     """
     Draw keypoints and connections representing hand pose on a given canvas.
 
     Args:
         canvas (np.ndarray): A 3D numpy array representing the canvas (image) on which to draw the hand pose.
-        keypoints (List[Keypoint] | None): A list of Keypoint objects representing the hand keypoints to be drawn
+        keypoints (List[Keypoint]| None): A list of Keypoint objects representing the hand keypoints to be drawn
                                           or None if no keypoints are present.
 
     Returns:
@@ -169,13 +169,13 @@ def draw_handpose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.nd
     return canvas
 
 
-def draw_facepose(canvas: np.ndarray, keypoints: List[Keypoint] | None) -> np.ndarray:
+def draw_facepose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) -> np.ndarray:
     """
     Draw keypoints representing face pose on a given canvas.
 
     Args:
         canvas (np.ndarray): A 3D numpy array representing the canvas (image) on which to draw the face pose.
-        keypoints (List[Keypoint] | None): A list of Keypoint objects representing the face keypoints to be drawn
+        keypoints (List[Keypoint]| None): A list of Keypoint objects representing the face keypoints to be drawn
                                           or None if no keypoints are present.
 
     Returns:
@@ -293,7 +293,7 @@ def handDetect(body: BodyResult, oriImg) -> List[Tuple[int, int, int, bool]]:
 
 
 # Written by Lvmin
-def faceDetect(body: BodyResult, oriImg) -> Tuple[int, int, int] | None:
+def faceDetect(body: BodyResult, oriImg) -> Union[Tuple[int, int, int], None]:
     """
     Detect the face in the input body pose keypoints and calculate the bounding box for the face.
 
