@@ -288,7 +288,8 @@ class Script(scripts.Script):
                             height: var(--size-5);
                             color: var(--block-label-text-color);
                             """
-                        preview_close_button_js = r'''document.querySelector('#controlnet_preprocessor_preview input[type=\'checkbox\']').click();'''
+                        preview_check_elem_id = f'{elem_id_tabname}_{tabname}_preprocessor_preview'
+                        preview_close_button_js = f"document.querySelector(\'#{preview_check_elem_id} input[type=\\\'checkbox\\\']\').click();"
                         gr.HTML(value=f'''<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
 
             with gr.Tab(label='Batch') as batch_tab:
@@ -317,7 +318,7 @@ class Script(scripts.Script):
             guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode, interactive=False, visible=False)
             # Guess mode will be removed soon after API is fixed.
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id='controlnet_preprocessor_preview')
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id)
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
 
