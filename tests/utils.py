@@ -1,9 +1,16 @@
-import os, sys, cv2
+import os
+import sys
+import cv2
 from base64 import b64encode
 
 import requests
 
 BASE_URL = "http://localhost:7860"
+<< << << < HEAD
+== == == =
+
+>>>>>> > c0726ca(chore: add tests for detect endpoint)
+
 
 def setup_test_env():
     ext_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -19,7 +26,7 @@ def readImage(path):
 
 
 def get_model():
-    r = requests.get("http://localhost:7860/controlnet/model_list")
+    r = requests.get(BASE_URL+"/controlnet/model_list")
     result = r.json()
     if "model_list" in result:
         result = result["model_list"]
@@ -31,4 +38,7 @@ def get_model():
 
 def get_modules():
     return requests.get(f"{BASE_URL}/controlnet/module_list").json().get('module_list', [])
-    
+
+
+def detect(json):
+    return requests.post(BASE_URL+"/controlnet/detect", json=json)
