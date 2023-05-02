@@ -20,9 +20,10 @@ class Keypoint(NamedTuple):
 
 
 class BodyResult(NamedTuple):
-    keypoints: List[Keypoint | None]
+    keypoints: List
     total_score: float
     total_parts: int
+
 
 class Body(object):
     def __init__(self, model_path):
