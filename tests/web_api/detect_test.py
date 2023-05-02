@@ -6,7 +6,7 @@ utils = importlib.import_module(
 utils.setup_test_env()
 
 
-class TestDetectTxt2ImgWorking(unittest.TestCase):
+class TestDetectEndpointWorking(unittest.TestCase):
     def setUp(self):
         self.base_detect_args = {
             "controlnet_module": "canny",
