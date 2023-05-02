@@ -64,14 +64,9 @@ class PlugableControlModel(nn.Module):
         self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
             
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
-            
             is_diff_model = 'difference' in state_dict
-            transfer_ctrl_opt = shared.opts.data.get("control_net_control_transfer", False) and \
-                any([k.startswith("model.diffusion_model.") for k, v in state_dict.items()])
-                
-            if (is_diff_model or transfer_ctrl_opt) and base_model is not None:
+            if is_diff_model and base_model is not None:
                 # apply transfer control - https://github.com/lllyasviel/ControlNet/blob/main/tool_transfer_control.py
-                
                 unet_state_dict = base_model.state_dict()
                 unet_state_dict_keys = unet_state_dict.keys()
                 final_state_dict = {}

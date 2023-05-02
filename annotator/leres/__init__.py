@@ -31,10 +31,9 @@ def unload_leres_model():
     if pix2pixmodel is not None:
         pix2pixmodel = pix2pixmodel.unload_network('G')
 
-def apply_leres(input_image, thr_a, thr_b):
-    global model, pix2pixmodel
-    boost = shared.opts.data.get("control_net_monocular_depth_optim", False)
 
+def apply_leres(input_image, thr_a, thr_b, boost=False):
+    global model, pix2pixmodel
     if model is None:
         model_path = os.path.join(base_model_path, "res101.pth")
         old_model_path = os.path.join(old_modeldir, "res101.pth")
