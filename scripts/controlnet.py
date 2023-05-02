@@ -816,6 +816,15 @@ class Script(scripts.Script):
 
         if os.path.exists(override_config):
             network_config = override_config
+        else:
+            print(f'ERROR: ControlNet cannot find model config [{override_config}] \n'
+                  f'ERROR: ControlNet will use a WRONG config [{network_config}] to load your model. \n'
+                  f'ERROR: The WRONG config may not match your model. The generated results can be bad. \n'
+                  f'ERROR: You are using a ControlNet model [{model_stem}] without correct YAML config file. \n'
+                  f'ERROR: The performance of this model may be worse than your expectation. \n'
+                  f'ERROR: If this model cannot get good results, the reason is that you do not have a YAML file for the model. \n'
+                  f'Solution: Please download YAML file, or ask your model provider to provide [{override_config}] for you to download.\n'
+                  f'Hint: You can take a look at [{os.path.join(global_state.script_dir, "models")}] to find many existing YAML files.\n')
 
         print(f"Loading config: {network_config}")
         network = network_module(
