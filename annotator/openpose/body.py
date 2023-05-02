@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import torch
 from torchvision import transforms
-from typing import NamedTuple, List
+from typing import NamedTuple, List, Union
 
 from . import util
 from .model import bodypose_model
@@ -20,7 +20,12 @@ class Keypoint(NamedTuple):
 
 
 class BodyResult(NamedTuple):
-    keypoints: List
+    # Note: Using `Union` instead of `|` operator as the ladder is a Python
+    # 3.10 feature.
+    # Annotator code should be Python 3.8 Compatible, as controlnet repo uses
+    # Python 3.8 environment.
+    # https://github.com/lllyasviel/ControlNet/blob/d3284fcd0972c510635a4f5abe2eeb71dc0de524/environment.yaml#L6
+    keypoints: List[Union[Keypoint, None]]
     total_score: float
     total_parts: int
 
