@@ -6,10 +6,6 @@ from base64 import b64encode
 import requests
 
 BASE_URL = "http://localhost:7860"
-<< << << < HEAD
-== == == =
-
->>>>>> > c0726ca(chore: add tests for detect endpoint)
 
 
 def setup_test_env():
