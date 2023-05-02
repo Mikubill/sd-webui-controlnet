@@ -133,7 +133,10 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
 
     
     def test_call_with_preprocessors(self):
-        for module in utils.get_modules():
+        modules = utils.get_modules()
+        assert 'depth' in modules, 'Failed to test depth.'
+        assert 'openpose_full' in modules, 'Failed to test openpose_full.'
+        for module in modules:
             if module not in ['depth', 'openpose_full']:
                 continue
 
