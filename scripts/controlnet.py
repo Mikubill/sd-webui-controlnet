@@ -403,7 +403,7 @@ class Script(scripts.Script):
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
-            elif module in ["depth_leres", "depth_leres_boost"]:
+            elif module in ["depth_leres", "depth_leres++"]:
                 return [
                     gr.update(label="Preprocessor Resolution", minimum=64, maximum=2048, value=512, step=1, visible=not pp, interactive=not pp),
                     gr.update(label="Remove Near %", value=0, minimum=0, maximum=100, step=0.1, visible=True, interactive=True),
