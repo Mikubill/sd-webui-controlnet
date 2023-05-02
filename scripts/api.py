@@ -209,53 +209,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             raise HTTPException(
                 status_code=500, detail="Module not available")
         
-        available_modules = [
-            "none",
-
-            "canny",
-
-            "depth_midas",                  # Unload
-            "depth_leres",                  # Unload
-            "depth_zoe",                    # Unload
-
-            "lineart",                      # Unload
-            "lineart_coarse",               # Unload
-            "lineart_anime",                # Unload
-
-            "mediapipe_face",
-
-            "mlsd",                         # Unload
-
-            "normal_midas",                 # Unload
-            "normal_bae",                   # Unload
-
-            "openpose",                     # Unload
-            "openpose_face",                # Unload
-            "openpose_faceonly",            # Unload
-            "openpose_hand",                # Unload
-            "openpose_full",                # Unload
-
-            "scribble_hed",
-            "scribble_pidinet",
-            "scribble_xdog",
-
-            "seg_ofcoco",                   # Unload
-            "seg_ofade20k",                 # Unload
-            "seg_ufade20k",                 # Unload
-
-            "shuffle",
-
-            "softedge_hed",                 # Unload
-            "softedge_hedsafe",             # Unload
-            "softedge_pidinet",             # Unload
-            "softedge_pidisafe",            # Unload
-
-            "t2ia_color_grid",
-            "t2ia_sketch_pidi",
-
-            "threshold"
-        ]
-
+       
         if len(controlnet_input_images) == 0:
             raise HTTPException(
                 status_code=500, detail="No image selected")
