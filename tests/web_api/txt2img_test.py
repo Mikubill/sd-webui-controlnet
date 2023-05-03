@@ -131,15 +131,10 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
 
         self.assert_status_ok()
 
-    
     def test_call_with_preprocessors(self):
-        modules = utils.get_modules()
-        assert 'depth' in modules, 'Failed to test depth.'
-        assert 'openpose_full' in modules, 'Failed to test openpose_full.'
-        for module in modules:
-            if module not in ['depth', 'openpose_full']:
-                continue
-
+        avaliable_modules = utils.get_modules()
+        for module in ['depth', 'openpose_full']:
+            assert module in avaliable_modules, f'Failed to find {module}.'
             with self.subTest(module=module):
                 self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
                     {
