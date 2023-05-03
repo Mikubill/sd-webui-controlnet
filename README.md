@@ -32,13 +32,9 @@ You need to download model files ending with ".pth" .
 
 **Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". Now we have already included all "yaml" files. You only need to download "pth" files.** 
 
-Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources.
-
-(For authors of other ControlNet model extractions or fp16 model providers: now some models like "shuffle" needs the YAML file so that we know the outputs of ControlNet should pass a global average pooling before inject to SD U-Nets. Please add yaml files with same filenames to your renaming when delivering your processed models.)
+Note: If you download models elsewhere, please make sure that yaml file names and model files names are same. Please manually rename all yaml files if you download from other sources. Otherwise, models may have unexpected behaviors. You can ignore this if you download models from official sources. (Some models like "shuffle" needs the YAML file so that we know the outputs of ControlNet should pass a global average pooling before inject to SD U-Nets.)
 
 **Do not right click the filenames in HuggingFace website to download. Some users right clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct PTH/YAML files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.**
-
-If your A1111 Extension's ControlNet displays a link look like 'jihulab.com/affair3547', then unfortunately, your A1111 does NOT support ControlNet 1.1. Please use official version of A1111.
 
 ### New Features in A1111 ControlNet Extension 1.1
 
