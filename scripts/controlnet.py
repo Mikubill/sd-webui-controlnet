@@ -304,10 +304,10 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
-            open_new_canvas_button = ToolButton(value=open_symbol)
+            open_new_canvas_button = ToolButton(value=open_symbol, elem_id='open_symbol')
             webcam_enable = ToolButton(value=camera_symbol, elem_id='camera_symbol')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id='reverse_symbol')
-            send_dimen_button = ToolButton(value=tossup_symbol)
+            send_dimen_button = ToolButton(value=tossup_symbol, elem_id='tossup_symbol')
 
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
@@ -357,15 +357,15 @@ class Script(scripts.Script):
 
         with gr.Row():
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module)
-            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True)
+            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id='trigger_symbol')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol, elem_id='refresh_controlnet')
             refresh_models.click(refresh_all_models, model, model)
 
         with gr.Row():
-            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05)
-            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True)
-            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True)
+            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id='control_weight')
+            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id='starting_control_step')
+            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id='ending_control_step')
 
         def build_sliders(module, pp):
             module = self.get_module_basename(module)

@@ -169,7 +169,7 @@ def get_all_models(sort_by, filter_by, path, sagemaker_endpoint):
     return res
 
 
-def update_cn_models():
+def update_cn_models(sagemaker_endpoint=None):
     cn_models.clear()
     ext_dirs = (shared.opts.data.get("control_net_models_path", None), getattr(shared.cmd_opts, 'controlnet_dir', None))
     extra_lora_paths = (extra_lora_path for extra_lora_path in ext_dirs
@@ -180,7 +180,7 @@ def update_cn_models():
         sort_by = shared.opts.data.get(
             "control_net_models_sort_models_by", "name")
         filter_by = shared.opts.data.get("control_net_models_name_filter", "")
-        found = get_all_models(sort_by, filter_by, path)
+        found = get_all_models(sort_by, filter_by, path, sagemaker_endpoint)
         cn_models.update({**found, **cn_models})
 
     # insert "None" at the beginning of `cn_models` in-place
