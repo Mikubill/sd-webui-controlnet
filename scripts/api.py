@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 from fastapi import FastAPI, Body
+from fastapi.exceptions import HTTPException
 from PIL import Image
 import copy
 import pydantic
@@ -205,9 +206,13 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(controlnet_module, controlnet_module)
 
         if controlnet_module not in global_state.cn_preprocessor_modules:
-            return {"images": [], "info": "Module not available"}
+            raise HTTPException(
+                status_code=422, detail="Module not available")
+        
+       
         if len(controlnet_input_images) == 0:
-            return {"images": [], "info": "No image selected"}
+            raise HTTPException(
+                status_code=422, detail="No image selected")
         
         print(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
 
