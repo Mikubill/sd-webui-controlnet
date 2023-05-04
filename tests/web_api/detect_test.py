@@ -17,7 +17,8 @@ class TestDetectEndpointWorking(unittest.TestCase):
         }
 
     def test_detect_with_invalid_module_performed(self):
-        detect_args = self.base_detect_args.copy().update({
+        detect_args = self.base_detect_args.copy()
+        detect_args.update({
             "controlnet_module": "INVALID",
         })
         self.assertEqual(utils.detect(detect_args).status_code, 500)
