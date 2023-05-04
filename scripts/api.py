@@ -207,12 +207,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         if controlnet_module not in global_state.cn_preprocessor_modules:
             raise HTTPException(
-                status_code=500, detail="Module not available")
+                status_code=422, detail="Module not available")
         
        
         if len(controlnet_input_images) == 0:
             raise HTTPException(
-                status_code=500, detail="No image selected")
+                status_code=422, detail="No image selected")
         
         print(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
 
