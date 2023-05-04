@@ -24,7 +24,8 @@ class TestDetectEndpointWorking(unittest.TestCase):
         self.assertEqual(utils.detect(detect_args).status_code, 500)
 
     def test_detect_with_no_input_images_performed(self):
-        detect_args = self.base_detect_args.copy().update({
+        detect_args = self.base_detect_args.copy()
+        detect_args.update({
             "controlnet_input_images": [],
         })
         self.assertEqual(utils.detect(detect_args).status_code, 500)
