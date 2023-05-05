@@ -175,7 +175,7 @@ def unhijack_function(module, name, new_name):
         delattr(module, new_name)
 
 
-class InputMode(Enum):
+class InputMode(str, Enum):
     SIMPLE = "simple"
     BATCH = "batch"
 

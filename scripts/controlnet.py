@@ -349,7 +349,8 @@ class Script(scripts.Script):
         webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
 
         def refresh_all_models(*inputs):
-            global_state.update_cn_models()
+            sagemaker_endpoint = inputs[1]
+            global_state.update_cn_models(sagemaker_endpoint)
 
             dd = inputs[0]
             selected = dd if dd in global_state.cn_models else "None"
@@ -360,7 +361,11 @@ class Script(scripts.Script):
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id='trigger_symbol')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
             refresh_models = ToolButton(value=refresh_symbol, elem_id='refresh_controlnet')
-            refresh_models.click(refresh_all_models, model, model)
+            refresh_models.click(
+                refresh_all_models,
+                inputs=[model, shared.sagemaker_endpoint_component],
+                outputs=[model]
+            )
 
         with gr.Row():
             weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id='control_weight')
@@ -703,7 +708,7 @@ class Script(scripts.Script):
         self.infotext_fields = []
         self.paste_field_names = []
         controls = ()
-        max_models = shared.opts.data.get("control_net_max_models_num", 1)
+        max_models = shared.opts.data.get("control_net_max_models_num", 10)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
@@ -1365,7 +1370,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_modules_path", shared.OptionInfo(
         "", "Path to directory containing annotator model directories (requires restart, overrides corresponding command line flag)", section=section))
     shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
-        1, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
+        10, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(

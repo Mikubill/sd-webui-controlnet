@@ -176,12 +176,19 @@ def update_cn_models(sagemaker_endpoint=None):
                 if extra_lora_path is not None and os.path.exists(extra_lora_path))
     paths = [cn_models_dir, cn_models_dir_old, *extra_lora_paths]
 
-    for path in paths:
+    if shared.cmd_opts.pureui:
         sort_by = shared.opts.data.get(
             "control_net_models_sort_models_by", "name")
         filter_by = shared.opts.data.get("control_net_models_name_filter", "")
-        found = get_all_models(sort_by, filter_by, path, sagemaker_endpoint)
+        found = get_all_models(sort_by, filter_by, None, sagemaker_endpoint)
         cn_models.update({**found, **cn_models})
+    else:
+        for path in paths:
+            sort_by = shared.opts.data.get(
+                "control_net_models_sort_models_by", "name")
+            filter_by = shared.opts.data.get("control_net_models_name_filter", "")
+            found = get_all_models(sort_by, filter_by, path, sagemaker_endpoint)
+            cn_models.update({**found, **cn_models})
 
     # insert "None" at the beginning of `cn_models` in-place
     cn_models_copy = OrderedDict(cn_models)
