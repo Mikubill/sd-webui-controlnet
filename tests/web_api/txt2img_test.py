@@ -25,7 +25,13 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             "control_mode": 0,
             "pixel_perfect": False
         }
-        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
+        setup_args = {
+            "alwayson_scripts": {
+                "controlnet": {
+                    "args": [controlnet_unit] * getattr(self, 'units_count', 1)
+                }
+            }
+        }
         self.setup_route(setup_args)
 
     def setup_route(self, setup_args):
