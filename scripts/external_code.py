@@ -175,6 +175,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
     """
 
     ext_compat_keys = {
+        'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
         'lowvram': 'low_vram',
         'input_image': 'image'
