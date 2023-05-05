@@ -1,4 +1,3 @@
-import inspect
 from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
@@ -109,9 +108,6 @@ class ControlNetUnit:
         return vars(self) == vars(other)
 
 
-PARAM_COUNT = len(inspect.getfullargspec(ControlNetUnit.__init__)[0]) - 1
-
-
 def to_base64_nparray(encoding: str):
     """
     Convert a base64 image into the image type the extension uses
@@ -165,15 +161,9 @@ def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[Contr
 
     i = 0
     while i < len(script_args) and index >= 0:
-        if type(script_args[i]) is bool:
-            if index == 0:
-                return ControlNetUnit(*script_args[i:i + PARAM_COUNT])
-            i += PARAM_COUNT
-
-        else:
-            if index == 0 and script_args[i] is not None:
-                return to_processing_unit(script_args[i])
-            i += 1
+        if index == 0 and script_args[i] is not None:
+            return to_processing_unit(script_args[i])
+        i += 1
 
         index -= 1
 
