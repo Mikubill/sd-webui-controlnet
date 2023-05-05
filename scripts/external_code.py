@@ -150,14 +150,9 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     units = []
     i = 0
     while i < len(script_args):
-        if type(script_args[i]) is bool:
-            units.append(ControlNetUnit(*script_args[i:i + PARAM_COUNT]))
-            i += PARAM_COUNT
-
-        else:
-            if script_args[i] is not None:
-                units.append(to_processing_unit(script_args[i]))
-            i += 1
+        if script_args[i] is not None:
+            units.append(to_processing_unit(script_args[i]))
+        i += 1
 
     return units
 
