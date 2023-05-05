@@ -43,8 +43,7 @@ class ControlParams:
         self, 
         control_model, 
         hint_cond, 
-        guess_mode, 
-        weight, 
+        weight,
         guidance_stopped,
         start_guidance_percent,
         stop_guidance_percent, 
@@ -62,7 +61,6 @@ class ControlParams:
     ):
         self.control_model = control_model
         self._hint_cond = hint_cond
-        self.guess_mode = guess_mode
         self.weight = weight
         self.guidance_stopped = guidance_stopped
         self.start_guidance_percent = start_guidance_percent

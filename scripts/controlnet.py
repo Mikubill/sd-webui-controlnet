@@ -257,8 +257,7 @@ class Script(scripts.Script):
         return cls(
             enabled=False,
             module="none",
-            model="None",
-            guess_mode=False,
+            model="None"
         )
 
     def uigroup(self, tabname, is_img2img, elem_id_tabname):
@@ -315,8 +314,6 @@ class Script(scripts.Script):
         with FormRow(elem_classes="checkboxes-row", variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
-            guess_mode = gr.Checkbox(label='Guess Mode', value=default_unit.guess_mode, interactive=False, visible=False)
-            # Guess mode will be removed soon after API is fixed.
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
             preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id)
 
@@ -587,7 +584,7 @@ class Script(scripts.Script):
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode (Guess Mode)")
+        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode")
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
 
@@ -608,7 +605,7 @@ class Script(scripts.Script):
         input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         batch_image_dir_state = gr.State('')
         output_dir_state = gr.State('')
-        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, guess_mode, pixel_perfect, control_mode)
+        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, pixel_perfect, control_mode)
         self.register_modules(tabname, unit_args)
 
         input_image.orgpreprocess=input_image.preprocess
@@ -724,7 +721,7 @@ class Script(scripts.Script):
 
     def register_modules(self, tabname, params):
         enabled, module, model, weight = params[4:8]
-        guidance_start, guidance_end, guess_mode, pixel_perfect, control_mode = params[-5:]
+        guidance_start, guidance_end, pixel_perfect, control_mode = params[-4:]
 
         self.infotext_fields.extend([
             (enabled, f"{tabname} Enabled"),
@@ -871,7 +868,7 @@ class Script(scripts.Script):
         unit.guidance_start = selector(p, "control_net_guidance_start", unit.guidance_start, idx)
         unit.guidance_end = selector(p, "control_net_guidance_end", unit.guidance_end, idx)
         unit.guidance_end = selector(p, "control_net_guidance_strength", unit.guidance_end, idx)
-        unit.guess_mode = selector(p, "control_net_guess_mode", unit.guess_mode, idx)
+        unit.control_mode = selector(p, "control_net_control_mode", unit.control_mode, idx)
         unit.pixel_perfect = selector(p, "control_net_pixel_perfect", unit.pixel_perfect, idx)
 
         return unit
@@ -1256,7 +1253,6 @@ class Script(scripts.Script):
             forward_param = ControlParams(
                 control_model=model_net,
                 hint_cond=control,
-                guess_mode=unit.guess_mode,
                 weight=unit.weight,
                 guidance_stopped=False,
                 start_guidance_percent=unit.guidance_start,
