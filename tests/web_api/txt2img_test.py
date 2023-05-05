@@ -25,13 +25,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             "control_mode": 0,
             "pixel_perfect": False
         }
-        setup_args = {
-            "alwayson_scripts": {
-                "controlnet": {
-                    "args": [controlnet_unit] * getattr(self, 'units_count', 1)
-                }
-            }
-        }
+        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
         self.setup_route(setup_args)
 
     def setup_route(self, setup_args):
@@ -65,10 +59,15 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             "sampler_index": "Euler a",
             "alwayson_scripts": {}
         }
-        self.simple_txt2img.update(setup_args)
+        self.setup_controlnet_params(setup_args)
 
-    def assert_status_ok(self):
-        self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200)
+    def setup_controlnet_params(self, setup_args):
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"] = {
+            "args": setup_args
+        }
+
+    def assert_status_ok(self, msg=None):
+        self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200, msg)
         stderr = ""
         with open('test/stderr.txt') as f:
             stderr = f.read().lower()
@@ -104,10 +103,12 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         self.assert_status_ok()
 
     def test_txt2img_default_params(self):
-        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [{
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "model": utils.get_model(),
-        }]
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+            {
+                "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                "model": utils.get_model(),
+            }
+        ]
 
         self.assert_status_ok()
 
