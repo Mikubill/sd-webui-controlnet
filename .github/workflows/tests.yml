@@ -28,7 +28,6 @@ jobs:
             **/requirements*txt
             
       - run: |
-          apt update && apt install sudo
           pip install --upgrade pip
           pip install setuptools
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
