@@ -80,10 +80,9 @@ class ControlNetUnit:
         threshold_b: float=64,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
-        guess_mode: bool=False,
         pixel_perfect: bool=False,
         control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
-        **_kwargs, # for backwards compatibility
+        **_kwargs,
     ):
         self.enabled = enabled
         self.module = module
@@ -97,7 +96,6 @@ class ControlNetUnit:
         self.threshold_b = threshold_b
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
-        self.guess_mode = guess_mode
         self.pixel_perfect = pixel_perfect
         self.control_mode = control_mode
 
@@ -177,7 +175,6 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
     """
 
     ext_compat_keys = {
-        'guessmode': 'guess_mode',
         'guidance': 'guidance_end',
         'lowvram': 'low_vram',
         'input_image': 'image'
@@ -195,8 +192,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
 
         if 'guess_mode' in unit:
-            unit['control_mode'] = ControlMode.CONTROL if unit['guess_mode'] else ControlMode.BALANCED
-            del unit['guess_mode']
+            print('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
 
         unit = ControlNetUnit(**unit)
 
