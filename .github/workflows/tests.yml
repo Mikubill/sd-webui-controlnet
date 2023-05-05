@@ -30,7 +30,6 @@ jobs:
             
       - run: |
           pip install --upgrade pip
-          pip install setuptools
           pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu118
           curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
           cd stable-diffusion-webui && python launch.py --tests stable-diffusion-webui/extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
