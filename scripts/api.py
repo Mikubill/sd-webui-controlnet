@@ -9,6 +9,7 @@ from modules.api.models import *
 from modules.api import api
 
 from scripts import external_code, global_state
+from scripts.processor import preprocessor_sliders_config
 
 def encode_to_base64(image):
     if type(image) is str:
@@ -37,9 +38,25 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
     @app.get("/controlnet/module_list")
     async def module_list(alias_names: bool = False):
-        _module_list = external_code.get_modules(alias_names)
-        print(_module_list)
-        return {"module_list": _module_list}
+        _module_list = external_code.get_modules(False)
+        _module_list_alias = external_code.get_modules(True)
+        _module_detail = {}
+        
+        _output_list = _module_list if not alias_names else _module_list_alias
+        for index, module in enumerate(_output_list):
+            if _module_list[index] in preprocessor_sliders_config:
+                _module_detail[module] = {
+                    "sliders": preprocessor_sliders_config[_module_list[index]]
+                }
+            else:
+                _module_detail[module] = {
+                    "sliders": []
+                }
+        
+        return {
+            "module_list": _output_list,
+            "module_detail": _module_detail
+        }
 
     @app.post("/controlnet/detect")
     async def detect(
