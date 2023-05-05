@@ -9,7 +9,7 @@ from modules.api import api
 
 
 def get_api_version() -> int:
-    return 1
+    return 2
 
 
 class ControlMode(Enum):
