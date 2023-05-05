@@ -6,7 +6,28 @@ import requests
 
 
 
-class TestTxt2ImgWorkingBase(unittest.TestCase):
+class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
+    def setUp(self):
+        controlnet_unit = {
+            "enabled": True,
+            "module": "none",
+            "model": utils.get_model(),
+            "weight": 1.0,
+            "image": utils.readImage("test/test_files/img2img_basic.png"),
+            "mask": utils.readImage("test/test_files/img2img_basic.png"),
+            "resize_mode": 1,
+            "lowvram": False,
+            "processor_res": 64,
+            "threshold_a": 64,
+            "threshold_b": 64,
+            "guidance_start": 0.0,
+            "guidance_end": 1.0,
+            "guessmode": False,
+            "pixel_perfect": False
+        }
+        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
+        self.setup_route(setup_args)
+
     def setup_route(self, setup_args):
         self.url_txt2img = "http://localhost:7860/sdapi/v1/txt2img"
         self.simple_txt2img = {
@@ -47,58 +68,6 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
 
     def assert_status_ok(self, msg=None):
         self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200, msg)
-
-
-class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = [
-            True, "none", utils.get_model(), 1.0,
-            utils.readImage("test/test_files/img2img_basic.png"),
-            False, "Crop and Resize", False,
-            512, 64, 64, 0.0, 1.0, False, False,
-            "Balanced",
-        ]
-        setup_args = controlnet_unit * getattr(self, 'units_count', 1)
-        self.setup_route(setup_args)
-
-    def test_txt2img_simple_performed(self):
-        self.assert_status_ok()
-
-    def test_txt2img_multiple_batches_performed(self):
-        self.simple_txt2img["n_iter"] = 2
-        self.assert_status_ok()
-
-    def test_txt2img_batch_performed(self):
-        self.simple_txt2img["batch_size"] = 2
-        self.assert_status_ok()
-
-    def test_txt2img_2_units(self):
-        self.units_count = 2
-        self.setUp()
-        self.assert_status_ok()
-
-
-class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = {
-            "enabled": True,
-            "module": "none",
-            "model": utils.get_model(),
-            "weight": 1.0,
-            "image": utils.readImage("test/test_files/img2img_basic.png"),
-            "mask": utils.readImage("test/test_files/img2img_basic.png"),
-            "resize_mode": 1,
-            "lowvram": False,
-            "processor_res": 64,
-            "threshold_a": 64,
-            "threshold_b": 64,
-            "guidance_start": 0.0,
-            "guidance_end": 1.0,
-            "control_mode": 0,
-            "pixel_perfect": False
-        }
-        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
-        self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
