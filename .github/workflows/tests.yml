@@ -28,7 +28,7 @@ jobs:
             **/requirements*txt
             
       - run: |
-          pip install torch==2.0.0 torchvision==0.15.1 --extra-index-url https://download.pytorch.org/whl/cu118
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
           curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
           python launch.py --tests extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
           rm -fr extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
