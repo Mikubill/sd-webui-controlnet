@@ -22,7 +22,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             "threshold_b": 64,
             "guidance_start": 0.0,
             "guidance_end": 1.0,
-            "guessmode": False,
+            "control_mode": 0,
             "pixel_perfect": False
         }
         setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)

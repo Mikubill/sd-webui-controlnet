@@ -79,7 +79,7 @@ class TestDeprecatedImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
             "threshold_b": 64,
             "guidance_start": 0.0,
             "guidance_end": 1.0,
-            "guessmode": False,
+            "control_mode": 0,
         }
         setup_args = {"controlnet_unit": ([controlnet_unit] * getattr(self, 'units_count', 1))}
         self.setup_route(setup_args)
@@ -103,7 +103,7 @@ class TestAlwaysonImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
             "threshold_b": 64,
             "guidance_start": 0.0,
             "guidance_end": 1.0,
-            "guessmode": False,
+            "control_mode": 0,
         }
         setup_args = {"alwayson_scripts":{"ControlNet":{"args": ([controlnet_unit] * getattr(self, 'units_count', 1))}}}
         self.setup_route(setup_args)
