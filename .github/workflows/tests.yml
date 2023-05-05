@@ -12,14 +12,12 @@ jobs:
         uses: actions/checkout@v3
         with: 
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
-          path: 'stable-diffusion-webui'
-          ref: '5ab7f213bec2f816f9c5644becb32eb72c8ffb89'
           
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
           repository: 'Mikubill/sd-webui-controlnet'
-          path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
+          path: 'extensions/sd-webui-controlnet'
           
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -28,9 +26,8 @@ jobs:
           cache: pip
           cache-dependency-path: |
             **/requirements*txt
-            stable-diffusion-webui/requirements*txt
             
       - run: |
-          curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
-          cd stable-diffusion-webui && python launch.py --tests ./extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
-          rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
+          curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+          python launch.py --tests extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
+          rm -fr extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
