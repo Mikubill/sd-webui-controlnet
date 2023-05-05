@@ -113,3 +113,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                     }
                 ]
                 self.assert_status_ok(f'Running preprocessor module: {module}')
+
+
+if __name__ == "__main__":
+    unittest.main()
