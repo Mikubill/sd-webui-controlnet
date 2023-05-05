@@ -247,6 +247,9 @@ class Script(scripts.Script):
             return self.img2img_h_slider
 
     def get_module_basename(self, module):
+        if module is None:
+            module = 'none'
+
         return global_state.reverse_preprocessor_aliases.get(module, module)
 
     def get_threshold_block(self, proc):
@@ -857,8 +860,6 @@ class Script(scripts.Script):
 
         unit.enabled = selector(p, "control_net_enabled", unit.enabled, idx, strict=True)
         unit.module = selector(p, "control_net_module", unit.module, idx)
-        if not unit.module:
-            unit.module = self.get_default_ui_unit().module
         unit.model = selector(p, "control_net_model", unit.model, idx)
         unit.weight = selector(p, "control_net_weight", unit.weight, idx)
         unit.image = selector(p, "control_net_image", unit.image, idx)

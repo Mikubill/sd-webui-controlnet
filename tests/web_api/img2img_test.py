@@ -7,6 +7,25 @@ import requests
 
 
 class TestImg2ImgWorkingBase(unittest.TestCase):
+    def setUp(self):
+        controlnet_unit = {
+            "module": "none",
+            "model": utils.get_model(),
+            "weight": 1.0,
+            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+            "mask": utils.readImage("test/test_files/img2img_basic.png"),
+            "resize_mode": 1,
+            "lowvram": False,
+            "processor_res": 64,
+            "threshold_a": 64,
+            "threshold_b": 64,
+            "guidance_start": 0.0,
+            "guidance_end": 1.0,
+            "control_mode": 0,
+        }
+        setup_args = {"alwayson_scripts":{"ControlNet":{"args": ([controlnet_unit] * getattr(self, 'units_count', 1))}}}
+        self.setup_route(setup_args)
+
     def setup_route(self, setup_args):
         self.url_img2img = "http://localhost:7860/sdapi/v1/img2img"
         self.simple_img2img = {
@@ -63,50 +82,6 @@ class TestImg2ImgWorkingBase(unittest.TestCase):
             # clear stderr file so we can easily parse the next test
             f.write("")
         self.assertFalse('error' in stderr, "Errors in stderr: \n" + stderr)
-
-class TestDeprecatedImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = {
-            "module": "none",
-            "model": utils.get_model(),
-            "weight": 1.0,
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "mask": utils.readImage("test/test_files/img2img_basic.png"),
-            "resize_mode": 1,
-            "lowvram": False,
-            "processor_res": 64,
-            "threshold_a": 64,
-            "threshold_b": 64,
-            "guidance_start": 0.0,
-            "guidance_end": 1.0,
-            "control_mode": 0,
-        }
-        setup_args = {"controlnet_unit": ([controlnet_unit] * getattr(self, 'units_count', 1))}
-        self.setup_route(setup_args)
-        self.url_img2img = "http://localhost:7860/controlnet/img2img"
-
-    def test_img2img_simple_performed(self):
-        self.assert_status_ok()
-
-class TestAlwaysonImg2ImgWorking(TestImg2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = {
-            "module": "none",
-            "model": utils.get_model(),
-            "weight": 1.0,
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "mask": utils.readImage("test/test_files/img2img_basic.png"),
-            "resize_mode": 1,
-            "lowvram": False,
-            "processor_res": 64,
-            "threshold_a": 64,
-            "threshold_b": 64,
-            "guidance_start": 0.0,
-            "guidance_end": 1.0,
-            "control_mode": 0,
-        }
-        setup_args = {"alwayson_scripts":{"ControlNet":{"args": ([controlnet_unit] * getattr(self, 'units_count', 1))}}}
-        self.setup_route(setup_args)
 
     def test_img2img_simple_performed(self):
         self.assert_status_ok()
