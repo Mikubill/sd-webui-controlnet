@@ -9,7 +9,7 @@ from scripts import external_code
 class TestGetAllUnitsFrom(unittest.TestCase):
     def setUp(self):
         self.control_unit = {
-            "module": "none",
+            "module": None,
             "model": utils.get_model(),
             "image": utils.readImage("test/test_files/img2img_basic.png"),
             "resize_mode": 1,
