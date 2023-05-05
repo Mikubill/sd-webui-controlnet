@@ -51,7 +51,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         batch_hijack.instance.dispatch_callbacks(batch_hijack.instance.postprocess_batch_callbacks, self.p)
 
     def assert_get_cn_batches_works(self, batch_images_list):
-        self.cn_script.args_from = len(self.p.script_args)
+        self.cn_script.args_from = 0
         self.cn_script.args_to = self.cn_script.args_from + len(self.p.script_args)
 
         is_cn_batch, batches, output_dir, _ = batch_hijack.get_cn_batches(self.p)
@@ -64,7 +64,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
             self.assertEqual(1, len(batches))
 
         for i, unit in enumerate(self.cn_script.enabled_units):
-            self.assertEqual(batch_images_list[i], unit.batch_images)
+            self.assertListEqual(batch_images_list[i], list(unit.batch_images))
 
     def test_get_cn_batches__empty(self):
         is_batch, batches, _, _ = batch_hijack.get_cn_batches(self.p)
@@ -78,7 +78,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         ])
 
     def test_get_cn_batches__2_simples(self):
-        self.p.script_arg.extend([
+        self.p.script_args.extend([
             external_code.ControlNetUnit(image=get_dummy_image(0)),
             external_code.ControlNetUnit(image=get_dummy_image(1)),
         ])
@@ -88,7 +88,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         ])
 
     def test_get_cn_batches__1_batch(self):
-        self.p.script_arg.extend([
+        self.p.script_args.extend([
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
                 batch_images=[
@@ -105,7 +105,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         ])
 
     def test_get_cn_batches__2_batches(self):
-        self.p.script_arg.extend([
+        self.p.script_args.extend([
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
                 batch_images=[
@@ -133,7 +133,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         ])
 
     def test_get_cn_batches__2_mixed(self):
-        self.p.script_arg.extend([
+        self.p.script_args.extend([
             external_code.ControlNetUnit(image=get_dummy_image(0)),
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
@@ -155,7 +155,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         ])
 
     def test_get_cn_batches__3_mixed(self):
-        self.p.script_arg.extend([
+        self.p.script_args.extend([
             external_code.ControlNetUnit(image=get_dummy_image(0)),
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
