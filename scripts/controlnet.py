@@ -247,6 +247,9 @@ class Script(scripts.Script):
             return self.img2img_h_slider
 
     def get_module_basename(self, module):
+        if module is None:
+            module = 'none'
+
         return global_state.reverse_preprocessor_aliases.get(module, module)
 
     def get_threshold_block(self, proc):
