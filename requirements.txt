@@ -1,1 +1,3 @@
+mediapipe
 svglib
+fvcore

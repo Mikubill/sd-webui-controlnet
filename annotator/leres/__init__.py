@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import os
 from modules import devices, shared
-from modules.paths import models_path
+from annotator.annotator_path import models_path
 from torchvision.transforms import transforms
 
 # AdelaiDepth/LeReS imports
@@ -18,8 +18,8 @@ from .pix2pix.models.pix2pix4depth_model import Pix2Pix4DepthModel
 base_model_path = os.path.join(models_path, "leres")
 old_modeldir = os.path.dirname(os.path.realpath(__file__))
 
-remote_model_path_leres = "https://cloudstor.aarnet.edu.au/plus/s/lTIJF4vrvHCAI31/download"
-remote_model_path_pix2pix = "https://sfu.ca/~yagiz/CVPR21/latest_net_G.pth"
+remote_model_path_leres = "https://huggingface.co/lllyasviel/Annotators/resolve/main/res101.pth"
+remote_model_path_pix2pix = "https://huggingface.co/lllyasviel/Annotators/resolve/main/latest_net_G.pth"
 
 model = None
 pix2pixmodel = None
@@ -31,10 +31,9 @@ def unload_leres_model():
     if pix2pixmodel is not None:
         pix2pixmodel = pix2pixmodel.unload_network('G')
 
-def apply_leres(input_image, thr_a, thr_b):
-    global model, pix2pixmodel
-    boost = shared.opts.data.get("control_net_monocular_depth_optim", False)
 
+def apply_leres(input_image, thr_a, thr_b, boost=False):
+    global model, pix2pixmodel
     if model is None:
         model_path = os.path.join(base_model_path, "res101.pth")
         old_model_path = os.path.join(old_modeldir, "res101.pth")
@@ -44,12 +43,11 @@ def apply_leres(input_image, thr_a, thr_b):
         elif not os.path.exists(model_path):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(remote_model_path_leres, model_dir=base_model_path)
-            os.rename(os.path.join(base_model_path, 'download'), model_path)
 
         if torch.cuda.is_available():
             checkpoint = torch.load(model_path)
         else:
-            checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
+            checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
 
         model = RelDepthModel(backbone='resnext101')
         model.load_state_dict(strip_prefix_if_present(checkpoint['depth_model'], "module."), strict=True)
@@ -63,7 +61,7 @@ def apply_leres(input_image, thr_a, thr_b):
 
         opt = TestOptions().parse()
         if not torch.cuda.is_available():
-            opt.gpu_ids = [] # cpu mode
+            opt.gpu_ids = []  # cpu mode
         pix2pixmodel = Pix2Pix4DepthModel(opt)
         pix2pixmodel.save_dir = base_model_path
         pix2pixmodel.load_networks('latest')

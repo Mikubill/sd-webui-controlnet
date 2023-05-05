@@ -235,13 +235,3 @@ def resnext101_32x8d(pretrained=True, **kwargs):
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     return model
 
-
-
-if __name__ == '__main__':
-    import torch
-    model = resnext101_32x8d(True).cuda()
-
-    rgb = torch.rand((2, 3, 256, 256)).cuda()
-    out = model(rgb)
-    print(len(out))
-

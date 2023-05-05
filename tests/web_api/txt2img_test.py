@@ -6,7 +6,28 @@ import requests
 
 
 
-class TestTxt2ImgWorkingBase(unittest.TestCase):
+class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
+    def setUp(self):
+        controlnet_unit = {
+            "enabled": True,
+            "module": "none",
+            "model": utils.get_model(),
+            "weight": 1.0,
+            "image": utils.readImage("test/test_files/img2img_basic.png"),
+            "mask": utils.readImage("test/test_files/img2img_basic.png"),
+            "resize_mode": 1,
+            "lowvram": False,
+            "processor_res": 64,
+            "threshold_a": 64,
+            "threshold_b": 64,
+            "guidance_start": 0.0,
+            "guidance_end": 1.0,
+            "guessmode": False,
+            "pixel_perfect": False
+        }
+        setup_args = [controlnet_unit] * getattr(self, 'units_count', 1)
+        self.setup_route(setup_args)
+
     def setup_route(self, setup_args):
         self.url_txt2img = "http://localhost:7860/sdapi/v1/txt2img"
         self.simple_txt2img = {
@@ -46,68 +67,9 @@ class TestTxt2ImgWorkingBase(unittest.TestCase):
         with open('test/stderr.txt') as f:
             stderr = f.read().lower()
         with open('test/stderr.txt', 'w') as f:
-            # clear stderr file so we can easily parse the next test
+            # clear stderr file so that we can easily parse the next test
             f.write("")
         self.assertFalse('error' in stderr, "Errors in stderr: \n" + stderr)
-
-
-class TestDeprecatedTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = {
-            "module": "none",
-            "model": utils.get_model(),
-            "weight": 1.0,
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "mask": utils.readImage("test/test_files/img2img_basic.png"),
-            "resize_mode": 1,
-            "lowvram": False,
-            "processor_res": 64,
-            "threshold_a": 64,
-            "threshold_b": 64,
-            "guidance_start": 0.0,
-            "guidance_end": 1.0,
-            "guessmode": False,
-        }
-        setup_args = {"controlnet_unit": ([controlnet_unit] * getattr(self, 'units_count', 1))}
-        self.setup_route(setup_args)
-        self.url_txt2img = "http://localhost:7860/controlnet/txt2img"
-
-    def test_txt2img_simple_performed(self):
-        self.assert_status_ok()
-
-    def test_txt2img_multiple_batches_performed(self):
-        self.simple_txt2img["n_iter"] = 2
-        self.assert_status_ok()
-
-    def test_txt2img_batch_performed(self):
-        self.simple_txt2img["batch_size"] = 2
-        self.assert_status_ok()
-
-    def test_txt2img_2_units(self):
-        self.units_count = 2
-        self.setUp()
-        self.assert_status_ok()
-
-
-class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
-    def setUp(self):
-        controlnet_unit = {
-            "module": "none",
-            "model": utils.get_model(),
-            "weight": 1.0,
-            "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "mask": utils.readImage("test/test_files/img2img_basic.png"),
-            "resize_mode": 1,
-            "lowvram": False,
-            "processor_res": 64,
-            "threshold_a": 64,
-            "threshold_b": 64,
-            "guidance_start": 0.0,
-            "guidance_end": 1.0,
-            "guessmode": False,
-        }
-        setup_args = {"alwayson_scripts":{"ControlNet":{"args": ([controlnet_unit] * getattr(self, 'units_count', 1))}}}
-        self.setup_route(setup_args)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
@@ -142,6 +104,21 @@ class TestAlwaysonTxt2ImgWorking(TestTxt2ImgWorkingBase, unittest.TestCase):
         }]
 
         self.assert_status_ok()
+
+    def test_call_with_preprocessors(self):
+        avaliable_modules = utils.get_modules()
+        for module in ['depth', 'openpose_full']:
+            assert module in avaliable_modules, f'Failed to find {module}.'
+            with self.subTest(module=module):
+                self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+                    {
+                        "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                        "model": utils.get_model(),
+                        "module": module
+                    }
+                ]
+                self.assert_status_ok(f'Running preprocessor module: {module}')
+
 
 if __name__ == "__main__":
     unittest.main()

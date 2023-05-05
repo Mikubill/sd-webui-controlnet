@@ -161,6 +161,11 @@ cython_debug/
 *.pt
 *.pth
 *.ckpt
+*.bin
 *.safetensors
-models/control_sd15_scribble.pth
+
+# Editor setting metadata
+.idea/
+.vscode/
 detected_maps/
+annotator/downloads/
