@@ -12,12 +12,13 @@ jobs:
         uses: actions/checkout@v3
         with: 
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
+          path: 'stable-diffusion-webui'
           
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          repository: 'Mikubill/sd-webui-controlnet'
-          path: 'extensions/sd-webui-controlnet'
+          repository: 'stable-diffusion-webui/Mikubill/sd-webui-controlnet'
+          path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
           
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -25,12 +26,12 @@ jobs:
           python-version: 3.10.6
           cache: pip
           cache-dependency-path: |
-            **/requirements*txt
+            stable-diffusion-webui/**/requirements*txt
             
       - run: |
           pip install --upgrade pip
           pip install setuptools
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-          curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
-          python launch.py --tests extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
-          rm -fr extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
+          curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+          cd stable-diffusion-webui && python launch.py --tests stable-diffusion-webui/extensions/sd-webui-controlnet/tests --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test
+          rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
