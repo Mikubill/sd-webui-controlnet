@@ -28,234 +28,6 @@ def resize_image_with_pad(input_image, resolution):
 
 model_canny = None
 
-preprocessor_sliders_config = {
-    "canny": [
-        {
-            "name": "Preprocessor resolution",
-            "value": 512,
-            "min": 64,
-            "max": 2048
-        },
-        {
-            "name": "Canny low threshold",
-            "value": 100,
-            "min": 1,
-            "max": 255
-        },
-        {
-            "name": "Canny high threshold",
-            "value": 200,
-            "min": 1,
-            "max": 255
-        },
-    ],
-    "mlsd": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        },
-        {
-            "name": "Hough value threshold (MLSD)",
-            "min": 0.01,
-            "max": 2.0,
-            "value": 0.1,
-            "step": 0.01
-        },
-        {
-            "name": "Hough distance threshold (MLSD)",
-            "min": 0.01,
-            "max": 20.0,
-            "value": 0.1,
-            "step": 0.01
-        }
-    ],
-    "hed": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "scribble_hed": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "hed_safe": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "openpose": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "openpose_full": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "segmentation": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "depth": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        }
-    ],
-    "depth_leres": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        },
-        {
-            "name": "Remove Near %",
-            "min": 0,
-            "max": 100,
-            "value": 0,
-            "step": 0.1,
-        },
-        {
-            "name": "Remove Background %",
-            "min": 0,
-            "max": 100,
-            "value": 0,
-            "step": 0.1,
-        }
-    ],
-    "depth_leres++": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        },
-        {
-            "name": "Remove Near %",
-            "min": 0,
-            "max": 100,
-            "value": 0,
-            "step": 0.1,
-        },
-        {
-            "name": "Remove Background %",
-            "min": 0,
-            "max": 100,
-            "value": 0,
-            "step": 0.1,
-        }
-    ],
-    "normal_map": [
-        {
-            "name": "Preprocessor Resolution",
-            "min": 64,
-            "max": 2048,
-            "value": 512
-        },
-        {
-            "name": "Normal background threshold",
-            "min": 0.0,
-            "max": 1.0,
-            "value": 0.4,
-            "step": 0.01
-        }
-    ],
-    "threshold": [
-        {
-            "name": "Preprocessor resolution",
-            "value": 512,
-            "min": 64,
-            "max": 2048
-        },
-        {
-            "name": "Binarization Threshold",
-            "min": 0,
-            "max": 255,
-            "value": 127
-        }
-    ],
-
-    "scribble_xdog": [
-        {
-            "name": "Preprocessor resolution",
-            "value": 512,
-            "min": 64,
-            "max": 2048
-        },
-        {
-            "name": "XDoG Threshold",
-            "min": 1,
-            "max": 64,
-            "value": 32,
-        }
-    ],
-    "tile_resample": [
-        0,
-        {
-            "name": "Down Sampling Rate",
-            "value": 1.0,
-            "min": 1.0,
-            "max": 8.0,
-            "step": 0.01
-        }
-    ],
-    "color": [
-        {
-            "name": "Preprocessor Resolution",
-            "value": 512,
-            "min": 64,
-            "max": 2048,
-        }
-    ],
-    "mediapipe_face": [
-        {
-            "name": "Preprocessor Resolution",
-            "value": 512,
-            "min": 64,
-            "max": 2048,
-        },
-        {
-            "name": "Max Faces",
-            "value": 1,
-            "min": 1,
-            "max": 10,
-            "step": 1
-        },
-        {
-            "name": "Min Face Confidence",
-            "value": 0.5,
-            "min": 0.01,
-            "max": 1.0,
-            "step": 0.01
-        }
-    ],
-}
 
 def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
     l, h = thr_a, thr_b
@@ -774,3 +546,233 @@ def shuffle(img, res=512, **kwargs):
         model_shuffle = ContentShuffleDetector()
     result = model_shuffle(img)
     return result, True
+
+
+preprocessor_sliders_config = {
+    "canny": [
+        {
+            "name": "Preprocessor resolution",
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "Canny low threshold",
+            "value": 100,
+            "min": 1,
+            "max": 255
+        },
+        {
+            "name": "Canny high threshold",
+            "value": 200,
+            "min": 1,
+            "max": 255
+        },
+    ],
+    "mlsd": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Hough value threshold (MLSD)",
+            "min": 0.01,
+            "max": 2.0,
+            "value": 0.1,
+            "step": 0.01
+        },
+        {
+            "name": "Hough distance threshold (MLSD)",
+            "min": 0.01,
+            "max": 20.0,
+            "value": 0.1,
+            "step": 0.01
+        }
+    ],
+    "hed": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "scribble_hed": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "hed_safe": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "openpose": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "openpose_full": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "segmentation": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "depth": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "depth_leres": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Remove Near %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        },
+        {
+            "name": "Remove Background %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        }
+    ],
+    "depth_leres++": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Remove Near %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        },
+        {
+            "name": "Remove Background %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        }
+    ],
+    "normal_map": [
+        {
+            "name": "Preprocessor Resolution",
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Normal background threshold",
+            "min": 0.0,
+            "max": 1.0,
+            "value": 0.4,
+            "step": 0.01
+        }
+    ],
+    "threshold": [
+        {
+            "name": "Preprocessor resolution",
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "Binarization Threshold",
+            "min": 0,
+            "max": 255,
+            "value": 127
+        }
+    ],
+
+    "scribble_xdog": [
+        {
+            "name": "Preprocessor resolution",
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "XDoG Threshold",
+            "min": 1,
+            "max": 64,
+            "value": 32,
+        }
+    ],
+    "tile_resample": [
+        0,
+        {
+            "name": "Down Sampling Rate",
+            "value": 1.0,
+            "min": 1.0,
+            "max": 8.0,
+            "step": 0.01
+        }
+    ],
+    "color": [
+        {
+            "name": "Preprocessor Resolution",
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+        }
+    ],
+    "mediapipe_face": [
+        {
+            "name": "Preprocessor Resolution",
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+        },
+        {
+            "name": "Max Faces",
+            "value": 1,
+            "min": 1,
+            "max": 10,
+            "step": 1
+        },
+        {
+            "name": "Min Face Confidence",
+            "value": 0.5,
+            "min": 0.01,
+            "max": 1.0,
+            "step": 0.01
+        }
+    ],
+}
