@@ -33,7 +33,7 @@ def get_model():
 
 
 def get_modules():
-    return requests.get(f"{BASE_URL}/controlnet/module_list").json().get('module_list', [])
+    return requests.get(f"{BASE_URL}/controlnet/module_list").json()
 
 
 def detect(json):
