@@ -30,11 +30,7 @@ jobs:
             stable-diffusion-webui/requirements*txt
             
       - run: |
-          curl -Lo torch-2.0.1+cpu-cp310-cp310-linux_x86_64.whl https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp310-cp310-linux_x86_64.whl
-          curl -Lo torchvision-0.15.2+cpu-cp310-cp310-linux_x86_64.whl https://download.pytorch.org/whl/cpu/torchvision-0.15.2%2Bcpu-cp310-cp310-linux_x86_64.whl
-          pip install torch-2.0.1+cpu-cp310-cp310-linux_x86_64.whl
-          pip install torchvision-0.15.2+cpu-cp310-cp310-linux_x86_64.whl
+          pip install torch torchvision
           curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
           cd stable-diffusion-webui && python launch.py --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
           rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
-          rm -fr *.whl
