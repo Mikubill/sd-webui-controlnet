@@ -1185,9 +1185,13 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
-            tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed),0))
-            tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed),0))
-            np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
+            try:
+                tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
+                tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
+                np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
+            except Exception as e:
+                print(e)
+                print('Warning: Failed to use consistent random seed.')
 
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
