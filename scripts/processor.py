@@ -1,8 +1,40 @@
 import cv2
 import numpy as np
-from annotator.util import resize_image, HWC3
 
 from typing import Callable, Tuple
+
+
+def HWC3(x):
+    assert x.dtype == np.uint8
+    if x.ndim == 2:
+        x = x[:, :, None]
+    assert x.ndim == 3
+    H, W, C = x.shape
+    assert C == 1 or C == 3 or C == 4
+    if C == 3:
+        return x
+    if C == 1:
+        return np.concatenate([x, x, x], axis=2)
+    if C == 4:
+        color = x[:, :, 0:3].astype(np.float32)
+        alpha = x[:, :, 3:4].astype(np.float32) / 255.0
+        y = color * alpha + 255.0 * (1.0 - alpha)
+        y = y.clip(0, 255).astype(np.uint8)
+        return y
+
+
+def resize_image(input_image, resolution):
+    H, W, C = input_image.shape
+    H = float(H)
+    W = float(W)
+    k = float(resolution) / min(H, W)
+    H *= k
+    W *= k
+    H = int(np.round(H / 64.0)) * 64
+    W = int(np.round(W / 64.0)) * 64
+    img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+    return img
+
 
 model_canny = None
 
@@ -16,6 +48,7 @@ def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
         model_canny = apply_canny
     result = model_canny(img, l, h)
     return result, True
+
 
 def scribble_thr(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
@@ -74,6 +107,7 @@ def hed(img, res=512, **kwargs):
     result = model_hed(img)
     return result, True
 
+
 def hed_safe(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_hed
@@ -83,11 +117,13 @@ def hed_safe(img, res=512, **kwargs):
     result = model_hed(img, is_safe=True)
     return result, True
 
+
 def unload_hed():
     global model_hed
     if model_hed is not None:
         from annotator.hed import unload_hed_model
         unload_hed_model()
+
 
 def scribble_hed(img, res=512, **kwargs):
     result, _ = hed(img, res)
@@ -128,6 +164,7 @@ def mlsd(img, res=512, thr_a=0.1, thr_b=0.1, **kwargs):
     result = model_mlsd(img, thr_v, thr_d)
     return result, True
 
+
 def unload_mlsd():
     global model_mlsd
     if model_mlsd is not None:
@@ -147,6 +184,7 @@ def midas(img, res=512, a=np.pi * 2.0, **kwargs):
     results, _ = model_midas(img, a)
     return results, True
 
+
 def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs): # bg_th -> thr_a
     bg_th = thr_a
     img = resize_image(HWC3(img), res)
@@ -157,13 +195,16 @@ def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs): # bg_th -> t
     _, results  = model_midas(img, a, bg_th)
     return results, True
 
+
 def unload_midas():
     global model_midas
     if model_midas is not None:
         from annotator.midas import unload_midas_model
         unload_midas_model()
 
+
 model_leres = None
+
 
 def leres(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, boost=False, **kwargs):
     img = resize_image(HWC3(img), res)
@@ -174,11 +215,13 @@ def leres(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, boost=False, **kwargs):
     results = model_leres(img, thr_a, thr_b, boost=boost)
     return results, True
 
+
 def unload_leres():
     global model_leres
     if model_leres is not None:
         from annotator.leres import unload_leres_model
         unload_leres_model()
+
 
 class OpenposeModel(object):
     def __init__(self) -> None:
@@ -220,6 +263,7 @@ class OpenposeModel(object):
         if self.model_openpose is not None:
             self.model_openpose.unload_model()
 
+
 g_openpose_model = OpenposeModel()
 
 
@@ -234,6 +278,7 @@ def uniformer(img, res=512, **kwargs):
         model_uniformer = apply_uniformer
     result = model_uniformer(img)
     return result, True
+
 
 def unload_uniformer():
     global model_uniformer
@@ -254,6 +299,7 @@ def pidinet(img, res=512, **kwargs):
     result = model_pidinet(img)
     return result, True
 
+
 def pidinet_ts(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
     global model_pidinet
@@ -262,6 +308,7 @@ def pidinet_ts(img, res=512, **kwargs):
         model_pidinet = apply_pidinet
     result = model_pidinet(img, apply_fliter=True)
     return result, True
+
 
 def pidinet_safe(img, res=512, **kwargs):
     img = resize_image(HWC3(img), res)
@@ -272,6 +319,7 @@ def pidinet_safe(img, res=512, **kwargs):
     result = model_pidinet(img, is_safe=True)
     return result, True
 
+
 def scribble_pidinet(img, res=512, **kwargs):
     result, _ = pidinet(img, res)
     import cv2
@@ -281,6 +329,7 @@ def scribble_pidinet(img, res=512, **kwargs):
     result[result > 4] = 255
     result[result < 255] = 0
     return result, True
+
 
 def unload_pidinet():
     global model_pidinet
@@ -347,6 +396,7 @@ def lineart_standard(img, res=512, **kwargs):
     intensity *= 127
     return intensity.clip(0, 255).astype(np.uint8), True
 
+
 model_lineart = None
 
 
@@ -360,6 +410,7 @@ def lineart(img, res=512, **kwargs):
     # applied auto inversion
     result = 255-model_lineart(img)
     return result, True
+
 
 def unload_lineart():
     global model_lineart
@@ -381,6 +432,7 @@ def lineart_coarse(img, res=512, **kwargs):
     result = 255-model_lineart_coarse(img)
     return result, True
 
+
 def unload_lineart_coarse():
     global model_lineart_coarse
     if model_lineart_coarse is not None:
@@ -400,6 +452,7 @@ def lineart_anime(img, res=512, **kwargs):
     # applied auto inversion
     result = 255-model_lineart_anime(img)
     return result, True
+
 
 def unload_lineart_anime():
     global model_lineart_anime
@@ -428,7 +481,6 @@ def unload_lineart_anime_denoise():
        model_manga_line.unload_model()
 
 
-
 model_zoe_depth = None
 
 
@@ -440,6 +492,7 @@ def zoe_depth(img, res=512, **kwargs):
         model_zoe_depth = ZoeDetector()
     result = model_zoe_depth(img)
     return result, True
+
 
 def unload_zoe_depth():
     global model_zoe_depth
@@ -459,6 +512,7 @@ def normal_bae(img, res=512, **kwargs):
     result = model_normal_bae(img)
     return result, True
 
+
 def unload_normal_bae():
     global model_normal_bae
     if model_normal_bae is not None:
@@ -477,6 +531,7 @@ def oneformer_coco(img, res=512, **kwargs):
     result = model_oneformer_coco(img)
     return result, True
 
+
 def unload_oneformer_coco():
     global model_oneformer_coco
     if model_oneformer_coco is not None:
@@ -494,6 +549,7 @@ def oneformer_ade20k(img, res=512, **kwargs):
         model_oneformer_ade20k = OneformerDetector(OneformerDetector.configs["ade20k"])
     result = model_oneformer_ade20k(img)
     return result, True
+
 
 def unload_oneformer_ade20k():
     global model_oneformer_ade20k
