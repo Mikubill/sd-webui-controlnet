@@ -737,7 +737,7 @@ preprocessor_sliders_config = {
         }
     ],
     "tile_resample": [
-        0,
+        None,
         {
             "name": "Down Sampling Rate",
             "value": 1.0,
