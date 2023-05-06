@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
 from modules import scripts, processing, shared
+from processor import preprocessor_sliders_config
 from scripts import global_state
 
 from modules.api import api
@@ -287,6 +288,7 @@ def get_modules(alias_names: bool = False) -> List[str]:
 
     return modules
 
+
 def get_modules_detail(alias_names: bool = False) -> Dict[str, Any]:
     """
     get the detail of all preprocessors including
@@ -297,8 +299,8 @@ def get_modules_detail(alias_names: bool = False) -> Dict[str, Any]:
     """
 
     _module_detail = {}
-    _module_list = external_code.get_modules(False)
-    _module_list_alias = external_code.get_modules(True)
+    _module_list = get_modules(False)
+    _module_list_alias = get_modules(True)
     
     _output_list = _module_list if not alias_names else _module_list_alias
     for index, module in enumerate(_output_list):
