@@ -66,7 +66,7 @@ Now ControlNet 1.1 can support almost all Upscaling/Tile methods. ControlNet 1.1
 
 We have fixed many bugs in previous 1.0’s Guess Mode and now it is called Control Mode
 
-![image](https://user-images.githubusercontent.com/19834515/233897484-e84232f5-be3f-418b-bdaa-d9d7393f3988.png)
+![image](https://user-images.githubusercontent.com/19834515/236641759-6c44ddf6-c7ad-4bda-92be-e90a52911d75.png)
 
 Now you can control which aspect is more important (your prompt or your ControlNet)
 
