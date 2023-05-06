@@ -382,17 +382,20 @@ class Script(scripts.Script):
                 grs = []
 
                 for slider_config in slider_configs:
-                    visible = True
-                    if slider_config['name'] == flag_preprocessor_resolution:
-                        visible = not pp
-                    grs.append(gr.update(
-                        label=slider_config['name'],
-                        value=slider_config['value'],
-                        minimum=slider_config['min'],
-                        maximum=slider_config['max'],
-                        step=slider_config['step'] if 'step' in slider_config else 1,
-                        visible=visible,
-                        interactive=visible))
+                    if isinstance(slider_config, dict):
+                        visible = True
+                        if slider_config['name'] == flag_preprocessor_resolution:
+                            visible = not pp
+                        grs.append(gr.update(
+                            label=slider_config['name'],
+                            value=slider_config['value'],
+                            minimum=slider_config['min'],
+                            maximum=slider_config['max'],
+                            step=slider_config['step'] if 'step' in slider_config else 1,
+                            visible=visible,
+                            interactive=visible))
+                    else:
+                        grs.append(gr.update(visible=False, interactive=False))
 
                 while len(grs) < 3:
                     grs.append(gr.update(visible=False, interactive=False))
