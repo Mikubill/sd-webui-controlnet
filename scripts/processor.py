@@ -548,22 +548,23 @@ def shuffle(img, res=512, **kwargs):
     return result, True
 
 
+flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
     "canny": [
         {
-            "name": "Preprocessor resolution",
+            "name": flag_preprocessor_resolution,
             "value": 512,
             "min": 64,
             "max": 2048
         },
         {
-            "name": "Canny low threshold",
+            "name": "Canny Low Threshold",
             "value": 100,
             "min": 1,
             "max": 255
         },
         {
-            "name": "Canny high threshold",
+            "name": "Canny High Threshold",
             "value": 200,
             "min": 1,
             "max": 255
@@ -571,20 +572,20 @@ preprocessor_sliders_config = {
     ],
     "mlsd": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
         },
         {
-            "name": "Hough value threshold (MLSD)",
+            "name": "MLSD Value Threshold",
             "min": 0.01,
             "max": 2.0,
             "value": 0.1,
             "step": 0.01
         },
         {
-            "name": "Hough distance threshold (MLSD)",
+            "name": "MLSD Distance Threshold",
             "min": 0.01,
             "max": 20.0,
             "value": 0.1,
@@ -593,7 +594,7 @@ preprocessor_sliders_config = {
     ],
     "hed": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -601,7 +602,7 @@ preprocessor_sliders_config = {
     ],
     "scribble_hed": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -609,7 +610,7 @@ preprocessor_sliders_config = {
     ],
     "hed_safe": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -617,7 +618,7 @@ preprocessor_sliders_config = {
     ],
     "openpose": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -625,7 +626,7 @@ preprocessor_sliders_config = {
     ],
     "openpose_full": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -633,7 +634,7 @@ preprocessor_sliders_config = {
     ],
     "segmentation": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -641,7 +642,7 @@ preprocessor_sliders_config = {
     ],
     "depth": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -649,7 +650,7 @@ preprocessor_sliders_config = {
     ],
     "depth_leres": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -671,7 +672,7 @@ preprocessor_sliders_config = {
     ],
     "depth_leres++": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
@@ -693,13 +694,13 @@ preprocessor_sliders_config = {
     ],
     "normal_map": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "min": 64,
             "max": 2048,
             "value": 512
         },
         {
-            "name": "Normal background threshold",
+            "name": "Normal Background Threshold",
             "min": 0.0,
             "max": 1.0,
             "value": 0.4,
@@ -708,7 +709,7 @@ preprocessor_sliders_config = {
     ],
     "threshold": [
         {
-            "name": "Preprocessor resolution",
+            "name": flag_preprocessor_resolution,
             "value": 512,
             "min": 64,
             "max": 2048
@@ -723,7 +724,7 @@ preprocessor_sliders_config = {
 
     "scribble_xdog": [
         {
-            "name": "Preprocessor resolution",
+            "name": flag_preprocessor_resolution,
             "value": 512,
             "min": 64,
             "max": 2048
@@ -747,7 +748,7 @@ preprocessor_sliders_config = {
     ],
     "color": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "value": 512,
             "min": 64,
             "max": 2048,
@@ -755,7 +756,7 @@ preprocessor_sliders_config = {
     ],
     "mediapipe_face": [
         {
-            "name": "Preprocessor Resolution",
+            "name": flag_preprocessor_resolution,
             "value": 512,
             "min": 64,
             "max": 2048,

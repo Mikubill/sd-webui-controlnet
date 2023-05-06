@@ -35,7 +35,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
 from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
-from scripts.processor import preprocessor_sliders_config
+from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution
 
 gradio_compat = True
 try:
@@ -372,51 +372,31 @@ class Script(scripts.Script):
             module = self.get_module_basename(module)
             if module not in preprocessor_sliders_config:
                 return [
-                    gr.update(label="Preprocessor resolution", value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
+                    gr.update(label=flag_preprocessor_resolution, value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
             else:
-                slider_config = preprocessor_sliders_config[module]
+                slider_configs = preprocessor_sliders_config[module]
                 grs = []
-                
-                if len(slider_config) > 0 and slider_config[0] != 0:
+
+                for slider_config in slider_configs:
+                    visible = True
+                    if slider_config['name'] == flag_preprocessor_resolution:
+                        visible = not pp
                     grs.append(gr.update(
-                        label=slider_config[0]['name'],
-                        value=slider_config[0]['value'],
-                        minimum=slider_config[0]['min'],
-                        maximum=slider_config[0]['max'],
-                        step=slider_config[0]['step'] if 'step' in slider_config[0] else 1,
-                        visible=not pp,
-                        interactive=not pp))
-                else: 
+                        label=slider_config['name'],
+                        value=slider_config['value'],
+                        minimum=slider_config['min'],
+                        maximum=slider_config['max'],
+                        step=slider_config['step'] if 'step' in slider_config else 1,
+                        visible=visible,
+                        interactive=visible))
+
+                while len(grs) < 3:
                     grs.append(gr.update(visible=False, interactive=False))
-                    
-                if len(slider_config) > 1 and slider_config[1] != 0:
-                    grs.append(gr.update(
-                        label=slider_config[1]['name'],
-                        value=slider_config[1]['value'],
-                        minimum=slider_config[1]['min'],
-                        maximum=slider_config[1]['max'],
-                        step=slider_config[1]['step'] if 'step' in slider_config[1] else 1,
-                        visible=True,
-                        interactive=True))
-                else: 
-                    grs.append(gr.update(visible=False, interactive=False))
-                    
-                if len(slider_config) > 2 and slider_config[2] != 0:
-                    grs.append(gr.update(
-                        label=slider_config[2]['name'],
-                        value=slider_config[2]['value'],
-                        minimum=slider_config[2]['min'],
-                        maximum=slider_config[2]['max'],
-                        step=slider_config[2]['step'] if 'step' in slider_config[2] else 1,
-                        visible=True,
-                        interactive=True))
-                else:
-                    grs.append(gr.update(visible=False, interactive=False))
-                    
+
                 grs.append(gr.update(visible=True))
                 return grs
 
