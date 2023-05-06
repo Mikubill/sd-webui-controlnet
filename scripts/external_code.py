@@ -287,6 +287,32 @@ def get_modules(alias_names: bool = False) -> List[str]:
 
     return modules
 
+def get_modules_detail(alias_names: bool = False) -> Dict[str, Any]:
+    """
+    get the detail of all preprocessors including
+    sliders: the slider config in Auto1111 webUI
+
+    Keyword arguments:
+    alias_names -- Whether to get the module detail with alias names instead of internal keys
+    """
+
+    _module_detail = {}
+    _module_list = external_code.get_modules(False)
+    _module_list_alias = external_code.get_modules(True)
+    
+    _output_list = _module_list if not alias_names else _module_list_alias
+    for index, module in enumerate(_output_list):
+        if _module_list[index] in preprocessor_sliders_config:
+            _module_detail[module] = {
+                "sliders": preprocessor_sliders_config[_module_list[index]]
+            }
+        else:
+            _module_detail[module] = {
+                "sliders": []
+            }
+            
+    return _module_detail
+
 
 def find_cn_script(script_runner: scripts.ScriptRunner) -> Optional[scripts.Script]:
     """

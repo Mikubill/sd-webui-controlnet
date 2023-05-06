@@ -38,24 +38,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
     @app.get("/controlnet/module_list")
     async def module_list(alias_names: bool = False):
-        _module_list = external_code.get_modules(False)
-        _module_list_alias = external_code.get_modules(True)
-        _module_detail = {}
-        
-        _output_list = _module_list if not alias_names else _module_list_alias
-        for index, module in enumerate(_output_list):
-            if _module_list[index] in preprocessor_sliders_config:
-                _module_detail[module] = {
-                    "sliders": preprocessor_sliders_config[_module_list[index]]
-                }
-            else:
-                _module_detail[module] = {
-                    "sliders": []
-                }
+        _module_list = external_code.get_modules(alias_names)
+        print(_module_list)
         
         return {
-            "module_list": _output_list,
-            "module_detail": _module_detail
+            "module_list": _module_list,
+            "module_detail": external_code.get_modules_detail(alias_names)
         }
 
     @app.post("/controlnet/detect")
