@@ -1,3 +1,4 @@
+import torch
 from transformers import CLIPProcessor, CLIPVisionModel
 from modules import devices
 import os
@@ -23,10 +24,12 @@ def apply_clip(img):
 
         clip_proc = CLIPProcessor.from_pretrained(clip_path)
         clip_vision_model = CLIPVisionModel.from_pretrained(clip_path)
-        
-    clip_vision_model = clip_vision_model.to(devices.get_device_for("controlnet"))
-    style_for_clip = clip_proc(images=img, return_tensors="pt")['pixel_values']
-    style_feat = clip_vision_model(style_for_clip.to(devices.get_device_for("controlnet")))['last_hidden_state']
+
+    with torch.no_grad():
+        clip_vision_model = clip_vision_model.to(devices.get_device_for("controlnet"))
+        style_for_clip = clip_proc(images=img, return_tensors="pt")['pixel_values']
+        style_feat = clip_vision_model(style_for_clip.to(devices.get_device_for("controlnet")))['last_hidden_state']
+
     return style_feat
 
 

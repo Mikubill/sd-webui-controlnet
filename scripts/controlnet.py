@@ -522,7 +522,7 @@ class Script(scripts.Script):
                 else:
                     estimation = max(k0, k1) * float(min(raw_H, raw_W))
 
-                pres = int(np.round(float(estimation) / 64.0)) * 64
+                pres = int(np.round(estimation))
                 print(f'Pixel Perfect Mode Enabled In Preview.')
                 print(f'resize_mode = {rm}')
                 print(f'raw_H = {raw_H}')
@@ -1213,7 +1213,7 @@ class Script(scripts.Script):
                 else:
                     estimation = max(k0, k1) * float(min(raw_H, raw_W))
 
-                preprocessor_resolution = int(np.round(float(estimation) / 64.0)) * 64
+                preprocessor_resolution = int(np.round(estimation))
 
                 print(f'Pixel Perfect Mode Enabled.')
                 print(f'resize_mode = {str(resize_mode)}')

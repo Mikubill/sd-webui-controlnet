@@ -21,19 +21,6 @@ def HWC3(x):
         return y
 
 
-def resize_image(input_image, resolution):
-    H, W, C = input_image.shape
-    H = float(H)
-    W = float(W)
-    k = float(resolution) / min(H, W)
-    H *= k
-    W *= k
-    H = int(np.round(H / 64.0)) * 64
-    W = int(np.round(W / 64.0)) * 64
-    img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
-    return img
-
-
 def make_noise_disk(H, W, C, F):
     noise = np.random.uniform(low=0, high=1, size=((H // F) + 2, (W // F) + 2, C))
     noise = cv2.resize(noise, (W + 2 * F, H + 2 * F), interpolation=cv2.INTER_CUBIC)
