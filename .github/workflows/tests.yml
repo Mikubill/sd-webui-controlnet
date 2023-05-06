@@ -19,6 +19,7 @@ jobs:
         with:
           repository: 'Mikubill/sd-webui-controlnet'
           path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
+          ref: '8fcfe934d2f94693370f4985c456ef72e9741944'
           
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
