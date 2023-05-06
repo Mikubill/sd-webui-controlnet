@@ -546,3 +546,234 @@ def shuffle(img, res=512, **kwargs):
         model_shuffle = ContentShuffleDetector()
     result = model_shuffle(img)
     return result, True
+
+
+flag_preprocessor_resolution = "Preprocessor Resolution"
+preprocessor_sliders_config = {
+    "canny": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "Canny Low Threshold",
+            "value": 100,
+            "min": 1,
+            "max": 255
+        },
+        {
+            "name": "Canny High Threshold",
+            "value": 200,
+            "min": 1,
+            "max": 255
+        },
+    ],
+    "mlsd": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "MLSD Value Threshold",
+            "min": 0.01,
+            "max": 2.0,
+            "value": 0.1,
+            "step": 0.01
+        },
+        {
+            "name": "MLSD Distance Threshold",
+            "min": 0.01,
+            "max": 20.0,
+            "value": 0.1,
+            "step": 0.01
+        }
+    ],
+    "hed": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "scribble_hed": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "hed_safe": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "openpose": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "openpose_full": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "segmentation": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "depth": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "depth_leres": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Remove Near %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        },
+        {
+            "name": "Remove Background %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        }
+    ],
+    "depth_leres++": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Remove Near %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        },
+        {
+            "name": "Remove Background %",
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "step": 0.1,
+        }
+    ],
+    "normal_map": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        },
+        {
+            "name": "Normal Background Threshold",
+            "min": 0.0,
+            "max": 1.0,
+            "value": 0.4,
+            "step": 0.01
+        }
+    ],
+    "threshold": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "Binarization Threshold",
+            "min": 0,
+            "max": 255,
+            "value": 127
+        }
+    ],
+
+    "scribble_xdog": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        },
+        {
+            "name": "XDoG Threshold",
+            "min": 1,
+            "max": 64,
+            "value": 32,
+        }
+    ],
+    "tile_resample": [
+        0,
+        {
+            "name": "Down Sampling Rate",
+            "value": 1.0,
+            "min": 1.0,
+            "max": 8.0,
+            "step": 0.01
+        }
+    ],
+    "color": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+        }
+    ],
+    "mediapipe_face": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+        },
+        {
+            "name": "Max Faces",
+            "value": 1,
+            "min": 1,
+            "max": 10,
+            "step": 1
+        },
+        {
+            "name": "Min Face Confidence",
+            "value": 0.5,
+            "min": 0.01,
+            "max": 1.0,
+            "step": 0.01
+        }
+    ],
+}
