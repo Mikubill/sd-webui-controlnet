@@ -369,7 +369,7 @@ class Script(scripts.Script):
             module = self.get_module_basename(module)
             if (module not in preprocessor_sliders_config): 
                 return [
-                    gr.update(visible=False, interactive=False),
+                    gr.update(label="Preprocessor resolution", value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
@@ -379,17 +379,17 @@ class Script(scripts.Script):
                 grs = []
                 
                 if (len(slider_config) > 0 and slider_config[0] != 0):
-                    gr.update(label=slider_config[0].name, value=slider_config[0].value, minimum=slider_config[0].min, maximum=slider_config[0].max, step=slider_config[0].step if step in slider_config[0] else 1, visible=True, interactive=True)
+                    grs.append(gr.update(label=slider_config[0]['name'], value=slider_config[0]['value'], minimum=slider_config[0]['min'], maximum=slider_config[0]['max'], step=slider_config[0]['step'] if 'step' in slider_config[0] else 1, visible=not pp, interactive=not pp))
                 else: 
                     grs.append(gr.update(visible=False, interactive=False))
                     
-                if (len(slider_config) > 0 and slider_config[1] != 0):
-                    gr.update(label=slider_config[1].name, value=slider_config[1].value, minimum=slider_config[1].min, maximum=slider_config[1].max, step=slider_config[1].step if step in slider_config[1] else 1, visible=True, interactive=True)
+                if (len(slider_config) > 1 and slider_config[1] != 0):
+                    grs.append(gr.update(label=slider_config[1]['name'], value=slider_config[1]['value'], minimum=slider_config[1]['min'], maximum=slider_config[1]['max'], step=slider_config[1]['step'] if 'step' in slider_config[1] else 1, visible=True, interactive=True))
                 else: 
                     grs.append(gr.update(visible=False, interactive=False))
                     
                 if (len(slider_config) > 2 and slider_config[2] != 0):
-                    gr.update(label=slider_config[2].name, value=slider_config[2].value, minimum=slider_config[2].min, maximum=slider_config[2].max, step=slider_config[2].step if step in slider_config[2] else 1, visible=True, interactive=True)
+                    grs.append(gr.update(label=slider_config[2]['name'], value=slider_config[2]['value'], minimum=slider_config[2]['min'], maximum=slider_config[2]['max'], step=slider_config[2]['step'] if 'step' in slider_config[2] else 1, visible=True, interactive=True))
                 else:
                     grs.append(gr.update(visible=False, interactive=False))
                     
