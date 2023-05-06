@@ -17,7 +17,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          repository: 'Mikubill/sd-webui-controlnet'
+          repository: 'ljleb/sd-webui-controlnet'
           path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
           
       - name: Set up Python 3.10
