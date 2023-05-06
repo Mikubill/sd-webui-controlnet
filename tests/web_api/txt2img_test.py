@@ -101,9 +101,12 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         self.assert_status_ok()
 
     def test_call_with_preprocessors(self):
-        avaliable_modules = utils.get_modules()
+        available_modules = utils.get_modules()
+        available_modules_list = available_modules.get('module_list', [])
+        available_modules_detail = available_modules.get('module_detail', {})
         for module in ['depth', 'openpose_full']:
-            assert module in avaliable_modules, f'Failed to find {module}.'
+            assert module in available_modules_list, f'Failed to find {module}.'
+            assert module in available_modules_detail, f"Failed to find {module}'s detail."
             with self.subTest(module=module):
                 self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
                     {
