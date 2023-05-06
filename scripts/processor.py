@@ -9,7 +9,7 @@ def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
 
 
-def resize_image(input_image, resolution):
+def resize_image_with_pad(input_image, resolution):
     img = HWC3(input_image)
     H_raw, W_raw, _ = img.shape
     k = float(resolution) / float(min(H_raw, W_raw))
@@ -31,7 +31,7 @@ model_canny = None
 
 def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
     l, h = thr_a, thr_b
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_canny
     if model_canny is None:
         from annotator.canny import apply_canny
@@ -41,14 +41,14 @@ def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
 
 
 def scribble_thr(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) < 127] = 255
     return remove_pad(result), True
 
 
 def scribble_xdog(img, res=512, thr_a=32, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     g1 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 0.5)
     g2 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 5.0)
     dog = (255 - np.min(g2 - g1, axis=2)).clip(0, 255).astype(np.uint8)
@@ -69,7 +69,7 @@ def tile_resample(img, res=512, thr_a=1.0, **kwargs):
 
 
 def threshold(img, res=512, thr_a=127, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     result = np.zeros_like(img, dtype=np.uint8)
     result[np.min(img, axis=2) > thr_a] = 255
     return remove_pad(result), True
@@ -87,7 +87,7 @@ model_hed = None
 
 
 def hed(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_hed
     if model_hed is None:
         from annotator.hed import apply_hed
@@ -97,7 +97,7 @@ def hed(img, res=512, **kwargs):
 
 
 def hed_safe(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_hed
     if model_hed is None:
         from annotator.hed import apply_hed
@@ -130,7 +130,7 @@ model_mediapipe_face = None
 def mediapipe_face(img, res=512, thr_a: int = 10, thr_b: float = 0.5, **kwargs):
     max_faces = int(thr_a)
     min_confidence = thr_b
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_mediapipe_face
     if model_mediapipe_face is None:
         from annotator.mediapipe_face import apply_mediapipe_face
@@ -144,7 +144,7 @@ model_mlsd = None
 
 def mlsd(img, res=512, thr_a=0.1, thr_b=0.1, **kwargs):
     thr_v, thr_d = thr_a, thr_b
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_mlsd
     if model_mlsd is None:
         from annotator.mlsd import apply_mlsd
@@ -164,7 +164,7 @@ model_midas = None
 
 
 def midas(img, res=512, a=np.pi * 2.0, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_midas
     if model_midas is None:
         from annotator.midas import apply_midas
@@ -173,9 +173,9 @@ def midas(img, res=512, a=np.pi * 2.0, **kwargs):
     return remove_pad(result), True
 
 
-def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs): # bg_th -> thr_a
+def midas_normal(img, res=512, a=np.pi * 2.0, thr_a=0.4, **kwargs):  # bg_th -> thr_a
     bg_th = thr_a
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_midas
     if model_midas is None:
         from annotator.midas import apply_midas
@@ -195,7 +195,7 @@ model_leres = None
 
 
 def leres(img, res=512, a=np.pi * 2.0, thr_a=0, thr_b=0, boost=False, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_leres
     if model_leres is None:
         from annotator.leres import apply_leres
@@ -214,17 +214,17 @@ def unload_leres():
 class OpenposeModel(object):
     def __init__(self) -> None:
         self.model_openpose = None
-        
+
     def run_model(
-            self, 
-            img: np.ndarray, 
-            include_body: bool, 
-            include_hand: bool, 
+            self,
+            img: np.ndarray,
+            include_body: bool,
+            include_hand: bool,
             include_face: bool,
             json_pose_callback: Callable[[str], None] = None,
-            res: int = 512, 
+            res: int = 512,
             **kwargs  # Ignore rest of kwargs
-        ) -> Tuple[np.ndarray, bool]:
+    ) -> Tuple[np.ndarray, bool]:
         """Run the openpose model. Returns a tuple of
         - result image
         - is_image flag
@@ -234,20 +234,20 @@ class OpenposeModel(object):
         if json_pose_callback is None:
             json_pose_callback = lambda x: None
 
-        img, remove_pad = resize_image(img, res)
+        img, remove_pad = resize_image_with_pad(img, res)
 
         if self.model_openpose is None:
             from annotator.openpose import OpenposeDetector
             self.model_openpose = OpenposeDetector()
-                
+
         return remove_pad(self.model_openpose(
-            img, 
-            include_body=include_body, 
-            include_hand=include_hand, 
+            img,
+            include_body=include_body,
+            include_hand=include_hand,
             include_face=include_face,
             json_pose_callback=json_pose_callback
         )), True
-    
+
     def unload(self):
         if self.model_openpose is not None:
             self.model_openpose.unload_model()
@@ -255,12 +255,11 @@ class OpenposeModel(object):
 
 g_openpose_model = OpenposeModel()
 
-
 model_uniformer = None
 
 
 def uniformer(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_uniformer
     if model_uniformer is None:
         from annotator.uniformer import apply_uniformer
@@ -274,13 +273,13 @@ def unload_uniformer():
     if model_uniformer is not None:
         from annotator.uniformer import unload_uniformer_model
         unload_uniformer_model()
-        
-        
+
+
 model_pidinet = None
 
 
 def pidinet(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_pidinet
     if model_pidinet is None:
         from annotator.pidinet import apply_pidinet
@@ -290,7 +289,7 @@ def pidinet(img, res=512, **kwargs):
 
 
 def pidinet_ts(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_pidinet
     if model_pidinet is None:
         from annotator.pidinet import apply_pidinet
@@ -300,7 +299,7 @@ def pidinet_ts(img, res=512, **kwargs):
 
 
 def pidinet_safe(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_pidinet
     if model_pidinet is None:
         from annotator.pidinet import apply_pidinet
@@ -325,7 +324,7 @@ def unload_pidinet():
     if model_pidinet is not None:
         from annotator.pidinet import unload_pid_model
         unload_pid_model()
-        
+
 
 clip_encoder = None
 
@@ -349,7 +348,7 @@ def unload_clip():
     if clip_encoder is not None:
         from annotator.clip import unload_clip_model
         unload_clip_model()
-        
+
 
 model_color = None
 
@@ -365,7 +364,7 @@ def color(img, res=512, **kwargs):
 
 
 def lineart_standard(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     x = img.astype(np.float32)
     g = cv2.GaussianBlur(x, (0, 0), 6.0)
     intensity = np.min(g - x, axis=2).clip(0, 255)
@@ -379,7 +378,7 @@ model_lineart = None
 
 
 def lineart(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_lineart
     if model_lineart is None:
         from annotator.lineart import LineartDetector
@@ -400,7 +399,7 @@ model_lineart_coarse = None
 
 
 def lineart_coarse(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_lineart_coarse
     if model_lineart_coarse is None:
         from annotator.lineart import LineartDetector
@@ -421,14 +420,14 @@ model_lineart_anime = None
 
 
 def lineart_anime(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_lineart_anime
     if model_lineart_anime is None:
         from annotator.lineart_anime import LineartAnimeDetector
         model_lineart_anime = LineartAnimeDetector()
 
     # applied auto inversion
-    result = 255-model_lineart_anime(img)
+    result = 255 - model_lineart_anime(img)
     return remove_pad(result), True
 
 
@@ -442,7 +441,7 @@ model_manga_line = None
 
 
 def lineart_anime_denoise(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_manga_line
     if model_manga_line is None:
         from annotator.manga_line import MangaLineExtration
@@ -454,16 +453,16 @@ def lineart_anime_denoise(img, res=512, **kwargs):
 
 
 def unload_lineart_anime_denoise():
-   global model_manga_line
-   if model_manga_line is not None:
-       model_manga_line.unload_model()
+    global model_manga_line
+    if model_manga_line is not None:
+        model_manga_line.unload_model()
 
 
 model_zoe_depth = None
 
 
 def zoe_depth(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_zoe_depth
     if model_zoe_depth is None:
         from annotator.zoe import ZoeDetector
@@ -482,7 +481,7 @@ model_normal_bae = None
 
 
 def normal_bae(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_normal_bae
     if model_normal_bae is None:
         from annotator.normalbae import NormalBaeDetector
@@ -501,7 +500,7 @@ model_oneformer_coco = None
 
 
 def oneformer_coco(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_oneformer_coco
     if model_oneformer_coco is None:
         from annotator.oneformer import OneformerDetector
@@ -520,7 +519,7 @@ model_oneformer_ade20k = None
 
 
 def oneformer_ade20k(img, res=512, **kwargs):
-    img, remove_pad = resize_image(img, res)
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_oneformer_ade20k
     if model_oneformer_ade20k is None:
         from annotator.oneformer import OneformerDetector
