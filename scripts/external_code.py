@@ -2,8 +2,8 @@ from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
 from modules import scripts, processing, shared
-from processor import preprocessor_sliders_config
 from scripts import global_state
+from scripts.processor import preprocessor_sliders_config
 
 from modules.api import api
 
