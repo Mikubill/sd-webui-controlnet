@@ -538,7 +538,8 @@ model_shuffle = None
 
 
 def shuffle(img, res=512, **kwargs):
-    img = HWC3(img)
+    img, remove_pad = resize_image_with_pad(img, res)
+    img = remove_pad(img)
     global model_shuffle
     if model_shuffle is None:
         from annotator.shuffle import ContentShuffleDetector
