@@ -6,7 +6,7 @@ import numpy as np
 from annotator.mmpkg.mmcv.utils import is_str
 
 
-class Color(Enum):
+class Color(tuple, Enum):
     """An enum that defines common colors.
 
     Contains red, green, blue, cyan, yellow, magenta, white and black.

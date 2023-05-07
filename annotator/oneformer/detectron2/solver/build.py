@@ -21,7 +21,7 @@ _GradientClipperInput = Union[torch.Tensor, Iterable[torch.Tensor]]
 _GradientClipper = Callable[[_GradientClipperInput], None]
 
 
-class GradientClipType(Enum):
+class GradientClipType(str, Enum):
     VALUE = "value"
     NORM = "norm"
 

@@ -34,7 +34,7 @@ _KEYPOINT_THRESHOLD = 0.05
 
 
 @unique
-class ColorMode(Enum):
+class ColorMode(int, Enum):
     """
     Enum of different color modes to use for instance visualizations.
     """

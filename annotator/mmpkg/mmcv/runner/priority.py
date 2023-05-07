@@ -2,7 +2,7 @@
 from enum import Enum
 
 
-class Priority(Enum):
+class Priority(int, Enum):
     """Hook priority levels.
 
     +--------------+------------+

@@ -47,7 +47,7 @@ def instance_color(rgb=False, idx=1, maximum=255):
     return ret
 
 @unique
-class ColorMode(Enum):
+class ColorMode(int, Enum):
     """
     Enum of different color modes to use for instance visualizations.
     """
