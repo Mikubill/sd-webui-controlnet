@@ -269,7 +269,7 @@ class Script(scripts.Script):
         default_unit = self.get_default_ui_unit()
         with gr.Tabs():
             with gr.Tab(label='Single Image') as upload_tab:
-                with gr.Row(equal_height=True):
+                with gr.Row().style(equal_height=True):
                     input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
                     # Gradio's magic number. Only 242 works.
                     with gr.Group(visible=False) as generated_image_group:
