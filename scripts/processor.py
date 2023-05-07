@@ -9,6 +9,11 @@ def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
 
 
+def safer_memory(x):
+    # Fix many MAC/AMD problems
+    return np.ascontiguousarray(x.copy()).copy()
+
+
 def resize_image_with_pad(input_image, resolution):
     img = HWC3(input_image)
     H_raw, W_raw, _ = img.shape
@@ -21,9 +26,9 @@ def resize_image_with_pad(input_image, resolution):
     img_padded = np.pad(img, [[0, H_pad], [0, W_pad], [0, 0]], mode='edge')
 
     def remove_pad(x):
-        return x[:H_target, :W_target]
+        return safer_memory(x[:H_target, :W_target])
 
-    return img_padded, remove_pad
+    return safer_memory(img_padded), remove_pad
 
 
 model_canny = None
@@ -550,6 +555,9 @@ def shuffle(img, res=512, **kwargs):
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
+    "none": [
+        
+    ],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
