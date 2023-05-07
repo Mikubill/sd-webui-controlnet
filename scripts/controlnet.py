@@ -961,8 +961,9 @@ class Script(scripts.Script):
                 "control mode": str(unit.control_mode),
                 "preprocessor params": str((unit.processor_res, unit.threshold_a, unit.threshold_b)),
             }
+            log_value = str(log_value).replace('\'', '').replace('{', '').replace('}', '')
 
-            p.extra_generation_params.update({'\n' + log_key: str(log_value).replace('\'', '').replace('{', '').replace('}', '')})
+            p.extra_generation_params.update({log_key: log_value})
 
         return enabled_units
 
