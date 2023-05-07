@@ -555,6 +555,9 @@ def shuffle(img, res=512, **kwargs):
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
+    "none": [
+        
+    ],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
