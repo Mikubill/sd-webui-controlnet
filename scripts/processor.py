@@ -7,6 +7,9 @@ from typing import Callable, Tuple
 model_canny = None
 
 preprocessor_sliders_config = {
+    "none": [
+        
+    ],
     "canny": [
         {
             "name": "Preprocessor resolution",
