@@ -101,9 +101,7 @@ This is my setting. If you run into any problem, you can use this setting as a s
 
 ### Previous Models
 
-Big Models: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
-
-Small Models: https://huggingface.co/webui/ControlNet-modules-safetensors
+Old Models of ControlNet 1.0: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
 
@@ -119,12 +117,24 @@ Please consider this version if you work with professional studios that requires
 
 In the new controlnet 1.1, your inputs are always correct as long as you follow the one and only one rule: set preprocessor as invert if your image has black lines and white background. If you prefer the previous 1.0 way to manually find out correct combinations by testing all correct/wrong combinations of preprocessors+invert+rgb2bgr, you may opt-out the updating and use the above old version 1.0.
 
-
 ### Usage
 
 1. Open "txt2img" or "img2img" tab, write your prompts.
 2. Press "Refresh models" and select the model you want to use. (If nothing appears, try reload/restart the webui)
 3. Upload your image and select preprocessor, done.
+
+### Use T2I-Adapter
+
+(From TencentARC/T2I-Adapter)
+
+T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models. 
+
+To use T2I-Adapter models:
+1. Download files from https://huggingface.co/TencentARC/T2I-Adapter/tree/main/models
+2. Put them in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".
+3. Make sure that the file names of PTH files and YAML files are consistent.
+
+Note that "CoAdapter" is not implemented yet.
 
 ### Examples
 
@@ -138,33 +148,7 @@ In the new controlnet 1.1, your inputs are always correct as long as you follow 
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-dep.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-out.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-gen.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-out.png?raw=true"> |
 
-### T2I-Adapter Support
-
-(From TencentARC/T2I-Adapter)
-
-T2I-Adapter is a small network that can provide additional guidance for pre-trained text-to-image models. 
-
-To use T2I-Adapter models:
-1. Download files from https://huggingface.co/TencentARC/T2I-Adapter
-2. Copy corresponding config file and rename it to the same name as the model - see list below.
-3. It's better to use a slightly lower strength (t) when generating images with sketch model, such as 0.6-0.8. (ref: [ldm/models/diffusion/plms.py](https://github.com/TencentARC/T2I-Adapter/blob/5f41a0e38fc6eac90d04bc4cede85a2bc4570653/ldm/models/diffusion/plms.py#L158))
-
-| Adapter | Config |
-|:-------------------------:|:-------------------------:|
-| t2iadapter_canny_sd14v1.pth | sketch_adapter_v14.yaml |
-| t2iadapter_sketch_sd14v1.pth | sketch_adapter_v14.yaml |
-| t2iadapter_seg_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_keypose_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_openpose_sd14v1.pth | image_adapter_v14.yaml |
-| t2iadapter_color_sd14v1.pth | t2iadapter_color_sd14v1.yaml |
-| t2iadapter_style_sd14v1.pth | t2iadapter_style_sd14v1.yaml |
-
-Note: 
-
-* This implement is experimental, result may differ from original repo.
-* Some adapters may have mapping deviations (see issue https://github.com/lllyasviel/ControlNet/issues/255)
-
-### Adapter Examples
+### T2I-Adapter Examples
 
 | Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
@@ -186,17 +170,15 @@ Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
 
 * (Windows) (NVIDIA: Ampere) 4gb - with `--xformers` enabled, and `Low VRAM` mode ticked in the UI, goes up to 768x832
 
-### Multi-ControlNet / Joint Conditioning (Experimental)
+### Multi-ControlNet
 
 This option allows multiple ControlNet inputs for a single generation. To enable this option, change `Multi ControlNet: Max models amount (requires restart)` in the settings. Note that you will need to restart the WebUI for changes to take effect.
-
-* Guess Mode will apply to all ControlNet if any of them are enabled.
 
 | Source A | Source B | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
 | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448620-cd3ede92-8d3f-43d5-b771-32dd8417618f.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448619-beed9bdb-f6bb-41c2-a7df-aa3ef1f653c5.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/220448613-c99a9e04-0450-40fd-bc73-a9122cefaa2c.png"> |
 
-### Weight and Guidance Strength/Start/End
+### Control Weight/Start/End
 
 Weight is the weight of the controlnet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
 
@@ -231,27 +213,3 @@ This extension adds these command line arguments to the webui:
 Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
 
 To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
-
-### Example: Visual-ChatGPT (by API)
-
-Quick start:
-
-```base
-# Run WebUI in API mode
-python launch.py --api --xformers
-
-# Install/Upgrade transformers
-pip install -U transformers
-
-# Install deps
-pip install langchain==0.0.101 openai 
-
-# Run exmaple
-python example/chatgpt.py
-```
-
-### Limits
-
-* Dragging large file on the Web UI may freeze the entire page. It is better to use the upload file option instead.
-* Just like WebUI's [hijack](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/3715ece0adce7bf7c5e9c5ab3710b2fdc3848f39/modules/sd_hijack_unet.py#L27), we used some interpolate to accept arbitrary size configure (see `scripts/cldm.py`)
-
