@@ -123,9 +123,9 @@ To use T2I-Adapter models:
 
 Note that "CoAdapter" is not implemented yet.
 
-### ControlNet Examples
+### Examples
 
-The below results are from ControlNet 1.0.
+The below results are from ControlNet (These examples are a bit old and still use 1.0 models).
 
 | Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
@@ -136,7 +136,7 @@ The below results are from ControlNet 1.0.
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-source.jpg?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-pose.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-gen.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-dep.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-out.png?raw=true"> |
 
-### T2I-Adapter Examples
+The below examples are from T2I-Adapter.
 
 From `t2iadapter_color_sd14v1.pth` :
 
