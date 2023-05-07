@@ -92,30 +92,17 @@ If you are a previous user of ControlNet 1.0, you may:
 
 * Or you can start from the step 6 in the above Install section.
 
-
 ### Default Setting
 
 This is my setting. If you run into any problem, you can use this setting as a sanity check
 
 ![image](https://user-images.githubusercontent.com/19834515/235620638-17937171-8ac1-45bc-a3cb-3aebf605b4ef.png)
 
-### Previous Models
+### Use Previous Models (Use ControlNet 1.0 Models)
 
 Old Models of ControlNet 1.0: https://huggingface.co/lllyasviel/ControlNet/tree/main/models
 
 You can still use all previous models in the previous ControlNet 1.0. Now, the previous "depth" is now called "depth_midas", the previous "normal" is called "normal_midas", the previous "hed" is called "softedge_hed". And starting from 1.1, all line maps, edge maps, lineart maps, boundary maps will have black background and white lines.
-
-### Use Previous Version 1.0
-
-The previous version (sd-webui-controlnet 1.0) is archived in 
-
-https://github.com/lllyasviel/webui-controlnet-v1-archived
-
-Using this version is not a temporary stop of updates. You will stop all updates forever.
-
-Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
-
-In the new controlnet 1.1, your inputs are always correct as long as you follow the one and only one rule: set preprocessor as invert if your image has black lines and white background. If you prefer the previous 1.0 way to manually find out correct combinations by testing all correct/wrong combinations of preprocessors+invert+rgb2bgr, you may opt-out the updating and use the above old version 1.0.
 
 ### Usage
 
@@ -136,7 +123,9 @@ To use T2I-Adapter models:
 
 Note that "CoAdapter" is not implemented yet.
 
-### Examples
+### ControlNet Examples
+
+The below results are from ControlNet 1.0.
 
 | Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
@@ -146,25 +135,20 @@ Note that "CoAdapter" is not implemented yet.
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_source.jpg?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_hed.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/evt_gen.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-source.jpg?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-pose.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/an-gen.png?raw=true"> |
 |<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-dep.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/sk-b-out.png?raw=true"> |
-|<img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-src.png?raw=true">  |  <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-gen.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/nm-out.png?raw=true"> |
 
 ### T2I-Adapter Examples
 
+From `t2iadapter_color_sd14v1.pth` :
+
 | Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
-| (no preprocessor) | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/dog_out-2.png?raw=true"> |
-| (no preprocessor) | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_sk-2.png?raw=true"> | <img width="256" alt="" src="https://github.com/Mikubill/sd-webui-controlnet/blob/main/samples/cat_out-2.png?raw=true"> |
-| (no preprocessor) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222967315-dc50406d-2930-47c5-8027-f76b95969f2b.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222967311-724d9531-4b93-4770-8409-cd9480434112.png"> |
-| (no preprocessor) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222966824-8f6c36f1-525b-40c2-ae9e-d3f5d148b5c9.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222966821-110541a4-5014-4cee-90f8-758edf540eae.png"> |
 | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947416-ec9e52a4-a1d0-48d8-bb81-736bf636145e.jpeg"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947435-1164e7d8-d857-42f9-ab10-2d4a4b25f33a.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947557-5520d5f8-88b4-474d-a576-5c9cd3acac3a.png"> |
-| <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947416-ec9e52a4-a1d0-48d8-bb81-736bf636145e.jpeg"> | (clip, non-image) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222965711-7b884c9e-7095-45cb-a91c-e50d296ba3a2.png"> |
 
-Examples by catboxanon, no tweaking or cherrypicking. (Color Guidance)
+From `t2iadapter_style_sd14v1.pth` :
 
-| Image | Disabled | Enabled |
+| Source | Input | Output |
 |:-------------------------:|:-------------------------:|:-------------------------:|
-| <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869104-0830feab-a0a1-448e-8bcd-add54b219cba.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869047-d0111979-0ef7-4152-8523-8a45c47217c0.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869079-7e5a62e0-fffe-4a19-8875-cba4c68b9428.png"> |
-| <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869253-44f94dfa-5448-48b2-85be-73db867bdbbb.png"> |  <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869261-92e598d0-2950-4874-8b6c-c159bda38365.png"> | <img width="256" alt="" src="https://user-images.githubusercontent.com/122327233/222869272-a4883524-7804-4013-addd-4d1ac56c5d0d.png"> |
+| <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222947416-ec9e52a4-a1d0-48d8-bb81-736bf636145e.jpeg"> | (clip, non-image) | <img width="256" alt="" src="https://user-images.githubusercontent.com/31246794/222965711-7b884c9e-7095-45cb-a91c-e50d296ba3a2.png"> |
 
 ### Minimum Requirements
 
@@ -213,3 +197,13 @@ This extension adds these command line arguments to the webui:
 Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
 
 To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
+
+### Use Previous Version 1.0
+
+The previous version (sd-webui-controlnet 1.0) is archived in 
+
+https://github.com/lllyasviel/webui-controlnet-v1-archived
+
+Using this version is not a temporary stop of updates. You will stop all updates forever.
+
+Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
