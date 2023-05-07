@@ -76,7 +76,7 @@ class Script(scripts.Script):
             with gr.Accordion("ControlNet-M2M", open = False):
                 with gr.Tabs():
                     for i in range(max_models):
-                        with gr.Tab(f"ControlNet-{i}", open=False):
+                        with gr.Tab(f"ControlNet-{i}"):
                             ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
                             ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
                 duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True)
