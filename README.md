@@ -87,10 +87,10 @@ Now you can control which aspect is more important (your prompt or your ControlN
 <td width="25%" style="text-align: center">"ControlNet is more important"</td>
 </tr>
 <tr>
-<td width="25%" style="text-align: center"><img src="docs/cm1.png"></td>
-<td width="25%" style="text-align: center"><img src="docs/cm2.png"></td>
-<td width="25%" style="text-align: center"><img src="docs/cm3.png"></td>
-<td width="25%" style="text-align: center"><img src="docs/cm4.png"></td>
+<td width="25%" style="text-align: center"><img src="samples/cm1.png"></td>
+<td width="25%" style="text-align: center"><img src="samples/cm2.png"></td>
+<td width="25%" style="text-align: center"><img src="samples/cm3.png"></td>
+<td width="25%" style="text-align: center"><img src="samples/cm4.png"></td>
 </tr>
 </table>
 
