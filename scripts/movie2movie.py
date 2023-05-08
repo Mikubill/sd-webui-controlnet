@@ -79,7 +79,7 @@ class Script(scripts.Script):
                         with gr.Tab(f"ControlNet-{i}"):
                             ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
                             ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
-                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True)
+                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True, elem_id='controlnet_movie2movie_duration_slider')
         ctrls_group += (duration,)
 
         return ctrls_group

@@ -214,10 +214,10 @@ class Script(scripts.Script):
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
-        self.txt2img_w_slider = gr.Slider()
-        self.txt2img_h_slider = gr.Slider()
-        self.img2img_w_slider = gr.Slider()
-        self.img2img_h_slider = gr.Slider()
+        self.txt2img_w_slider = gr.Slider(elem_id='txt2img_w_slider')
+        self.txt2img_h_slider = gr.Slider(elem_id='txt2img_h_slider')
+        self.img2img_w_slider = gr.Slider(elem_id='img2img_w_slider')
+        self.img2img_h_slider = gr.Slider(elem_id='img2img_h_slider')
         self.enabled_units = []
         self.detected_map = []
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
@@ -299,11 +299,11 @@ class Script(scripts.Script):
                 batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
 
         with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
-            canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-            canvas_height = gr.Slider(label="New Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+            canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64, elem_id='controlnet_canvas_width')
+            canvas_height = gr.Slider(label="New Canvas Height", minimum=256, maximum=1024, value=512, step=64, elem_id='controlnet_canvas_height')
             with gr.Row():
-                canvas_create_button = gr.Button(value="Create New Canvas")
-                canvas_cancel_button = gr.Button(value="Cancel")
+                canvas_create_button = gr.Button(value="Create New Canvas", elem_id='controlnet_canvas_create_button')
+                canvas_cancel_button = gr.Button(value="Cancel", elem_id='controlnet_canvas_cancel_button')
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
@@ -316,10 +316,10 @@ class Script(scripts.Script):
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
         with FormRow(elem_classes="checkboxes-row", variant="compact"):
-            enabled = gr.Checkbox(label='Enable', value=default_unit.enabled)
-            lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram)
-            pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect)
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id)
+            enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id='controlnet_enable_checkbox')
+            lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id='controlnet_low_vram_checkbox')
+            pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id='controlnet_pixel_perfect_checkbox')
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id, elem_id='controlnet_preprocessor_preview_checkbox')
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
 
@@ -357,16 +357,16 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module)
+            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id='controlnet_Preprocessor_dropdown')
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True)
-            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model)
+            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id='controlnet_Model_dropdown')
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
 
         with gr.Row():
-            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05)
-            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True)
-            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True)
+            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id='controlnet_control_weight_slider')
+            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id='controlnet_start_control_step_slider')
+            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id='controlnet_ending_control_step_slider')
 
         def build_sliders(module, pp):
             module = self.get_module_basename(module)
@@ -405,9 +405,9 @@ class Script(scripts.Script):
 
         # advanced options
         with gr.Column(visible=False) as advanced:
-            processor_res = gr.Slider(label="Preprocessor resolution", value=default_unit.processor_res, minimum=64, maximum=2048, visible=False, interactive=False)
-            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, visible=False, interactive=False)
-            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False)
+            processor_res = gr.Slider(label="Preprocessor resolution", value=default_unit.processor_res, minimum=64, maximum=2048, visible=False, interactive=False, elem_id='controlnet_preprocessor_resolution_slider')
+            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, visible=False, interactive=False, elem_id='controlnet_threshold_A_slider')
+            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False, elem_id='controlnet_threshold_B_slider')
 
         if gradio_compat:
             module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced])
@@ -522,11 +522,11 @@ class Script(scripts.Script):
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode")
+        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id='controlnet_control_mod_radio')
 
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode")
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id='controlnet_resize_mode_radio')
 
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback)
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id='controlnet_automatically_send_generated_images_checkbox')
 
         trigger_preprocessor.click(fn=run_annotator, inputs=[
             input_image, module, processor_res, threshold_a, threshold_b,
