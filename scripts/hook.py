@@ -344,7 +344,7 @@ class UnetHook(nn.Module):
 
                 if param.cfg_injection:
                     ref_uncond_xt = x.clone()
-                    # print('ontrolNet More Important -  Using standard cfg for reference.')
+                    # print('ControlNet More Important -  Using standard cfg for reference.')
                 elif param.soft_injection or is_in_high_res_fix:
                     ref_uncond_xt = ref_cond_xt.clone()
                     # print('Prompt More Important -  Using no cfg for reference.')
