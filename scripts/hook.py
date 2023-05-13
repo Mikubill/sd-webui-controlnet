@@ -21,7 +21,7 @@ class ControlModelType(Enum):
     T2I_CoAdapter = "T2I_CoAdapter, Chong Mou"
     MasaCtrl = "MasaCtrl, Mingdeng Cao"
     GLIGEN = "GLIGEN, Yuheng Li"
-    AttentionInjection = "AttentionInjection, Anonymous"
+    AttentionInjection = "AttentionInjection, Lvmin Zhang"  # A simple attention injection written by Lvmin
     StableSR = "StableSR, Jianyi Wang"
     PromptDiffusion = "PromptDiffusion, Zhendong Wang"
     ControlLoRA = "ControlLoRA, Wu Hecong"
@@ -87,6 +87,7 @@ class ControlParams:
         self.global_average_pooling = global_average_pooling
         self.hr_hint_cond = hr_hint_cond
         self.used_hint_cond = None
+        self.used_hint_cond_latent = None
         self.batch_size = batch_size
         self.instance_counter = instance_counter
         self.is_vanilla_samplers = is_vanilla_samplers
@@ -123,6 +124,7 @@ class ControlParams:
     def hint_cond(self, new_hint_cond):
         self._hint_cond = new_hint_cond
         self.used_hint_cond = None
+        self.used_hint_cond_latent = None
 
 
 class UnetHook(nn.Module):
@@ -158,7 +160,7 @@ class UnetHook(nn.Module):
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
             total_t2i_adapter_embedding = [0.0] * 4
-            total_extra_cond = None
+            total_extra_prompt_tokens = None
             require_inpaint_hijack = False
 
             # High-res fix
@@ -166,6 +168,11 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 # select which hint_cond to use
                 param.used_hint_cond = param.hint_cond
+
+                # Attention Injection do not need high-res fix
+                if param.control_model_type in [ControlModelType.AttentionInjection]:
+                    continue
+
                 # has high-res fix
                 if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 3 and param.hr_hint_cond.ndim == 3:
                     _, h_lr, w_lr = param.hint_cond.shape
@@ -195,13 +202,13 @@ class UnetHook(nn.Module):
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
                 control *= uc_mask
-                if total_extra_cond is None:
-                    total_extra_cond = control.clone()
+                if total_extra_prompt_tokens is None:
+                    total_extra_prompt_tokens = control.clone()
                 else:
-                    total_extra_cond = torch.cat([total_extra_cond, control.clone()], dim=1)
+                    total_extra_prompt_tokens = torch.cat([total_extra_prompt_tokens, control.clone()], dim=1)
                 
-            if total_extra_cond is not None:
-                context = torch.cat([context, total_extra_cond], dim=1)
+            if total_extra_prompt_tokens is not None:
+                context = torch.cat([context, total_extra_prompt_tokens], dim=1)
                 
             # handle ControlNet / T2I_Adapter
             for param in outer.control_params:
@@ -293,8 +300,10 @@ class UnetHook(nn.Module):
                 return forward(*args, **kwargs)
             finally:
                 if self.lowvram:
-                    [param.control_model.to("cpu") for param in self.control_params]
-                        
+                    for param in self.control_params:
+                        if param.control_model is not None:
+                            param.control_model.to("cpu")
+
         model._original_forward = model.forward
         model.forward = forward2.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
