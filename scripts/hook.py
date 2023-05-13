@@ -187,6 +187,14 @@ class UnetHook(nn.Module):
                         param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
 
+            # Convert control image to latent
+            for param in outer.control_params:
+                if param.used_hint_cond_latent is not None:
+                    continue
+                if param.control_model_type not in [ControlModelType.AttentionInjection]:
+                    continue
+                param.used_hint_cond_latent = 'No Implementation'
+
             # handle prompt token control
             for param in outer.control_params:
                 if param.guidance_stopped:
@@ -276,7 +284,7 @@ class UnetHook(nn.Module):
                     h = module(h, emb, context)
                     
                     # t2i-adatper, same as openaimodel.py:744
-                    if ((i+1) % 3 == 0) and len(total_t2i_adapter_embedding) > 0:
+                    if (i+1) % 3 == 0:
                         h = cfg_based_adder(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)
@@ -291,7 +299,7 @@ class UnetHook(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
-        def forward2(*args, **kwargs):
+        def forward_webui(*args, **kwargs):
             # webui will handle other compoments 
             try:
                 if shared.cmd_opts.lowvram:
@@ -305,10 +313,10 @@ class UnetHook(nn.Module):
                             param.control_model.to("cpu")
 
         model._original_forward = model.forward
-        model.forward = forward2.__get__(model, UNetModel)
+        model.forward = forward_webui.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
     
-    def notify(self, params, is_vanilla_samplers): # lint: list[ControlParams]
+    def notify(self, params, is_vanilla_samplers):
         self.is_vanilla_samplers = is_vanilla_samplers
         self.control_params = params
 
