@@ -112,6 +112,8 @@ To use, just select `reference-only` as preprocessor and put an image. Your SD w
 
 *Note that this method is as "non-opinioned" as possible. It only contains very basic connection codes, without any personal preferences, to connect the attention layers with your reference images. However, even if we tried best to not include any opinioned codes, we still need to write some subjective implementations to deal with weighting, cfg-scale, etc - tech report is on the way.*
 
+More examples [here](https://github.com/Mikubill/sd-webui-controlnet/discussions/1236).
+
 # Technical Documents
 
 See also the documents of ControlNet 1.1: 
