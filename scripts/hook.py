@@ -236,6 +236,10 @@ class UnetHook(nn.Module):
                 latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
                 param.used_hint_cond_latent = latent_hint
                 print(f'ControlNet has used VAE to encode latent shape {latent_hint.shape}')
+                # A1111 fix for medvram. Do NOT change this!
+                if shared.cmd_opts.medvram:
+                    lowvram.send_everything_to_cpu()
+                    outer.model.to(x.device)
 
             # handle prompt token control
             for param in outer.control_params:
