@@ -214,10 +214,10 @@ class Script(scripts.Script):
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
-        self.txt2img_w_slider = gr.Slider(elem_id='txt2img_w_slider')
-        self.txt2img_h_slider = gr.Slider(elem_id='txt2img_h_slider')
-        self.img2img_w_slider = gr.Slider(elem_id='img2img_w_slider')
-        self.img2img_h_slider = gr.Slider(elem_id='img2img_h_slider')
+        self.txt2img_w_slider = gr.Slider()
+        self.txt2img_h_slider = gr.Slider()
+        self.img2img_w_slider = gr.Slider()
+        self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
         self.detected_map = []
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
@@ -291,7 +291,7 @@ class Script(scripts.Script):
                             height: var(--size-5);
                             color: var(--block-label-text-color);
                             """
-                        preview_check_elem_id = f'{elem_id_tabname}_{tabname}_preprocessor_preview'
+                        preview_check_elem_id = f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox'
                         preview_close_button_js = f"document.querySelector(\'#{preview_check_elem_id} input[type=\\\'checkbox\\\']\').click();"
                         gr.HTML(value=f'''<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
 
@@ -307,10 +307,10 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
-            open_new_canvas_button = ToolButton(value=open_symbol)
-            webcam_enable = ToolButton(value=camera_symbol)
-            webcam_mirror = ToolButton(value=reverse_symbol)
-            send_dimen_button = ToolButton(value=tossup_symbol)
+            open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
+            webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
+            webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
+            send_dimen_button = ToolButton(value=tossup_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_send_dimen_button')
 
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
@@ -319,7 +319,7 @@ class Script(scripts.Script):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_enable_checkbox')
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox')
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox')
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox')
+            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id)
 
         # infotext_fields.append((enabled, "ControlNet Enabled"))
 
@@ -357,10 +357,10 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_Preprocessor_dropdown')
-            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True)
-            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_Model_dropdown')
-            refresh_models = ToolButton(value=refresh_symbol)
+            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
+            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
+            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
+            refresh_models = ToolButton(value=refresh_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_refresh_models')
             refresh_models.click(refresh_all_models, model, model)
 
         with gr.Row():
