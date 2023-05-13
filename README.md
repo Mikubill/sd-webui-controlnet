@@ -106,7 +106,7 @@ Many professional A1111 users know a trick to diffuse image with references by i
 
 This `reference-only` ControlNet can directly link the attention layers of your SD to any independent images, so that your SD will read arbitary images for reference. You need at least ControlNet 1.1.153 to use it.
 
-*Note that this method is also based on an ongoing method of ControlNet - paper is on the way.*
+*Note that this method is as "non-opinioned" as possible. It only contains very basic connection codes, without any personal preferences, to connect the attention layers with your reference images. However, even if we tried best to not include any opinioned codes, we still need to write some subjective implementations to deal with weighting, cfg-scale, etc - tech report is on the way.*
 
 # Technical Documents
 
