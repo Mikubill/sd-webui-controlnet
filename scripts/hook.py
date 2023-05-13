@@ -19,6 +19,7 @@ class ControlModelType(Enum):
     T2I_Adapter = "T2I_Adapter"
     T2I_StyleAdapter = "T2I_StyleAdapter"
     T2I_CoAdapter = "T2I_CoAdapter"
+    MasaCtrl = "MasaCtrl"
     GLIGEN = "GLIGEN"
     AttentionInjection = "AttentionInjection"
     StableSR = "StableSR"
