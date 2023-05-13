@@ -239,7 +239,7 @@ class UnetHook(nn.Module):
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
-                    else:    
+                    elif param.control_model_type == ControlModelType.ControlNet:
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
 
                 if param.advanced_weighting is not None:
