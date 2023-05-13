@@ -343,16 +343,15 @@ class UnetHook(nn.Module):
                 ref_cond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
                 if param.cfg_injection:
-                    blur_time = timesteps.float() * 1.25
-                    blur_time = torch.round(blur_time.clip(0, 999)).long()
-                    ref_uncond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, blur_time)
-                    # print('ControlNet More Important -  Using time-delayed cfg.')
+                    ref_uncond_xt = x.clone()
+                    print('ontrolNet More Important -  Using standard cfg.')
                 elif param.soft_injection or is_in_high_res_fix:
                     ref_uncond_xt = ref_cond_xt.clone()
-                    # print('Prompt More Important -  Using no cfg.')
+                    print('Prompt More Important -  Using no cfg.')
                 else:
-                    ref_uncond_xt = x.clone()
-                    # print('Balanced -  Using standard cfg.')
+                    time_weight = (timesteps.float() / 1000.0).clip(0, 1)[:, None, None, None]
+                    ref_uncond_xt = x * time_weight + ref_cond_xt.clone() * (1.0 - time_weight)
+                    print('Balanced -  Using time-balanced cfg.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
 
