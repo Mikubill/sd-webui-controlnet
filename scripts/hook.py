@@ -351,7 +351,7 @@ class UnetHook(nn.Module):
                 else:
                     time_weight = (timesteps.float() / 1000.0).clip(0, 1)[:, None, None, None]
                     ref_uncond_xt = x * time_weight + ref_cond_xt.clone() * (1.0 - time_weight)
-                    # print('Balanced -  Using time-balanced cfg for reference.')
+                    # print('Balanced - Using time-balanced cfg for reference.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
 
