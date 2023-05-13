@@ -32,7 +32,7 @@ class ControlModelType(Enum):
 # Written by Lvmin
 class AttentionAutoMachine(Enum):
     """
-    Lvmin's algorithm for Attention AutoMachine Statues.
+    Lvmin's algorithm for Attention AutoMachine States.
     """
 
     Read = "Read"
