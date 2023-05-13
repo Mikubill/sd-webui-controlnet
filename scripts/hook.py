@@ -1,4 +1,5 @@
 import torch
+import einops
 import torch.nn as nn
 
 from enum import Enum
@@ -350,6 +351,12 @@ class UnetHook(nn.Module):
                     for param in self.control_params:
                         if param.control_model is not None:
                             param.control_model.to("cpu")
+
+        def hacked_basic_transformer_inner_forward(self, x, context=None):
+            x = self.attn1(self.norm1(x), context=context if self.disable_self_attn else None) + x
+            x = self.attn2(self.norm2(x), context=context) + x
+            x = self.ff(self.norm3(x)) + x
+            return x
 
         model._original_forward = model.forward
         outer.original_forward = model.forward
