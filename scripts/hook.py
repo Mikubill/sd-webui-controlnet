@@ -206,10 +206,6 @@ class UnetHook(nn.Module):
                 # select which hint_cond to use
                 param.used_hint_cond = param.hint_cond
 
-                # Attention Injection do not need high-res fix
-                if param.control_model_type in [ControlModelType.AttentionInjection]:
-                    continue
-
                 # has high-res fix
                 if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 3 and param.hr_hint_cond.ndim == 3:
                     _, h_lr, w_lr = param.hint_cond.shape
@@ -217,12 +213,15 @@ class UnetHook(nn.Module):
                     _, _, h, w = x.shape
                     h, w = h * 8, w * 8
                     if abs(h - h_lr) < abs(h - h_hr):
-                        # we are in low-res path
-                        param.used_hint_cond = param.hint_cond
+                        is_in_high_res_fix = False
+                        if param.used_hint_cond is not param.hint_cond:
+                            param.used_hint_cond = param.hint_cond
+                            param.used_hint_cond_latent = None
                     else:
-                        # we are in high-res path
-                        param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
+                        if param.used_hint_cond is not param.hr_hint_cond:
+                            param.used_hint_cond = param.hr_hint_cond
+                            param.used_hint_cond_latent = None
 
             # Convert control image to latent
             for param in outer.control_params:
@@ -236,6 +235,7 @@ class UnetHook(nn.Module):
                 latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
                 latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
                 param.used_hint_cond_latent = latent_hint
+                print(f'ControlNet has used VAE to encode latent shape {latent_hint.shape}')
 
             # handle prompt token control
             for param in outer.control_params:
