@@ -152,6 +152,7 @@ class UnetHook(nn.Module):
         super().__init__()
         self.lowvram = lowvram
         self.model = None
+        self.sd_ldm = None
         self.control_params = None
 
     def guidance_schedule_handler(self, x):
@@ -159,8 +160,9 @@ class UnetHook(nn.Module):
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
 
-    def hook(self, model, control_params):
+    def hook(self, model, sd_ldm, control_params):
         self.model = model
+        self.sd_ldm = sd_ldm
         self.control_params = control_params
 
         outer = self
@@ -168,11 +170,10 @@ class UnetHook(nn.Module):
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
             total_t2i_adapter_embedding = [0.0] * 4
-            total_extra_prompt_tokens = None
             require_inpaint_hijack = False
+            is_in_high_res_fix = False
 
             # High-res fix
-            is_in_high_res_fix = False
             for param in outer.control_params:
                 # select which hint_cond to use
                 param.used_hint_cond = param.hint_cond
@@ -201,7 +202,10 @@ class UnetHook(nn.Module):
                     continue
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
-                param.used_hint_cond_latent = 'No Implementation'
+                latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
+                latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
+                latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
+                param.used_hint_cond_latent = latent_hint
 
             # handle prompt token control
             for param in outer.control_params:
@@ -218,14 +222,8 @@ class UnetHook(nn.Module):
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
                 control *= uc_mask
-                if total_extra_prompt_tokens is None:
-                    total_extra_prompt_tokens = control.clone()
-                else:
-                    total_extra_prompt_tokens = torch.cat([total_extra_prompt_tokens, control.clone()], dim=1)
-                
-            if total_extra_prompt_tokens is not None:
-                context = torch.cat([context, total_extra_prompt_tokens], dim=1)
-                
+                context = torch.cat([context, control.clone()], dim=1)
+
             # handle ControlNet / T2I_Adapter
             for param in outer.control_params:
                 if param.guidance_stopped:
@@ -281,8 +279,19 @@ class UnetHook(nn.Module):
                         target = total_t2i_adapter_embedding
                     if target is not None:
                         target[idx] = item + target[idx]
-                        
-            assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
+
+            # Handle attention-based control
+            for param in outer.control_params:
+                if param.guidance_stopped:
+                    continue
+
+                if param.control_model_type not in [ControlModelType.AttentionInjection]:
+                    continue
+
+                print(f'Latent shape {param.used_hint_cond_latent.shape}')
+                print('Not Implemented')
+
+            # U-Net Encoder
             hs = []
             with th.no_grad():
                 t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
@@ -297,14 +306,19 @@ class UnetHook(nn.Module):
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
+            # U-Net Middle Block
             h = aligned_adding(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
 
+            # U-Net Decoder
             for i, module in enumerate(self.output_blocks):
                 h = th.cat([h, aligned_adding(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
+            # U-Net Output
             h = h.type(x.dtype)
-            return self.out(h)
+            h = self.out(h)
+
+            return h
 
         def forward_webui(*args, **kwargs):
             # webui will handle other compoments 

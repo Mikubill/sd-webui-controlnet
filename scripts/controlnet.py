@@ -972,7 +972,10 @@ class Script(scripts.Script):
         You can modify the processing object (p) here, inject hooks, etc.
         args contains all values returned by components from ui()
         """
-        unet = p.sd_model.model.diffusion_model
+
+        sd_ldm = p.sd_model
+        unet = sd_ldm.model.diffusion_model
+
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
@@ -1235,7 +1238,7 @@ class Script(scripts.Script):
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
-        self.latest_network.hook(model=unet, control_params=forward_params)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params)
         self.detected_map = detected_maps
 
     def postprocess(self, p, processed, *args):
