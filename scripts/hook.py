@@ -340,24 +340,24 @@ class UnetHook(nn.Module):
 
                 query_size = int(x.shape[0])
                 uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
-                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
+                ref_cond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
                 if param.cfg_injection:
-                    blur_time = timesteps.float()
-                    blur_time *= 1.25
+                    blur_time = timesteps.float() * 1.25
                     blur_time = torch.round(blur_time.clip(0, 999)).long()
-                    delay_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, blur_time)
-                    fin_xt = ref_xt * uc_mask + delay_xt * (1 - uc_mask)
+                    ref_uncond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, blur_time)
                     # print('ControlNet More Important -  Using time-delayed cfg.')
                 elif param.soft_injection or is_in_high_res_fix:
-                    fin_xt = ref_xt
+                    ref_uncond_xt = ref_cond_xt.clone()
                     # print('Prompt More Important -  Using no cfg.')
                 else:
-                    fin_xt = ref_xt * uc_mask + x * (1 - uc_mask)
+                    ref_uncond_xt = x.clone()
                     # print('Balanced -  Using standard cfg.')
 
+                ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
+
                 outer.attention_auto_machine = AttentionAutoMachine.Write
-                outer.original_forward(x=fin_xt, timesteps=timesteps, context=context)
+                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AttentionAutoMachine.Read
 
                 outer.attention_auto_machine_weight = param.weight
