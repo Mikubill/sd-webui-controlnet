@@ -324,7 +324,7 @@ class UnetHook(nn.Module):
                 query_size = int(x.shape[0])
                 ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps).long())
                 outer.attention_auto_machine_uc_mask = param.generate_uc_mask(query_size, python_list=True)
-                if param.soft_injection:
+                if param.soft_injection or is_in_high_res_fix:
                     outer.attention_auto_machine_uc_mask = [1 for _ in outer.attention_auto_machine_uc_mask]
                 outer.attention_auto_machine_weight = param.weight
                 outer.attention_auto_machine = AttentionAutoMachine.Write
