@@ -27,6 +27,16 @@ class ControlModelType(Enum):
     ControlLoRA = "ControlLoRA, Wu Hecong"
 
 
+# Written by Lvmin
+class AttentionAutoMachine(Enum):
+    """
+    Lvmin's algorithm for Attention AutoMachine Statues.
+    """
+
+    Read = "Read"
+    Write = "Write"
+
+
 class TorchHijackForUnet:
     """
     This is torch, but with cat that resizes tensors to appropriate dimensions if they do not match;
@@ -154,6 +164,7 @@ class UnetHook(nn.Module):
         self.model = None
         self.sd_ldm = None
         self.control_params = None
+        self.attention_auto_machine = AttentionAutoMachine.Read
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -202,9 +213,11 @@ class UnetHook(nn.Module):
                     continue
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
+                query_size = int(x.shape[0])
                 latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
                 latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
                 latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
+                latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
                 param.used_hint_cond_latent = latent_hint
 
             # handle prompt token control
@@ -285,11 +298,16 @@ class UnetHook(nn.Module):
                 if param.guidance_stopped:
                     continue
 
+                if param.used_hint_cond_latent is None:
+                    continue
+
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
 
-                print(f'Latent shape {param.used_hint_cond_latent.shape}')
-                print('Not Implemented')
+                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, timesteps)
+                outer.attention_auto_machine = AttentionAutoMachine.Write
+                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
+                outer.attention_auto_machine = AttentionAutoMachine.Read
 
             # U-Net Encoder
             hs = []
@@ -334,6 +352,7 @@ class UnetHook(nn.Module):
                             param.control_model.to("cpu")
 
         model._original_forward = model.forward
+        outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
