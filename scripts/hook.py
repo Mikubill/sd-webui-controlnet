@@ -372,7 +372,6 @@ class UnetHook(nn.Module):
                             param.control_model.to("cpu")
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
-            print(f'{self.attn_index}/{outer.max_attn_index}')
             x_norm1 = self.norm1(x)
             self_attn1 = 0
             if self.disable_self_attn:
@@ -386,7 +385,7 @@ class UnetHook(nn.Module):
                     control_weight = outer.attention_auto_machine_weight
                     store = []
                     for i, mask in enumerate(uc_mask):
-                        if mask > 0.5 and float(outer.max_attn_index) * float(control_weight) > float(self.attn_index):
+                        if mask > 0.5 and control_weight > self.attn_weight:
                             store.append(self_attention_context[i])
                         else:
                             store.append(None)
@@ -413,14 +412,14 @@ class UnetHook(nn.Module):
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
 
-        outer.max_attn_index = 0
-        for i, module in enumerate(torch_dfs(model)):
-            if isinstance(module, BasicTransformerBlock):
-                module._original_inner_forward = module._forward
-                module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
-                module.bank = []
-                module.attn_index = i
-                outer.max_attn_index = i
+        attn_modules = [module for module in torch_dfs(model) if isinstance(module, BasicTransformerBlock)]
+        attn_modules = sorted(attn_modules, key=lambda x: - x.norm1.normalized_shape[0])
+
+        for i, module in enumerate(attn_modules):
+            module._original_inner_forward = module._forward
+            module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
+            module.bank = []
+            module.attn_weight = float(i) / float(len(attn_modules))
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
