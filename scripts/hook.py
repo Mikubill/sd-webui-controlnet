@@ -127,35 +127,43 @@ class ControlParams:
         self.used_hint_cond_latent = None
 
 
+def aligned_adding(base, x, require_channel_alignment):
+    if isinstance(x, float):
+        if x == 0:
+            return base
+        return base + x
+
+    if require_channel_alignment:
+        zeros = torch.zeros_like(base)
+        zeros[:, :x.shape[1], ...] = x
+        x = zeros
+
+    # resize to sample resolution
+    base_h, base_w = base.shape[-2:]
+    xh, xw = x.shape[-2:]
+    if base_h != xh or base_w != xw:
+        x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
+
+    return base + x
+
+
 class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
         self.lowvram = lowvram
+        self.model = None
+        self.control_params = None
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
 
-    def hook(self, model):
+    def hook(self, model, control_params):
+        self.model = model
+        self.control_params = control_params
+
         outer = self
-
-        def cfg_based_adder(base, x, require_autocast):
-            if isinstance(x, float):
-                return base + x
-            
-            if require_autocast:
-                zeros = torch.zeros_like(base)
-                zeros[:, :x.shape[1], ...] = x
-                x = zeros
-
-            # resize to sample resolution
-            base_h, base_w = base.shape[-2:]
-            xh, xw = x.shape[-2:]
-            if base_h != xh or base_w != xw:
-                x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
-            
-            return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
@@ -284,15 +292,15 @@ class UnetHook(nn.Module):
                     h = module(h, emb, context)
                     
                     if (i+1) % 3 == 0:
-                        h = cfg_based_adder(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
+                        h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
-            h = cfg_based_adder(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
+            h = aligned_adding(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
 
             for i, module in enumerate(self.output_blocks):
-                h = th.cat([h, cfg_based_adder(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
+                h = th.cat([h, aligned_adding(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
@@ -314,10 +322,6 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
-    
-    def notify(self, params, is_vanilla_samplers):
-        self.is_vanilla_samplers = is_vanilla_samplers
-        self.control_params = params
 
     def restore(self, model):
         scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)

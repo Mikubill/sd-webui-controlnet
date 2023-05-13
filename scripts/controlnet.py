@@ -1235,8 +1235,7 @@ class Script(scripts.Script):
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
-        self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, is_vanilla_samplers)
+        self.latest_network.hook(model=unet, control_params=forward_params)
         self.detected_map = detected_maps
 
     def postprocess(self, p, processed, *args):
