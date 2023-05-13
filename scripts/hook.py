@@ -349,7 +349,8 @@ class UnetHook(nn.Module):
                     ref_uncond_xt = ref_cond_xt.clone()
                     # print('Prompt More Important -  Using no cfg for reference.')
                 else:
-                    time_weight = (timesteps.float() / 1000.0).clip(0, 1)[:, None, None, None]
+                    ldm_time_max = getattr(sd_ldm, 'num_timesteps', 1000)
+                    time_weight = (timesteps.float() / float(ldm_time_max)).clip(0, 1)[:, None, None, None]
                     ref_uncond_xt = x * time_weight + ref_cond_xt.clone() * (1.0 - time_weight)
                     # print('Balanced - Using time-balanced cfg for reference.')
 
