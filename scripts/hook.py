@@ -231,17 +231,22 @@ class UnetHook(nn.Module):
                     continue
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
-                query_size = int(x.shape[0])
-                latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
-                latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
-                latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
-                latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
-                param.used_hint_cond_latent = latent_hint
-                print(f'ControlNet has used VAE to encode latent shape {latent_hint.shape}')
-                # A1111 fix for medvram. Do NOT change this!
-                if shared.cmd_opts.medvram:
-                    lowvram.send_everything_to_cpu()
-                    outer.model.to(x.device)
+                try:
+                    query_size = int(x.shape[0])
+                    latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
+                    latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
+                    latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
+                    latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
+                    param.used_hint_cond_latent = latent_hint
+                    print(f'ControlNet has used VAE to encode latent shape {latent_hint.shape}')
+                    # A1111 fix for medvram. Do NOT change this!
+                    if shared.cmd_opts.medvram:
+                        lowvram.send_everything_to_cpu()
+                        outer.model.to(x.device)
+                except Exception as e:
+                    print(e)
+                    param.used_hint_cond_latent = None
+                    raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae` and remove `--precision full` in launch cmd.')
 
             # handle prompt token control
             for param in outer.control_params:
