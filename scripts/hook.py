@@ -246,7 +246,7 @@ class UnetHook(nn.Module):
                 except Exception as e:
                     print(e)
                     param.used_hint_cond_latent = None
-                    raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae` and remove `--precision full` in launch cmd.')
+                    raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
 
             # handle prompt token control
             for param in outer.control_params:
