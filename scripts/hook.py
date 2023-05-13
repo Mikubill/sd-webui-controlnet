@@ -180,7 +180,6 @@ class UnetHook(nn.Module):
         self.sd_ldm = None
         self.control_params = None
         self.attention_auto_machine = AttentionAutoMachine.Read
-        self.attention_auto_machine_uc_mask = None
         self.attention_auto_machine_weight = 1.0
 
     def guidance_schedule_handler(self, x):
@@ -340,14 +339,28 @@ class UnetHook(nn.Module):
                     continue
 
                 query_size = int(x.shape[0])
+                uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                 ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
-                outer.attention_auto_machine_uc_mask = param.generate_uc_mask(query_size, python_list=True)
-                if param.soft_injection or is_in_high_res_fix:
-                    outer.attention_auto_machine_uc_mask = [1 for _ in outer.attention_auto_machine_uc_mask]
-                outer.attention_auto_machine_weight = param.weight
+
+                if param.cfg_injection:
+                    blur_time = timesteps.float()
+                    blur_time *= 1.25
+                    blur_time = torch.round(blur_time.clip(0, 999)).long()
+                    delay_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, blur_time)
+                    fin_xt = ref_xt * uc_mask + delay_xt * (1 - uc_mask)
+                    # print('ControlNet More Important -  Using time-delayed cfg.')
+                elif param.soft_injection or is_in_high_res_fix:
+                    fin_xt = ref_xt
+                    # print('Prompt More Important -  Using no cfg.')
+                else:
+                    fin_xt = ref_xt * uc_mask + x * (1 - uc_mask)
+                    # print('Balanced -  Using standard cfg.')
+
                 outer.attention_auto_machine = AttentionAutoMachine.Write
-                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
+                outer.original_forward(x=fin_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AttentionAutoMachine.Read
+
+                outer.attention_auto_machine_weight = param.weight
 
             # U-Net Encoder
             hs = []
@@ -401,27 +414,12 @@ class UnetHook(nn.Module):
                 # Use self-attention
                 self_attention_context = x_norm1
                 if outer.attention_auto_machine == AttentionAutoMachine.Write:
-                    uc_mask = outer.attention_auto_machine_uc_mask
-                    control_weight = outer.attention_auto_machine_weight
-                    store = []
-                    for i, mask in enumerate(uc_mask):
-                        if mask > 0.5 and control_weight > self.attn_weight:
-                            store.append(self_attention_context[i])
-                        else:
-                            store.append(None)
-                    self.bank.append(store)
-                    self_attn1 = self.attn1(x_norm1, context=self_attention_context)
+                    self.bank.append(self_attention_context.detach().clone())
                 if outer.attention_auto_machine == AttentionAutoMachine.Read:
-                    query_size = self_attention_context.shape[0]
-                    self_attention_context = [self_attention_context[i] for i in range(query_size)]
-                    for store in self.bank:
-                        for i, v in enumerate(store):
-                            if v is not None:
-                                self_attention_context[i] = torch.cat([self_attention_context[i], v], dim=0)
-                    x_norm1 = [x_norm1[i] for i in range(query_size)]
-                    self_attn1 = [self.attn1(a[None], context=b[None]) for a, b in zip(x_norm1, self_attention_context)]
-                    self_attn1 = torch.cat(self_attn1, dim=0)
+                    if outer.attention_auto_machine_weight > self.attn_weight:
+                        self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
                     self.bank.clear()
+                self_attn1 = self.attn1(x_norm1, context=self_attention_context)
 
             x = self_attn1 + x
             x = self.attn2(self.norm2(x), context=context) + x
