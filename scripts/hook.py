@@ -234,11 +234,14 @@ class UnetHook(nn.Module):
                 try:
                     query_size = int(x.shape[0])
                     latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
-                    latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
-                    latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
+                    latent_hint = latent_hint.type(devices.dtype_vae)
+                    with devices.autocast():
+                        latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
+                        latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
                     latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
+                    latent_hint = latent_hint.type(devices.dtype_unet)
                     param.used_hint_cond_latent = latent_hint
-                    print(f'ControlNet has used VAE to encode latent shape {latent_hint.shape}')
+                    print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {latent_hint.shape}.')
                     # A1111 fix for medvram. Do NOT change this!
                     if shared.cmd_opts.medvram:
                         lowvram.send_everything_to_cpu()
