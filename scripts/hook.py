@@ -15,16 +15,16 @@ class ControlModelType(Enum):
     The type of Control Models (supported or not).
     """
 
-    ControlNet = "ControlNet"
-    T2I_Adapter = "T2I_Adapter"
-    T2I_StyleAdapter = "T2I_StyleAdapter"
-    T2I_CoAdapter = "T2I_CoAdapter"
-    MasaCtrl = "MasaCtrl"
-    GLIGEN = "GLIGEN"
-    AttentionInjection = "AttentionInjection"
-    StableSR = "StableSR"
-    PromptDiffusion = "PromptDiffusion"
-    ControlLoRA = "ControlLoRA"
+    ControlNet = "ControlNet, Lvmin Zhang"
+    T2I_Adapter = "T2I_Adapter, Chong Mou"
+    T2I_StyleAdapter = "T2I_StyleAdapter, Chong Mou"
+    T2I_CoAdapter = "T2I_CoAdapter, Chong Mou"
+    MasaCtrl = "MasaCtrl, Mingdeng Cao"
+    GLIGEN = "GLIGEN, Yuheng Li"
+    AttentionInjection = "AttentionInjection, Anonymous"
+    StableSR = "StableSR, Jianyi Wang"
+    PromptDiffusion = "PromptDiffusion, Zhendong Wang"
+    ControlLoRA = "ControlLoRA, Wu Hecong"
 
 
 class TorchHijackForUnet:
