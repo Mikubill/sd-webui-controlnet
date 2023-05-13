@@ -204,7 +204,9 @@ class UnetHook(nn.Module):
             # High-res fix
             for param in outer.control_params:
                 # select which hint_cond to use
-                param.used_hint_cond = param.hint_cond
+                if param.used_hint_cond is None:
+                    param.used_hint_cond = param.hint_cond
+                    param.used_hint_cond_latent = None
 
                 # has high-res fix
                 if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 3 and param.hr_hint_cond.ndim == 3:
