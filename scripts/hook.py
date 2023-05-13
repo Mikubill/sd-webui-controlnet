@@ -107,8 +107,10 @@ class ControlParams:
         self.soft_injection = soft_injection
         self.cfg_injection = cfg_injection
 
-    def generate_uc_mask(self, length, dtype, device):
+    def generate_uc_mask(self, length, dtype=None, device=None, python_list=False):
         if self.is_vanilla_samplers and self.cfg_scale == 1:
+            if python_list:
+                return [1 for _ in range(length)]
             return torch.tensor([1 for _ in range(length)], dtype=dtype, device=device)
 
         y = []
@@ -121,6 +123,9 @@ class ControlParams:
                 y += [1] if p < self.batch_size else [0]
 
         self.instance_counter += length
+
+        if python_list:
+            return y
 
         return torch.tensor(y, dtype=dtype, device=device)
 
@@ -175,6 +180,7 @@ class UnetHook(nn.Module):
         self.sd_ldm = None
         self.control_params = None
         self.attention_auto_machine = AttentionAutoMachine.Read
+        self.attention_auto_machine_uc_mask = None
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -314,7 +320,9 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
 
+                query_size = int(x.shape[0])
                 ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps).long())
+                outer.attention_auto_machine_uc_mask = param.generate_uc_mask(query_size, python_list=True)
                 outer.attention_auto_machine = AttentionAutoMachine.Write
                 outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AttentionAutoMachine.Read
@@ -363,19 +371,36 @@ class UnetHook(nn.Module):
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
             x_norm1 = self.norm1(x)
+            self_attn1 = 0
             if self.disable_self_attn:
                 # Do not use self-attention
-                self_attention_context = context
+                self_attn1 = self.attn1(x_norm1, context=context)
             else:
                 # Use self-attention
                 self_attention_context = x_norm1
                 if outer.attention_auto_machine == AttentionAutoMachine.Write:
-                    self.bank.append(self_attention_context.clone())
+                    uc_mask = outer.attention_auto_machine_uc_mask
+                    store = []
+                    for i, mask in enumerate(uc_mask):
+                        if mask > 0.5:
+                            store.append(self_attention_context[i])
+                        else:
+                            store.append(None)
+                    self.bank.append(store)
+                    self_attn1 = self.attn1(x_norm1, context=self_attention_context)
                 if outer.attention_auto_machine == AttentionAutoMachine.Read:
-                    self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
+                    query_size = self_attention_context.shape[0]
+                    self_attention_context = [self_attention_context[i] for i in range(query_size)]
+                    for store in self.bank:
+                        for i, v in enumerate(store):
+                            if v is not None:
+                                self_attention_context[i] = torch.cat([self_attention_context[i], v], dim=0)
+                    x_norm1 = [x_norm1[i] for i in range(query_size)]
+                    self_attn1 = [self.attn1(a[None], context=b[None]) for a, b in zip(x_norm1, self_attention_context)]
+                    self_attn1 = torch.cat(self_attn1, dim=0)
                     self.bank.clear()
 
-            x = self.attn1(x_norm1, context=self_attention_context) + x
+            x = self_attn1 + x
             x = self.attn2(self.norm2(x), context=context) + x
             x = self.ff(self.norm3(x)) + x
             return x
