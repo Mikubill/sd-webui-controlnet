@@ -369,6 +369,11 @@ class UnetHook(nn.Module):
             else:
                 # Use self-attention
                 self_attention_context = x_norm1
+                if outer.attention_auto_machine == AttentionAutoMachine.Write:
+                    self.bank.append(self_attention_context.clone())
+                if outer.attention_auto_machine == AttentionAutoMachine.Read:
+                    self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
+                    self.bank.clear()
 
             x = self.attn1(x_norm1, context=self_attention_context) + x
             x = self.attn2(self.norm2(x), context=context) + x
@@ -383,6 +388,7 @@ class UnetHook(nn.Module):
             if isinstance(module, BasicTransformerBlock):
                 module._original_inner_forward = module._forward
                 module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
+                module.bank = []
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
