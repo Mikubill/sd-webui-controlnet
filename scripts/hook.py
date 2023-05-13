@@ -1,12 +1,29 @@
-
 import torch
 import torch.nn as nn
+
+from enum import Enum
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
+
+
+class ControlModelType(Enum):
+    """
+    The type of Control Models (supported or not).
+    """
+
+    ControlNet = "ControlNet"
+    T2I_Adapter = "T2I_Adapter"
+    T2I_StyleAdapter = "T2I_StyleAdapter"
+    T2I_CoAdapter = "T2I_CoAdapter"
+    GLIGEN = "GLIGEN"
+    AttentionInjection = "AttentionInjection"
+    StableSR = "StableSR"
+    PromptDiffusion = "PromptDiffusion"
+    ControlLoRA = "ControlLoRA"
 
 
 class TorchHijackForUnet:
@@ -48,8 +65,7 @@ class ControlParams:
         start_guidance_percent,
         stop_guidance_percent, 
         advanced_weighting, 
-        is_adapter,
-        is_extra_cond,
+        control_model_type,
         hr_hint_cond,
         global_average_pooling,
         batch_size,
@@ -66,8 +82,7 @@ class ControlParams:
         self.start_guidance_percent = start_guidance_percent
         self.stop_guidance_percent = stop_guidance_percent
         self.advanced_weighting = advanced_weighting
-        self.is_adapter = is_adapter
-        self.is_extra_cond = is_extra_cond
+        self.control_model_type = control_model_type
         self.global_average_pooling = global_average_pooling
         self.hr_hint_cond = hr_hint_cond
         self.used_hint_cond = None
@@ -113,7 +128,6 @@ class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
         self.lowvram = lowvram
-        self.only_mid_control = False
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -144,7 +158,6 @@ class UnetHook(nn.Module):
             total_control = [0.0] * 13
             total_adapter = [0.0] * 4
             total_extra_cond = None
-            only_mid_control = outer.only_mid_control
             require_inpaint_hijack = False
 
             # High-res fix
@@ -166,10 +179,14 @@ class UnetHook(nn.Module):
                         param.used_hint_cond = param.hr_hint_cond
                         is_in_high_res_fix = True
 
-            # handle external cond
+            # handle prompt token control
             for param in outer.control_params:
-                if param.guidance_stopped or not param.is_extra_cond:
+                if param.guidance_stopped:
                     continue
+
+                if param.control_model_type not in [ControlModelType.T2I_StyleAdapter]:
+                    continue
+
                 param.control_model.to(devices.get_device_for("controlnet"))
                 query_size = int(x.shape[0])
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
@@ -187,18 +204,23 @@ class UnetHook(nn.Module):
                 
             # handle unet injection stuff
             for param in outer.control_params:
-                if param.guidance_stopped or param.is_extra_cond:
+                if param.guidance_stopped:
+                    continue
+
+                if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
                     continue
 
                 param.control_model.to(devices.get_device_for("controlnet"))
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
-                if not param.is_adapter and x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9: 
-                    # inpaint_model: 4 data + 4 downscaled image + 1 mask
-                    x_in = x[:, :4, ...]
-                    require_inpaint_hijack = True
-                    
+
+                if param.control_model_type == ControlModelType.ControlNet:
+                    if x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9:
+                        # inpaint_model: 4 data + 4 downscaled image + 1 mask
+                        x_in = x[:, :4, ...]
+                        require_inpaint_hijack = True
+
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
                 control = param.control_model(x=x_in, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
@@ -208,14 +230,14 @@ class UnetHook(nn.Module):
 
                 if param.cfg_injection or param.global_average_pooling:
                     query_size = int(x.shape[0])
-                    if param.is_adapter:
+                    if param.control_model_type == ControlModelType.T2I_Adapter:
                         control = [torch.cat([c.clone() for _ in range(query_size)], dim=0) for c in control]
                     uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                     control = [c * uc_mask for c in control]
 
                 if param.soft_injection or is_in_high_res_fix:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
-                    if param.is_adapter:
+                    if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
                     else:    
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
@@ -228,7 +250,9 @@ class UnetHook(nn.Module):
                     control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
                     
                 for idx, item in enumerate(control):
-                    target = total_adapter if param.is_adapter else total_control
+                    target = total_control
+                    if param.control_model_type == ControlModelType.T2I_Adapter:
+                        target = total_adapter
                     target[idx] = item + target[idx]
                         
             control = total_control
@@ -244,7 +268,7 @@ class UnetHook(nn.Module):
                     # t2i-adatper, same as openaimodel.py:744
                     if ((i+1) % 3 == 0) and len(total_adapter):
                         h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
-                        
+
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
@@ -252,12 +276,8 @@ class UnetHook(nn.Module):
             h = cfg_based_adder(h, control_in, require_inpaint_hijack)
 
             for i, module in enumerate(self.output_blocks):
-                if only_mid_control:
-                    hs_input = hs.pop()
-                    h = th.cat([h, hs_input], dim=1)
-                else:
-                    hs_input, control_input = hs.pop(), control.pop()
-                    h = th.cat([h, cfg_based_adder(hs_input, control_input, require_inpaint_hijack)], dim=1)
+                hs_input, control_input = hs.pop(), control.pop()
+                h = th.cat([h, cfg_based_adder(hs_input, control_input, require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
