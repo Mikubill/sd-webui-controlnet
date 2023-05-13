@@ -344,14 +344,14 @@ class UnetHook(nn.Module):
 
                 if param.cfg_injection:
                     ref_uncond_xt = x.clone()
-                    print('ontrolNet More Important -  Using standard cfg.')
+                    # print('ontrolNet More Important -  Using standard cfg for reference.')
                 elif param.soft_injection or is_in_high_res_fix:
                     ref_uncond_xt = ref_cond_xt.clone()
-                    print('Prompt More Important -  Using no cfg.')
+                    # print('Prompt More Important -  Using no cfg for reference.')
                 else:
                     time_weight = (timesteps.float() / 1000.0).clip(0, 1)[:, None, None, None]
                     ref_uncond_xt = x * time_weight + ref_cond_xt.clone() * (1.0 - time_weight)
-                    print('Balanced -  Using time-balanced cfg.')
+                    # print('Balanced -  Using time-balanced cfg for reference.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
 
