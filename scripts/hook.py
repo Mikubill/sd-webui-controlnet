@@ -283,7 +283,6 @@ class UnetHook(nn.Module):
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
                     
-                    # t2i-adatper, same as openaimodel.py:744
                     if (i+1) % 3 == 0:
                         h = cfg_based_adder(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
