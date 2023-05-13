@@ -310,6 +310,10 @@ class UnetHook(nn.Module):
                     if target is not None:
                         target[idx] = item + target[idx]
 
+            # Clear attention cache
+            for module in outer.attn_module_list:
+                module.bank = []
+
             # Handle attention-based control
             for param in outer.control_params:
                 if param.guidance_stopped:
@@ -422,6 +426,8 @@ class UnetHook(nn.Module):
             module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
             module.bank = []
             module.attn_weight = float(i) / float(len(attn_modules))
+
+        outer.attn_module_list = attn_modules
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
