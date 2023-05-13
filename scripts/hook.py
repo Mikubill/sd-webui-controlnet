@@ -129,7 +129,7 @@ class ControlParams:
 
 def aligned_adding(base, x, require_channel_alignment):
     if isinstance(x, float):
-        if x == 0:
+        if x == 0.0:
             return base
         return base + x
 
