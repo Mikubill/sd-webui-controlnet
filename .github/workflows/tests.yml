@@ -13,8 +13,7 @@ jobs:
         with: 
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
           path: 'stable-diffusion-webui'
-          ref: '8ca50f8240fc1b4400ba59be50ad7a75b99cfbcb'
-          
+
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
