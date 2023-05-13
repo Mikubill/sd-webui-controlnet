@@ -181,6 +181,7 @@ class UnetHook(nn.Module):
         self.control_params = None
         self.attention_auto_machine = AttentionAutoMachine.Read
         self.attention_auto_machine_uc_mask = None
+        self.attention_auto_machine_weight = 1.0
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -323,6 +324,7 @@ class UnetHook(nn.Module):
                 query_size = int(x.shape[0])
                 ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps).long())
                 outer.attention_auto_machine_uc_mask = param.generate_uc_mask(query_size, python_list=True)
+                outer.attention_auto_machine_weight = param.weight
                 outer.attention_auto_machine = AttentionAutoMachine.Write
                 outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AttentionAutoMachine.Read
@@ -370,6 +372,7 @@ class UnetHook(nn.Module):
                             param.control_model.to("cpu")
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
+            print(f'{self.attn_index}/{outer.max_attn_index}')
             x_norm1 = self.norm1(x)
             self_attn1 = 0
             if self.disable_self_attn:
@@ -380,9 +383,10 @@ class UnetHook(nn.Module):
                 self_attention_context = x_norm1
                 if outer.attention_auto_machine == AttentionAutoMachine.Write:
                     uc_mask = outer.attention_auto_machine_uc_mask
+                    control_weight = outer.attention_auto_machine_weight
                     store = []
                     for i, mask in enumerate(uc_mask):
-                        if mask > 0.5:
+                        if mask > 0.5 and float(outer.max_attn_index) * float(control_weight) > float(self.attn_index):
                             store.append(self_attention_context[i])
                         else:
                             store.append(None)
@@ -409,11 +413,14 @@ class UnetHook(nn.Module):
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
 
-        for module in torch_dfs(model):
+        outer.max_attn_index = 0
+        for i, module in enumerate(torch_dfs(model)):
             if isinstance(module, BasicTransformerBlock):
                 module._original_inner_forward = module._forward
                 module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
                 module.bank = []
+                module.attn_index = i
+                outer.max_attn_index = i
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
