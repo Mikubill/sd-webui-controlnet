@@ -98,6 +98,8 @@ Now you can control which aspect is more important (your prompt or your ControlN
 
 Now we have a `reference-only` preprocessor that does not require any control models. It can guide the diffusion directly using images as references.
 
+(Prompt "a dog running on grassland, best quality, ...")
+
 ![image](samples/ref.png)
 
 This method is similar to inpaint-based reference but it does not make your image disordered. 
