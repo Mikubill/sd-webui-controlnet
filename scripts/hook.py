@@ -9,6 +9,7 @@ cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
+from ldm.modules.attention import BasicTransformerBlock
 
 
 class ControlModelType(Enum):
@@ -69,23 +70,23 @@ th = TorchHijackForUnet()
 
 class ControlParams:
     def __init__(
-        self, 
-        control_model, 
-        hint_cond, 
-        weight,
-        guidance_stopped,
-        start_guidance_percent,
-        stop_guidance_percent, 
-        advanced_weighting, 
-        control_model_type,
-        hr_hint_cond,
-        global_average_pooling,
-        batch_size,
-        instance_counter,
-        is_vanilla_samplers,
-        cfg_scale,
-        soft_injection,
-        cfg_injection
+            self,
+            control_model,
+            hint_cond,
+            weight,
+            guidance_stopped,
+            start_guidance_percent,
+            stop_guidance_percent,
+            advanced_weighting,
+            control_model_type,
+            hr_hint_cond,
+            global_average_pooling,
+            batch_size,
+            instance_counter,
+            is_vanilla_samplers,
+            cfg_scale,
+            soft_injection,
+            cfg_injection
     ):
         self.control_model = control_model
         self._hint_cond = hint_cond
@@ -156,6 +157,14 @@ def aligned_adding(base, x, require_channel_alignment):
         x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
 
     return base + x
+
+
+# DFS Search for Torch.nn.Module, Written by Lvmin
+def torch_dfs(model: torch.nn.Module):
+    result = [model]
+    for child in model.children():
+        result += torch_dfs(child)
+    return result
 
 
 class UnetHook(nn.Module):
@@ -260,7 +269,7 @@ class UnetHook(nn.Module):
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
                 control = param.control_model(x=x_in, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
-                
+
                 if outer.lowvram:
                     param.control_model.to("cpu")
 
@@ -280,11 +289,11 @@ class UnetHook(nn.Module):
 
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting
-                    
+
                 control = [c * scale for c, scale in zip(control, control_scales)]
                 if param.global_average_pooling:
                     control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
-                    
+
                 for idx, item in enumerate(control):
                     target = None
                     if param.control_model_type == ControlModelType.ControlNet:
@@ -305,7 +314,7 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
 
-                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, timesteps)
+                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps).long())
                 outer.attention_auto_machine = AttentionAutoMachine.Write
                 outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AttentionAutoMachine.Read
@@ -318,8 +327,8 @@ class UnetHook(nn.Module):
                 h = x.type(self.dtype)
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
-                    
-                    if (i+1) % 3 == 0:
+
+                    if (i + 1) % 3 == 0:
                         h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)
@@ -344,7 +353,7 @@ class UnetHook(nn.Module):
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
-                                            
+
                 return forward(*args, **kwargs)
             finally:
                 if self.lowvram:
@@ -353,7 +362,15 @@ class UnetHook(nn.Module):
                             param.control_model.to("cpu")
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
-            x = self.attn1(self.norm1(x), context=context if self.disable_self_attn else None) + x
+            x_norm1 = self.norm1(x)
+            if self.disable_self_attn:
+                # Do not use self-attention
+                self_attention_context = context
+            else:
+                # Use self-attention
+                self_attention_context = x_norm1
+
+            x = self.attn1(x_norm1, context=self_attention_context) + x
             x = self.attn2(self.norm2(x), context=context) + x
             x = self.ff(self.norm3(x)) + x
             return x
@@ -361,16 +378,22 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
+
+        for module in torch_dfs(model):
+            if isinstance(module, BasicTransformerBlock):
+                module._original_inner_forward = module._forward
+                module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
+
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
     def restore(self, model):
         scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
         if hasattr(self, "control_params"):
             del self.control_params
-        
+
         if not hasattr(model, "_original_forward"):
             # no such handle, ignore
             return
-        
+
         model.forward = model._original_forward
         del model._original_forward
