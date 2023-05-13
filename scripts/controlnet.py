@@ -26,7 +26,7 @@ from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
-from scripts.hook import ControlParams, UnetHook
+from scripts.hook import ControlParams, UnetHook, ControlModelType
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from modules.ui_components import FormRow
@@ -1193,6 +1193,14 @@ class Script(scripts.Script):
 
             is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
 
+            control_model_type = ControlModelType.ControlNet
+
+            if isinstance(model_net, PlugableAdapter):
+                control_model_type = ControlModelType.T2I_Adapter
+
+            if getattr(model_net, "target", None) == "scripts.adapter.StyleAdapter":
+                control_model_type = ControlModelType.T2I_StyleAdapter
+
             forward_param = ControlParams(
                 control_model=model_net,
                 hint_cond=control,
@@ -1201,8 +1209,7 @@ class Script(scripts.Script):
                 start_guidance_percent=unit.guidance_start,
                 stop_guidance_percent=unit.guidance_end,
                 advanced_weighting=None,
-                is_adapter=isinstance(model_net, PlugableAdapter),
-                is_extra_cond=getattr(model_net, "target", "") == "scripts.adapter.StyleAdapter",
+                control_model_type=control_model_type,
                 global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
                 hr_hint_cond=hr_control,
                 batch_size=p.batch_size,
