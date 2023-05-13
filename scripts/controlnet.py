@@ -1,19 +1,12 @@
 import gc
-import inspect
 import os
 from collections import OrderedDict
 from copy import copy
-import base64
 from typing import Union, Dict, Optional, List
 import importlib
-
-import numpy
-import torch
-
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
-import numpy as np
 
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version
@@ -30,12 +23,16 @@ from scripts.hook import ControlParams, UnetHook, ControlModelType
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from modules.ui_components import FormRow
+
 import cv2
+import numpy as np
+import torch
+import base64
+
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from torchvision.transforms import Resize, InterpolationMode, CenterCrop, Compose
-from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution
+from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution, model_free_preprocessors
 
 gradio_compat = True
 try:
@@ -50,7 +47,6 @@ except ImportError:
 svgsupport = False
 try:
     import io
-    import base64
     from svglib.svglib import svg2rlg
     from reportlab.graphics import renderPM
     svgsupport = True
@@ -163,7 +159,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
 
     if isinstance(image['image'], str):
         if os.path.exists(image['image']):
-            image['image'] = numpy.array(Image.open(image['image'])).astype('uint8')
+            image['image'] = np.array(Image.open(image['image'])).astype('uint8')
         elif image['image']:
             image['image'] = external_code.to_base64_nparray(image['image'])
         else:
@@ -176,7 +172,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
 
     if isinstance(image['mask'], str):
         if os.path.exists(image['mask']):
-            image['mask'] = numpy.array(Image.open(image['mask'])).astype('uint8')
+            image['mask'] = np.array(Image.open(image['mask'])).astype('uint8')
         elif image['mask']:
             image['mask'] = external_code.to_base64_nparray(image['mask'])
         else:
@@ -369,19 +365,17 @@ class Script(scripts.Script):
             guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider')
 
         def build_sliders(module, pp):
+            grs = []
             module = self.get_module_basename(module)
             if module not in preprocessor_sliders_config:
-                return [
+                grs += [
                     gr.update(label=flag_preprocessor_resolution, value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=False, interactive=False),
                     gr.update(visible=True)
                 ]
             else:
-                slider_configs = preprocessor_sliders_config[module]
-                grs = []
-
-                for slider_config in slider_configs:
+                for slider_config in preprocessor_sliders_config[module]:
                     if isinstance(slider_config, dict):
                         visible = True
                         if slider_config['name'] == flag_preprocessor_resolution:
@@ -396,12 +390,14 @@ class Script(scripts.Script):
                             interactive=visible))
                     else:
                         grs.append(gr.update(visible=False, interactive=False))
-
                 while len(grs) < 3:
                     grs.append(gr.update(visible=False, interactive=False))
-
                 grs.append(gr.update(visible=True))
-                return grs
+            if module in model_free_preprocessors:
+                grs += [gr.update(visible=False, value='None'), gr.update(visible=False)]
+            else:
+                grs += [gr.update(visible=True), gr.update(visible=True)]
+            return grs
 
         # advanced options
         with gr.Column(visible=False) as advanced:
@@ -410,8 +406,8 @@ class Script(scripts.Script):
             threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider')
 
         if gradio_compat:
-            module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced])
-            pixel_perfect.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced])
+            module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            pixel_perfect.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
 
         # infotext_fields.extend((module, model, weight))
 
@@ -694,6 +690,9 @@ class Script(scripts.Script):
         return model_net
 
     def build_control_model(self, p, unet, model, lowvram):
+        if model is None or model == 'None':
+            raise RuntimeError(f"You have not selected any ControlNet Model.")
+
         model_path = global_state.cn_models.get(model, None)
         if model_path is None:
             model = find_closest_lora_model_name(model)
@@ -973,7 +972,10 @@ class Script(scripts.Script):
         You can modify the processing object (p) here, inject hooks, etc.
         args contains all values returned by components from ui()
         """
-        unet = p.sd_model.model.diffusion_model
+
+        sd_ldm = p.sd_model
+        unet = sd_ldm.model.diffusion_model
+
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
@@ -1014,8 +1016,11 @@ class Script(scripts.Script):
             if unit.low_vram:
                 hook_lowvram = True
 
-            model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
-            model_net.reset()
+            if unit.module in model_free_preprocessors:
+                model_net = None
+            else:
+                model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
+                model_net.reset()
 
             if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
                 input_image = HWC3(np.asarray(p.image_control))
@@ -1201,6 +1206,15 @@ class Script(scripts.Script):
             if getattr(model_net, "target", None) == "scripts.adapter.StyleAdapter":
                 control_model_type = ControlModelType.T2I_StyleAdapter
 
+            if 'reference' in unit.module:
+                control_model_type = ControlModelType.AttentionInjection
+
+            global_average_pooling = False
+
+            if model_net is not None:
+                if model_net.config.model.params.get("global_average_pooling", False):
+                    global_average_pooling = True
+
             forward_param = ControlParams(
                 control_model=model_net,
                 hint_cond=control,
@@ -1210,7 +1224,7 @@ class Script(scripts.Script):
                 stop_guidance_percent=unit.guidance_end,
                 advanced_weighting=None,
                 control_model_type=control_model_type,
-                global_average_pooling=model_net.config.model.params.get("global_average_pooling", False),
+                global_average_pooling=global_average_pooling,
                 hr_hint_cond=hr_control,
                 batch_size=p.batch_size,
                 instance_counter=0,
@@ -1224,8 +1238,7 @@ class Script(scripts.Script):
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
-        self.latest_network.hook(unet)
-        self.latest_network.notify(forward_params, is_vanilla_samplers)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params)
         self.detected_map = detected_maps
 
     def postprocess(self, p, processed, *args):

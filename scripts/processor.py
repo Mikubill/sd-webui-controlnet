@@ -80,7 +80,7 @@ def threshold(img, res=512, thr_a=127, **kwargs):
     return remove_pad(result), True
 
 
-def inpaint(img, res=512, **kwargs):
+def identity(img, **kwargs):
     return img, True
 
 
@@ -553,11 +553,12 @@ def shuffle(img, res=512, **kwargs):
     return result, True
 
 
+model_free_preprocessors = ["reference_only"]
 flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
-    "none": [
-        
-    ],
+    "none": [],
+    "inpaint": [],
+    "reference_only": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
