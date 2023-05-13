@@ -156,8 +156,8 @@ class UnetHook(nn.Module):
             return base + x
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
-            total_control = [0.0] * 13
-            total_adapter = [0.0] * 4
+            total_controlnet_embedding = [0.0] * 13
+            total_t2i_adapter_embedding = [0.0] * 4
             total_extra_cond = None
             require_inpaint_hijack = False
 
@@ -203,7 +203,7 @@ class UnetHook(nn.Module):
             if total_extra_cond is not None:
                 context = torch.cat([context, total_extra_cond], dim=1)
                 
-            # handle unet injection stuff
+            # handle ControlNet / T2I_Adapter
             for param in outer.control_params:
                 if param.guidance_stopped:
                     continue
@@ -251,12 +251,14 @@ class UnetHook(nn.Module):
                     control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
                     
                 for idx, item in enumerate(control):
-                    target = total_control
+                    target = None
+                    if param.control_model_type == ControlModelType.ControlNet:
+                        target = total_controlnet_embedding
                     if param.control_model_type == ControlModelType.T2I_Adapter:
-                        target = total_adapter
-                    target[idx] = item + target[idx]
+                        target = total_t2i_adapter_embedding
+                    if target is not None:
+                        target[idx] = item + target[idx]
                         
-            control = total_control
             assert timesteps is not None, ValueError(f"insufficient timestep: {timesteps}")
             hs = []
             with th.no_grad():
@@ -267,18 +269,16 @@ class UnetHook(nn.Module):
                     h = module(h, emb, context)
                     
                     # t2i-adatper, same as openaimodel.py:744
-                    if ((i+1) % 3 == 0) and len(total_adapter):
-                        h = cfg_based_adder(h, total_adapter.pop(0), require_inpaint_hijack)
+                    if ((i+1) % 3 == 0) and len(total_t2i_adapter_embedding):
+                        h = cfg_based_adder(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)
                 h = self.middle_block(h, emb, context)
 
-            control_in = control.pop()
-            h = cfg_based_adder(h, control_in, require_inpaint_hijack)
+            h = cfg_based_adder(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
 
             for i, module in enumerate(self.output_blocks):
-                hs_input, control_input = hs.pop(), control.pop()
-                h = th.cat([h, cfg_based_adder(hs_input, control_input, require_inpaint_hijack)], dim=1)
+                h = th.cat([h, cfg_based_adder(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
             h = h.type(x.dtype)
