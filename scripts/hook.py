@@ -346,6 +346,14 @@ class UnetHook(nn.Module):
                 uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
                 ref_cond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
+                # Inpaint Hijack
+                if x.shape[1] == 9:
+                    ref_cond_xt = torch.cat([
+                        ref_cond_xt,
+                        torch.zeros_like(ref_cond_xt)[:, 0:1, :, :],
+                        param.used_hint_cond_latent
+                    ], dim=1)
+
                 if param.cfg_injection:
                     ref_uncond_xt = x.clone()
                     # print('ControlNet More Important -  Using standard cfg for reference.')
