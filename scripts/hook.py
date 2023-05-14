@@ -241,10 +241,6 @@ class UnetHook(nn.Module):
                     latent_hint = latent_hint.type(devices.dtype_unet)
                     param.used_hint_cond_latent = latent_hint
                     print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {latent_hint.shape}.')
-                    # A1111 fix for medvram. Do NOT change this!
-                    if shared.cmd_opts.medvram:
-                        lowvram.send_everything_to_cpu()
-                        outer.model.to(x.device)
                 except Exception as e:
                     print(e)
                     param.used_hint_cond_latent = None
@@ -322,6 +318,14 @@ class UnetHook(nn.Module):
                         target = total_t2i_adapter_embedding
                     if target is not None:
                         target[idx] = item + target[idx]
+
+            # A1111 fix for medvram.
+            if shared.cmd_opts.medvram:
+                try:
+                    # Trigger the register_forward_pre_hook
+                    outer.sd_ldm.model()
+                except:
+                    pass
 
             # Clear attention cache
             for module in outer.attn_module_list:
