@@ -558,7 +558,6 @@ flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
     "none": [],
     "inpaint": [],
-    "reference_only": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
@@ -752,6 +751,16 @@ preprocessor_sliders_config = {
             "value": 1.0,
             "min": 1.0,
             "max": 8.0,
+            "step": 0.01
+        }
+    ],
+    "reference_only": [
+        None,
+        {
+            "name": r'Style Fidelity (only for "Balanced" mode)',
+            "value": 0.5,
+            "min": 0.0,
+            "max": 1.0,
             "step": 0.01
         }
     ],

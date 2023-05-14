@@ -349,11 +349,11 @@ class UnetHook(nn.Module):
                     ref_uncond_xt = ref_cond_xt.clone()
                     # print('Prompt More Important -  Using no cfg for reference.')
                 else:
-                    ldm_time_max = getattr(sd_ldm, 'num_timesteps', 1000)
-                    time_weight = (timesteps.float() / float(ldm_time_max)).clip(0, 1)[:, None, None, None]
-                    time_weight *= torch.pi * 0.5
-                    # We should use sin/cos to make sure that the std of weighted matrix follows original ddpm schedule
-                    ref_uncond_xt = x * torch.sin(time_weight) + ref_cond_xt.clone() * torch.cos(time_weight)
+                    balanced_point = 1.0 - float(param.control_model.get('threshold_a', 0.5))
+                    time_weight = timesteps.float() / float(getattr(sd_ldm, 'num_timesteps', 1000))
+                    time_weight = (time_weight > balanced_point).float().to(time_weight.device)
+                    time_weight = time_weight[:, None, None, None]
+                    ref_uncond_xt = x * time_weight + ref_cond_xt * (1 - time_weight)
                     # print('Balanced - Using time-balanced cfg for reference.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
@@ -403,7 +403,7 @@ class UnetHook(nn.Module):
             finally:
                 if self.lowvram:
                     for param in self.control_params:
-                        if param.control_model is not None:
+                        if isinstance(param.control_model, torch.nn.Module):
                             param.control_model.to("cpu")
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):

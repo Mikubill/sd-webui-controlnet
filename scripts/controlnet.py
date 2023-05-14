@@ -1214,6 +1214,13 @@ class Script(scripts.Script):
             if model_net is not None:
                 if model_net.config.model.params.get("global_average_pooling", False):
                     global_average_pooling = True
+            else:
+                # Pass preprocessor parameters to model-free control
+                model_net = dict(
+                    preprocessor_resolution=preprocessor_resolution,
+                    threshold_a=unit.threshold_a,
+                    threshold_b=unit.threshold_b
+                )
 
             forward_param = ControlParams(
                 control_model=model_net,
