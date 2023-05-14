@@ -238,7 +238,7 @@ class UnetHook(nn.Module):
                         latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
                         latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
                     latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
-                    latent_hint = latent_hint.type(x.dtype)
+                    latent_hint = latent_hint.type(devices.dtype_unet)
                     param.used_hint_cond_latent = latent_hint
                     print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {latent_hint.shape}.')
                     # A1111 fix for medvram. Do NOT change this!
