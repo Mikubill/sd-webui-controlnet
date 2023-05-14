@@ -351,7 +351,9 @@ class UnetHook(nn.Module):
                 else:
                     ldm_time_max = getattr(sd_ldm, 'num_timesteps', 1000)
                     time_weight = (timesteps.float() / float(ldm_time_max)).clip(0, 1)[:, None, None, None]
-                    ref_uncond_xt = x * time_weight + ref_cond_xt.clone() * (1.0 - time_weight)
+                    time_weight *= torch.pi * 0.5
+                    # We should use sin/cos to make sure that the std of weighted matrix follows original ddpm schedule
+                    ref_uncond_xt = x * torch.sin(time_weight) + ref_cond_xt.clone() * torch.cos(time_weight)
                     # print('Balanced - Using time-balanced cfg for reference.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
