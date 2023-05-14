@@ -354,7 +354,7 @@ class UnetHook(nn.Module):
                     time_weight = (time_weight > balanced_point).float().to(time_weight.device)
                     time_weight = time_weight[:, None, None, None]
                     ref_uncond_xt = x * time_weight + ref_cond_xt * (1 - time_weight)
-                    # print('Balanced - Using time-balanced cfg for reference.')
+                    # print('Balanced - Using style fidelity slider cfg for reference.')
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
 
