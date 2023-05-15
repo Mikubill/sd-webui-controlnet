@@ -330,8 +330,6 @@ class UnetHook(nn.Module):
                     pass
 
             # Clear attention and AdaIn cache
-            outer.attention_auto_machine_weight = 0
-            outer.gn_auto_machine_weight = 0
             for module in outer.attn_module_list:
                 module.bank = []
             for module in outer.gn_module_list:
@@ -381,11 +379,11 @@ class UnetHook(nn.Module):
 
                 if control_name in ['reference_only', 'reference_adain+attn']:
                     outer.attention_auto_machine = AutoMachine.Write
-                    outer.attention_auto_machine_weight = max(param.weight, outer.attention_auto_machine_weight)
+                    outer.attention_auto_machine_weight = param.weight
 
                 if control_name in ['reference_adain', 'reference_adain+attn']:
                     outer.gn_auto_machine = AutoMachine.Write
-                    outer.gn_auto_machine_weight = max(param.weight, outer.gn_auto_machine_weight)
+                    outer.gn_auto_machine_weight = param.weight
 
                 outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
                 outer.attention_auto_machine = AutoMachine.Read
@@ -443,9 +441,10 @@ class UnetHook(nn.Module):
                 # Use self-attention
                 self_attention_context = x_norm1
                 if outer.attention_auto_machine == AutoMachine.Write:
-                    self.bank.append(self_attention_context.detach().clone())
-                if outer.attention_auto_machine == AutoMachine.Read:
                     if outer.attention_auto_machine_weight > self.attn_weight:
+                        self.bank.append(self_attention_context.detach().clone())
+                if outer.attention_auto_machine == AutoMachine.Read:
+                    if len(self.bank) > 0:
                         self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
                     self.bank.clear()
                 self_attn1 = self.attn1(x_norm1, context=self_attention_context)
@@ -459,11 +458,12 @@ class UnetHook(nn.Module):
             eps = 1e-6
             x = self.original_forward(*args, **kwargs)
             if outer.gn_auto_machine == AutoMachine.Write:
-                var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
-                self.mean_bank.append(mean)
-                self.var_bank.append(var)
+                if outer.gn_auto_machine_weight > self.gn_weight:
+                    var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
+                    self.mean_bank.append(mean)
+                    self.var_bank.append(var)
             if outer.gn_auto_machine == AutoMachine.Read:
-                if len(self.mean_bank) > 0 and len(self.var_bank) > 0 and outer.gn_auto_machine_weight > self.gn_weight:
+                if len(self.mean_bank) > 0 and len(self.var_bank) > 0:
                     var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
                     std = torch.maximum(var, torch.zeros_like(var) + eps) ** 0.5
                     mean_acc = sum(self.mean_bank) / float(len(self.mean_bank))
