@@ -385,7 +385,12 @@ class UnetHook(nn.Module):
                     outer.gn_auto_machine = AutoMachine.Write
                     outer.gn_auto_machine_weight = param.weight
 
-                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
+                outer.original_forward(
+                    x=ref_xt.to(devices.dtype_unet),
+                    timesteps=timesteps.to(devices.dtype_unet),
+                    context=context.to(devices.dtype_unet)
+                )
+
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read
 
