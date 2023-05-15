@@ -492,19 +492,26 @@ class UnetHook(nn.Module):
 
         gn_modules = [model.middle_block]
         model.middle_block.gn_weight = 0
-        for i, module in enumerate(list(model.input_blocks)):
-            module.gn_weight = 1.0 - float(i) / float(len(model.input_blocks))
+
+        input_block_indices = [4, 5, 7, 8, 10, 11]
+        for w, i in enumerate(input_block_indices):
+            module = model.input_blocks[i]
+            module.gn_weight = 1.0 - float(w) / float(len(input_block_indices))
             gn_modules.append(module)
-        for i, module in enumerate(list(model.output_blocks)):
-            module.gn_weight = float(i) / float(len(model.output_blocks))
+
+        output_block_indices = [0, 1, 2, 3, 4, 5, 6, 7]
+        for w, i in enumerate(output_block_indices):
+            module = model.output_blocks[i]
+            module.gn_weight = float(w) / float(len(output_block_indices))
             gn_modules.append(module)
+
         for i, module in enumerate(gn_modules):
             if getattr(module, 'original_forward', None) is None:
                 module.original_forward = module.forward
             module.forward = hacked_group_norm_forward.__get__(module, torch.nn.Module)
             module.mean_bank = []
             module.var_bank = []
-            module.gn_weight *= 2.5  # Magic number after many tests.
+            module.gn_weight *= 2
 
         outer.attn_module_list = attn_modules
         outer.gn_module_list = gn_modules
