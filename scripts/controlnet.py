@@ -209,7 +209,6 @@ class Script(scripts.Script):
         self.preprocessor = global_state.cn_preprocessor_modules
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
-        self.latest_model_hash = ""
         self.txt2img_w_slider = gr.Slider()
         self.txt2img_h_slider = gr.Slider()
         self.img2img_w_slider = gr.Slider()
@@ -666,15 +665,11 @@ class Script(scripts.Script):
             (guidance_end, f"{tabname} Guidance End"),
         ])
 
-    def clear_control_model_cache(self):
-        Script.model_cache.clear()
-        gc.collect()
-        devices.torch_gc()
-
-    def load_control_model(self, p, unet, model, lowvram):
-        if model in Script.model_cache:
-            print(f"Loading model from cache: {model}")
-            return Script.model_cache[model]
+    def load_control_model(self, p, unet, model, lowvram, sd_model):
+        mixed_model = sd_model + " + " + model
+        if mixed_model in Script.model_cache:
+            print(f"Loading model from cache: {mixed_model}")
+            return Script.model_cache[mixed_model]
 
         # Remove model from cache to clear space before building another model
         if len(Script.model_cache) > 0 and len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):
@@ -685,7 +680,7 @@ class Script(scripts.Script):
         model_net = self.build_control_model(p, unet, model, lowvram)
 
         if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
-            Script.model_cache[model] = model_net
+            Script.model_cache[mixed_model] = model_net
 
         return model_net
 
@@ -975,6 +970,7 @@ class Script(scripts.Script):
 
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
+        sd_model = sd_ldm.sd_checkpoint_info.model_name + f" [{sd_ldm.sd_model_hash}]"
 
         if self.latest_network is not None:
             # always restore (~0.05s)
@@ -991,17 +987,12 @@ class Script(scripts.Script):
         forward_params = []
         hook_lowvram = False
 
-        # cache stuff
-        if self.latest_model_hash != p.sd_model.sd_model_hash:
-            self.clear_control_model_cache()
-
         # unload unused preproc
         module_list = [unit.module for unit in self.enabled_units]
         for key in self.unloadable:
             if key not in module_list:
                 self.unloadable.get(key, lambda:None)()
 
-        self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
             unit.module = self.get_module_basename(unit.module)
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
@@ -1019,7 +1010,7 @@ class Script(scripts.Script):
             if unit.module in model_free_preprocessors:
                 model_net = None
             else:
-                model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
+                model_net = self.load_control_model(p, unet, unit.model, unit.low_vram, sd_model)
                 model_net.reset()
 
             if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
