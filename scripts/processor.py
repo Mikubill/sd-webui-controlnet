@@ -553,7 +553,12 @@ def shuffle(img, res=512, **kwargs):
     return result, True
 
 
-model_free_preprocessors = ["reference_only"]
+model_free_preprocessors = [
+    "reference_only",
+    "reference_adain",
+    "reference_adain+attn"
+]
+
 flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
     "none": [],
@@ -755,6 +760,26 @@ preprocessor_sliders_config = {
         }
     ],
     "reference_only": [
+        None,
+        {
+            "name": r'Style Fidelity (only for "Balanced" mode)',
+            "value": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+        }
+    ],
+    "reference_adain": [
+        None,
+        {
+            "name": r'Style Fidelity (only for "Balanced" mode)',
+            "value": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+        }
+    ],
+    "reference_adain+attn": [
         None,
         {
             "name": r'Style Fidelity (only for "Balanced" mode)',

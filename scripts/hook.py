@@ -30,9 +30,9 @@ class ControlModelType(Enum):
 
 
 # Written by Lvmin
-class AttentionAutoMachine(Enum):
+class AutoMachine(Enum):
     """
-    Lvmin's algorithm for Attention AutoMachine States.
+    Lvmin's algorithm for Attention/AdaIn AutoMachine States.
     """
 
     Read = "Read"
@@ -179,8 +179,10 @@ class UnetHook(nn.Module):
         self.model = None
         self.sd_ldm = None
         self.control_params = None
-        self.attention_auto_machine = AttentionAutoMachine.Read
+        self.attention_auto_machine = AutoMachine.Read
         self.attention_auto_machine_weight = 1.0
+        self.gn_auto_machine = AutoMachine.Read
+        self.gn_auto_machine_weight = 1.0
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -327,11 +329,16 @@ class UnetHook(nn.Module):
                 except:
                     pass
 
-            # Clear attention cache
+            # Clear attention and AdaIn cache
+            outer.attention_auto_machine_weight = 0
+            outer.gn_auto_machine_weight = 0
             for module in outer.attn_module_list:
                 module.bank = []
+            for module in outer.gn_module_list:
+                module.mean_bank = []
+                module.var_bank = []
 
-            # Handle attention-based control
+            # Handle attention and AdaIn control
             for param in outer.control_params:
                 if param.guidance_stopped:
                     continue
@@ -370,11 +377,19 @@ class UnetHook(nn.Module):
 
                 ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
 
-                outer.attention_auto_machine = AttentionAutoMachine.Write
-                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
-                outer.attention_auto_machine = AttentionAutoMachine.Read
+                control_name = param.control_model.get('name', None)
 
-                outer.attention_auto_machine_weight = param.weight
+                if control_name in ['reference_only', 'reference_adain+attn']:
+                    outer.attention_auto_machine = AutoMachine.Write
+                    outer.attention_auto_machine_weight = max(param.weight, outer.attention_auto_machine_weight)
+
+                if control_name in ['reference_adain', 'reference_adain+attn']:
+                    outer.gn_auto_machine = AutoMachine.Write
+                    outer.gn_auto_machine_weight = max(param.weight, outer.gn_auto_machine_weight)
+
+                outer.original_forward(x=ref_xt, timesteps=timesteps, context=context)
+                outer.attention_auto_machine = AutoMachine.Read
+                outer.gn_auto_machine = AutoMachine.Read
 
             # U-Net Encoder
             hs = []
@@ -427,9 +442,9 @@ class UnetHook(nn.Module):
             else:
                 # Use self-attention
                 self_attention_context = x_norm1
-                if outer.attention_auto_machine == AttentionAutoMachine.Write:
+                if outer.attention_auto_machine == AutoMachine.Write:
                     self.bank.append(self_attention_context.detach().clone())
-                if outer.attention_auto_machine == AttentionAutoMachine.Read:
+                if outer.attention_auto_machine == AutoMachine.Read:
                     if outer.attention_auto_machine_weight > self.attn_weight:
                         self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
                     self.bank.clear()
@@ -440,20 +455,59 @@ class UnetHook(nn.Module):
             x = self.ff(self.norm3(x)) + x
             return x
 
+        def hacked_group_norm_forward(self, *args, **kwargs):
+            eps = 1e-6
+            x = self.original_forward(*args, **kwargs)
+            if outer.gn_auto_machine == AutoMachine.Write:
+                var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
+                self.mean_bank.append(mean)
+                self.var_bank.append(var)
+            if outer.gn_auto_machine == AutoMachine.Read:
+                if len(self.mean_bank) > 0 and len(self.var_bank) > 0 and outer.gn_auto_machine_weight > self.gn_weight:
+                    var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
+                    std = torch.maximum(var, torch.zeros_like(var) + eps) ** 0.5
+                    mean_acc = sum(self.mean_bank) / float(len(self.mean_bank))
+                    var_acc = sum(self.var_bank) / float(len(self.var_bank))
+                    std_acc = torch.maximum(var_acc, torch.zeros_like(var_acc) + eps) ** 0.5
+                    x = (((x - mean) / std) * std_acc) + mean_acc
+                self.mean_bank = []
+                self.var_bank = []
+            return x
+
         model._original_forward = model.forward
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
 
-        attn_modules = [module for module in torch_dfs(model) if isinstance(module, BasicTransformerBlock)]
+        all_modules = torch_dfs(model)
+
+        attn_modules = [module for module in all_modules if isinstance(module, BasicTransformerBlock)]
         attn_modules = sorted(attn_modules, key=lambda x: - x.norm1.normalized_shape[0])
 
         for i, module in enumerate(attn_modules):
-            module._original_inner_forward = module._forward
+            if getattr(module, '_original_inner_forward', None) is None:
+                module._original_inner_forward = module._forward
             module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
             module.bank = []
             module.attn_weight = float(i) / float(len(attn_modules))
 
+        gn_modules = [model.middle_block]
+        model.middle_block.gn_weight = 0
+        for i, module in enumerate(list(model.input_blocks)):
+            module.gn_weight = 1.0 - float(i) / float(len(model.input_blocks))
+            gn_modules.append(module)
+        for i, module in enumerate(list(model.output_blocks)):
+            module.gn_weight = float(i) / float(len(model.output_blocks))
+            gn_modules.append(module)
+        for i, module in enumerate(gn_modules):
+            if getattr(module, 'original_forward', None) is None:
+                module.original_forward = module.forward
+            module.forward = hacked_group_norm_forward.__get__(module, torch.nn.Module)
+            module.mean_bank = []
+            module.var_bank = []
+            module.gn_weight *= 2.5  # Magic number after many tests.
+
         outer.attn_module_list = attn_modules
+        outer.gn_module_list = gn_modules
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
