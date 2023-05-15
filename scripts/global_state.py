@@ -52,6 +52,8 @@ cn_preprocessor_modules = {
     "invert": invert,
     "lineart_anime_denoise": lineart_anime_denoise,
     "reference_only": identity,
+    "reference_adain": identity,
+    "reference_adain+attn": identity,
     "inpaint": identity,
 }
 
