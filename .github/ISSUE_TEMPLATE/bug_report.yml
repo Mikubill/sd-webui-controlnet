@@ -70,6 +70,13 @@ body:
     validations:
       required: true
   - type: textarea
+    id: extensions
+    attributes:
+      label: List of enabled extensions
+      description: Please provide a **full** list of **enabled** extensions. This list can found on the "Extensions" tab.
+    validations:
+      required: true
+  - type: textarea
     id: logs
     attributes:
       label: Console logs
