@@ -110,7 +110,7 @@ class ControlParams:
     def generate_uc_mask(self, length, dtype=None, device=None, python_list=False):
         if self.is_vanilla_samplers and self.cfg_scale == 1:
             if python_list:
-                return [1 for _ in range(length)]
+                return []
             return torch.tensor([1 for _ in range(length)], dtype=dtype, device=device)
 
         y = []
@@ -125,8 +125,7 @@ class ControlParams:
         self.instance_counter += length
 
         if python_list:
-            return y
-
+            return [i for i in range(length) if y[i] < 0.5]
         return torch.tensor(y, dtype=dtype, device=device)
 
     @property
@@ -183,6 +182,8 @@ class UnetHook(nn.Module):
         self.attention_auto_machine_weight = 1.0
         self.gn_auto_machine = AutoMachine.Read
         self.gn_auto_machine_weight = 1.0
+        self.current_style_fidelity = 0.0
+        self.current_uc_indices = None
 
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
@@ -332,9 +333,11 @@ class UnetHook(nn.Module):
             # Clear attention and AdaIn cache
             for module in outer.attn_module_list:
                 module.bank = []
+                module.style_cfgs = []
             for module in outer.gn_module_list:
                 module.mean_bank = []
                 module.var_bank = []
+                module.style_cfgs = []
 
             # Handle attention and AdaIn control
             for param in outer.control_params:
@@ -348,32 +351,23 @@ class UnetHook(nn.Module):
                     continue
 
                 query_size = int(x.shape[0])
-                uc_mask = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device)[:, None, None, None]
-                ref_cond_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
+                outer.current_uc_indices = param.generate_uc_mask(query_size, dtype=x.dtype, device=x.device, python_list=True)
+                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
                 # Inpaint Hijack
                 if x.shape[1] == 9:
-                    ref_cond_xt = torch.cat([
-                        ref_cond_xt,
-                        torch.zeros_like(ref_cond_xt)[:, 0:1, :, :],
+                    ref_xt = torch.cat([
+                        ref_xt,
+                        torch.zeros_like(ref_xt)[:, 0:1, :, :],
                         param.used_hint_cond_latent
                     ], dim=1)
 
-                if param.cfg_injection:
-                    ref_uncond_xt = x.clone()
-                    # print('ControlNet More Important -  Using standard cfg for reference.')
-                elif param.soft_injection or is_in_high_res_fix:
-                    ref_uncond_xt = ref_cond_xt.clone()
-                    # print('Prompt More Important -  Using no cfg for reference.')
-                else:
-                    balanced_point = 1.0 - float(param.control_model.get('threshold_a', 0.5))
-                    time_weight = timesteps.float() / float(getattr(sd_ldm, 'num_timesteps', 1000))
-                    time_weight = (time_weight > balanced_point).float().to(time_weight.device)
-                    time_weight = time_weight[:, None, None, None]
-                    ref_uncond_xt = x * time_weight + ref_cond_xt * (1 - time_weight)
-                    # print('Balanced - Using style fidelity slider cfg for reference.')
+                outer.current_style_fidelity = float(param.control_model.get('threshold_a', 0.5))
 
-                ref_xt = ref_cond_xt * uc_mask + ref_uncond_xt * (1 - uc_mask)
+                if param.cfg_injection:
+                    outer.current_style_fidelity = 1.0
+                elif param.soft_injection or is_in_high_res_fix:
+                    outer.current_style_fidelity = 0.0
 
                 control_name = param.control_model.get('name', None)
 
@@ -438,7 +432,7 @@ class UnetHook(nn.Module):
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
             x_norm1 = self.norm1(x)
-            self_attn1 = 0
+            self_attn1 = None
             if self.disable_self_attn:
                 # Do not use self-attention
                 self_attn1 = self.attn1(x_norm1, context=context)
@@ -448,13 +442,23 @@ class UnetHook(nn.Module):
                 if outer.attention_auto_machine == AutoMachine.Write:
                     if outer.attention_auto_machine_weight > self.attn_weight:
                         self.bank.append(self_attention_context.detach().clone())
+                        self.style_cfgs.append(outer.current_style_fidelity)
                 if outer.attention_auto_machine == AutoMachine.Read:
                     if len(self.bank) > 0:
-                        self_attention_context = torch.cat([self_attention_context] + self.bank, dim=1)
-                    self.bank.clear()
-                self_attn1 = self.attn1(x_norm1, context=self_attention_context)
+                        style_cfg = sum(self.style_cfgs) / float(len(self.style_cfgs))
+                        self_attn1_uc = self.attn1(x_norm1, context=torch.cat([self_attention_context] + self.bank, dim=1))
+                        self_attn1_c = self_attn1_uc.clone()
+                        if len(outer.current_uc_indices) > 0 and style_cfg > 1e-5:
+                            self_attn1_c[outer.current_uc_indices] = self.attn1(
+                                x_norm1[outer.current_uc_indices],
+                                context=self_attention_context[outer.current_uc_indices])
+                        self_attn1 = style_cfg * self_attn1_c + (1.0 - style_cfg) * self_attn1_uc
+                    self.bank = []
+                    self.style_cfgs = []
+                if self_attn1 is None:
+                    self_attn1 = self.attn1(x_norm1, context=self_attention_context)
 
-            x = self_attn1 + x
+            x = self_attn1.to(x.dtype) + x
             x = self.attn2(self.norm2(x), context=context) + x
             x = self.ff(self.norm3(x)) + x
             return x
@@ -462,22 +466,32 @@ class UnetHook(nn.Module):
         def hacked_group_norm_forward(self, *args, **kwargs):
             eps = 1e-6
             x = self.original_forward(*args, **kwargs)
+            y = None
             if outer.gn_auto_machine == AutoMachine.Write:
                 if outer.gn_auto_machine_weight > self.gn_weight:
                     var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
                     self.mean_bank.append(mean)
                     self.var_bank.append(var)
+                    self.style_cfgs.append(outer.current_style_fidelity)
             if outer.gn_auto_machine == AutoMachine.Read:
                 if len(self.mean_bank) > 0 and len(self.var_bank) > 0:
+                    style_cfg = sum(self.style_cfgs) / float(len(self.style_cfgs))
                     var, mean = torch.var_mean(x, dim=(2, 3), keepdim=True, correction=0)
                     std = torch.maximum(var, torch.zeros_like(var) + eps) ** 0.5
                     mean_acc = sum(self.mean_bank) / float(len(self.mean_bank))
                     var_acc = sum(self.var_bank) / float(len(self.var_bank))
                     std_acc = torch.maximum(var_acc, torch.zeros_like(var_acc) + eps) ** 0.5
-                    x = (((x - mean) / std) * std_acc) + mean_acc
+                    y_uc = (((x - mean) / std) * std_acc) + mean_acc
+                    y_c = y_uc.clone()
+                    if len(outer.current_uc_indices) > 0 and style_cfg > 1e-5:
+                        y_c[outer.current_uc_indices] = x.to(y_c.dtype)[outer.current_uc_indices]
+                    y = style_cfg * y_c + (1.0 - style_cfg) * y_uc
                 self.mean_bank = []
                 self.var_bank = []
-            return x
+                self.style_cfgs = []
+            if y is None:
+                y = x
+            return y.to(x.dtype)
 
         model._original_forward = model.forward
         outer.original_forward = model.forward
@@ -493,6 +507,7 @@ class UnetHook(nn.Module):
                 module._original_inner_forward = module._forward
             module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
             module.bank = []
+            module.style_cfgs = []
             module.attn_weight = float(i) / float(len(attn_modules))
 
         gn_modules = [model.middle_block]
@@ -516,6 +531,7 @@ class UnetHook(nn.Module):
             module.forward = hacked_group_norm_forward.__get__(module, torch.nn.Module)
             module.mean_bank = []
             module.var_bank = []
+            module.style_cfgs = []
             module.gn_weight *= 2
 
         outer.attn_module_list = attn_modules
