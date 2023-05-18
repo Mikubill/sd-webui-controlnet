@@ -1,4 +1,4 @@
-version_flag = 'v1.1.173'
+version_flag = 'v1.1.174'
 if hasattr(__loader__, 'name') and getattr(__loader__, 'name') == 'controlnet_version.py':
     print(f'ControlNet {version_flag}')
 # A smart trick to know if user has updated as well as if user has restarted terminal.

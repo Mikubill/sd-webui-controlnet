@@ -70,10 +70,17 @@ body:
     validations:
       required: true
   - type: textarea
+    id: extensions
+    attributes:
+      label: List of enabled extensions
+      description: Please provide a full list of enabled extensions or screenshots of your "Extensions" tab.
+    validations:
+      required: true
+  - type: textarea
     id: logs
     attributes:
       label: Console logs
-      description: Please provide **full** cmd/terminal logs from the moment you started UI to the end of it, after your bug happened. If it's very long, provide a link to pastebin or similar service.
+      description: Please provide full cmd/terminal logs from the moment you started UI to the end of it, after your bug happened. If it's very long, provide a link to pastebin or similar service.
       render: Shell
     validations:
       required: true
