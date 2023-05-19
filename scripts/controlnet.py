@@ -381,8 +381,8 @@ class Script(scripts.Script):
                     gr.update(visible=False)]
             grs += [
                 gr.update(value=None),
-                gr.update(value=4),
-                gr.update(value='Inpaint masked')
+                gr.update(value=default_unit.mask_blur),
+                gr.update(value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert])
                 ]
             if module not in preprocessor_sliders_config:
                 grs += [
