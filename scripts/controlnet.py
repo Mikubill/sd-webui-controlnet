@@ -364,9 +364,26 @@ class Script(scripts.Script):
             guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider')
             guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider')
 
-        def build_sliders(module, pp):
+        inpainting_mask_invert_choices = ['Inpaint masked', 'Inpaint not masked']
+
+        def build_options(module, pp, inpaint_mask_mode):
             grs = []
             module = self.get_module_basename(module)
+            if 'inpaint' in module and not is_img2img:
+                grs += [gr.update(visible=True, interactive=True)]
+                if inpaint_mask_mode != default_unit.inpaint_mask_mode.value:
+                    grs += [gr.update(visible=True)]
+                else:
+                    grs += [gr.update(visible=False)]
+            else:
+                grs += [
+                    gr.update(value=default_unit.inpaint_mask_mode.value, visible=False, interactive=False), 
+                    gr.update(visible=False)]
+            grs += [
+                gr.update(value=None),
+                gr.update(value=4),
+                gr.update(value='Inpaint masked')
+                ]
             if module not in preprocessor_sliders_config:
                 grs += [
                     gr.update(label=flag_preprocessor_resolution, value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
@@ -390,7 +407,7 @@ class Script(scripts.Script):
                             interactive=visible))
                     else:
                         grs.append(gr.update(visible=False, interactive=False))
-                while len(grs) < 3:
+                while len(grs) < 8:
                     grs.append(gr.update(visible=False, interactive=False))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
@@ -404,10 +421,19 @@ class Script(scripts.Script):
             processor_res = gr.Slider(label="Preprocessor resolution", value=default_unit.processor_res, minimum=64, maximum=2048, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_resolution_slider')
             threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_A_slider')
             threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider')
+            inpaint_mask_mode = gr.Radio(choices=[e.value for e in external_code.InpaintingMaskMode], value=default_unit.inpaint_mask_mode.value, label="Inpaint Mask Mode", visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_inpaint_mask_mode')
+
+        # inpaint options
+        with gr.Column(visible=False) as inpaint_options:
+            gr.HTML(value='<p>The uploaded mask will overwrite the canvas mask!</p>')
+            mask_image = gr.Image(label='Mask', source='upload', type='pil', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_mask_image')
+            mask_blur = gr.Slider(label='Mask blur', minimum=0, maximum=64, step=1, value=default_unit.mask_blur, elem_id=f'{elem_id_tabname}_{tabname}_mask_blur')
+            inpainting_mask_invert = gr.Radio(label='Mask mode', choices=inpainting_mask_invert_choices, value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert], type='index', elem_id=f'{elem_id_tabname}_{tabname}_mask_mode')
 
         if gradio_compat:
-            module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-            pixel_perfect.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            module.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            pixel_perfect.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            inpaint_mask_mode.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
 
         # infotext_fields.extend((module, model, weight))
 
@@ -424,7 +450,7 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
+        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, mask_image, mask_blur, inpainting_mask_invert):
             if image is None:
                 return gr.update(value=None, visible=True), gr.update(), gr.update()
 
@@ -434,7 +460,16 @@ class Script(scripts.Script):
 
             if 'inpaint' in module:
                 color = HWC3(image['image'])
-                alpha = image['mask'][:, :, 0:1]
+                if mask_image is not None:
+                    alpha = mask_image.convert('L')
+                    alpha = alpha.resize(image['image'].shape[1::-1])
+                    if mask_blur != 0:
+                        alpha = alpha.filter(ImageFilter.GaussianBlur(mask_blur))
+                    if inpainting_mask_invert == 1:
+                        alpha = ImageOps.invert(alpha)
+                    alpha = np.asarray(alpha)[..., np.newaxis]
+                else:
+                    alpha = image['mask'][:, :, 0:1]
                 img = np.concatenate([color, alpha], axis=2)
 
             module = self.get_module_basename(module)
@@ -528,7 +563,8 @@ class Script(scripts.Script):
             input_image, module, processor_res, threshold_a, threshold_b,
             self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
-            pixel_perfect, resize_mode
+            pixel_perfect, resize_mode,
+            mask_image, mask_blur, inpainting_mask_invert
         ], outputs=[generated_image, download_pose_link, preprocessor_preview])
 
         def fn_canvas(h, w):
@@ -539,7 +575,7 @@ class Script(scripts.Script):
         input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         batch_image_dir_state = gr.State('')
         output_dir_state = gr.State('')
-        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, pixel_perfect, control_mode)
+        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, inpaint_mask_mode, mask_image, mask_blur, inpainting_mask_invert, guidance_start, guidance_end, pixel_perfect, control_mode)
         self.register_modules(tabname, unit_args)
 
         input_image.orgpreprocess=input_image.preprocess
@@ -1101,6 +1137,17 @@ class Script(scripts.Script):
                                     resize_mode = external_code.ResizeMode.INNER_FIT
                                 elif a1111_i2i_resize_mode == 2:
                                     resize_mode = external_code.ResizeMode.OUTER_FIT
+
+            if 'inpaint' in unit.module and unit.mask_image is not None:
+                mask_image = unit.mask_image.convert('L')
+                mask_image = mask_image.resize(image['image'].shape[1::-1])
+                if unit.mask_blur != 0:
+                    mask_image = mask_image.filter(ImageFilter.GaussianBlur(unit.mask_blur))
+                if unit.inpainting_mask_invert == 1:
+                    mask_image = ImageOps.invert(mask_image)
+                mask_image = np.asarray(mask_image)
+                input_image = np.concatenate([input_image[:, :, 0:3], mask_image[:, :, None]], axis=2)
+                input_image = np.ascontiguousarray(input_image.copy()).copy()
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
                     and p.inpaint_full_res and p.image_mask is not None:

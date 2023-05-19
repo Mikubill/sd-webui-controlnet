@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
+from PIL import Image
 from modules import scripts, processing, shared
 from scripts import global_state
 from scripts.processor import preprocessor_sliders_config
@@ -10,6 +11,15 @@ from modules.api import api
 
 def get_api_version() -> int:
     return 2
+
+
+class InpaintingMaskMode(Enum):
+    """
+    The inpainting mask mode.
+    """
+
+    DRAW = "Draw a mask"
+    UPLOAD = "Upload a mask (use WHITE to inpaint, BLACK to keep original)"
 
 
 class ControlMode(Enum):
@@ -61,6 +71,8 @@ def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
 InputImage = Union[np.ndarray, str]
 InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
 
+MaskImage = Union[Image.Image, np.ndarray, str]
+
 
 class ControlNetUnit:
     """
@@ -79,6 +91,10 @@ class ControlNetUnit:
         processor_res: int=512,
         threshold_a: float=64,
         threshold_b: float=64,
+        inpaint_mask_mode: Union[InpaintingMaskMode, int, str] = InpaintingMaskMode.DRAW,
+        mask_image: Optional[MaskImage]=None, 
+        mask_blur: float=4.0, 
+        inpainting_mask_invert: int=0,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
         pixel_perfect: bool=False,
@@ -95,6 +111,10 @@ class ControlNetUnit:
         self.processor_res = processor_res
         self.threshold_a = threshold_a
         self.threshold_b = threshold_b
+        self.inpaint_mask_mode = inpaint_mask_mode
+        self.mask_image = mask_image
+        self.mask_blur = mask_blur
+        self.inpainting_mask_invert = inpainting_mask_invert
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
         self.pixel_perfect = pixel_perfect
