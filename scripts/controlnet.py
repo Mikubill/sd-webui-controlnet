@@ -1103,7 +1103,7 @@ class Script(scripts.Script):
                                     resize_mode = external_code.ResizeMode.OUTER_FIT
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
-                    and p.inpaint_full_res > 0 and p.image_mask is not None:
+                    and p.inpaint_full_res and p.image_mask is not None:
 
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
                 input_image = [Image.fromarray(x) for x in input_image]
