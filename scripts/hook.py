@@ -363,6 +363,7 @@ class UnetHook(nn.Module):
                     ], dim=1)
 
                 outer.current_style_fidelity = float(param.control_model.get('threshold_a', 0.5))
+                outer.current_style_fidelity = max(0.0, min(1.0, outer.current_style_fidelity))
 
                 if param.cfg_injection:
                     outer.current_style_fidelity = 1.0
