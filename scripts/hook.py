@@ -229,9 +229,8 @@ class UnetHook(nn.Module):
             is_in_high_res_fix = False
 
             # Handle cond-uncond marker
-            c_mark, uc_indices, context = unmark_prompt_context(context)
-            outer.current_uc_indices = uc_indices
-            print(c_mark[:, 0, 0, 0].detach().cpu().numpy().tolist())
+            cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
+            print(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist())
 
             # High-res fix
             for param in outer.control_params:
@@ -292,7 +291,7 @@ class UnetHook(nn.Module):
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
-                control *= c_mark
+                control *= cond_mark
                 context = torch.cat([context, control.clone()], dim=1)
 
             # handle ControlNet / T2I_Adapter
@@ -325,7 +324,7 @@ class UnetHook(nn.Module):
                     query_size = int(x.shape[0])
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control = [torch.cat([c.clone() for _ in range(query_size)], dim=0) for c in control]
-                    control = [c * c_mark for c in control]
+                    control = [c * cond_mark for c in control]
 
                 if param.soft_injection or is_in_high_res_fix:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
