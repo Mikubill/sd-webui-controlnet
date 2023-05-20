@@ -216,6 +216,8 @@ class Script(scripts.Script):
         self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
         self.detected_map = []
+        self.mask_image = None
+        self.inpainting_mask_invert = 0
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -364,24 +366,22 @@ class Script(scripts.Script):
             guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider')
             guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider')
 
-        inpainting_mask_invert_choices = ['Inpaint masked', 'Inpaint not masked']
-
         def build_options(module, pp, inpaint_mask_mode):
             grs = []
             module = self.get_module_basename(module)
             if 'inpaint' in module and not is_img2img:
                 grs += [gr.update(visible=True, interactive=True)]
-                if inpaint_mask_mode != default_unit.inpaint_mask_mode.value:
+                if inpaint_mask_mode == 1:
                     grs += [gr.update(visible=True)]
                 else:
                     grs += [gr.update(visible=False)]
             else:
                 grs += [
-                    gr.update(value=default_unit.inpaint_mask_mode.value, visible=False, interactive=False), 
+                    gr.update(value='Draw a mask', visible=False, interactive=False), 
                     gr.update(visible=False)]
             grs += [
                 gr.update(value=None),
-                gr.update(value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert])
+                gr.update(value='Inpaint masked')
                 ]
             if module not in preprocessor_sliders_config:
                 grs += [
@@ -420,18 +420,25 @@ class Script(scripts.Script):
             processor_res = gr.Slider(label="Preprocessor resolution", value=default_unit.processor_res, minimum=64, maximum=2048, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_resolution_slider')
             threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_A_slider')
             threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider')
-            inpaint_mask_mode = gr.Radio(choices=[e.value for e in external_code.InpaintingMaskMode], value=default_unit.inpaint_mask_mode.value, label="Inpaint Mask Mode", visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_inpaint_mask_mode')
+            inpaint_mask_mode = gr.Radio(choices=["Draw a mask", "Upload a mask (use WHITE to inpaint, BLACK to keep original)"], value="Draw a mask", label="Inpaint Mask Mode", type='index', visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_inpaint_mask_mode')
 
         # inpaint options
         with gr.Column(visible=False) as inpaint_options:
             gr.HTML(value='<p>The uploaded mask will overwrite the canvas mask!</p>')
             mask_image = gr.Image(label='Mask', source='upload', type='pil', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_mask_image')
-            inpainting_mask_invert = gr.Radio(label='Mask mode', choices=inpainting_mask_invert_choices, value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert], type='index', elem_id=f'{elem_id_tabname}_{tabname}_mask_mode')
+            inpainting_mask_invert = gr.Radio(label='Mask mode', choices=['Inpaint masked', 'Inpaint not masked'], value='Inpaint masked', type='index', elem_id=f'{elem_id_tabname}_{tabname}_mask_mode')
+
+        # lambda function to set self.mask_image and self.inapinting_mask_invert
+        def mask_image_state(mask_image, inpainting_mask_invert):
+            self.mask_image = mask_image
+            self.inpainting_mask_invert = inpainting_mask_invert
 
         if gradio_compat:
             module.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
             pixel_perfect.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
             inpaint_mask_mode.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            mask_image.change(mask_image_state, inputs=[mask_image, inpainting_mask_invert], outputs=[])
+            inpainting_mask_invert.change(mask_image_state, inputs=[mask_image, inpainting_mask_invert], outputs=[])
 
         # infotext_fields.extend((module, model, weight))
 
@@ -571,7 +578,7 @@ class Script(scripts.Script):
         input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         batch_image_dir_state = gr.State('')
         output_dir_state = gr.State('')
-        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, inpaint_mask_mode, mask_image, inpainting_mask_invert, guidance_start, guidance_end, pixel_perfect, control_mode)
+        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, pixel_perfect, control_mode)
         self.register_modules(tabname, unit_args)
 
         input_image.orgpreprocess=input_image.preprocess
@@ -1134,10 +1141,10 @@ class Script(scripts.Script):
                                 elif a1111_i2i_resize_mode == 2:
                                     resize_mode = external_code.ResizeMode.OUTER_FIT
 
-            if 'inpaint' in unit.module and unit.mask_image is not None:
-                mask_image = unit.mask_image.convert('L')
+            if 'inpaint' in unit.module and self.mask_image is not None:
+                mask_image = self.mask_image.convert('L')
                 mask_image = mask_image.resize(image['image'].shape[1::-1])
-                if unit.inpainting_mask_invert == 1:
+                if self.inpainting_mask_invert == 1:
                     mask_image = ImageOps.invert(mask_image)
                 mask_image = np.asarray(mask_image)
                 input_image = np.concatenate([input_image[:, :, 0:3], mask_image[:, :, None]], axis=2)
