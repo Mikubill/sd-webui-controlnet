@@ -144,7 +144,6 @@ class ControlParams:
         self.used_hint_cond_latent = None
         self.soft_injection = soft_injection
         self.cfg_injection = cfg_injection
-        self.override_uc_mask = None
 
     @property
     def hint_cond(self):
