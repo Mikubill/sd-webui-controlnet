@@ -24,7 +24,7 @@ def get_all_frames(video_path):
     while True:
         ret, frame = cap.read()
         if ret:
-            frame_list.append(frame)
+            frame_list.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         else:
             return frame_list
 
