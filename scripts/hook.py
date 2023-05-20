@@ -42,6 +42,7 @@ def mark_prompt_context(x, mark):
             return x
         cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
         return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
+    return x
 
 
 def unmark_prompt_context(x):
@@ -213,10 +214,10 @@ class UnetHook(nn.Module):
         outer = self
 
         def process_sample(*args, **kwargs):
-            conditioning = kwargs['conditioning']
-            unconditional_conditioning = kwargs['unconditional_conditioning']
-            mark_prompt_context(conditioning, POSITIVE_MARK_TOKEN)
-            mark_prompt_context(unconditional_conditioning, NEGATIVE_MARK_TOKEN)
+            mark_prompt_context(kwargs.get('conditioning', []), POSITIVE_MARK_TOKEN)
+            mark_prompt_context(kwargs.get('unconditional_conditioning', []), NEGATIVE_MARK_TOKEN)
+            mark_prompt_context(getattr(process, 'hr_c', []), POSITIVE_MARK_TOKEN)
+            mark_prompt_context(getattr(process, 'hr_uc', []), NEGATIVE_MARK_TOKEN)
             return process.sample_before_CN_hack(*args, **kwargs)
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
