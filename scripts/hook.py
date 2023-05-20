@@ -31,18 +31,16 @@ def mark_prompt_context(x, mark):
             x[i] = mark_prompt_context(x[i], mark)
         return x
     if isinstance(x, MulticondLearnedConditioning):
-        for i in range(len(x.batch)):
-            x.batch[i] = mark_prompt_context(x.batch[i], mark)
+        x.batch = mark_prompt_context(x.batch, mark)
         return x
     if isinstance(x, ComposableScheduledPromptConditioning):
-        for i in range(len(x.schedules)):
-            x.schedules[i] = mark_prompt_context(x.schedules[i], mark)
+        x.schedules = mark_prompt_context(x.schedules, mark)
         return x
     if isinstance(x, ScheduledPromptConditioning):
-        if prompt_context_is_marked(x.cond):
+        cond = x.cond
+        if prompt_context_is_marked(cond):
             return x
-        m = torch.zeros_like(x.cond)[:1] + mark
-        cond = torch.cat([m, x.cond], dim=0)
+        cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
         return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
 
 
