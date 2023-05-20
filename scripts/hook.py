@@ -135,12 +135,12 @@ class ControlParams:
             
             .... = forward(x, timesteps, context)
 
-        And you will override all future cond-uncond behaviours of this control_param
+        And you will override all future cond-uncond behaviors of this control_param
         (this ControlNet unit) until this control_param is disposed by python garbage collection.
 
         If you do not call this ``override_controlnet_cond_uncond_counter'', ControlNet will
         count the cond-uncond using A1111's Gradio UI's batchsize, which can be WRONG if you
-        hacked ControlNet and the actual count is not equivalent to the default A1111 bahaviors.
+        hacked ControlNet and the actual count is not equivalent to the default A1111 behaviors.
 
         Args:
             counter: A list of bool values, the length of list must be same with the B.
