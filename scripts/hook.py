@@ -121,8 +121,8 @@ class ControlParams:
             forward(x, timesteps, context)
 
         and the shape of x is [B, C, H, W]. If you hacked the ``unetHook'' of ControlNet,
-        and for example, let us say your B = 3, and the first and second instance
-        is cond (instance using positive prompt), while the third instance is uncond
+        and for example, let us say your B = 3 (a batch with 3 instances) where your first and 
+        second instances are cond (instances using positive prompt), while the third instance is uncond
         (instance using negative prompt), you can write the sequence as [True, True, False],
         where True is cond while False is uncond.
 
@@ -136,10 +136,10 @@ class ControlParams:
             .... = forward(x, timesteps, context)
 
         And you will override all future cond-uncond behaviours of this control_param
-        (this ControlNet unit).
+        (this ControlNet unit) until this control_param is disposed by python garbage collection.
 
         If you do not call this ``override_controlnet_cond_uncond_counter'', ControlNet will
-        count the cond-uncond using A1111's Gradio UI's batchsize, which can be wrong if you
+        count the cond-uncond using A1111's Gradio UI's batchsize, which can be WRONG if you
         hacked ControlNet and the actual count is not equivalent to the default A1111 bahaviors.
 
         Args:
