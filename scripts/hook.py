@@ -291,7 +291,7 @@ class UnetHook(nn.Module):
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
-                control *= cond_mark
+                control *= cond_mark[:, :, :, 0]
                 context = torch.cat([context, control.clone()], dim=1)
 
             # handle ControlNet / T2I_Adapter
