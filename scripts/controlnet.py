@@ -1247,8 +1247,6 @@ class Script(scripts.Script):
                 if unit.module == 'clip_vision':
                     detected_maps.append((processor.clip_vision_visualization(detected_map), unit.module))
 
-            is_vanilla_samplers = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
-
             control_model_type = ControlModelType.ControlNet
 
             if isinstance(model_net, PlugableAdapter):
@@ -1285,10 +1283,6 @@ class Script(scripts.Script):
                 control_model_type=control_model_type,
                 global_average_pooling=global_average_pooling,
                 hr_hint_cond=hr_control,
-                batch_size=p.batch_size,
-                instance_counter=0,
-                is_vanilla_samplers=is_vanilla_samplers,
-                cfg_scale=p.cfg_scale,
                 soft_injection=control_mode != external_code.ControlMode.BALANCED,
                 cfg_injection=control_mode == external_code.ControlMode.CONTROL,
             )
@@ -1297,7 +1291,7 @@ class Script(scripts.Script):
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
-        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
 
     def postprocess(self, p, processed, *args):
