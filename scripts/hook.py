@@ -14,7 +14,7 @@ from ldm.modules.attention import BasicTransformerBlock
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 
 
-POSITIVE_MARK_TOKEN = 233
+POSITIVE_MARK_TOKEN = 1024
 NEGATIVE_MARK_TOKEN = - POSITIVE_MARK_TOKEN
 MARK_EPS = 1e-3
 
