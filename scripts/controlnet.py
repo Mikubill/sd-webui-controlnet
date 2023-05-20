@@ -381,7 +381,6 @@ class Script(scripts.Script):
                     gr.update(visible=False)]
             grs += [
                 gr.update(value=None),
-                gr.update(value=default_unit.mask_blur),
                 gr.update(value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert])
                 ]
             if module not in preprocessor_sliders_config:
@@ -407,7 +406,7 @@ class Script(scripts.Script):
                             interactive=visible))
                     else:
                         grs.append(gr.update(visible=False, interactive=False))
-                while len(grs) < 8:
+                while len(grs) < 7:
                     grs.append(gr.update(visible=False, interactive=False))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
@@ -427,13 +426,12 @@ class Script(scripts.Script):
         with gr.Column(visible=False) as inpaint_options:
             gr.HTML(value='<p>The uploaded mask will overwrite the canvas mask!</p>')
             mask_image = gr.Image(label='Mask', source='upload', type='pil', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_mask_image')
-            mask_blur = gr.Slider(label='Mask blur', minimum=0, maximum=64, step=1, value=default_unit.mask_blur, elem_id=f'{elem_id_tabname}_{tabname}_mask_blur')
             inpainting_mask_invert = gr.Radio(label='Mask mode', choices=inpainting_mask_invert_choices, value=inpainting_mask_invert_choices[default_unit.inpainting_mask_invert], type='index', elem_id=f'{elem_id_tabname}_{tabname}_mask_mode')
 
         if gradio_compat:
-            module.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-            pixel_perfect.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-            inpaint_mask_mode.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, mask_blur, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            module.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            pixel_perfect.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+            inpaint_mask_mode.change(build_options, inputs=[module, pixel_perfect, inpaint_mask_mode], outputs=[inpaint_mask_mode, inpaint_options, mask_image, inpainting_mask_invert, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
 
         # infotext_fields.extend((module, model, weight))
 
@@ -450,7 +448,7 @@ class Script(scripts.Script):
                 return input_image.orgpreprocess(inputs)
             return None
 
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, mask_image, mask_blur, inpainting_mask_invert):
+        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, mask_image, inpainting_mask_invert):
             if image is None:
                 return gr.update(value=None, visible=True), gr.update(), gr.update()
 
@@ -463,8 +461,6 @@ class Script(scripts.Script):
                 if mask_image is not None:
                     alpha = mask_image.convert('L')
                     alpha = alpha.resize(image['image'].shape[1::-1])
-                    if mask_blur != 0:
-                        alpha = alpha.filter(ImageFilter.GaussianBlur(mask_blur))
                     if inpainting_mask_invert == 1:
                         alpha = ImageOps.invert(alpha)
                     alpha = np.asarray(alpha)[..., np.newaxis]
@@ -564,7 +560,7 @@ class Script(scripts.Script):
             self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
             pixel_perfect, resize_mode,
-            mask_image, mask_blur, inpainting_mask_invert
+            mask_image, inpainting_mask_invert
         ], outputs=[generated_image, download_pose_link, preprocessor_preview])
 
         def fn_canvas(h, w):
@@ -575,7 +571,7 @@ class Script(scripts.Script):
         input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         batch_image_dir_state = gr.State('')
         output_dir_state = gr.State('')
-        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, inpaint_mask_mode, mask_image, mask_blur, inpainting_mask_invert, guidance_start, guidance_end, pixel_perfect, control_mode)
+        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, inpaint_mask_mode, mask_image, inpainting_mask_invert, guidance_start, guidance_end, pixel_perfect, control_mode)
         self.register_modules(tabname, unit_args)
 
         input_image.orgpreprocess=input_image.preprocess
@@ -1141,8 +1137,6 @@ class Script(scripts.Script):
             if 'inpaint' in unit.module and unit.mask_image is not None:
                 mask_image = unit.mask_image.convert('L')
                 mask_image = mask_image.resize(image['image'].shape[1::-1])
-                if unit.mask_blur != 0:
-                    mask_image = mask_image.filter(ImageFilter.GaussianBlur(unit.mask_blur))
                 if unit.inpainting_mask_invert == 1:
                     mask_image = ImageOps.invert(mask_image)
                 mask_image = np.asarray(mask_image)

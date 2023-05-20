@@ -93,7 +93,6 @@ class ControlNetUnit:
         threshold_b: float=64,
         inpaint_mask_mode: Union[InpaintingMaskMode, int, str] = InpaintingMaskMode.DRAW,
         mask_image: Optional[MaskImage]=None, 
-        mask_blur: float=4.0, 
         inpainting_mask_invert: int=0,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
@@ -113,7 +112,6 @@ class ControlNetUnit:
         self.threshold_b = threshold_b
         self.inpaint_mask_mode = inpaint_mask_mode
         self.mask_image = mask_image
-        self.mask_blur = mask_blur
         self.inpainting_mask_invert = inpainting_mask_invert
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
