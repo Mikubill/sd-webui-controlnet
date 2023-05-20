@@ -230,7 +230,7 @@ class UnetHook(nn.Module):
 
             # Handle cond-uncond marker
             cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
-            # print(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist())
+            # print(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
 
             # High-res fix
             for param in outer.control_params:
