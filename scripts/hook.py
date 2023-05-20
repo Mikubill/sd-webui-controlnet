@@ -106,8 +106,52 @@ class ControlParams:
         self.cfg_scale = cfg_scale
         self.soft_injection = soft_injection
         self.cfg_injection = cfg_injection
+        self.override_uc_mask = None
+
+    def override_controlnet_cond_uncond_counter(self, counter: list):
+        '''
+        Override the cond-uncond counter of a controlnet unit.
+
+        If any other extension wants to call the forward function of controlnet, you are
+        highly recommended to manage the cond/uncond sequence to avoid unexpected behaviors
+        of CN.
+
+        For example, if you call
+
+            forward(x, timesteps, context)
+
+        and the shape of x is [B, C, H, W]. If you hacked the ``unetHook'' of ControlNet,
+        and for example, let us say your B = 3, and the first and second instance
+        is cond (instance using positive prompt), while the third instance is uncond
+        (instance using negative prompt), you can write the sequence as [True, True, False],
+        where True is cond while False is uncond.
+
+        Then in this case, you can call
+
+            my_counter = [True, True, False]
+            for control_param in unetHook.control_params:
+                control_param.override_controlnet_cond_uncond_counter(my_counter)
+
+        And you will override all future cond-uncond behaviours of this control_param
+        (this ControlNet unit).
+
+        If you do not call this ``override_controlnet_cond_uncond_counter'', ControlNet will
+        count the cond-uncond using A1111's Gradio UI's batchsize, which can be wrong if you
+        hacked ControlNet and the actual count is not equivalent to the default A1111 bahaviors.
+
+        Args:
+            counter: A list of bool values, the length of list must be same with the B.
+        Returns:
+            None
+        '''
+        self.override_uc_mask = counter
 
     def generate_uc_mask(self, length, dtype=None, device=None, python_list=False):
+        if isinstance(self.override_uc_mask, list):
+            if python_list:
+                return [i for i, v in enumerate(self.override_uc_mask) if not v]
+            return torch.tensor(self.override_uc_mask, dtype=dtype, device=device)
+
         if self.is_vanilla_samplers and self.cfg_scale == 1:
             if python_list:
                 return []
