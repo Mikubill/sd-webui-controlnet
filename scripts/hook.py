@@ -129,8 +129,11 @@ class ControlParams:
         Then in this case, you can call
 
             my_counter = [True, True, False]
+            
             for control_param in unetHook.control_params:
                 control_param.override_controlnet_cond_uncond_counter(my_counter)
+            
+            .... = forward(x, timesteps, context)
 
         And you will override all future cond-uncond behaviours of this control_param
         (this ControlNet unit).
