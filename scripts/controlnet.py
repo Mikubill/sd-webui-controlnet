@@ -485,7 +485,7 @@ class Script(scripts.Script):
             result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b,
                                             json_pose_callback=json_acceptor.accept if is_openpose(module) else None)
 
-            if preprocessor is processor.clip:
+            if 'clip' in module:
                 result = processor.clip_vision_visualization(result)
                 is_image = True
 
