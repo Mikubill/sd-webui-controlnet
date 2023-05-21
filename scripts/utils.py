@@ -26,6 +26,13 @@ def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
     """
     Decorator to enable caching for functions with numpy array arguments.
     Numpy arrays are mutable, and thus not directly usable as hash keys.
+
+    The idea here is to wrap the incoming arguments with type `np.ndarray`
+    as `HashableNpArray` so that `lru_cache` can correctly handles `np.ndarray`
+    arguments.
+
+    `HashableNpArray` functions exactly the same way as `np.ndarray` except
+    having `__hash__` and `__eq__` overriden.
     """
 
     def decorator(func: Callable):
@@ -50,6 +57,8 @@ def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
             """This function only accepts `HashableNpArray` as input params."""
             return func(*args, **kwargs)
 
+        # Preserves original function.__name__ and __doc__.
+        @functools.wraps(func)
         def decorated_func(*args, **kwargs):
             """The decorated function that delegates the original function."""
 
