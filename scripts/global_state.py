@@ -33,11 +33,17 @@ def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, 
         # TODO: Make this a debug log?
         print(f'Calling preprocessor {preprocessor_name} outside of cache.')
         return preprocessor_modules[preprocessor_name](*args, **kwargs)
-        
+    
+    # TODO: Introduce a seed parameter for shuffle preprocessor?
+    uncacheable_preprocessors = ['shuffle']
+
     return {
-        k: functools.partial(unified_preprocessor, k)
-        for k
-        in preprocessor_modules.keys()
+        k: (
+            v if k in uncacheable_preprocessors 
+            else functools.partial(unified_preprocessor, k)
+        )
+        for k, v
+        in preprocessor_modules.items()
     }
 
 cn_preprocessor_modules = {
