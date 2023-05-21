@@ -20,32 +20,35 @@ MARK_EPS = 1e-3
 
 
 def prompt_context_is_marked(x):
-    m = torch.abs(x[0]) - POSITIVE_MARK_TOKEN
+    t = x[..., 0, :]
+    m = torch.abs(t) - POSITIVE_MARK_TOKEN
     m = torch.mean(torch.abs(m)).detach().cpu().float().numpy()
     return float(m) < MARK_EPS
 
 
-def mark_prompt_context(x, mark):
+def mark_prompt_context(x, positive):
     if isinstance(x, list):
         for i in range(len(x)):
-            x[i] = mark_prompt_context(x[i], mark)
+            x[i] = mark_prompt_context(x[i], positive)
         return x
     if isinstance(x, MulticondLearnedConditioning):
-        x.batch = mark_prompt_context(x.batch, mark)
+        x.batch = mark_prompt_context(x.batch, positive)
         return x
     if isinstance(x, ComposableScheduledPromptConditioning):
-        x.schedules = mark_prompt_context(x.schedules, mark)
+        x.schedules = mark_prompt_context(x.schedules, positive)
         return x
     if isinstance(x, ScheduledPromptConditioning):
         cond = x.cond
         if prompt_context_is_marked(cond):
             return x
+        mark = POSITIVE_MARK_TOKEN if positive else NEGATIVE_MARK_TOKEN
         cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
         return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
     return x
 
 
 def unmark_prompt_context(x):
+    assert prompt_context_is_marked(x), 'ControlNet Error: Failed to detect whether an instance is cond or uncond!'
     mark = x[:, 0, :]
     context = x[:, 1:, :]
     mark = torch.mean(torch.abs(mark - NEGATIVE_MARK_TOKEN), dim=1)
@@ -214,10 +217,10 @@ class UnetHook(nn.Module):
         outer = self
 
         def process_sample(*args, **kwargs):
-            mark_prompt_context(kwargs.get('conditioning', []), POSITIVE_MARK_TOKEN)
-            mark_prompt_context(kwargs.get('unconditional_conditioning', []), NEGATIVE_MARK_TOKEN)
-            mark_prompt_context(getattr(process, 'hr_c', []), POSITIVE_MARK_TOKEN)
-            mark_prompt_context(getattr(process, 'hr_uc', []), NEGATIVE_MARK_TOKEN)
+            mark_prompt_context(kwargs.get('conditioning', []), positive=True)
+            mark_prompt_context(kwargs.get('unconditional_conditioning', []), positive=False)
+            mark_prompt_context(getattr(process, 'hr_c', []), positive=True)
+            mark_prompt_context(getattr(process, 'hr_uc', []), positive=False)
             return process.sample_before_CN_hack(*args, **kwargs)
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
@@ -228,7 +231,7 @@ class UnetHook(nn.Module):
 
             # Handle cond-uncond marker
             cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
-            # print(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
+            print(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
 
             # High-res fix
             for param in outer.control_params:
