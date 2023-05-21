@@ -46,6 +46,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "module_detail": external_code.get_modules_detail(alias_names)
         }
 
+    cached_cn_preprocessors = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
     @app.post("/controlnet/detect")
     async def detect(
         controlnet_module: str = Body("none", title='Controlnet Module'),
@@ -56,7 +57,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     ):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(controlnet_module, controlnet_module)
 
-        if controlnet_module not in global_state.cn_preprocessor_modules:
+        if controlnet_module not in cached_cn_preprocessors:
             raise HTTPException(
                 status_code=422, detail="Module not available")
 
@@ -68,7 +69,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         results = []
 
-        processor_module = global_state.cn_preprocessor_modules[controlnet_module]
+        processor_module = cached_cn_preprocessors[controlnet_module]
 
         for input_image in controlnet_input_images:
             img = external_code.to_base64_nparray(input_image)

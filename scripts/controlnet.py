@@ -206,7 +206,7 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = global_state.cn_preprocessor_modules
+        self.preprocessor = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""

@@ -19,9 +19,16 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
     """ We want to share the preprocessor results in a single big cache, instead of a small 
      cache for each preprocessor function. """
+    CACHE_SIZE = shared.cmd_opts.controlnet_preprocessor_cache_size
+
+    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
+    # helpful when debugging preprocessor code.
+    if CACHE_SIZE == 0:
+        return preprocessor_modules
     
-    # Setting max_size=16 as each entry contains image as both key and value (Very costly).
-    @ndarray_lru_cache(max_size=16)
+    print(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
+
+    @ndarray_lru_cache(max_size=CACHE_SIZE)
     def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
         # TODO: Make this a debug log?
         print(f'Calling preprocessor {preprocessor_name} outside of cache.')
@@ -33,7 +40,7 @@ def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, 
         in preprocessor_modules.keys()
     }
 
-cn_preprocessor_modules = cache_preprocessors({
+cn_preprocessor_modules = {
     "none": lambda x, *args, **kwargs: (x, True),
     "canny": canny,
     "depth": midas,
@@ -75,7 +82,7 @@ cn_preprocessor_modules = cache_preprocessors({
     "reference_adain": identity,
     "reference_adain+attn": identity,
     "inpaint": identity,
-})
+}
 
 cn_preprocessor_unloadable = {
     "hed": unload_hed,
