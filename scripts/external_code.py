@@ -3,7 +3,7 @@ from typing import List, Any, Optional, Union, Tuple, Dict
 import numpy as np
 from modules import scripts, processing, shared
 from scripts import global_state
-from scripts.processor import preprocessor_sliders_config
+from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
 
 from modules.api import api
 
@@ -306,10 +306,12 @@ def get_modules_detail(alias_names: bool = False) -> Dict[str, Any]:
     for index, module in enumerate(_output_list):
         if _module_list[index] in preprocessor_sliders_config:
             _module_detail[module] = {
+                "model_free": module in model_free_preprocessors,
                 "sliders": preprocessor_sliders_config[_module_list[index]]
             }
         else:
             _module_detail[module] = {
+                "model_free": False,
                 "sliders": []
             }
             
