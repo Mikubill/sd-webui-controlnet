@@ -6,6 +6,9 @@ from collections import OrderedDict
 from modules import shared, scripts, sd_models
 from modules.paths import models_path
 from scripts.processor import *
+from scripts.utils import ndarray_lru_cache
+
+from typing import Dict, Callable
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -13,7 +16,24 @@ cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 
-cn_preprocessor_modules = {
+def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
+    """ We want to share the preprocessor results in a single big cache, instead of a small 
+     cache for each preprocessor function. """
+    
+    # Setting max_size=16 as each entry contains image as both key and value (Very costly).
+    @ndarray_lru_cache(max_size=16)
+    def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
+        # TODO: Make this a debug log?
+        print(f'Calling preprocessor {preprocessor_name} outside of cache.')
+        return preprocessor_modules[preprocessor_name](*args, **kwargs)
+        
+    return {
+        k: functools.partial(unified_preprocessor, k)
+        for k
+        in preprocessor_modules.keys()
+    }
+
+cn_preprocessor_modules = cache_preprocessors({
     "none": lambda x, *args, **kwargs: (x, True),
     "canny": canny,
     "depth": midas,
@@ -55,7 +75,7 @@ cn_preprocessor_modules = {
     "reference_adain": identity,
     "reference_adain+attn": identity,
     "inpaint": identity,
-}
+})
 
 cn_preprocessor_unloadable = {
     "hed": unload_hed,
