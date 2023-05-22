@@ -48,12 +48,21 @@ def mark_prompt_context(x, positive):
 
 
 def unmark_prompt_context(x):
-    assert prompt_context_is_marked(x), 'ControlNet Error: Failed to detect whether an instance is cond or uncond!'
+    if not prompt_context_is_marked(x):
+        print('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
+        print('ControlNet Error: This is mainly because other extension overrides A1111\'s \"process.sample()\" and blocks ControlNet\' sample function.')
+        print('ControlNet Error: ControlNet will shift to backup backend but the results may be worse than expectation.')
+        print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
+              'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
+        mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=torch.float32, device=x.device)
+        uc_indices = []
+        context = x
+        return mark_batch, uc_indices, context
     mark = x[:, 0, :]
     context = x[:, 1:, :]
     mark = torch.mean(torch.abs(mark - NEGATIVE_MARK_TOKEN), dim=1)
     mark = (mark > MARK_EPS).float()
-    mark_batch = mark[:, None, None, None]
+    mark_batch = mark[:, None, None, None].to(x.dtype).to(x.device)
     uc_indices = mark.detach().cpu().numpy().tolist()
     uc_indices = [i for i, item in enumerate(uc_indices) if item < 0.5]
     return mark_batch, uc_indices, context
