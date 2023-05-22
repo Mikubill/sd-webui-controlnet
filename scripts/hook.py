@@ -54,7 +54,7 @@ def unmark_prompt_context(x):
         print('ControlNet Error: ControlNet will shift to backup backend but the results may be worse than expectation.')
         print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
               'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
-        mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=torch.float32, device=x.device)
+        mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device)
         uc_indices = []
         context = x
         return mark_batch, uc_indices, context
