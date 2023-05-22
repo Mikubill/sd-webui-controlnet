@@ -1,4 +1,4 @@
-version_flag = 'v1.1.188'
+version_flag = 'v1.1.189'
 print(f'ControlNet {version_flag}')
 # A smart trick to know if user has updated as well as if user has restarted terminal.
 # Note that in "controlnet.py" we do NOT use "importlib.reload" to reload this "controlnet_version.py"
