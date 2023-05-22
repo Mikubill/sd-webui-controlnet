@@ -50,7 +50,7 @@ def mark_prompt_context(x, positive):
 def unmark_prompt_context(x):
     if not prompt_context_is_marked(x):
         print('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
-        print('ControlNet Error: This is mainly because other extension overrides A1111\'s \"process.sample()\" and blocks ControlNet\' sample function.')
+        print('ControlNet Error: This is mainly because other extension blocked A1111\'s \"process.sample()\" and deleted ControlNet\' sample function.')
         print('ControlNet Error: ControlNet will shift to backup backend but the results may be worse than expectation.')
         print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
               'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
