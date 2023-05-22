@@ -47,13 +47,8 @@ def mark_prompt_context(x, positive):
     return x
 
 
-disable_controlnet_prompt_warning = False
+disable_controlnet_prompt_warning = True
 # You can disable this warning using disable_controlnet_prompt_warning.
-# The consequences of ignoring this problem rather than solving it:
-# 1. All reference preprocessor will be broken.
-# 2. Shuffle and T2I style adapter will be broken.
-# 3. All Control Modes will be broken.
-# But all other functionalities of ControlNet will still work, like canny, depth, etc.
 
 
 def unmark_prompt_context(x):
