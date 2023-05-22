@@ -47,13 +47,17 @@ def mark_prompt_context(x, positive):
     return x
 
 
+disable_controlnet_prompt_warning = False
+# You can disable this warning using disable_controlnet_prompt_warning.
+# The consequences of ignoring this problem rather than solving it:
+# 1. All reference preprocessor will be broken.
+# 2. Shuffle and T2I style adapter will be broken.
+# 3. All Control Modes will be broken.
+# But all other functionalities of ControlNet will still work, like canny, depth, etc.
+
+
 def unmark_prompt_context(x):
     if not prompt_context_is_marked(x):
-        print('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
-        print('ControlNet Error: This is mainly because other extension(s) blocked A1111\'s \"process.sample()\" and deleted ControlNet\'s sample function.')
-        print('ControlNet Error: ControlNet will shift to a backup backend but the results will be worse than expectation.')
-        print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
-              'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
         # ControlNet must know whether a prompt is conditional prompt (positive prompt) or unconditional conditioning prompt (negative prompt).
         # You can use the hook.py's `mark_prompt_context` to mark the prompts that will be seen by ControlNet.
         # Let us say XXX is a MulticondLearnedConditioning or a ComposableScheduledPromptConditioning or a ScheduledPromptConditioning or a list of these components,
@@ -61,6 +65,12 @@ def unmark_prompt_context(x):
         # if XXX is a negative prompt, you should call mark_prompt_context(XXX, positive=False)
         # After you mark the prompts, the ControlNet will know which prompt is cond/uncond and works as expected.
         # After you mark the prompts, the mismatch errors will disappear.
+        if not disable_controlnet_prompt_warning:
+            print('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
+            print('ControlNet Error: This is mainly because other extension(s) blocked A1111\'s \"process.sample()\" and deleted ControlNet\'s sample function.')
+            print('ControlNet Error: ControlNet will shift to a backup backend but the results will be worse than expectation.')
+            print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
+                  'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
         mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device)
         uc_indices = []
         context = x
