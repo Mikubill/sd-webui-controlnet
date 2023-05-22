@@ -57,10 +57,10 @@ def unmark_prompt_context(x):
         # ControlNet must know whether a prompt is conditional prompt (positive prompt) or unconditional conditioning prompt (negative prompt).
         # You can use the hook.py's `mark_prompt_context` to mark the prompts that will be seen by ControlNet.
         # Let us say XXX is a MulticondLearnedConditioning or a ComposableScheduledPromptConditioning or a ScheduledPromptConditioning or a list of these components,
-        # if XXX is a positive prompt, you should call mark_prompt_context(XXX, []), positive=True)
-        # if XXX is a negative prompt, you should call mark_prompt_context(XXX, []), positive=False)
+        # if XXX is a positive prompt, you should call mark_prompt_context(XXX, positive=True)
+        # if XXX is a negative prompt, you should call mark_prompt_context(XXX, positive=False)
         # After you mark the prompts, the ControlNet will know which prompt is cond/uncond and works as expected.
-        # After you mark the prompts, the warnings will disappear.
+        # After you mark the prompts, the mismatch errors will disappear.
         mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device)
         uc_indices = []
         context = x
@@ -236,10 +236,10 @@ class UnetHook(nn.Module):
             # ControlNet must know whether a prompt is conditional prompt (positive prompt) or unconditional conditioning prompt (negative prompt).
             # You can use the hook.py's `mark_prompt_context` to mark the prompts that will be seen by ControlNet.
             # Let us say XXX is a MulticondLearnedConditioning or a ComposableScheduledPromptConditioning or a ScheduledPromptConditioning or a list of these components,
-            # if XXX is a positive prompt, you should call mark_prompt_context(XXX, []), positive=True)
-            # if XXX is a negative prompt, you should call mark_prompt_context(XXX, []), positive=False)
+            # if XXX is a positive prompt, you should call mark_prompt_context(XXX, positive=True)
+            # if XXX is a negative prompt, you should call mark_prompt_context(XXX, positive=False)
             # After you mark the prompts, the ControlNet will know which prompt is cond/uncond and works as expected.
-            # After you mark the prompts, all warnings will disappear.
+            # After you mark the prompts, the mismatch errors will disappear.
             mark_prompt_context(kwargs.get('conditioning', []), positive=True)
             mark_prompt_context(kwargs.get('unconditional_conditioning', []), positive=False)
             mark_prompt_context(getattr(process, 'hr_c', []), positive=True)
