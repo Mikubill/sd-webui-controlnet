@@ -206,7 +206,7 @@ class Script(scripts.Script):
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = global_state.cn_preprocessor_modules
+        self.preprocessor = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
@@ -471,9 +471,21 @@ class Script(scripts.Script):
             json_acceptor = JsonAcceptor()
 
             print(f'Preview Resolution = {pres}')
-            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b, json_pose_callback=json_acceptor.accept)
 
-            if preprocessor is processor.clip:
+            def is_openpose(module: str):
+                return 'openpose' in module
+            
+            # Only openpose preprocessor returns a JSON output, pass json_acceptor
+            # only when a JSON output is expected. This will make preprocessor cache
+            # work for all other preprocessors other than openpose ones. JSON acceptor
+            # instance are different every call, which means cache will never take 
+            # effect.
+            # TODO: Maybe we should let `preprocessor` return a Dict to alleviate this issue?
+            # This requires changing all callsites though.
+            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b,
+                                            json_pose_callback=json_acceptor.accept if is_openpose(module) else None)
+
+            if 'clip' in module:
                 result = processor.clip_vision_visualization(result)
                 is_image = True
 

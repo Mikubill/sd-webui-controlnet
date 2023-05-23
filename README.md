@@ -222,6 +222,7 @@ This extension adds these command line arguments to the webui:
     --controlnet-dir <path to directory with controlnet models>                                ADD a controlnet models directory
     --controlnet-annotator-models-path <path to directory with annotator model directories>    SET the directory for annotator models
     --no-half-controlnet                                                                       load controlnet models in full precision
+    --controlnet-preprocessor-cache-size                                                       Cache size for controlnet preprocessor results
 ```
 
 # MacOS Support

@@ -6,12 +6,45 @@ from collections import OrderedDict
 from modules import shared, scripts, sd_models
 from modules.paths import models_path
 from scripts.processor import *
+from scripts.utils import ndarray_lru_cache
+
+from typing import Dict, Callable
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
 cn_models_dir_old = os.path.join(scripts.basedir(), "models")
 cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safetensors
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
+
+def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
+    """ We want to share the preprocessor results in a single big cache, instead of a small 
+     cache for each preprocessor function. """
+    CACHE_SIZE = shared.cmd_opts.controlnet_preprocessor_cache_size
+
+    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
+    # helpful when debugging preprocessor code.
+    if CACHE_SIZE == 0:
+        return preprocessor_modules
+    
+    print(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
+
+    @ndarray_lru_cache(max_size=CACHE_SIZE)
+    def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
+        # TODO: Make this a debug log?
+        print(f'Calling preprocessor {preprocessor_name} outside of cache.')
+        return preprocessor_modules[preprocessor_name](*args, **kwargs)
+    
+    # TODO: Introduce a seed parameter for shuffle preprocessor?
+    uncacheable_preprocessors = ['shuffle']
+
+    return {
+        k: (
+            v if k in uncacheable_preprocessors 
+            else functools.partial(unified_preprocessor, k)
+        )
+        for k, v
+        in preprocessor_modules.items()
+    }
 
 cn_preprocessor_modules = {
     "none": lambda x, *args, **kwargs: (x, True),
