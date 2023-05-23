@@ -87,7 +87,6 @@ class Script(scripts.Script):
 
         with gr.Group():
             with gr.Accordion("ControlNet-M2M", open = False):
-                #reference_only = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'reference_image')
                 duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True, elem_id='controlnet_movie2movie_duration_slider')
                 with gr.Tabs():
                     for i in range(max_models):
@@ -120,19 +119,6 @@ class Script(scripts.Script):
                 video_list.append(get_all_frames(input_set[0]))
             if input_set[1] is not None:
                 item_list.append([cv2.cvtColor(pil2cv(input_set[1]["image"]), cv2.COLOR_BGRA2RGB), "image"])
-
-        """
-        for item in args[:contents_num * arg_num:3]:
-            if item is None:
-                continue
-            item_list.append([get_all_frames(item), "video"])
-            video_list.append(get_all_frames(item))
-
-        for item in args[1:contents_num * arg_num:3]:
-            if item is None:
-                continue
-            item_list.append([cv2.cvtColor(pil2cv(item["image"]), cv2.COLOR_BGRA2RGB), "image"])
-        """    
 
         save_pre = list(args[2:contents_num * arg_num:3])
         item_num = len(item_list)
