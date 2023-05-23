@@ -7,6 +7,6 @@ def preload(parser):
     parser.add_argument(
         "--controlnet-preprocessor-cache-size",
         type=int,
-        help="Cache size for controlnet preprocessor",
+        help="Cache size for controlnet preprocessor results",
         default=16,
     )
