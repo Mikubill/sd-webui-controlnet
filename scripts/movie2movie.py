@@ -94,10 +94,9 @@ class Script(scripts.Script):
                         with gr.Tab(f"ControlNet-{i}"):
                             with gr.TabItem("Movie Input"):
                                 ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
-                                ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
                             with gr.TabItem("Image Input"):
                                 ctrls_group += (gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'image_{i}'), )
-                                ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
+                            ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)        
                 
         ctrls_group += (duration,)
 
@@ -110,31 +109,41 @@ class Script(scripts.Script):
         # Custom functions can be defined here, and additional libraries can be imported 
         # to be used in processing. The return value should be a Processed object, which is
         # what is returned by the process_images method.
-        item_num = opts.data.get("control_net_max_models_num", 1)
-        arg_num = 2
-        #print([type(video) for video in args[:video_num*2 * arg_num:2]])
+        
+        contents_num = opts.data.get("control_net_max_models_num", 1)
+        arg_num = 3
         item_list = []
         video_list = []
-        for item in args[:item_num*2 * arg_num:2]:
-            if type(item) == type({}):
-                item_list.append([cv2.cvtColor(pil2cv(item["image"]), cv2.COLOR_BGRA2RGB), "image"])
-            elif type(item) == type(""):
-                item_list.append([get_all_frames(item), "video"])
-                video_list.append(get_all_frames(item))
-        
+        for input_set in  [tuple(args[:contents_num * arg_num][i:i+3]) for i in range(0, len(args[:contents_num * arg_num]), arg_num)]:
+            if input_set[0] is not None:
+                item_list.append([get_all_frames(input_set[0]), "video"])
+                video_list.append(get_all_frames(input_set[0]))
+            if input_set[1] is not None:
+                item_list.append([cv2.cvtColor(pil2cv(input_set[1]["image"]), cv2.COLOR_BGRA2RGB), "image"])
+
+        """
+        for item in args[:contents_num * arg_num:3]:
+            if item is None:
+                continue
+            item_list.append([get_all_frames(item), "video"])
+            video_list.append(get_all_frames(item))
+
+        for item in args[1:contents_num * arg_num:3]:
+            if item is None:
+                continue
+            item_list.append([cv2.cvtColor(pil2cv(item["image"]), cv2.COLOR_BGRA2RGB), "image"])
+        """    
+
+        save_pre = list(args[2:contents_num * arg_num:3])
         item_num = len(item_list)
         video_num = len(video_list)
-
-        #video_list = [get_all_frames(video) for video in args[:video_num * arg_num:2]]
-        save_pre = video_list #list(args[1:item_num*2 * arg_num:2])
-        duration, = args[item_num*2 * arg_num:]
-
+        duration, = args[contents_num * arg_num:]
 
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
             output_image_list = []
             pre_output_image_list = []
-            for i in range(video_num):
+            for i in range(item_num):
                 pre_output_image_list.append([])
 
             for frame in range(frame_num):
@@ -157,7 +166,7 @@ class Script(scripts.Script):
                         try:
                             pre_output_image_list[i].append(proc.images[i + 1])
                         except:
-                            print(f"proc.images[{i + 1} failed")
+                            print(f"proc.images[{i} failed")
 
                 copy_p.close()
 
@@ -167,6 +176,7 @@ class Script(scripts.Script):
             filename = f"{seq:05}-{proc.seed}-{_BASEFILE}"
             save_gif(p.outpath_samples, output_image_list, filename, duration)
             proc.images = [f"{p.outpath_samples}{_BASEDIR}/{filename}.gif"]
+
 
             for i in range(len(save_pre)):
                 if save_pre[i]:
