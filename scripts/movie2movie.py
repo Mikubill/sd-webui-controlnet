@@ -11,6 +11,8 @@ from modules.processing import process_images
 from modules.shared import opts
 from PIL import Image
 
+import numpy as np
+
 _BASEDIR = "/controlnet-m2m"
 _BASEFILE = "animation"
 
@@ -41,6 +43,17 @@ def get_min_frame_num(video_list):
             elif frame_num < min_frame_num:
                 min_frame_num = frame_num
     return min_frame_num
+
+def pil2cv(image):
+  new_image = np.array(image, dtype=np.uint8)
+  if new_image.ndim == 2:
+      pass
+  elif new_image.shape[2] == 3:
+      new_image = new_image[:, :, ::-1]
+  elif new_image.shape[2] == 4:
+      new_image = new_image[:, :, [2, 1, 0, 3]]
+  return new_image
+
 
 def save_gif(path, image_list, name, duration):
     tmp_dir = path + "/tmp/" 
@@ -74,12 +87,16 @@ class Script(scripts.Script):
 
         with gr.Group():
             with gr.Accordion("ControlNet-M2M", open = False):
+                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True, elem_id='controlnet_movie2movie_duration_slider')
                 with gr.Tabs():
                     for i in range(max_models):
                         with gr.Tab(f"ControlNet-{i}"):
-                            ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
-                            ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)
-                duration = gr.Slider(label=f"Duration", value=50.0, minimum=10.0, maximum=200.0, step=10, interactive=True, elem_id='controlnet_movie2movie_duration_slider')
+                            with gr.TabItem("Movie Input"):
+                                ctrls_group += (gr.Video(format='mp4', source='upload', elem_id = f"video_{i}"), )
+                            with gr.TabItem("Image Input"):
+                                ctrls_group += (gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'image_{i}'), )
+                            ctrls_group += (gr.Checkbox(label=f"Save preprocessed", value=False, elem_id = f"save_pre_{i}"),)        
+                
         ctrls_group += (duration,)
 
         return ctrls_group
@@ -91,26 +108,41 @@ class Script(scripts.Script):
         # Custom functions can be defined here, and additional libraries can be imported 
         # to be used in processing. The return value should be a Processed object, which is
         # what is returned by the process_images method.
-        video_num = opts.data.get("control_net_max_models_num", 1)
-        arg_num = 2
-        video_list = [get_all_frames(video) for video in args[:video_num * arg_num:2]]
-        save_pre = list(args[1:video_num * arg_num:2])
-        duration, = args[video_num * arg_num:]
+        
+        contents_num = opts.data.get("control_net_max_models_num", 1)
+        arg_num = 3
+        item_list = []
+        video_list = []
+        for input_set in  [tuple(args[:contents_num * arg_num][i:i+3]) for i in range(0, len(args[:contents_num * arg_num]), arg_num)]:
+            if input_set[0] is not None:
+                item_list.append([get_all_frames(input_set[0]), "video"])
+                video_list.append(get_all_frames(input_set[0]))
+            if input_set[1] is not None:
+                item_list.append([cv2.cvtColor(pil2cv(input_set[1]["image"]), cv2.COLOR_BGRA2RGB), "image"])
+
+        save_pre = list(args[2:contents_num * arg_num:3])
+        item_num = len(item_list)
+        video_num = len(video_list)
+        duration, = args[contents_num * arg_num:]
 
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
             output_image_list = []
             pre_output_image_list = []
-            for i in range(video_num):
+            for i in range(item_num):
                 pre_output_image_list.append([])
 
             for frame in range(frame_num):
                 copy_p = copy.copy(p)
                 copy_p.control_net_input_image = []
-                for video in video_list:
-                    if video is None:
+                for item in item_list:
+                    if item[1] == "video":
+                        copy_p.control_net_input_image.append(item[0][frame])
+                    elif item[1] == "image":
+                        copy_p.control_net_input_image.append(item[0])
+                    else:
                         continue
-                    copy_p.control_net_input_image.append(video[frame])
+
                 proc = process_images(copy_p)
                 img = proc.images[0]
                 output_image_list.append(img)
@@ -120,7 +152,7 @@ class Script(scripts.Script):
                         try:
                             pre_output_image_list[i].append(proc.images[i + 1])
                         except:
-                            print(f"proc.images[{i + 1} failed")
+                            print(f"proc.images[{i} failed")
 
                 copy_p.close()
 
@@ -130,6 +162,7 @@ class Script(scripts.Script):
             filename = f"{seq:05}-{proc.seed}-{_BASEFILE}"
             save_gif(p.outpath_samples, output_image_list, filename, duration)
             proc.images = [f"{p.outpath_samples}{_BASEDIR}/{filename}.gif"]
+
 
             for i in range(len(save_pre)):
                 if save_pre[i]:
