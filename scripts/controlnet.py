@@ -432,7 +432,6 @@ class Script(scripts.Script):
                     if len(filtered_model_list) == 1:
                         filtered_model_list = model_list
                     else:
-                        default_model = filtered_model_list[1]
                         for x in filtered_model_list:
                             if '11' in x.split('[')[0]:
                                 default_model = x
