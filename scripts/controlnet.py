@@ -424,8 +424,8 @@ class Script(scripts.Script):
                     if pattern == 'all':
                         return [gr.Dropdown.update(value='none', choices=preprocessor_list),
                                 gr.Dropdown.update(value='None', choices=model_list)] + build_sliders('none', pp)
-                    filtered_preprocessor_list = [x for x in preprocessor_list if pattern in x or x.lower() == 'none']
-                    filtered_model_list = [x for x in model_list if pattern in x or x.lower() == 'none']
+                    filtered_preprocessor_list = [x for x in preprocessor_list if pattern in x.lower() or x.lower() == 'none']
+                    filtered_model_list = [x for x in model_list if pattern in x.lower() or x.lower() == 'none']
                     if default_option not in filtered_preprocessor_list:
                         default_option = filtered_preprocessor_list[0]
                     if len(filtered_model_list) == 1:
