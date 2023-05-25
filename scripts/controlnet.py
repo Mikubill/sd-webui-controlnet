@@ -428,7 +428,6 @@ class Script(scripts.Script):
                     filtered_model_list = [x for x in model_list if pattern in x.lower() or x.lower() == 'none']
                     if default_option not in filtered_preprocessor_list:
                         default_option = filtered_preprocessor_list[0]
-                    default_model = 'None'
                     if len(filtered_model_list) == 1:
                         default_model = 'None'
                         filtered_model_list = model_list
