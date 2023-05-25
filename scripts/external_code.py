@@ -168,6 +168,13 @@ def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[Contr
 
     return None
 
+def get_max_models_num():
+    """
+    Fetch the maximum number of allowed ControlNet models. 
+    """
+
+    max_models_num = shared.opts.data.get("control_net_max_models_num", 1)
+    return max_models_num
 
 def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNetUnit:
     """
