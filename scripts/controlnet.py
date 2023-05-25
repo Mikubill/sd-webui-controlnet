@@ -32,7 +32,7 @@ import base64
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution, model_free_preprocessors
+from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution, model_free_preprocessors, preprocessor_filters
 
 gradio_compat = True
 try:
@@ -302,7 +302,7 @@ class Script(scripts.Script):
                 canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
 
         with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+            gr.HTML(value='<p>Set the Control Type and Preprocessor to [invert] If your image has white background and black lines.</p>')
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
@@ -351,6 +351,12 @@ class Script(scripts.Script):
             dd = inputs[0]
             selected = dd if dd in global_state.cn_models else "None"
             return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
+
+        if shared.opts.data.get("controlnet_disable_control_type", False):
+            type_filter = None
+        else:
+            with gr.Row():
+                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio')
 
         with gr.Row():
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
@@ -408,6 +414,33 @@ class Script(scripts.Script):
         if gradio_compat:
             module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
             pixel_perfect.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
+
+            if type_filter is not None:
+                def filter_selected(k, pp):
+                    default_option = preprocessor_filters[k]
+                    pattern = k.lower()
+                    preprocessor_list = global_state.ui_preprocessor_keys
+                    model_list = list(global_state.cn_models.keys())
+                    if pattern == 'all':
+                        return [gr.Dropdown.update(value='none', choices=preprocessor_list),
+                                gr.Dropdown.update(value='None', choices=model_list)] + build_sliders('none', pp)
+                    filtered_preprocessor_list = [x for x in preprocessor_list if pattern in x or x.lower() == 'none']
+                    filtered_model_list = [x for x in model_list if pattern in x or x.lower() == 'none']
+                    if default_option not in filtered_preprocessor_list:
+                        default_option = filtered_preprocessor_list[0]
+                    if len(filtered_model_list) == 1:
+                        default_model = 'None'
+                        filtered_model_list = model_list
+                    else:
+                        default_model = filtered_model_list[1]
+                        for x in filtered_model_list:
+                            if '11' in x.split('[')[0]:
+                                default_model = x
+                                break
+                    return [gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
+                            gr.Dropdown.update(value=default_model, choices=filtered_model_list)] + build_sliders(default_option, pp)
+
+                type_filter.change(filter_selected, inputs=[type_filter, pixel_perfect], outputs=[module, model, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
 
         # infotext_fields.extend((module, model, weight))
 
@@ -1357,6 +1390,8 @@ def on_ui_settings():
         False, "Show batch images in gradio gallery output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_increment_seed_during_batch", shared.OptionInfo(
         False, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_disable_control_type", shared.OptionInfo(
+        False, "Disable control type selection", gr.Checkbox, {"interactive": True}, section=section))
 
 
 def on_after_component(component, **_kwargs):

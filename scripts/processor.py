@@ -820,3 +820,23 @@ preprocessor_sliders_config = {
         }
     ],
 }
+
+preprocessor_filters = {
+    "All": "none",
+    "Invert": "invert (from white bg & black line)",
+    "Canny": "canny",
+    "Depth": "depth_midas",
+    "Normal": "normal_bae",
+    "OpenPose": "openpose_full",
+    "MLSD": "mlsd",
+    "Lineart": "lineart_standard (from white bg & black line)",
+    "SoftEdge": "softedge_pidinet",
+    "Scribble": "scribble_pidinet",
+    "Seg": "seg_ofade20k",
+    "Shuffle": "shuffle",
+    "Tile": "tile_resample",
+    "Inpaint": "inpaint_global_harmonious",
+    "IP2P": "none",
+    "Reference": "reference_only",
+    "T2IA": "none",
+}
