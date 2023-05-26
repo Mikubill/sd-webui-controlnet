@@ -504,7 +504,11 @@ class UnetHook(nn.Module):
                     continue
                 if param.preprocessor['name'] not in ['tile_colorfix']:
                     continue
+
                 k = int(param.preprocessor['threshold_a'])
+                if is_in_high_res_fix:
+                    k *= 2
+
                 x0_origin = param.used_hint_cond_latent
                 t = torch.round(timesteps.float()).long()
                 x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
