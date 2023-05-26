@@ -10,6 +10,7 @@ cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 from ldm.modules.diffusionmodules.util import timestep_embedding
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
 from ldm.modules.attention import BasicTransformerBlock
+from ldm.models.diffusion.ddpm import extract_into_tensor
 
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 
@@ -213,6 +214,20 @@ def torch_dfs(model: torch.nn.Module):
     return result
 
 
+def predict_start_from_noise(ldm, x_t, t, noise):
+    return extract_into_tensor(ldm.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
+
+
+def predict_noise_from_start(ldm, x_t, t, x0):
+    return (extract_into_tensor(ldm.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - x0) / extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod, t, x_t.shape)
+
+
+def blur(x, k):
+    y = torch.nn.functional.pad(x, (k, k, k, k), mode='replicate')
+    y = torch.nn.functional.avg_pool2d(y, (k*2+1, k*2+1), stride=(1, 1))
+    return y
+
+
 class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
@@ -291,7 +306,7 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.used_hint_cond_latent is not None:
                     continue
-                if param.control_model_type not in [ControlModelType.AttentionInjection]:
+                if param.control_model_type not in [ControlModelType.AttentionInjection] and param.preprocessor['name'] not in ['tile_colorfix']:
                     continue
                 try:
                     query_size = int(x.shape[0])
@@ -429,7 +444,7 @@ class UnetHook(nn.Module):
                         param.used_hint_cond_latent
                     ], dim=1)
 
-                outer.current_style_fidelity = float(param.preprocessor.get('threshold_a', 0.5))
+                outer.current_style_fidelity = float(param.preprocessor['threshold_a'])
                 outer.current_style_fidelity = max(0.0, min(1.0, outer.current_style_fidelity))
 
                 if param.cfg_injection:
@@ -437,7 +452,7 @@ class UnetHook(nn.Module):
                 elif param.soft_injection or is_in_high_res_fix:
                     outer.current_style_fidelity = 0.0
 
-                control_name = param.preprocessor.get('name', None)
+                control_name = param.preprocessor['name']
 
                 if control_name in ['reference_only', 'reference_adain+attn']:
                     outer.attention_auto_machine = AutoMachine.Write
@@ -482,6 +497,26 @@ class UnetHook(nn.Module):
             # U-Net Output
             h = h.type(x.dtype)
             h = self.out(h)
+
+            # Post-processing for tile color fix
+            for param in outer.control_params:
+                if param.used_hint_cond_latent is None:
+                    continue
+                if param.preprocessor['name'] not in ['tile_colorfix']:
+                    continue
+
+                k = int(param.preprocessor['threshold_a'])
+                if is_in_high_res_fix:
+                    k *= 2
+
+                x0_origin = param.used_hint_cond_latent
+                t = torch.round(timesteps.float()).long()
+                x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
+                x0 = x0_prd - blur(x0_prd, k) + blur(x0_origin, k)
+                eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
+
+                w = max(0.0, min(1.0, float(param.weight)))
+                h = eps_prd * w + h * (1 - w)
 
             return h
 

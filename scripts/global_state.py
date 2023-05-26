@@ -88,6 +88,7 @@ cn_preprocessor_modules = {
     "reference_adain": identity,
     "reference_adain+attn": identity,
     "inpaint": identity,
+    "tile_colorfix": identity,
 }
 
 cn_preprocessor_unloadable = {
