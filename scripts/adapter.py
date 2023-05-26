@@ -99,10 +99,8 @@ class PlugableAdapter(nn.Module):
         hint_in = cond_cast_unet(hint)
         
         if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
-            hint_in = hint_in[0].unsqueeze(0).unsqueeze(0)
-        else:
-            hint_in = hint_in.unsqueeze(0)
-                        
+            hint_in = hint_in[:, 0:1, :, :]
+
         self.control = self.control_model(hint_in)
         return deepcopy(self.control)
 

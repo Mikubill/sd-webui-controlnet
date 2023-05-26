@@ -341,10 +341,9 @@ class ControlNet(nn.Module):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
     
     def align(self, hint, h, w):
-        c, h1, w1 = hint.shape
+        b, c, h1, w1 = hint.shape
         if h != h1 or w != w1:
-            hint = align(hint.unsqueeze(0), (h, w))
-            return hint.squeeze(0)
+            return align(hint, (h, w))
         return hint
 
     def forward(self, x, hint, timesteps, context, **kwargs):

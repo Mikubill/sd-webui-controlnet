@@ -140,6 +140,7 @@ class ControlParams:
     def __init__(
             self,
             control_model,
+            preprocessor,
             hint_cond,
             weight,
             guidance_stopped,
@@ -154,6 +155,7 @@ class ControlParams:
             **kwargs  # To avoid errors
     ):
         self.control_model = control_model
+        self.preprocessor = preprocessor
         self._hint_cond = hint_cond
         self.weight = weight
         self.guidance_stopped = guidance_stopped
@@ -293,12 +295,16 @@ class UnetHook(nn.Module):
                     continue
                 try:
                     query_size = int(x.shape[0])
-                    latent_hint = param.used_hint_cond[None] * 2.0 - 1.0
+                    latent_hint = param.used_hint_cond
+                    if latent_hint.ndim == 3:
+                        latent_hint = latent_hint[None]
+                    latent_hint = latent_hint * 2.0 - 1.0
                     latent_hint = latent_hint.type(devices.dtype_vae)
                     with devices.autocast():
                         latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
                         latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
-                    latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
+                    if latent_hint.shape[0] != query_size:
+                        latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
                     latent_hint = latent_hint.type(devices.dtype_unet)
                     param.used_hint_cond_latent = latent_hint
                     print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {latent_hint.shape}.')
@@ -317,7 +323,10 @@ class UnetHook(nn.Module):
 
                 param.control_model.to(devices.get_device_for("controlnet"))
                 query_size = int(x.shape[0])
-                control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
+                hint = param.used_hint_cond
+                if hint.ndim == 2:
+                    hint = hint[None]
+                control = param.control_model(x=x, hint=hint, timesteps=timesteps, context=context)
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
                 control *= cond_mark[:, :, :, 0]
@@ -343,7 +352,11 @@ class UnetHook(nn.Module):
                         require_inpaint_hijack = True
 
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
-                control = param.control_model(x=x_in, hint=param.used_hint_cond, timesteps=timesteps, context=context)
+
+                hint = param.used_hint_cond
+                if hint.ndim == 3:
+                    hint = hint[None]
+                control = param.control_model(x=x_in, hint=hint, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
 
                 if outer.lowvram:
@@ -416,7 +429,7 @@ class UnetHook(nn.Module):
                         param.used_hint_cond_latent
                     ], dim=1)
 
-                outer.current_style_fidelity = float(param.control_model.get('threshold_a', 0.5))
+                outer.current_style_fidelity = float(param.preprocessor.get('threshold_a', 0.5))
                 outer.current_style_fidelity = max(0.0, min(1.0, outer.current_style_fidelity))
 
                 if param.cfg_injection:
@@ -424,7 +437,7 @@ class UnetHook(nn.Module):
                 elif param.soft_injection or is_in_high_res_fix:
                     outer.current_style_fidelity = 0.0
 
-                control_name = param.control_model.get('name', None)
+                control_name = param.preprocessor.get('name', None)
 
                 if control_name in ['reference_only', 'reference_adain+attn']:
                     outer.attention_auto_machine = AutoMachine.Write

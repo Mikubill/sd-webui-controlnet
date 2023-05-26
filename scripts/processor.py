@@ -823,7 +823,6 @@ preprocessor_sliders_config = {
 
 preprocessor_filters = {
     "All": "none",
-    "Invert": "invert (from white bg & black line)",
     "Canny": "canny",
     "Depth": "depth_midas",
     "Normal": "normal_bae",
