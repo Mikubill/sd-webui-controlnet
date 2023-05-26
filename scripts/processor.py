@@ -759,6 +759,16 @@ preprocessor_sliders_config = {
             "step": 0.01
         }
     ],
+    "tile_colorfix": [
+        None,
+        {
+            "name": "Variation",
+            "value": 8.0,
+            "min": 3.0,
+            "max": 32.0,
+            "step": 1.0
+        }
+    ],
     "reference_only": [
         None,
         {
