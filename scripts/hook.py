@@ -514,7 +514,9 @@ class UnetHook(nn.Module):
                 x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
                 x0 = x0_prd - blur(x0_prd, k) + blur(x0_origin, k)
                 eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
-                h = eps_prd
+
+                w = max(0.0, min(1.0, float(param.weight)))
+                h = eps_prd * w + h * (1 - w)
 
             return h
 
