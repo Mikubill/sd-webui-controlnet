@@ -302,7 +302,7 @@ class Script(scripts.Script):
                 canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
 
         with gr.Row():
-            gr.HTML(value='<p>Set the Control Type and Preprocessor to [invert] If your image has white background and black lines.</p>')
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
@@ -425,6 +425,8 @@ class Script(scripts.Script):
                         return [gr.Dropdown.update(value='none', choices=preprocessor_list),
                                 gr.Dropdown.update(value='None', choices=model_list)] + build_sliders('none', pp)
                     filtered_preprocessor_list = [x for x in preprocessor_list if pattern in x.lower() or x.lower() == 'none']
+                    if pattern in ['canny', 'lineart', 'scribble', 'mlsd']:
+                        filtered_preprocessor_list += [x for x in preprocessor_list if 'invert' in x.lower()]
                     filtered_model_list = [x for x in model_list if pattern in x.lower() or x.lower() == 'none']
                     if default_option not in filtered_preprocessor_list:
                         default_option = filtered_preprocessor_list[0]
@@ -1261,17 +1263,17 @@ class Script(scripts.Script):
             if model_net is not None:
                 if model_net.config.model.params.get("global_average_pooling", False):
                     global_average_pooling = True
-            elif unit.module in model_free_preprocessors:
-                # Pass preprocessor parameters to model-free control
-                model_net = dict(
-                    name=unit.module,
-                    preprocessor_resolution=preprocessor_resolution,
-                    threshold_a=unit.threshold_a,
-                    threshold_b=unit.threshold_b
-                )
+
+            preprocessor_dict = dict(
+                name=unit.module,
+                preprocessor_resolution=preprocessor_resolution,
+                threshold_a=unit.threshold_a,
+                threshold_b=unit.threshold_b
+            )
 
             forward_param = ControlParams(
                 control_model=model_net,
+                preprocessor=preprocessor_dict,
                 hint_cond=control,
                 weight=unit.weight,
                 guidance_stopped=False,
