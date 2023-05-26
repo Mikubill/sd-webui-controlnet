@@ -306,7 +306,7 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.used_hint_cond_latent is not None:
                     continue
-                if param.control_model_type not in [ControlModelType.AttentionInjection] and param.preprocessor['name'] not in ['tile_colorfix']:
+                if param.control_model_type not in [ControlModelType.AttentionInjection] and 'colorfix' not in param.preprocessor['name']:
                     continue
                 try:
                     query_size = int(x.shape[0])
@@ -502,7 +502,7 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.used_hint_cond_latent is None:
                     continue
-                if param.preprocessor['name'] not in ['tile_colorfix']:
+                if 'colorfix' not in param.preprocessor['name']:
                     continue
 
                 k = int(param.preprocessor['threshold_a'])
@@ -513,6 +513,12 @@ class UnetHook(nn.Module):
                 t = torch.round(timesteps.float()).long()
                 x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
                 x0 = x0_prd - blur(x0_prd, k) + blur(x0_origin, k)
+
+                if '+sharp' in param.preprocessor['name']:
+                    detail_weight = float(param.preprocessor['threshold_b']) * 0.01
+                    neg = detail_weight * blur(x0, k) + (1 - detail_weight) * x0
+                    x0 = cond_mark * x0 + (1 - cond_mark) * neg
+
                 eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
 
                 w = max(0.0, min(1.0, float(param.weight)))
