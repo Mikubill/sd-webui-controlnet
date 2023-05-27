@@ -340,12 +340,14 @@ def clip(img, res=512, **kwargs):
     if clip_encoder is None:
         from annotator.clip import apply_clip
         clip_encoder = apply_clip
-    result = clip_encoder(img).squeeze(0)
+    result = clip_encoder(img)
     return result, False
 
 
 def clip_vision_visualization(x):
-    return np.ndarray((x.shape[0] * 4, x.shape[1]), dtype="uint8", buffer=x.detach().cpu().numpy().tobytes())
+    x = x.detach().cpu().numpy()[0]
+    x = np.ascontiguousarray(x).copy()
+    return np.ndarray((x.shape[0] * 4, x.shape[1]), dtype="uint8", buffer=x.tobytes())
 
 
 def unload_clip():
@@ -563,6 +565,7 @@ flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
     "none": [],
     "inpaint": [],
+    "inpaint_only": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,

@@ -286,9 +286,9 @@ class UnetHook(nn.Module):
                     param.used_hint_cond_latent = None
 
                 # has high-res fix
-                if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 3 and param.hr_hint_cond.ndim == 3:
-                    _, h_lr, w_lr = param.hint_cond.shape
-                    _, h_hr, w_hr = param.hr_hint_cond.shape
+                if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 4 and param.hr_hint_cond.ndim == 4:
+                    _, _, h_lr, w_lr = param.hint_cond.shape
+                    _, _, h_hr, w_hr = param.hr_hint_cond.shape
                     _, _, h, w = x.shape
                     h, w = h * 8, w * 8
                     if abs(h - h_lr) < abs(h - h_hr):
@@ -306,13 +306,15 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if param.used_hint_cond_latent is not None:
                     continue
-                if param.control_model_type not in [ControlModelType.AttentionInjection] and 'colorfix' not in param.preprocessor['name']:
+                if param.control_model_type not in [ControlModelType.AttentionInjection] \
+                        and 'colorfix' not in param.preprocessor['name'] \
+                        and 'inpaint_only' not in param.preprocessor['name']:
                     continue
                 try:
                     query_size = int(x.shape[0])
                     latent_hint = param.used_hint_cond
-                    if latent_hint.ndim == 3:
-                        latent_hint = latent_hint[None]
+                    if latent_hint.shape[1] > 3:
+                        latent_hint = latent_hint[:, 0:3, :, :]
                     latent_hint = latent_hint * 2.0 - 1.0
                     latent_hint = latent_hint.type(devices.dtype_vae)
                     with devices.autocast():
@@ -338,10 +340,7 @@ class UnetHook(nn.Module):
 
                 param.control_model.to(devices.get_device_for("controlnet"))
                 query_size = int(x.shape[0])
-                hint = param.used_hint_cond
-                if hint.ndim == 2:
-                    hint = hint[None]
-                control = param.control_model(x=x, hint=hint, timesteps=timesteps, context=context)
+                control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
                 control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
                 control *= param.weight
                 control *= cond_mark[:, :, :, 0]
@@ -369,8 +368,14 @@ class UnetHook(nn.Module):
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
 
                 hint = param.used_hint_cond
-                if hint.ndim == 3:
-                    hint = hint[None]
+
+                # ControlNet inpaint protocol
+                if hint.shape[1] == 4:
+                    c = hint[:, 0:3, :, :]
+                    m = hint[:, 3:4, :, :]
+                    m = (m > 0.5).float()
+                    hint = c * (1 - m) - m
+
                 control = param.control_model(x=x_in, hint=hint, timesteps=timesteps, context=context)
                 control_scales = ([param.weight] * 13)
 
@@ -498,7 +503,7 @@ class UnetHook(nn.Module):
             h = h.type(x.dtype)
             h = self.out(h)
 
-            # Post-processing for tile color fix
+            # Post-processing for color fix
             for param in outer.control_params:
                 if param.used_hint_cond_latent is None:
                     continue
@@ -519,6 +524,27 @@ class UnetHook(nn.Module):
                     neg = detail_weight * blur(x0, k) + (1 - detail_weight) * x0
                     x0 = cond_mark * x0 + (1 - cond_mark) * neg
 
+                eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
+
+                w = max(0.0, min(1.0, float(param.weight)))
+                h = eps_prd * w + h * (1 - w)
+
+            # Post-processing for restore
+            for param in outer.control_params:
+                if param.used_hint_cond_latent is None:
+                    continue
+                if 'inpaint_only' not in param.preprocessor['name']:
+                    continue
+                if param.used_hint_cond.shape[1] != 4:
+                    continue
+
+                mask = param.used_hint_cond[:, 3:4, :, :]
+                mask = torch.nn.functional.avg_pool2d(mask, (8, 8))
+
+                x0_origin = param.used_hint_cond_latent
+                t = torch.round(timesteps.float()).long()
+                x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
+                x0 = x0_prd * mask + x0_origin * (1 - mask)
                 eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
 
                 w = max(0.0, min(1.0, float(param.weight)))

@@ -88,6 +88,7 @@ cn_preprocessor_modules = {
     "reference_adain": identity,
     "reference_adain+attn": identity,
     "inpaint": identity,
+    "inpaint_only": identity,
     "tile_colorfix": identity,
     "tile_colorfix+sharp": identity,
 }
