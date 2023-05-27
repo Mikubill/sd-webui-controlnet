@@ -355,10 +355,10 @@ class Script(scripts.Script):
         if shared.opts.data.get("controlnet_disable_control_type", False):
             type_filter = None
         else:
-            with gr.Row(elem_id="controlnet_control_type"):
+            with gr.Row(elem_classes="controlnet_control_type"):
                 type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio', elem_classes='controlnet_control_type_filter_group')
 
-        with gr.Row(elem_id="controlnet_preprocessor_model"):
+        with gr.Row(elem_classes="controlnet_preprocessor_model"):
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
