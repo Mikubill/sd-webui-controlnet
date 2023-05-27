@@ -1,5 +1,6 @@
 import torch
 import einops
+import hashlib
 import numpy as np
 import torch.nn as nn
 
@@ -235,9 +236,10 @@ class TorchCache:
 
     def hash(self, key):
         v = key.detach().cpu().numpy().astype(np.float32)
-        v = (v * 1000.0).astype(np.int64)
-        s = int(np.sum(v))
-        return s
+        v = (v * 1000.0).astype(np.int32)
+        v = np.ascontiguousarray(v.copy())
+        sha = hashlib.sha1(v).hexdigest()
+        return sha
 
     def get(self, key):
         key = self.hash(key)
