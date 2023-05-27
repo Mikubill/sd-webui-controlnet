@@ -83,6 +83,7 @@ cn_preprocessor_modules = {
     "shuffle": shuffle,
     "tile_resample": tile_resample,
     "invert": invert,
+    "greyscale": greyscale,
     "lineart_anime_denoise": lineart_anime_denoise,
     "reference_only": identity,
     "reference_adain": identity,

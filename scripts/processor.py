@@ -88,6 +88,13 @@ def invert(img, res=512, **kwargs):
     return 255 - HWC3(img), True
 
 
+def greyscale(img, res=512, **kwargs):
+    """convert input image to greyscale
+    to be use with https://huggingface.co/ioclab/control_v1p_sd15_brightness
+    """
+    return cv2.cvtColor(HWC3(img), cv2.COLOR_RGB2GRAY, dstCn=3), True
+
+
 model_hed = None
 
 
