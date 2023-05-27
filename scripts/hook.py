@@ -1,5 +1,6 @@
 import torch
 import einops
+import numpy as np
 import torch.nn as nn
 
 from enum import Enum
@@ -228,6 +229,24 @@ def blur(x, k):
     return y
 
 
+class TorchCache:
+    def __init__(self):
+        self.cache = {}
+
+    def hash(self, key):
+        v = key.detach().cpu().numpy().astype(np.float32)
+        v = (v * 1000.0).astype(np.int64)
+        s = int(np.sum(v))
+        return s
+
+    def get(self, key):
+        key = self.hash(key)
+        return self.cache.get(key, None)
+
+    def set(self, key, value):
+        self.cache[self.hash(key)] = value
+
+
 class UnetHook(nn.Module):
     def __init__(self, lowvram=False) -> None:
         super().__init__()
@@ -311,20 +330,24 @@ class UnetHook(nn.Module):
                         and 'inpaint_only' not in param.preprocessor['name']:
                     continue
                 try:
+                    pixel_hint = param.used_hint_cond
+                    if pixel_hint.shape[1] > 3:
+                        pixel_hint = pixel_hint[:, 0:3, :, :]
+                    pixel_hint = pixel_hint * 2.0 - 1.0
+                    pixel_hint = pixel_hint.type(devices.dtype_vae)
+                    vae_output = outer.vae_cache.get(pixel_hint)
+                    if vae_output is None:
+                        with devices.autocast():
+                            vae_output = outer.sd_ldm.encode_first_stage(pixel_hint)
+                            vae_output = outer.sd_ldm.get_first_stage_encoding(vae_output)
+                        outer.vae_cache.set(pixel_hint, vae_output)
+                        print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
+                    latent_hint = vae_output
                     query_size = int(x.shape[0])
-                    latent_hint = param.used_hint_cond
-                    if latent_hint.shape[1] > 3:
-                        latent_hint = latent_hint[:, 0:3, :, :]
-                    latent_hint = latent_hint * 2.0 - 1.0
-                    latent_hint = latent_hint.type(devices.dtype_vae)
-                    with devices.autocast():
-                        latent_hint = outer.sd_ldm.encode_first_stage(latent_hint)
-                        latent_hint = outer.sd_ldm.get_first_stage_encoding(latent_hint)
                     if latent_hint.shape[0] != query_size:
                         latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
                     latent_hint = latent_hint.type(devices.dtype_unet)
                     param.used_hint_cond_latent = latent_hint
-                    print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {latent_hint.shape}.')
                 except Exception as e:
                     print(e)
                     param.used_hint_cond_latent = None
@@ -635,6 +658,8 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
+
+        outer.vae_cache = TorchCache()
 
         all_modules = torch_dfs(model)
 
