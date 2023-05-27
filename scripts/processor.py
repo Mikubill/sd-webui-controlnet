@@ -864,7 +864,7 @@ preprocessor_filters = {
     "Seg": "seg_ofade20k",
     "Shuffle": "shuffle",
     "Tile": "tile_resample",
-    "Inpaint": "inpaint_global_harmonious",
+    "Inpaint": "inpaint_only",
     "IP2P": "none",
     "Reference": "reference_only",
     "T2IA": "none",
