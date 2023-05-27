@@ -355,10 +355,10 @@ class Script(scripts.Script):
         if shared.opts.data.get("controlnet_disable_control_type", False):
             type_filter = None
         else:
-            with gr.Row():
-                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio')
+            with gr.Row(elem_id="controlnet_control_type"):
+                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio', elem_classes='controlnet_control_type_filter_group')
 
-        with gr.Row():
+        with gr.Row(elem_id="controlnet_preprocessor_model"):
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
@@ -565,11 +565,11 @@ class Script(scripts.Script):
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio')
+        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio', elem_classes='controlnet_control_mode_radio')
 
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio')
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio', elem_classes='controlnet_resize_mode_radio')
 
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox')
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
 
         trigger_preprocessor.click(fn=run_annotator, inputs=[
             input_image, module, processor_res, threshold_a, threshold_b,
