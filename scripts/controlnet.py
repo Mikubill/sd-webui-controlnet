@@ -1311,10 +1311,8 @@ class Script(scripts.Script):
                     H, W, C = img.shape
                     if Hmask != H or Wmask != W:
                         return x
-                    mask = cv2.resize(final_inpaint_mask, (W, H))
-                    mask = cv2.GaussianBlur(mask, (0, 0), 3)[:, :, None]
-                    raw = cv2.resize(final_inpaint_raw, (W, H))
-                    result = mask * img + raw * (1 - mask)
+                    mask = cv2.GaussianBlur(final_inpaint_mask, (0, 0), 3)[:, :, None]
+                    result = mask * img + final_inpaint_raw * (1 - mask)
                     result = result.clip(0, 255).astype(np.uint8)
                     result = np.ascontiguousarray(result).copy()
                     return Image.fromarray(result)
