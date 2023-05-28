@@ -302,8 +302,8 @@ class Script(scripts.Script):
                 canvas_create_button = gr.Button(value="Create New Canvas", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_create_button')
                 canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
 
-        with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+        with gr.Row(elem_classes="controlnet_image_controls"):
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>', elem_classes="controlnet_invert_warning")
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
@@ -312,7 +312,7 @@ class Script(scripts.Script):
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
-        with FormRow(elem_classes="checkboxes-row controlnet_image_controls", variant="compact"):
+        with FormRow(elem_classes=["checkboxes-row","controlnet_main_options"], variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_enable_checkbox')
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox')
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox')
