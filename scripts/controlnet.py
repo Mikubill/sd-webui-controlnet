@@ -1304,6 +1304,7 @@ class Script(scripts.Script):
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
                 final_inpaint_mask = final_inpaint_feed[:, :, 3].astype(np.float32)
                 final_inpaint_raw = final_inpaint_feed[:, :, 0:3].astype(np.float32) * 255.0
+                final_inpaint_mask = cv2.GaussianBlur(final_inpaint_mask, (0, 0), 3)[:, :, None]
                 Hmask, Wmask = final_inpaint_mask.shape
 
                 def inpaint_only_post_processing(x):
@@ -1311,8 +1312,7 @@ class Script(scripts.Script):
                     H, W, C = img.shape
                     if Hmask != H or Wmask != W:
                         return x
-                    mask = cv2.GaussianBlur(final_inpaint_mask, (0, 0), 3)[:, :, None]
-                    result = mask * img + final_inpaint_raw * (1 - mask)
+                    result = final_inpaint_mask * img + final_inpaint_raw * (1 - final_inpaint_mask)
                     result = result.clip(0, 255).astype(np.uint8)
                     result = np.ascontiguousarray(result).copy()
                     return Image.fromarray(result)
