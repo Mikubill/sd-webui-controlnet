@@ -4,6 +4,9 @@ from collections import OrderedDict
 from copy import copy
 from typing import Union, Dict, Optional, List
 import importlib
+
+import einops
+
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
@@ -216,6 +219,7 @@ class Script(scripts.Script):
         self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
         self.detected_map = []
+        self.post_processors = []
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -1040,6 +1044,7 @@ class Script(scripts.Script):
 
         detected_maps = []
         forward_params = []
+        post_processors = []
         hook_lowvram = False
 
         # cache stuff
@@ -1179,6 +1184,11 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
+            if 'inpaint' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
+                    and p.inpainting_fill and p.image_mask is not None:
+                print('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
+                unit.module = 'inpaint'
+
             try:
                 tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
                 tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
@@ -1290,11 +1300,36 @@ class Script(scripts.Script):
             )
             forward_params.append(forward_param)
 
+            if unit.module == 'inpaint_only':
+
+                final_inpaint_feed = hr_control if hr_control is not None else control
+                final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()[0].transpose([1, 2, 0])
+                final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
+                final_inpaint_mask = final_inpaint_feed[:, :, 3].astype(np.float32)
+                final_inpaint_raw = final_inpaint_feed[:, :, 0:3].astype(np.float32) * 255.0
+                Hmask, Wmask = final_inpaint_mask.shape
+
+                def inpaint_only_post_processing(x):
+                    img = np.asarray(x).astype(np.float32)
+                    H, W, C = img.shape
+                    if Hmask != H or Wmask != W:
+                        return x
+                    mask = cv2.resize(final_inpaint_mask, (W, H))
+                    mask = cv2.GaussianBlur(mask, (0, 0), 3)[:, :, None]
+                    raw = cv2.resize(final_inpaint_raw, (W, H))
+                    result = mask * img + raw * (1 - mask)
+                    result = result.clip(0, 255).astype(np.uint8)
+                    result = np.ascontiguousarray(result).copy()
+                    return Image.fromarray(result)
+
+                post_processors.append(inpaint_only_post_processing)
+
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
+        self.post_processors = post_processors
 
     def postprocess(self, p, processed, *args):
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
@@ -1314,6 +1349,10 @@ class Script(scripts.Script):
 
         if self.latest_network is None:
             return
+
+        if 'sd upscale' not in processor_params_flag:
+            for post_processor in self.post_processors:
+                processed.images = list(map(post_processor, processed.images))
 
         if not batch_hijack.instance.is_batch:
             if not shared.opts.data.get("control_net_no_detectmap", False):
