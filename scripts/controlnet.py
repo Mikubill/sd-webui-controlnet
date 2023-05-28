@@ -5,8 +5,6 @@ from copy import copy
 from typing import Union, Dict, Optional, List
 import importlib
 
-import einops
-
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
