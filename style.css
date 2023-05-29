@@ -35,6 +35,10 @@
     /* This is needed for the padding trick to work */
 }
 
+.cnet-modal-content.alert {
+    height: auto;
+}
+
 .cnet-modal-content iframe {
     position: absolute;
     top: 0;
@@ -42,6 +46,13 @@
     width: 100%;
     height: 100%;
     border: none;
+}
+
+.cnet-modal-content.alert * {
+    position: absolute;
+    top: var(--size-5);
+    left: var(--size-5);
+    width: 100%;
 }
 
 .cnet-modal-close {
