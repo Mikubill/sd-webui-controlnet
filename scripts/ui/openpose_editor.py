@@ -1,5 +1,6 @@
 import base64
 import gradio as gr
+import requests
 from typing import List, Dict, Any
 
 from annotator.openpose import decode_json_as_poses, draw_poses
@@ -25,6 +26,8 @@ def encode_data_url(json_string: str) -> str:
 class OpenposeEditor(object):
     # Filename used when user click the download link.
     download_file = "pose.json"
+    # URL the openpose editor is mounted on.
+    editor_url = '/openpose_editor_index'
 
     def __init__(self, generated_image: gr.Image) -> None:
         self.generated_image = generated_image
@@ -41,10 +44,10 @@ class OpenposeEditor(object):
         self.pose_input = gr.Textbox(visible=False, elem_classes=["cnet-pose-json"])
 
         self.modal = ModalInterface(
-            '<iframe src="/openpose_editor_index"></iframe>',
+            f'<iframe src="{OpenposeEditor.editor_url}"></iframe>',
             open_button_text="Edit",
             open_button_classes=["cnet-edit-pose"],
-            open_button_extra_attrs='title="Send pose to /openpose_edit_index for edit."'
+            open_button_extra_attrs=f'title="Send pose to {OpenposeEditor.editor_url} for edit."'
         ).create_modal(visible=False)
         self.download_link = gr.HTML(
             value="", visible=False, elem_classes=["cnet-download-pose"]
