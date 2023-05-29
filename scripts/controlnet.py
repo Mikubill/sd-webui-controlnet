@@ -1201,10 +1201,13 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
 
+            h = (h // 8) * 8
+            w = (w // 8) * 8
+
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 raw_H, raw_W, _ = input_image.shape
-                target_H, target_W = p.height, p.width
+                target_H, target_W = h, w
 
                 k0 = float(target_H) / float(raw_H)
                 k1 = float(target_W) / float(raw_W)
@@ -1239,6 +1242,9 @@ class Script(scripts.Script):
                     hr_x = int(p.width * p.hr_scale)
                 else:
                     hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+
+                hr_y = (hr_y // 8) * 8
+                hr_x = (hr_x // 8) * 8
 
                 if is_image:
                     hr_control, hr_detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
