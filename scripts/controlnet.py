@@ -570,7 +570,7 @@ class Script(scripts.Script):
 
         resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio', elem_classes='controlnet_resize_mode_radio')
 
-        loopback = gr.Checkbox(label='Automatically send generated images to this ControlNet unit', info='Loopback', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
 
         trigger_preprocessor.click(fn=run_annotator, inputs=[
             input_image, module, processor_res, threshold_a, threshold_b,
