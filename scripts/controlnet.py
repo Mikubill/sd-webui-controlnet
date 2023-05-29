@@ -62,6 +62,7 @@ reverse_symbol = '\U000021C4'       # ⇄
 tossup_symbol = '\u2934'
 trigger_symbol = '\U0001F4A5'  # 💥
 open_symbol = '\U0001F4DD'  # 📝
+send_back_symbol = '\U00002B05'  # ⬅
 
 webcam_enabled = False
 webcam_mirrored = False
@@ -275,11 +276,12 @@ class Script(scripts.Script):
 
         with gr.Row():
             gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+            send_back_button = ToolButton(value=send_back_symbol, visible=False)
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
             send_dimen_button = ToolButton(value=tossup_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_send_dimen_button')            
-
+        
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
@@ -528,12 +530,15 @@ class Script(scripts.Script):
                 # download_pose_link
                 gr.update() if is_on else gr.update(value=None),
                 gr.update() if is_on else gr.update(visible=False),
+                # send back button
+                gr.update(visible=is_on),
             )
 
         preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], 
                                     outputs=[generated_image, generated_image_group, 
                                              openpose_editor.download_link,
-                                             openpose_editor.modal])
+                                             openpose_editor.modal,
+                                             send_back_button])
 
         if is_img2img:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
@@ -552,6 +557,15 @@ class Script(scripts.Script):
             self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
             pixel_perfect, resize_mode
         ], outputs=[generated_image, preprocessor_preview, *openpose_editor.outputs()])
+
+        def use_generated_image_as_input_image(generated_image):
+            return (
+                gr.Image.update(value=generated_image),
+                # Select none preprocessor.
+                gr.Dropdown.update(value='none'),
+            )
+        send_back_button.click(use_generated_image_as_input_image, 
+                               inputs=[generated_image], outputs=[input_image, module])
 
         def fn_canvas(h, w):
             return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
