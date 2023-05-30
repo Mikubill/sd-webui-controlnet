@@ -216,6 +216,7 @@ class Script(scripts.Script):
         self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
         self.detected_map = []
+        self.post_processors = []
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -301,8 +302,8 @@ class Script(scripts.Script):
                 canvas_create_button = gr.Button(value="Create New Canvas", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_create_button')
                 canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
 
-        with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+        with gr.Row(elem_classes="controlnet_image_controls"):
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>', elem_classes="controlnet_invert_warning")
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
@@ -311,7 +312,7 @@ class Script(scripts.Script):
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
-        with FormRow(elem_classes="checkboxes-row", variant="compact"):
+        with FormRow(elem_classes=["checkboxes-row","controlnet_main_options"], variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_enable_checkbox')
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox')
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox')
@@ -355,20 +356,20 @@ class Script(scripts.Script):
         if shared.opts.data.get("controlnet_disable_control_type", False):
             type_filter = None
         else:
-            with gr.Row():
-                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio')
+            with gr.Row(elem_classes="controlnet_control_type"):
+                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio', elem_classes='controlnet_control_type_filter_group')
 
-        with gr.Row():
+        with gr.Row(elem_classes="controlnet_preprocessor_model"):
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
             refresh_models = ToolButton(value=refresh_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_refresh_models')
             refresh_models.click(refresh_all_models, model, model)
 
-        with gr.Row():
-            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_weight_slider')
-            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider')
-            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider')
+        with gr.Row(elem_classes="controlnet_weight_steps"):
+            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_weight_slider', elem_classes='controlnet_control_weight_slider')
+            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider', elem_classes='controlnet_start_control_step_slider')
+            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider', elem_classes='controlnet_ending_control_step_slider')
 
         def build_sliders(module, pp):
             grs = []
@@ -565,11 +566,11 @@ class Script(scripts.Script):
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio')
+        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio', elem_classes='controlnet_control_mode_radio')
 
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio')
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio', elem_classes='controlnet_resize_mode_radio')
 
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox')
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
 
         trigger_preprocessor.click(fn=run_annotator, inputs=[
             input_image, module, processor_res, threshold_a, threshold_b,
@@ -956,7 +957,7 @@ class Script(scripts.Script):
 
         if resize_mode == external_code.ResizeMode.OUTER_FIT:
             k = min(k0, k1)
-            borders = np.concatenate([detected_map[0, :, 0:3], detected_map[-1, :, 0:3], detected_map[:, 0, 0:3], detected_map[:, -1, 0:3]], axis=0)
+            borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
             high_quality_background = np.tile(high_quality_border_color[None, None], [h, w, 1])
             detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
@@ -1040,6 +1041,7 @@ class Script(scripts.Script):
 
         detected_maps = []
         forward_params = []
+        post_processors = []
         hook_lowvram = False
 
         # cache stuff
@@ -1179,6 +1181,11 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
+            if 'inpaint' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
+                    and p.inpainting_fill and p.image_mask is not None:
+                print('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
+                unit.module = 'inpaint'
+
             try:
                 tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
                 tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
@@ -1194,10 +1201,13 @@ class Script(scripts.Script):
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
 
+            h = (h // 8) * 8
+            w = (w // 8) * 8
+
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 raw_H, raw_W, _ = input_image.shape
-                target_H, target_W = p.height, p.width
+                target_H, target_W = h, w
 
                 k0 = float(target_H) / float(raw_H)
                 k1 = float(target_W) / float(raw_W)
@@ -1232,6 +1242,9 @@ class Script(scripts.Script):
                     hr_x = int(p.width * p.hr_scale)
                 else:
                     hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+
+                hr_y = (hr_y // 8) * 8
+                hr_x = (hr_x // 8) * 8
 
                 if is_image:
                     hr_control, hr_detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -1290,11 +1303,34 @@ class Script(scripts.Script):
             )
             forward_params.append(forward_param)
 
+            if unit.module == 'inpaint_only':
+
+                final_inpaint_feed = hr_control if hr_control is not None else control
+                final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()[0].transpose([1, 2, 0])
+                final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
+                final_inpaint_mask = final_inpaint_feed[:, :, 3].astype(np.float32)
+                final_inpaint_raw = final_inpaint_feed[:, :, 0:3].astype(np.float32) * 255.0
+                final_inpaint_mask = cv2.GaussianBlur(final_inpaint_mask, (0, 0), 4)[:, :, None]
+                Hmask, Wmask, _ = final_inpaint_mask.shape
+
+                def inpaint_only_post_processing(x):
+                    img = np.asarray(x).astype(np.float32)
+                    H, W, C = img.shape
+                    if Hmask != H or Wmask != W:
+                        return x
+                    result = final_inpaint_mask * img + final_inpaint_raw * (1 - final_inpaint_mask)
+                    result = result.clip(0, 255).astype(np.uint8)
+                    result = np.ascontiguousarray(result).copy()
+                    return Image.fromarray(result)
+
+                post_processors.append(inpaint_only_post_processing)
+
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
+        self.post_processors = post_processors
 
     def postprocess(self, p, processed, *args):
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
@@ -1314,6 +1350,10 @@ class Script(scripts.Script):
 
         if self.latest_network is None:
             return
+
+        if 'sd upscale' not in processor_params_flag:
+            for post_processor in self.post_processors:
+                processed.images = list(map(post_processor, processed.images))
 
         if not batch_hijack.instance.is_batch:
             if not shared.opts.data.get("control_net_no_detectmap", False):
