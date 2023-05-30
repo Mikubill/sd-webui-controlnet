@@ -75,12 +75,16 @@ function loadPlaceHolder() {
         modalContent.innerHTML = `
         <div>
             <p>Openpose editor not found. Please make sure you have an openpose
-            editor available on /openpose_editor_index. Following extension(s) 
-            provide integration with ControlNet:</p>
+            editor available on /openpose_editor_index. To hide the edit button,
+            you can check "Disable openpose edit" in Settings.<br>
+            
+            Following extension(s) provide integration with ControlNet:</p>
             <ul style="list-style-type:none;">
                 <li><a href="https://github.com/huchenlei/sd-webui-openpose-editor">
                     huchenlei/sd-webui-openpose-editor</a></li>
             </ul>
+
+
         </div>
         `;
 
