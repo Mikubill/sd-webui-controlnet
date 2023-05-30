@@ -302,8 +302,8 @@ class Script(scripts.Script):
                 canvas_create_button = gr.Button(value="Create New Canvas", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_create_button')
                 canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
 
-        with gr.Row():
-            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>')
+        with gr.Row(elem_classes="controlnet_image_controls"):
+            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>', elem_classes="controlnet_invert_warning")
             open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
             webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
             webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
@@ -312,7 +312,7 @@ class Script(scripts.Script):
         open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
         canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
 
-        with FormRow(elem_classes="checkboxes-row", variant="compact"):
+        with FormRow(elem_classes=["checkboxes-row","controlnet_main_options"], variant="compact"):
             enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_enable_checkbox')
             lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox')
             pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox')
@@ -356,20 +356,20 @@ class Script(scripts.Script):
         if shared.opts.data.get("controlnet_disable_control_type", False):
             type_filter = None
         else:
-            with gr.Row():
-                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio')
+            with gr.Row(elem_classes="controlnet_control_type"):
+                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio', elem_classes='controlnet_control_type_filter_group')
 
-        with gr.Row():
+        with gr.Row(elem_classes="controlnet_preprocessor_model"):
             module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
             trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
             model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
             refresh_models = ToolButton(value=refresh_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_refresh_models')
             refresh_models.click(refresh_all_models, model, model)
 
-        with gr.Row():
-            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_weight_slider')
-            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider')
-            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider')
+        with gr.Row(elem_classes="controlnet_weight_steps"):
+            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_weight_slider', elem_classes='controlnet_control_weight_slider')
+            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider', elem_classes='controlnet_start_control_step_slider')
+            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider', elem_classes='controlnet_ending_control_step_slider')
 
         def build_sliders(module, pp):
             grs = []
@@ -566,11 +566,11 @@ class Script(scripts.Script):
         else:
             send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
 
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio')
+        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio', elem_classes='controlnet_control_mode_radio')
 
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio')
+        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio', elem_classes='controlnet_resize_mode_radio')
 
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox')
+        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
 
         trigger_preprocessor.click(fn=run_annotator, inputs=[
             input_image, module, processor_res, threshold_a, threshold_b,
