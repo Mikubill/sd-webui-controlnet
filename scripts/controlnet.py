@@ -2,7 +2,7 @@ import gc
 import os
 from collections import OrderedDict
 from copy import copy
-from typing import Union, Dict, Optional, List
+from typing import Dict, Optional
 import importlib
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
@@ -23,17 +23,15 @@ from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
-from modules.ui_components import FormRow
 
 import cv2
 import numpy as np
 import torch
-import base64
 
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution, model_free_preprocessors, preprocessor_filters
+from scripts.processor import model_free_preprocessors
 
 gradio_compat = True
 try:
