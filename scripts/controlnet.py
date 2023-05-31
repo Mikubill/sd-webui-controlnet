@@ -959,12 +959,24 @@ class Script(scripts.Script):
             k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
+            if len(high_quality_border_color) == 4:
+                # Inpaint hijack
+                high_quality_border_color[3] = 255
             high_quality_background = np.tile(high_quality_border_color[None, None], [h, w, 1])
             detected_map = high_quality_resize(detected_map, (safeint(old_w * k), safeint(old_h * k)))
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (h - new_h) // 2)
             pad_w = max(0, (w - new_w) // 2)
-            high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
+            if high_quality_background.shape[2] == 4:
+                # Inpaint hijack
+                inpaint_pad = 64
+                if pad_h == 0:
+                    high_quality_background[pad_h:pad_h + new_h, pad_w + inpaint_pad:pad_w + new_w - inpaint_pad, 3] = detected_map[:, inpaint_pad:-inpaint_pad, 3]
+                else:
+                    high_quality_background[pad_h + inpaint_pad:pad_h + new_h - inpaint_pad, pad_w:pad_w + new_w, 3] = detected_map[inpaint_pad:-inpaint_pad, :, 3]
+                high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w, 0:3] = detected_map[:, :, 0:3]
+            else:
+                high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
             detected_map = high_quality_background
             detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
