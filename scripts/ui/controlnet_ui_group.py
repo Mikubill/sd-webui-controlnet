@@ -76,7 +76,7 @@ def update_json_download_link(json_string: str, file_name: str) -> Dict:
     return gr.update(value=html, visible=(json_string != ""))
 
 
-class ControlNetUnit(object):
+class ControlNetUiGroup(object):
     # Note: Change symbol hints mapping in `javascript/hints.js` when you change the symbol values.
     refresh_symbol = "\U0001f504"  # 🔄
     switch_values_symbol = "\U000021C5"  # ⇅
@@ -99,26 +99,23 @@ class ControlNetUnit(object):
     txt2img_submit_button = None
     img2img_submit_button = None
 
+    # Slider controls from A1111 WebUI.
+    txt2img_w_slider = None
+    txt2img_h_slider = None
+    img2img_w_slider = None
+    img2img_h_slider = None
+
     def __init__(
         self,
         gradio_compat: bool,
         infotext_fields: List[str],
         default_unit: external_code.ControlNetUnit,
         preprocessors: List[Callable],
-        txt2img_w_slider=None,
-        txt2img_h_slider=None,
-        img2img_w_slider=None,
-        img2img_h_slider=None,
     ):
         self.gradio_compat = gradio_compat
         self.infotext_fields = infotext_fields
         self.default_unit = default_unit
         self.preprocessors = preprocessors
-        # Slider controls from A1111 WebUI.
-        self.txt2img_w_slider = txt2img_w_slider
-        self.txt2img_h_slider = txt2img_h_slider
-        self.img2img_w_slider = img2img_w_slider
-        self.img2img_h_slider = img2img_h_slider
         self.webcam_enabled = False
         self.webcam_mirrored = False
 
@@ -218,19 +215,19 @@ class ControlNetUnit(object):
                 elem_classes="controlnet_invert_warning",
             )
             open_new_canvas_button = ToolButton(
-                value=ControlNetUnit.open_symbol,
+                value=ControlNetUiGroup.open_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button",
             )
             webcam_enable = ToolButton(
-                value=ControlNetUnit.camera_symbol,
+                value=ControlNetUiGroup.camera_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_enable",
             )
             webcam_mirror = ToolButton(
-                value=ControlNetUnit.reverse_symbol,
+                value=ControlNetUiGroup.reverse_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_mirror",
             )
             send_dimen_button = ToolButton(
-                value=ControlNetUnit.tossup_symbol,
+                value=ControlNetUiGroup.tossup_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_send_dimen_button",
             )
 
@@ -277,7 +274,7 @@ class ControlNetUnit(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown",
             )
             trigger_preprocessor = ToolButton(
-                value=ControlNetUnit.trigger_symbol,
+                value=ControlNetUiGroup.trigger_symbol,
                 visible=True,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor",
             )
@@ -288,7 +285,7 @@ class ControlNetUnit(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model_dropdown",
             )
             refresh_models = ToolButton(
-                value=ControlNetUnit.refresh_symbol,
+                value=ControlNetUiGroup.refresh_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
             )
 
@@ -397,9 +394,15 @@ class ControlNetUnit(object):
                 return gr.Slider.update(), gr.Slider.update()
 
         outputs = (
-            [self.img2img_w_slider, self.img2img_h_slider]
+            [
+                ControlNetUiGroup.img2img_w_slider,
+                ControlNetUiGroup.img2img_h_slider,
+            ]
             if is_img2img
-            else [self.txt2img_w_slider, self.txt2img_h_slider]
+            else [
+                ControlNetUiGroup.txt2img_w_slider,
+                ControlNetUiGroup.txt2img_h_slider,
+            ]
         )
         self.send_dimen_button.click(
             fn=send_dimensions,
@@ -664,8 +667,12 @@ class ControlNetUnit(object):
                 self.processor_res,
                 self.threshold_a,
                 self.threshold_b,
-                self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
-                self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
+                ControlNetUiGroup.img2img_w_slider
+                if is_img2img
+                else ControlNetUiGroup.txt2img_w_slider,
+                ControlNetUiGroup.img2img_h_slider
+                if is_img2img
+                else ControlNetUiGroup.txt2img_h_slider,
                 self.pixel_perfect,
                 self.resize_mode,
             ],
@@ -754,14 +761,14 @@ class ControlNetUnit(object):
         )
 
     def render_and_register_unit(self, tabname: str, is_img2img: bool):
-        """ Render the invisible states elements for misc persistent
+        """Render the invisible states elements for misc persistent
         purposes. Register callbacks on loading/unloading the controlnet
         unit and handle batch processes.
 
         Args:
             tabname:
             is_img2img:
-        
+
         Returns:
             The data class "ControlNetUnit" representing this ControlNetUnit.
         """
@@ -842,8 +849,8 @@ class ControlNetUnit(object):
         def subscribe_for_batch_dir():
             batch_dirs = [
                 self.batch_image_dir,
-                ControlNetUnit.global_batch_input_dir,
-                ControlNetUnit.img2img_batch_input_dir,
+                ControlNetUiGroup.global_batch_input_dir,
+                ControlNetUiGroup.img2img_batch_input_dir,
             ]
             for batch_dir_comp in batch_dirs:
                 subscriber = getattr(batch_dir_comp, "blur", None)
@@ -856,9 +863,9 @@ class ControlNetUnit(object):
                     queue=False,
                 )
 
-        if ControlNetUnit.img2img_batch_input_dir is None:
+        if ControlNetUiGroup.img2img_batch_input_dir is None:
             # we are too soon, subscribe later when available
-            ControlNetUnit.img2img_batch_input_dir_callbacks.append(
+            ControlNetUiGroup.img2img_batch_input_dir_callbacks.append(
                 subscribe_for_batch_dir
             )
         else:
@@ -866,25 +873,25 @@ class ControlNetUnit(object):
 
         # keep output_dir in sync with global batch output textbox
         def subscribe_for_output_dir():
-            ControlNetUnit.img2img_batch_output_dir.blur(
+            ControlNetUiGroup.img2img_batch_output_dir.blur(
                 fn=lambda a: a,
-                inputs=[ControlNetUnit.img2img_batch_output_dir],
+                inputs=[ControlNetUiGroup.img2img_batch_output_dir],
                 outputs=[output_dir_state],
                 queue=False,
             )
 
-        if ControlNetUnit.img2img_batch_input_dir is None:
+        if ControlNetUiGroup.img2img_batch_input_dir is None:
             # we are too soon, subscribe later when available
-            ControlNetUnit.img2img_batch_output_dir_callbacks.append(
+            ControlNetUiGroup.img2img_batch_output_dir_callbacks.append(
                 subscribe_for_output_dir
             )
         else:
             subscribe_for_output_dir()
 
         (
-            ControlNetUnit.img2img_submit_button
+            ControlNetUiGroup.img2img_submit_button
             if is_img2img
-            else ControlNetUnit.txt2img_submit_button
+            else ControlNetUiGroup.txt2img_submit_button
         ).click(
             fn=UiControlNetUnit,
             inputs=list(unit_args),
@@ -896,26 +903,44 @@ class ControlNetUnit(object):
 
     @staticmethod
     def on_after_component(component, **_kwargs):
-        if getattr(component, "elem_id", None) == "txt2img_generate":
-            ControlNetUnit.txt2img_submit_button = component
+        elem_id = getattr(component, "elem_id", None)
+
+        if elem_id == "txt2img_generate":
+            ControlNetUiGroup.txt2img_submit_button = component
             return
 
-        if getattr(component, "elem_id", None) == "img2img_generate":
-            ControlNetUnit.img2img_submit_button = component
+        if elem_id == "img2img_generate":
+            ControlNetUiGroup.img2img_submit_button = component
             return
 
-        if getattr(component, "elem_id", None) == "img2img_batch_input_dir":
-            ControlNetUnit.img2img_batch_input_dir = component
-            for callback in ControlNetUnit.img2img_batch_input_dir_callbacks:
+        if elem_id == "img2img_batch_input_dir":
+            ControlNetUiGroup.img2img_batch_input_dir = component
+            for callback in ControlNetUiGroup.img2img_batch_input_dir_callbacks:
                 callback()
             return
 
-        if getattr(component, "elem_id", None) == "img2img_batch_output_dir":
-            ControlNetUnit.img2img_batch_output_dir = component
-            for callback in ControlNetUnit.img2img_batch_output_dir_callbacks:
+        if elem_id == "img2img_batch_output_dir":
+            ControlNetUiGroup.img2img_batch_output_dir = component
+            for callback in ControlNetUiGroup.img2img_batch_output_dir_callbacks:
                 callback()
             return
 
-        if getattr(component, "elem_id", None) == "img2img_batch_inpaint_mask_dir":
-            ControlNetUnit.global_batch_input_dir.render()
+        if elem_id == "img2img_batch_inpaint_mask_dir":
+            ControlNetUiGroup.global_batch_input_dir.render()
+            return
+
+        if elem_id == "txt2img_width":
+            ControlNetUiGroup.txt2img_w_slider = component
+            return
+        
+        if elem_id == "txt2img_height":
+            ControlNetUiGroup.txt2img_h_slider = component
+            return
+        
+        if elem_id == "img2img_width":
+            ControlNetUiGroup.img2img_w_slider = component
+            return
+        
+        if elem_id == "img2img_height":
+            ControlNetUiGroup.img2img_h_slider = component
             return

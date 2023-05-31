@@ -20,7 +20,7 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict, get_module_basename
 from scripts.hook import ControlParams, UnetHook, ControlModelType
-from scripts.ui.controlnet_unit import ControlNetUnit, UiControlNetUnit
+from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 from modules.ui_components import FormRow
@@ -140,20 +140,6 @@ class Script(scripts.Script):
             # return False
         return scripts.AlwaysVisible
 
-    def after_component(self, component, **kwargs):
-        if component.elem_id == "txt2img_width":
-            self.txt2img_w_slider = component
-            return self.txt2img_w_slider
-        if component.elem_id == "txt2img_height":
-            self.txt2img_h_slider = component
-            return self.txt2img_h_slider
-        if component.elem_id == "img2img_width":
-            self.img2img_w_slider = component
-            return self.img2img_w_slider
-        if component.elem_id == "img2img_height":
-            self.img2img_h_slider = component
-            return self.img2img_h_slider
-
     def get_threshold_block(self, proc):
         pass
 
@@ -166,15 +152,11 @@ class Script(scripts.Script):
         )
 
     def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str):
-        group = ControlNetUnit(
+        group = ControlNetUiGroup(
             gradio_compat,
             self.infotext_fields,
             self.get_default_ui_unit(),
             self.preprocessor,
-            self.txt2img_w_slider,
-            self.txt2img_h_slider,
-            self.img2img_w_slider,
-            self.img2img_h_slider,
         )
         group.render(tabname, elem_id_tabname)
         group.register_callbacks(is_img2img)
@@ -946,4 +928,4 @@ def on_ui_settings():
 
 batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
-script_callbacks.on_after_component(ControlNetUnit.on_after_component)
+script_callbacks.on_after_component(ControlNetUiGroup.on_after_component)
