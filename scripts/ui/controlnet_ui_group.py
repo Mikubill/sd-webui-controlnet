@@ -120,6 +120,44 @@ class ControlNetUiGroup(object):
         self.webcam_mirrored = False
 
         # Note: All gradio elements declared in `render` will be defined as member variable.
+        self.upload_tab = None
+        self.input_image = None
+        self.generated_image_group = None
+        self.generated_image = None
+        self.download_pose_link = None
+        self.preview_close_button_style = None
+        self.preview_check_elem_id = None
+        self.preview_close_button_js = None
+        self.batch_tab = None
+        self.batch_image_dir = None
+        self.create_canvas = None
+        self.canvas_width = None
+        self.canvas_height = None
+        self.canvas_create_button = None
+        self.canvas_cancel_button = None
+        self.open_new_canvas_button = None
+        self.webcam_enable = None
+        self.webcam_mirror = None
+        self.send_dimen_button = None
+        self.enabled = None
+        self.lowvram = None
+        self.pixel_perfect = None
+        self.preprocessor_preview = None
+        self.type_filter = None
+        self.module = None
+        self.trigger_preprocessor = None
+        self.model = None
+        self.refresh_models = None
+        self.weight = None
+        self.guidance_start = None
+        self.guidance_end = None
+        self.advanced = None
+        self.processor_res = None
+        self.threshold_a = None
+        self.threshold_b = None
+        self.control_mode = None
+        self.resize_mode = None
+        self.loopback = None
 
     def render(self, tabname: str, elem_id_tabname: str) -> None:
         """The pure HTML structure of a single ControlNetUnit. Calling this
@@ -134,7 +172,7 @@ class ControlNetUiGroup(object):
             None
         """
         with gr.Tabs():
-            with gr.Tab(label="Single Image") as upload_tab:
+            with gr.Tab(label="Single Image") as self.upload_tab:
                 with gr.Row().style(equal_height=True):
                     input_image = gr.Image(
                         source="upload",
@@ -144,14 +182,14 @@ class ControlNetUiGroup(object):
                         tool="sketch",
                         elem_id=f"{elem_id_tabname}_{tabname}_input_image",
                     )
-                    with gr.Group(visible=False) as generated_image_group:
-                        generated_image = gr.Image(
+                    with gr.Group(visible=False) as self.generated_image_group:
+                        self.generated_image = gr.Image(
                             label="Preprocessor Preview",
                             elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
                         ).style(
                             height=242
                         )  # Gradio's magic number. Only 242 works.
-                        download_pose_link = gr.HTML(value="", visible=False)
+                        self.download_pose_link = gr.HTML(value="", visible=False)
                         preview_close_button_style = """ 
                             position: absolute;
                             right: var(--size-2);
@@ -175,15 +213,15 @@ class ControlNetUiGroup(object):
                             visible=True,
                         )
 
-            with gr.Tab(label="Batch") as batch_tab:
-                batch_image_dir = gr.Textbox(
+            with gr.Tab(label="Batch") as self.batch_tab:
+                self.batch_image_dir = gr.Textbox(
                     label="Input Directory",
                     placeholder="Leave empty to use img2img batch controlnet input directory",
                     elem_id=f"{elem_id_tabname}_{tabname}_batch_image_dir",
                 )
 
-        with gr.Accordion(label="Open New Canvas", visible=False) as create_canvas:
-            canvas_width = gr.Slider(
+        with gr.Accordion(label="Open New Canvas", visible=False) as self.create_canvas:
+            self.canvas_width = gr.Slider(
                 label="New Canvas Width",
                 minimum=256,
                 maximum=1024,
@@ -191,7 +229,7 @@ class ControlNetUiGroup(object):
                 step=64,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_canvas_width",
             )
-            canvas_height = gr.Slider(
+            self.canvas_height = gr.Slider(
                 label="New Canvas Height",
                 minimum=256,
                 maximum=1024,
@@ -200,11 +238,11 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_canvas_height",
             )
             with gr.Row():
-                canvas_create_button = gr.Button(
+                self.canvas_create_button = gr.Button(
                     value="Create New Canvas",
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_canvas_create_button",
                 )
-                canvas_cancel_button = gr.Button(
+                self.canvas_cancel_button = gr.Button(
                     value="Cancel",
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button",
                 )
@@ -214,19 +252,19 @@ class ControlNetUiGroup(object):
                 value="<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>",
                 elem_classes="controlnet_invert_warning",
             )
-            open_new_canvas_button = ToolButton(
+            self.open_new_canvas_button = ToolButton(
                 value=ControlNetUiGroup.open_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button",
             )
-            webcam_enable = ToolButton(
+            self.webcam_enable = ToolButton(
                 value=ControlNetUiGroup.camera_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_enable",
             )
-            webcam_mirror = ToolButton(
+            self.webcam_mirror = ToolButton(
                 value=ControlNetUiGroup.reverse_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_mirror",
             )
-            send_dimen_button = ToolButton(
+            self.send_dimen_button = ToolButton(
                 value=ControlNetUiGroup.tossup_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_send_dimen_button",
             )
@@ -235,22 +273,22 @@ class ControlNetUiGroup(object):
             elem_classes=["checkboxes-row", "controlnet_main_options"],
             variant="compact",
         ):
-            enabled = gr.Checkbox(
+            self.enabled = gr.Checkbox(
                 label="Enable",
                 value=self.default_unit.enabled,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_enable_checkbox",
             )
-            lowvram = gr.Checkbox(
+            self.lowvram = gr.Checkbox(
                 label="Low VRAM",
                 value=self.default_unit.low_vram,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox",
             )
-            pixel_perfect = gr.Checkbox(
+            self.pixel_perfect = gr.Checkbox(
                 label="Pixel Perfect",
                 value=self.default_unit.pixel_perfect,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox",
             )
-            preprocessor_preview = gr.Checkbox(
+            self.preprocessor_preview = gr.Checkbox(
                 label="Allow Preview", value=False, elem_id=preview_check_elem_id
             )
 
@@ -258,7 +296,7 @@ class ControlNetUiGroup(object):
             type_filter = None
         else:
             with gr.Row(elem_classes="controlnet_control_type"):
-                type_filter = gr.Radio(
+                self.type_filter = gr.Radio(
                     list(preprocessor_filters.keys()),
                     label=f"Control Type",
                     value="All",
@@ -267,30 +305,30 @@ class ControlNetUiGroup(object):
                 )
 
         with gr.Row(elem_classes="controlnet_preprocessor_model"):
-            module = gr.Dropdown(
+            self.module = gr.Dropdown(
                 global_state.ui_preprocessor_keys,
                 label=f"Preprocessor",
                 value=self.default_unit.module,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown",
             )
-            trigger_preprocessor = ToolButton(
+            self.trigger_preprocessor = ToolButton(
                 value=ControlNetUiGroup.trigger_symbol,
                 visible=True,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor",
             )
-            model = gr.Dropdown(
+            self.model = gr.Dropdown(
                 list(global_state.cn_models.keys()),
                 label=f"Model",
                 value=self.default_unit.model,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model_dropdown",
             )
-            refresh_models = ToolButton(
+            self.refresh_models = ToolButton(
                 value=ControlNetUiGroup.refresh_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
             )
 
         with gr.Row(elem_classes="controlnet_weight_steps"):
-            weight = gr.Slider(
+            self.weight = gr.Slider(
                 label=f"Control Weight",
                 value=self.default_unit.weight,
                 minimum=0.0,
@@ -299,7 +337,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_control_weight_slider",
                 elem_classes="controlnet_control_weight_slider",
             )
-            guidance_start = gr.Slider(
+            self.guidance_start = gr.Slider(
                 label="Starting Control Step",
                 value=self.default_unit.guidance_start,
                 minimum=0.0,
@@ -308,7 +346,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider",
                 elem_classes="controlnet_start_control_step_slider",
             )
-            guidance_end = gr.Slider(
+            self.guidance_end = gr.Slider(
                 label="Ending Control Step",
                 value=self.default_unit.guidance_end,
                 minimum=0.0,
@@ -319,8 +357,8 @@ class ControlNetUiGroup(object):
             )
 
         # advanced options
-        with gr.Column(visible=False) as advanced:
-            processor_res = gr.Slider(
+        with gr.Column(visible=False) as self.advanced:
+            self.processor_res = gr.Slider(
                 label="Preprocessor resolution",
                 value=self.default_unit.processor_res,
                 minimum=64,
@@ -329,7 +367,7 @@ class ControlNetUiGroup(object):
                 interactive=False,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_resolution_slider",
             )
-            threshold_a = gr.Slider(
+            self.threshold_a = gr.Slider(
                 label="Threshold A",
                 value=self.default_unit.threshold_a,
                 minimum=64,
@@ -338,7 +376,7 @@ class ControlNetUiGroup(object):
                 interactive=False,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_threshold_A_slider",
             )
-            threshold_b = gr.Slider(
+            self.threshold_b = gr.Slider(
                 label="Threshold B",
                 value=self.default_unit.threshold_b,
                 minimum=64,
@@ -348,7 +386,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider",
             )
 
-        control_mode = gr.Radio(
+        self.control_mode = gr.Radio(
             choices=[e.value for e in external_code.ControlMode],
             value=self.default_unit.control_mode.value,
             label="Control Mode",
@@ -356,7 +394,7 @@ class ControlNetUiGroup(object):
             elem_classes="controlnet_control_mode_radio",
         )
 
-        resize_mode = gr.Radio(
+        self.resize_mode = gr.Radio(
             choices=[e.value for e in external_code.ResizeMode],
             value=self.default_unit.resize_mode.value,
             label="Resize Mode",
@@ -364,17 +402,12 @@ class ControlNetUiGroup(object):
             elem_classes="controlnet_resize_mode_radio",
         )
 
-        loopback = gr.Checkbox(
+        self.loopback = gr.Checkbox(
             label="[Loopback] Automatically send generated images to this ControlNet unit",
             value=self.default_unit.loopback,
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox",
             elem_classes="controlnet_loopback_checkbox",
         )
-
-        for name, value in locals().items():
-            if name in globals():
-                continue
-            setattr(self, name, value)
 
     def register_send_dimensions(self, is_img2img: bool):
         """Register event handler for send dimension button."""
@@ -932,15 +965,15 @@ class ControlNetUiGroup(object):
         if elem_id == "txt2img_width":
             ControlNetUiGroup.txt2img_w_slider = component
             return
-        
+
         if elem_id == "txt2img_height":
             ControlNetUiGroup.txt2img_h_slider = component
             return
-        
+
         if elem_id == "img2img_width":
             ControlNetUiGroup.img2img_w_slider = component
             return
-        
+
         if elem_id == "img2img_height":
             ControlNetUiGroup.img2img_h_slider = component
             return
