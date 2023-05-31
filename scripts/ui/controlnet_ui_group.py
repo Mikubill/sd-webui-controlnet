@@ -174,7 +174,7 @@ class ControlNetUiGroup(object):
         with gr.Tabs():
             with gr.Tab(label="Single Image") as self.upload_tab:
                 with gr.Row().style(equal_height=True):
-                    input_image = gr.Image(
+                    self.input_image = gr.Image(
                         source="upload",
                         brush_radius=20,
                         mirror_webcam=False,
