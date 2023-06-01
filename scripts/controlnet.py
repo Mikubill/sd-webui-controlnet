@@ -9,17 +9,17 @@ from modules import shared, devices, script_callbacks, processing, masking, imag
 import gradio as gr
 
 from einops import rearrange
-from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version
+from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
 importlib.reload(processor)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
 importlib.reload(batch_hijack)
+importlib.reload(utils)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict, get_module_basename
-importlib.reload(scripts.utils)
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
