@@ -11,11 +11,11 @@ import gradio as gr
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
 importlib.reload(processor)
+importlib.reload(utils)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
 importlib.reload(batch_hijack)
-importlib.reload(utils)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
