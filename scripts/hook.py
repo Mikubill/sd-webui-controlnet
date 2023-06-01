@@ -565,7 +565,7 @@ class UnetHook(nn.Module):
                     continue
 
                 mask = param.used_hint_cond[:, 3:4, :, :]
-                mask = torch.nn.functional.avg_pool2d(mask, (8, 8))
+                mask = torch.nn.functional.max_pool2d(mask, (10, 10), stride=(8, 8), padding=1)
 
                 x0_origin = param.used_hint_cond_latent
                 t = torch.round(timesteps.float()).long()
