@@ -1,25 +1,30 @@
 import torch
 import os
 import functools
+import base64
 import numpy as np
+import gradio as gr
 
-from typing import Any, Callable
+from typing import Any, Callable, Dict
 
-def load_state_dict(ckpt_path, location='cpu'):
+
+def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
     if extension.lower() == ".safetensors":
         import safetensors.torch
+
         state_dict = safetensors.torch.load_file(ckpt_path, device=location)
     else:
-        state_dict = get_state_dict(torch.load(
-            ckpt_path, map_location=torch.device(location)))
+        state_dict = get_state_dict(
+            torch.load(ckpt_path, map_location=torch.device(location))
+        )
     state_dict = get_state_dict(state_dict)
-    print(f'Loaded state_dict from [{ckpt_path}]')
+    print(f"Loaded state_dict from [{ckpt_path}]")
     return state_dict
 
 
 def get_state_dict(d):
-    return d.get('state_dict', d)
+    return d.get("state_dict", d)
 
 
 def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
@@ -72,3 +77,33 @@ def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
         return decorated_func
 
     return decorator
+
+
+# svgsupports
+svgsupport = False
+try:
+    import io
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPM
+
+    svgsupport = True
+except ImportError:
+    pass
+
+
+def svg_preprocess(inputs: Dict, preprocess: Callable):
+    if not inputs:
+        return None
+
+    if inputs["image"].startswith("data:image/svg+xml;base64,") and svgsupport:
+        svg_data = base64.b64decode(
+            inputs["image"].replace("data:image/svg+xml;base64,", "")
+        )
+        drawing = svg2rlg(io.BytesIO(svg_data))
+        png_data = renderPM.drawToString(drawing, fmt="PNG")
+        encoded_string = base64.b64encode(png_data)
+        base64_str = str(encoded_string, "utf-8")
+        base64_str = "data:image/png;base64," + base64_str
+        inputs["image"] = base64_str
+    return preprocess(inputs)
+

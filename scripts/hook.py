@@ -170,6 +170,7 @@ class ControlParams:
         self.hr_hint_cond = hr_hint_cond
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
+        self.used_hint_inpaint_hijack = None
         self.soft_injection = soft_injection
         self.cfg_injection = cfg_injection
 
@@ -186,6 +187,7 @@ class ControlParams:
         self._hint_cond = new_hint_cond
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
+        self.used_hint_inpaint_hijack = None
 
 
 def aligned_adding(base, x, require_channel_alignment):
@@ -290,11 +292,36 @@ class UnetHook(nn.Module):
             mark_prompt_context(getattr(process, 'hr_uc', []), positive=False)
             return process.sample_before_CN_hack(*args, **kwargs)
 
+        def vae_forward(x, batch_size, mask=None):
+            try:
+                if x.shape[1] > 3:
+                    x = x[:, 0:3, :, :]
+                x = x * 2.0 - 1.0
+                if mask is not None:
+                    x = x * (1.0 - mask)
+                x = x.type(devices.dtype_vae)
+                vae_output = outer.vae_cache.get(x)
+                if vae_output is None:
+                    with devices.autocast():
+                        vae_output = outer.sd_ldm.encode_first_stage(x)
+                        vae_output = outer.sd_ldm.get_first_stage_encoding(vae_output)
+                    outer.vae_cache.set(x, vae_output)
+                    print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
+                latent = vae_output
+                if latent.shape[0] != batch_size:
+                    latent = torch.cat([latent.clone() for _ in range(batch_size)], dim=0)
+                latent = latent.type(devices.dtype_unet)
+                return latent
+            except Exception as e:
+                print(e)
+                raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
+
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
             total_t2i_adapter_embedding = [0.0] * 4
             require_inpaint_hijack = False
             is_in_high_res_fix = False
+            batch_size = int(x.shape[0])
 
             # Handle cond-uncond marker
             cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
@@ -306,6 +333,7 @@ class UnetHook(nn.Module):
                 if param.used_hint_cond is None:
                     param.used_hint_cond = param.hint_cond
                     param.used_hint_cond_latent = None
+                    param.used_hint_inpaint_hijack = None
 
                 # has high-res fix
                 if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 4 and param.hr_hint_cond.ndim == 4:
@@ -318,11 +346,13 @@ class UnetHook(nn.Module):
                         if param.used_hint_cond is not param.hint_cond:
                             param.used_hint_cond = param.hint_cond
                             param.used_hint_cond_latent = None
+                            param.used_hint_inpaint_hijack = None
                     else:
                         is_in_high_res_fix = True
                         if param.used_hint_cond is not param.hr_hint_cond:
                             param.used_hint_cond = param.hr_hint_cond
                             param.used_hint_cond_latent = None
+                            param.used_hint_inpaint_hijack = None
 
             # Convert control image to latent
             for param in outer.control_params:
@@ -332,29 +362,7 @@ class UnetHook(nn.Module):
                         and 'colorfix' not in param.preprocessor['name'] \
                         and 'inpaint_only' not in param.preprocessor['name']:
                     continue
-                try:
-                    pixel_hint = param.used_hint_cond
-                    if pixel_hint.shape[1] > 3:
-                        pixel_hint = pixel_hint[:, 0:3, :, :]
-                    pixel_hint = pixel_hint * 2.0 - 1.0
-                    pixel_hint = pixel_hint.type(devices.dtype_vae)
-                    vae_output = outer.vae_cache.get(pixel_hint)
-                    if vae_output is None:
-                        with devices.autocast():
-                            vae_output = outer.sd_ldm.encode_first_stage(pixel_hint)
-                            vae_output = outer.sd_ldm.get_first_stage_encoding(vae_output)
-                        outer.vae_cache.set(pixel_hint, vae_output)
-                        print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
-                    latent_hint = vae_output
-                    query_size = int(x.shape[0])
-                    if latent_hint.shape[0] != query_size:
-                        latent_hint = torch.cat([latent_hint.clone() for _ in range(query_size)], dim=0)
-                    latent_hint = latent_hint.type(devices.dtype_unet)
-                    param.used_hint_cond_latent = latent_hint
-                except Exception as e:
-                    print(e)
-                    param.used_hint_cond_latent = None
-                    raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
+                param.used_hint_cond_latent = vae_forward(param.used_hint_cond, batch_size=batch_size)
 
             # handle prompt token control
             for param in outer.control_params:
@@ -365,9 +373,8 @@ class UnetHook(nn.Module):
                     continue
 
                 param.control_model.to(devices.get_device_for("controlnet"))
-                query_size = int(x.shape[0])
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
-                control = torch.cat([control.clone() for _ in range(query_size)], dim=0)
+                control = torch.cat([control.clone() for _ in range(batch_size)], dim=0)
                 control *= param.weight
                 control *= cond_mark[:, :, :, 0]
                 context = torch.cat([context, control.clone()], dim=1)
@@ -409,9 +416,8 @@ class UnetHook(nn.Module):
                     param.control_model.to("cpu")
 
                 if param.cfg_injection or param.global_average_pooling:
-                    query_size = int(x.shape[0])
                     if param.control_model_type == ControlModelType.T2I_Adapter:
-                        control = [torch.cat([c.clone() for _ in range(query_size)], dim=0) for c in control]
+                        control = [torch.cat([c.clone() for _ in range(batch_size)], dim=0) for c in control]
                     control = [c * cond_mark for c in control]
 
                 if param.soft_injection or is_in_high_res_fix:
@@ -502,6 +508,24 @@ class UnetHook(nn.Module):
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read
 
+            # Replace x_t to support inpaint models
+            for param in outer.control_params:
+                if param.used_hint_cond.shape[1] != 4:
+                    continue
+                if x.shape[1] != 9:
+                    continue
+                if param.used_hint_inpaint_hijack is None:
+                    mask_pixel = param.used_hint_cond[:, 3:4, :, :]
+                    image_pixel = param.used_hint_cond[:, 0:3, :, :]
+                    mask_pixel = (mask_pixel > 0.5).to(mask_pixel.dtype)
+                    masked_latent = vae_forward(image_pixel, batch_size, mask=mask_pixel)
+                    mask_latent = torch.nn.functional.max_pool2d(mask_pixel, (8, 8))
+                    if mask_latent.shape[0] != batch_size:
+                        mask_latent = torch.cat([mask_latent.clone() for _ in range(batch_size)], dim=0)
+                    param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
+                    param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
+                x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
+
             # U-Net Encoder
             hs = []
             with th.no_grad():
@@ -540,9 +564,12 @@ class UnetHook(nn.Module):
                 if is_in_high_res_fix:
                     k *= 2
 
+                # Inpaint hijack
+                xt = x[:, :4, :, :]
+
                 x0_origin = param.used_hint_cond_latent
                 t = torch.round(timesteps.float()).long()
-                x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
+                x0_prd = predict_start_from_noise(outer.sd_ldm, xt, t, h)
                 x0 = x0_prd - blur(x0_prd, k) + blur(x0_origin, k)
 
                 if '+sharp' in param.preprocessor['name']:
@@ -550,7 +577,7 @@ class UnetHook(nn.Module):
                     neg = detail_weight * blur(x0, k) + (1 - detail_weight) * x0
                     x0 = cond_mark * x0 + (1 - cond_mark) * neg
 
-                eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
+                eps_prd = predict_noise_from_start(outer.sd_ldm, xt, t, x0)
 
                 w = max(0.0, min(1.0, float(param.weight)))
                 h = eps_prd * w + h * (1 - w)
@@ -564,14 +591,17 @@ class UnetHook(nn.Module):
                 if param.used_hint_cond.shape[1] != 4:
                     continue
 
+                # Inpaint hijack
+                xt = x[:, :4, :, :]
+
                 mask = param.used_hint_cond[:, 3:4, :, :]
-                mask = torch.nn.functional.avg_pool2d(mask, (8, 8))
+                mask = torch.nn.functional.max_pool2d(mask, (10, 10), stride=(8, 8), padding=1)
 
                 x0_origin = param.used_hint_cond_latent
                 t = torch.round(timesteps.float()).long()
-                x0_prd = predict_start_from_noise(outer.sd_ldm, x, t, h)
+                x0_prd = predict_start_from_noise(outer.sd_ldm, xt, t, h)
                 x0 = x0_prd * mask + x0_origin * (1 - mask)
-                eps_prd = predict_noise_from_start(outer.sd_ldm, x, t, x0)
+                eps_prd = predict_noise_from_start(outer.sd_ldm, xt, t, x0)
 
                 w = max(0.0, min(1.0, float(param.weight)))
                 h = eps_prd * w + h * (1 - w)
