@@ -523,6 +523,7 @@ class UnetHook(nn.Module):
                     if mask_latent.shape[0] != batch_size:
                         mask_latent = torch.cat([mask_latent.clone() for _ in range(batch_size)], dim=0)
                     param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
+                    param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
                 x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
 
             # U-Net Encoder
