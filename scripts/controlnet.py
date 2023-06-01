@@ -452,16 +452,7 @@ class Script(scripts.Script):
             new_h, new_w, _ = detected_map.shape
             pad_h = max(0, (h - new_h) // 2)
             pad_w = max(0, (w - new_w) // 2)
-            if high_quality_background.shape[2] == 4:
-                # Inpaint hijack
-                inpaint_pad = 64
-                if pad_h == 0:
-                    high_quality_background[pad_h:pad_h + new_h, pad_w + inpaint_pad:pad_w + new_w - inpaint_pad, 3] = detected_map[:, inpaint_pad:-inpaint_pad, 3]
-                else:
-                    high_quality_background[pad_h + inpaint_pad:pad_h + new_h - inpaint_pad, pad_w:pad_w + new_w, 3] = detected_map[inpaint_pad:-inpaint_pad, :, 3]
-                high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w, 0:3] = detected_map[:, :, 0:3]
-            else:
-                high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
+            high_quality_background[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = detected_map
             detected_map = high_quality_background
             detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
@@ -804,7 +795,9 @@ class Script(scripts.Script):
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
                 final_inpaint_mask = final_inpaint_feed[:, :, 3].astype(np.float32)
                 final_inpaint_raw = final_inpaint_feed[:, :, 0:3].astype(np.float32) * 255.0
-                final_inpaint_mask = cv2.GaussianBlur(final_inpaint_mask, (0, 0), 4)[:, :, None]
+                sigma = 7
+                final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
+                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[:, :, None]
                 Hmask, Wmask, _ = final_inpaint_mask.shape
 
                 def inpaint_only_post_processing(x):
