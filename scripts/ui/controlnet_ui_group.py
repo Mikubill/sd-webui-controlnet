@@ -4,7 +4,7 @@ from typing import List, Optional, Union, Dict, Callable
 import numpy as np
 import base64
 
-from scripts.utils import svgPreprocess, get_module_basename
+from scripts.utils import svg_preprocess
 from scripts import (
     global_state,
     external_code,
@@ -481,7 +481,7 @@ class ControlNetUiGroup(object):
 
         def build_sliders(module, pp):
             grs = []
-            module = get_module_basename(module)
+            module = global_state.get_module_basename(module)
             if module not in preprocessor_sliders_config:
                 grs += [
                     gr.update(
@@ -609,7 +609,7 @@ class ControlNetUiGroup(object):
                 alpha = image["mask"][:, :, 0:1]
                 img = np.concatenate([color, alpha], axis=2)
 
-            module = get_module_basename(module)
+            module = global_state.get_module_basename(module)
             preprocessor = self.preprocessors[module]
 
             if pp:
@@ -831,7 +831,7 @@ class ControlNetUiGroup(object):
         self.register_modules(tabname, unit_args)
 
         self.input_image.preprocess = functools.partial(
-            svgPreprocess, preprocess=self.input_image.preprocess
+            svg_preprocess, preprocess=self.input_image.preprocess
         )
 
         unit = gr.State(self.default_unit)

@@ -8,7 +8,7 @@ from modules.paths import models_path
 from scripts.processor import *
 from scripts.utils import ndarray_lru_cache
 
-from typing import Dict, Callable
+from typing import Dict, Callable, Optional
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -144,6 +144,10 @@ ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
 
 reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
 
+def get_module_basename(module: Optional[str]) -> str:
+    if module is None:
+        module = 'none'
+    return reverse_preprocessor_aliases.get(module, module)
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")

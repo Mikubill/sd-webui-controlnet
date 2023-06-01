@@ -19,7 +19,7 @@ importlib.reload(utils)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
-from scripts.utils import load_state_dict, get_module_basename
+from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
@@ -538,7 +538,7 @@ class Script(scripts.Script):
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
-            unit.module = get_module_basename(unit.module)
+            unit.module = global_state.get_module_basename(unit.module)
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
             image = image_dict_from_any(unit.image)
             if image is not None:

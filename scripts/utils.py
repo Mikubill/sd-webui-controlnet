@@ -7,8 +7,6 @@ import gradio as gr
 
 from typing import Any, Callable, Dict
 
-from scripts import global_state
-
 
 def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
@@ -93,7 +91,7 @@ except ImportError:
     pass
 
 
-def svgPreprocess(inputs: Dict, preprocess: Callable):
+def svg_preprocess(inputs: Dict, preprocess: Callable):
     if not inputs:
         return None
 
@@ -109,8 +107,3 @@ def svgPreprocess(inputs: Dict, preprocess: Callable):
         inputs["image"] = base64_str
     return preprocess(inputs)
 
-
-def get_module_basename(module: str) -> str:
-    if module is None:
-        module = 'none'
-    return global_state.reverse_preprocessor_aliases.get(module, module)
