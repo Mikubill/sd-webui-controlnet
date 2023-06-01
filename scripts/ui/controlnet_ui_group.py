@@ -292,9 +292,7 @@ class ControlNetUiGroup(object):
                 label="Allow Preview", value=False, elem_id=preview_check_elem_id
             )
 
-        if shared.opts.data.get("controlnet_disable_control_type", False):
-            type_filter = None
-        else:
+        if not shared.opts.data.get("controlnet_disable_control_type", False):
             with gr.Row(elem_classes="controlnet_control_type"):
                 self.type_filter = gr.Radio(
                     list(preprocessor_filters.keys()),
