@@ -125,9 +125,6 @@ class ControlNetUiGroup(object):
         self.generated_image_group = None
         self.generated_image = None
         self.download_pose_link = None
-        self.preview_close_button_style = None
-        self.preview_check_elem_id = None
-        self.preview_close_button_js = None
         self.batch_tab = None
         self.batch_image_dir = None
         self.create_canvas = None

@@ -119,10 +119,6 @@ class Script(scripts.Script):
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
-        self.txt2img_w_slider = gr.Slider()
-        self.txt2img_h_slider = gr.Slider()
-        self.img2img_w_slider = gr.Slider()
-        self.img2img_h_slider = gr.Slider()
         self.enabled_units = []
         self.detected_map = []
         self.post_processors = []
@@ -135,8 +131,6 @@ class Script(scripts.Script):
         return "ControlNet"
 
     def show(self, is_img2img):
-        # if is_img2img:
-            # return False
         return scripts.AlwaysVisible
 
     def get_threshold_block(self, proc):
@@ -187,19 +181,6 @@ class Script(scripts.Script):
                 self.paste_field_names.append(field_name)
 
         return controls
-
-    def register_modules(self, tabname, params):
-        enabled, module, model, weight = params[4:8]
-        guidance_start, guidance_end, pixel_perfect, control_mode = params[-4:]
-
-        self.infotext_fields.extend([
-            (enabled, f"{tabname} Enabled"),
-            (module, f"{tabname} Preprocessor"),
-            (model, f"{tabname} Model"),
-            (weight, f"{tabname} Weight"),
-            (guidance_start, f"{tabname} Guidance Start"),
-            (guidance_end, f"{tabname} Guidance End"),
-        ])
 
     def clear_control_model_cache(self):
         Script.model_cache.clear()
