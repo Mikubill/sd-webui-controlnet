@@ -19,6 +19,7 @@ from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict, get_module_basename
+importlib.reload(scripts.utils)
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
