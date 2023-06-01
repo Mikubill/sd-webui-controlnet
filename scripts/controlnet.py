@@ -2,15 +2,16 @@ import gc
 import os
 from collections import OrderedDict
 from copy import copy
-from typing import Union, Dict, Optional, List
+from typing import Dict, Optional
 import importlib
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
 
 from einops import rearrange
-from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version
+from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
 importlib.reload(processor)
+importlib.reload(utils)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
@@ -20,19 +21,18 @@ from scripts.processor import *
 from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook, ControlModelType
+from scripts.ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
-from modules.ui_components import FormRow
 
 import cv2
 import numpy as np
 import torch
-import base64
 
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import preprocessor_sliders_config, flag_preprocessor_resolution, model_free_preprocessors, preprocessor_filters
+from scripts.processor import model_free_preprocessors
 
 gradio_compat = True
 try:
@@ -42,53 +42,6 @@ try:
         gradio_compat = False
 except ImportError:
     pass
-
-# svgsupports
-svgsupport = False
-try:
-    import io
-    from svglib.svglib import svg2rlg
-    from reportlab.graphics import renderPM
-    svgsupport = True
-except ImportError:
-    pass
-
-# Note: Change symbol hints mapping in `javascript/hints.js` when you change the symbol values.
-refresh_symbol = '\U0001f504'       # 🔄
-switch_values_symbol = '\U000021C5' # ⇅
-camera_symbol = '\U0001F4F7'        # 📷
-reverse_symbol = '\U000021C4'       # ⇄
-tossup_symbol = '\u2934'
-trigger_symbol = '\U0001F4A5'  # 💥
-open_symbol = '\U0001F4DD'  # 📝
-
-webcam_enabled = False
-webcam_mirrored = False
-
-global_batch_input_dir = gr.Textbox(
-    label='Controlnet input directory',
-    placeholder='Leave empty to use input directory',
-    **shared.hide_dirs,
-    elem_id='controlnet_batch_input_dir')
-img2img_batch_input_dir = None
-img2img_batch_input_dir_callbacks = []
-img2img_batch_output_dir = None
-img2img_batch_output_dir_callbacks = []
-generate_buttons = {}
-
-txt2img_submit_button = None
-img2img_submit_button = None
-
-
-class ToolButton(gr.Button, gr.components.FormComponent):
-    """Small button with single emoji as text, fits inside gradio forms"""
-
-    def __init__(self, **kwargs):
-        super().__init__(variant="tool", elem_classes=['cnet-toolbutton'], **kwargs)
-
-    def get_block_name(self):
-        return "button"
-
 
 def find_closest_lora_model_name(search: str):
     if not search:
@@ -113,33 +66,6 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
         if hasattr(p, k):
             continue
         setattr(p, k, v)
-
-
-def update_json_download_link(json_string: str, file_name: str) -> Dict:
-    base64_encoded_json = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
-    data_uri = f'data:application/json;base64,{base64_encoded_json}'
-    style = """ 
-    position: absolute;
-    right: var(--size-2);
-    bottom: calc(var(--size-2) * 4);
-    font-size: x-small;
-    font-weight: bold;
-    padding: 2px;
-
-    box-shadow: var(--shadow-drop);
-    border: 1px solid var(--button-secondary-border-color);
-    border-radius: var(--radius-sm);
-    background: var(--background-fill-primary);
-    height: var(--size-5);
-    color: var(--block-label-text-color);
-    """
-    hint = "Download the pose as .json file"
-    html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
-                Json</a>"""
-    return gr.update(
-        value=html,
-        visible=(json_string != '')
-    )
 
 
 global_state.update_cn_models()
@@ -183,23 +109,6 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     return image
 
 
-class UiControlNetUnit(external_code.ControlNetUnit):
-    def __init__(
-        self,
-        input_mode: batch_hijack.InputMode = batch_hijack.InputMode.SIMPLE,
-        batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
-        output_dir: str = '',
-        loopback: bool = False,
-        *args, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.is_ui = True
-        self.input_mode = input_mode
-        self.batch_images = batch_images
-        self.output_dir = output_dir
-        self.loopback = loopback
-
-
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -230,26 +139,6 @@ class Script(scripts.Script):
             # return False
         return scripts.AlwaysVisible
 
-    def after_component(self, component, **kwargs):
-        if component.elem_id == "txt2img_width":
-            self.txt2img_w_slider = component
-            return self.txt2img_w_slider
-        if component.elem_id == "txt2img_height":
-            self.txt2img_h_slider = component
-            return self.txt2img_h_slider
-        if component.elem_id == "img2img_width":
-            self.img2img_w_slider = component
-            return self.img2img_w_slider
-        if component.elem_id == "img2img_height":
-            self.img2img_h_slider = component
-            return self.img2img_h_slider
-
-    def get_module_basename(self, module):
-        if module is None:
-            module = 'none'
-
-        return global_state.reverse_preprocessor_aliases.get(module, module)
-
     def get_threshold_block(self, proc):
         pass
 
@@ -261,420 +150,16 @@ class Script(scripts.Script):
             model="None"
         )
 
-    def uigroup(self, tabname, is_img2img, elem_id_tabname):
-        infotext_fields = []
-        default_unit = self.get_default_ui_unit()
-        with gr.Tabs():
-            with gr.Tab(label='Single Image') as upload_tab:
-                with gr.Row().style(equal_height=True):
-                    input_image = gr.Image(source='upload', brush_radius=20, mirror_webcam=False, type='numpy', tool='sketch', elem_id=f'{elem_id_tabname}_{tabname}_input_image')
-                    # Gradio's magic number. Only 242 works.
-                    with gr.Group(visible=False) as generated_image_group:
-                        generated_image = gr.Image(label="Preprocessor Preview", elem_id=f'{elem_id_tabname}_{tabname}_generated_image').style(height=242)
-                        download_pose_link = gr.HTML(value='', visible=False)
-                        preview_close_button_style = """ 
-                            position: absolute;
-                            right: var(--size-2);
-                            bottom: var(--size-2);
-                            font-size: x-small;
-                            font-weight: bold;
-                            padding: 2px;
-                            cursor: pointer;
-
-                            box-shadow: var(--shadow-drop);
-                            border: 1px solid var(--button-secondary-border-color);
-                            border-radius: var(--radius-sm);
-                            background: var(--background-fill-primary);
-                            height: var(--size-5);
-                            color: var(--block-label-text-color);
-                            """
-                        preview_check_elem_id = f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox'
-                        preview_close_button_js = f"document.querySelector(\'#{preview_check_elem_id} input[type=\\\'checkbox\\\']\').click();"
-                        gr.HTML(value=f'''<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>''', visible=True)
-
-            with gr.Tab(label='Batch') as batch_tab:
-                batch_image_dir = gr.Textbox(label='Input Directory', placeholder='Leave empty to use img2img batch controlnet input directory', elem_id=f'{elem_id_tabname}_{tabname}_batch_image_dir')
-
-        with gr.Accordion(label='Open New Canvas', visible=False) as create_canvas:
-            canvas_width = gr.Slider(label="New Canvas Width", minimum=256, maximum=1024, value=512, step=64, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_width')
-            canvas_height = gr.Slider(label="New Canvas Height", minimum=256, maximum=1024, value=512, step=64, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_height')
-            with gr.Row():
-                canvas_create_button = gr.Button(value="Create New Canvas", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_create_button')
-                canvas_cancel_button = gr.Button(value="Cancel", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_canvas_cancel_button')
-
-        with gr.Row(elem_classes="controlnet_image_controls"):
-            gr.HTML(value='<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>', elem_classes="controlnet_invert_warning")
-            open_new_canvas_button = ToolButton(value=open_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button')
-            webcam_enable = ToolButton(value=camera_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_enable')
-            webcam_mirror = ToolButton(value=reverse_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_webcam_mirror')
-            send_dimen_button = ToolButton(value=tossup_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_send_dimen_button')
-
-        open_new_canvas_button.click(lambda: gr.Accordion.update(visible=True), inputs=None, outputs=create_canvas)
-        canvas_cancel_button.click(lambda: gr.Accordion.update(visible=False), inputs=None, outputs=create_canvas)
-
-        with FormRow(elem_classes=["checkboxes-row","controlnet_main_options"], variant="compact"):
-            enabled = gr.Checkbox(label='Enable', value=default_unit.enabled, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_enable_checkbox')
-            lowvram = gr.Checkbox(label='Low VRAM', value=default_unit.low_vram, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox')
-            pixel_perfect = gr.Checkbox(label='Pixel Perfect', value=default_unit.pixel_perfect, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_pixel_perfect_checkbox')
-            preprocessor_preview = gr.Checkbox(label='Allow Preview', value=False, elem_id=preview_check_elem_id)
-
-        # infotext_fields.append((enabled, "ControlNet Enabled"))
-
-        def send_dimensions(image):
-            def closesteight(num):
-                rem = num % 8
-                if rem <= 4:
-                    return round(num - rem)
-                else:
-                    return round(num + (8 - rem))
-            if(image):
-                interm = np.asarray(image.get('image'))
-                return closesteight(interm.shape[1]), closesteight(interm.shape[0])
-            else:
-                return gr.Slider.update(), gr.Slider.update()
-
-        def webcam_toggle():
-            global webcam_enabled
-            webcam_enabled = not webcam_enabled
-            return {"value": None, "source": "webcam" if webcam_enabled else "upload", "__type__": "update"}
-
-        def webcam_mirror_toggle():
-            global webcam_mirrored
-            webcam_mirrored = not webcam_mirrored
-            return {"mirror_webcam": webcam_mirrored, "__type__": "update"}
-
-        webcam_enable.click(fn=webcam_toggle, inputs=None, outputs=input_image)
-        webcam_mirror.click(fn=webcam_mirror_toggle, inputs=None, outputs=input_image)
-
-        def refresh_all_models(*inputs):
-            global_state.update_cn_models()
-
-            dd = inputs[0]
-            selected = dd if dd in global_state.cn_models else "None"
-            return gr.Dropdown.update(value=selected, choices=list(global_state.cn_models.keys()))
-
-        if shared.opts.data.get("controlnet_disable_control_type", False):
-            type_filter = None
-        else:
-            with gr.Row(elem_classes="controlnet_control_type"):
-                type_filter = gr.Radio(list(preprocessor_filters.keys()), label=f"Control Type", value='All', elem_id=f'{elem_id_tabname}_{tabname}_controlnet_type_filter_radio', elem_classes='controlnet_control_type_filter_group')
-
-        with gr.Row(elem_classes="controlnet_preprocessor_model"):
-            module = gr.Dropdown(global_state.ui_preprocessor_keys, label=f"Preprocessor", value=default_unit.module, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown')
-            trigger_preprocessor = ToolButton(value=trigger_symbol, visible=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor')
-            model = gr.Dropdown(list(global_state.cn_models.keys()), label=f"Model", value=default_unit.model, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_model_dropdown')
-            refresh_models = ToolButton(value=refresh_symbol, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_refresh_models')
-            refresh_models.click(refresh_all_models, model, model)
-
-        with gr.Row(elem_classes="controlnet_weight_steps"):
-            weight = gr.Slider(label=f"Control Weight", value=default_unit.weight, minimum=0.0, maximum=2.0, step=.05, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_weight_slider', elem_classes='controlnet_control_weight_slider')
-            guidance_start = gr.Slider(label="Starting Control Step", value=default_unit.guidance_start, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_start_control_step_slider', elem_classes='controlnet_start_control_step_slider')
-            guidance_end = gr.Slider(label="Ending Control Step", value=default_unit.guidance_end, minimum=0.0, maximum=1.0, interactive=True, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_ending_control_step_slider', elem_classes='controlnet_ending_control_step_slider')
-
-        def build_sliders(module, pp):
-            grs = []
-            module = self.get_module_basename(module)
-            if module not in preprocessor_sliders_config:
-                grs += [
-                    gr.update(label=flag_preprocessor_resolution, value=512, minimum=64, maximum=2048, step=1, visible=not pp, interactive=not pp),
-                    gr.update(visible=False, interactive=False),
-                    gr.update(visible=False, interactive=False),
-                    gr.update(visible=True)
-                ]
-            else:
-                for slider_config in preprocessor_sliders_config[module]:
-                    if isinstance(slider_config, dict):
-                        visible = True
-                        if slider_config['name'] == flag_preprocessor_resolution:
-                            visible = not pp
-                        grs.append(gr.update(
-                            label=slider_config['name'],
-                            value=slider_config['value'],
-                            minimum=slider_config['min'],
-                            maximum=slider_config['max'],
-                            step=slider_config['step'] if 'step' in slider_config else 1,
-                            visible=visible,
-                            interactive=visible))
-                    else:
-                        grs.append(gr.update(visible=False, interactive=False))
-                while len(grs) < 3:
-                    grs.append(gr.update(visible=False, interactive=False))
-                grs.append(gr.update(visible=True))
-            if module in model_free_preprocessors:
-                grs += [gr.update(visible=False, value='None'), gr.update(visible=False)]
-            else:
-                grs += [gr.update(visible=True), gr.update(visible=True)]
-            return grs
-
-        # advanced options
-        with gr.Column(visible=False) as advanced:
-            processor_res = gr.Slider(label="Preprocessor resolution", value=default_unit.processor_res, minimum=64, maximum=2048, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_preprocessor_resolution_slider')
-            threshold_a = gr.Slider(label="Threshold A", value=default_unit.threshold_a, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_A_slider')
-            threshold_b = gr.Slider(label="Threshold B", value=default_unit.threshold_b, minimum=64, maximum=1024, visible=False, interactive=False, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider')
-
-        if gradio_compat:
-            module.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-            pixel_perfect.change(build_sliders, inputs=[module, pixel_perfect], outputs=[processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-
-            if type_filter is not None:
-                def filter_selected(k, pp):
-                    default_option = preprocessor_filters[k]
-                    pattern = k.lower()
-                    preprocessor_list = global_state.ui_preprocessor_keys
-                    model_list = list(global_state.cn_models.keys())
-                    if pattern == 'all':
-                        return [gr.Dropdown.update(value='none', choices=preprocessor_list),
-                                gr.Dropdown.update(value='None', choices=model_list)] + build_sliders('none', pp)
-                    filtered_preprocessor_list = [x for x in preprocessor_list if pattern in x.lower() or x.lower() == 'none']
-                    if pattern in ['canny', 'lineart', 'scribble', 'mlsd']:
-                        filtered_preprocessor_list += [x for x in preprocessor_list if 'invert' in x.lower()]
-                    filtered_model_list = [x for x in model_list if pattern in x.lower() or x.lower() == 'none']
-                    if default_option not in filtered_preprocessor_list:
-                        default_option = filtered_preprocessor_list[0]
-                    if len(filtered_model_list) == 1:
-                        default_model = 'None'
-                        filtered_model_list = model_list
-                    else:
-                        default_model = filtered_model_list[1]
-                        for x in filtered_model_list:
-                            if '11' in x.split('[')[0]:
-                                default_model = x
-                                break
-                    return [gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
-                            gr.Dropdown.update(value=default_model, choices=filtered_model_list)] + build_sliders(default_option, pp)
-
-                type_filter.change(filter_selected, inputs=[type_filter, pixel_perfect], outputs=[module, model, processor_res, threshold_a, threshold_b, advanced, model, refresh_models])
-
-        # infotext_fields.extend((module, model, weight))
-
-        def svgPreprocess(inputs):
-            if (inputs):
-                if (inputs['image'].startswith("data:image/svg+xml;base64,") and svgsupport):
-                    svg_data = base64.b64decode(inputs['image'].replace('data:image/svg+xml;base64,',''))
-                    drawing = svg2rlg(io.BytesIO(svg_data))
-                    png_data = renderPM.drawToString(drawing, fmt='PNG')
-                    encoded_string = base64.b64encode(png_data)
-                    base64_str = str(encoded_string, "utf-8")
-                    base64_str = "data:image/png;base64,"+ base64_str
-                    inputs['image'] = base64_str
-                return input_image.orgpreprocess(inputs)
-            return None
-
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
-            if image is None:
-                return gr.update(value=None, visible=True), gr.update(), gr.update()
-
-            img = HWC3(image['image'])
-            if not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all()):
-                img = HWC3(image['mask'][:, :, 0])
-
-            if 'inpaint' in module:
-                color = HWC3(image['image'])
-                alpha = image['mask'][:, :, 0:1]
-                img = np.concatenate([color, alpha], axis=2)
-
-            module = self.get_module_basename(module)
-            preprocessor = self.preprocessor[module]
-
-            if pp:
-                raw_H, raw_W, _ = img.shape
-                target_H, target_W = t2i_h, t2i_w
-                rm = str(rm)
-
-                k0 = float(target_H) / float(raw_H)
-                k1 = float(target_W) / float(raw_W)
-
-                if rm == external_code.ResizeMode.OUTER_FIT.value:
-                    estimation = min(k0, k1) * float(min(raw_H, raw_W))
-                else:
-                    estimation = max(k0, k1) * float(min(raw_H, raw_W))
-
-                pres = int(np.round(estimation))
-                print(f'Pixel Perfect Mode Enabled In Preview.')
-                print(f'resize_mode = {rm}')
-                print(f'raw_H = {raw_H}')
-                print(f'raw_W = {raw_W}')
-                print(f'target_H = {target_H}')
-                print(f'target_W = {target_W}')
-                print(f'estimation = {estimation}')
-
-            class JsonAcceptor:
-                def __init__(self) -> None:
-                    self.value = ''
-
-                def accept(self, json_string: str) -> None:
-                    self.value = json_string
-            json_acceptor = JsonAcceptor()
-
-            print(f'Preview Resolution = {pres}')
-
-            def is_openpose(module: str):
-                return 'openpose' in module
-            
-            # Only openpose preprocessor returns a JSON output, pass json_acceptor
-            # only when a JSON output is expected. This will make preprocessor cache
-            # work for all other preprocessors other than openpose ones. JSON acceptor
-            # instance are different every call, which means cache will never take 
-            # effect.
-            # TODO: Maybe we should let `preprocessor` return a Dict to alleviate this issue?
-            # This requires changing all callsites though.
-            result, is_image = preprocessor(img, res=pres, thr_a=pthr_a, thr_b=pthr_b,
-                                            json_pose_callback=json_acceptor.accept if is_openpose(module) else None)
-
-            if 'clip' in module:
-                result = processor.clip_vision_visualization(result)
-                is_image = True
-
-            if is_image:
-                if result.ndim == 3 and result.shape[2] == 4:
-                    inpaint_mask = result[:, :, 3]
-                    result = result[:, :, 0:3]
-                    result[inpaint_mask > 127] = 0
-                return (
-                    # Update to `generated_image`
-                    gr.update(value=result, visible=True, interactive=False),
-                    # Update to `download_pose_link`
-                    update_json_download_link(json_acceptor.value, 'pose.json'),
-                    # preprocessor_preview
-                    gr.update(value=True)
-                )
-
-            return (
-                # Update to `generated_image`
-                gr.update(value=None, visible=True),
-                # Update to `download_pose_link`
-                update_json_download_link(json_acceptor.value, 'pose.json'),
-                # preprocessor_preview
-                gr.update(value=True)
-            )
-
-        def shift_preview(is_on):
-            return (
-                # generated_image
-                gr.update() if is_on else gr.update(value=None),
-                # generated_image_group
-                gr.update(visible=is_on),
-                # download_pose_link
-                gr.update() if is_on else gr.update(value=None),
-            )
-
-        preprocessor_preview.change(fn=shift_preview, inputs=[preprocessor_preview], 
-                                    outputs=[generated_image, generated_image_group, download_pose_link])
-
-        if is_img2img:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.img2img_w_slider, self.img2img_h_slider])
-        else:
-            send_dimen_button.click(fn=send_dimensions, inputs=[input_image], outputs=[self.txt2img_w_slider, self.txt2img_h_slider])
-
-        control_mode = gr.Radio(choices=[e.value for e in external_code.ControlMode], value=default_unit.control_mode.value, label="Control Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_control_mode_radio', elem_classes='controlnet_control_mode_radio')
-
-        resize_mode = gr.Radio(choices=[e.value for e in external_code.ResizeMode], value=default_unit.resize_mode.value, label="Resize Mode", elem_id=f'{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio', elem_classes='controlnet_resize_mode_radio')
-
-        loopback = gr.Checkbox(label='[Loopback] Automatically send generated images to this ControlNet unit', value=default_unit.loopback, elem_id=f'{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox', elem_classes='controlnet_loopback_checkbox')
-
-        trigger_preprocessor.click(fn=run_annotator, inputs=[
-            input_image, module, processor_res, threshold_a, threshold_b,
-            self.img2img_w_slider if is_img2img else self.txt2img_w_slider,
-            self.img2img_h_slider if is_img2img else self.txt2img_h_slider,
-            pixel_perfect, resize_mode
-        ], outputs=[generated_image, download_pose_link, preprocessor_preview])
-
-        def fn_canvas(h, w):
-            return np.zeros(shape=(h, w, 3), dtype=np.uint8) + 255, gr.Accordion.update(visible=False)
-
-        canvas_create_button.click(fn=fn_canvas, inputs=[canvas_height, canvas_width], outputs=[input_image, create_canvas])
-
-        input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
-        batch_image_dir_state = gr.State('')
-        output_dir_state = gr.State('')
-        unit_args = (input_mode, batch_image_dir_state, output_dir_state, loopback, enabled, module, model, weight, input_image, resize_mode, lowvram, processor_res, threshold_a, threshold_b, guidance_start, guidance_end, pixel_perfect, control_mode)
-        self.register_modules(tabname, unit_args)
-
-        input_image.orgpreprocess=input_image.preprocess
-        input_image.preprocess=svgPreprocess
-
-        unit = gr.State(default_unit)
-        for comp in unit_args:
-            event_subscribers = []
-            if hasattr(comp, 'edit'):
-                event_subscribers.append(comp.edit)
-            elif hasattr(comp, 'click'):
-                event_subscribers.append(comp.click)
-            elif isinstance(comp, gr.Slider) and hasattr(comp, 'release'):
-                event_subscribers.append(comp.release)
-            elif hasattr(comp, 'change'):
-                event_subscribers.append(comp.change)
-
-            if hasattr(comp, 'clear'):
-                event_subscribers.append(comp.clear)
-
-            for event_subscriber in event_subscribers:
-                event_subscriber(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit)
-
-        # keep input_mode in sync
-        def ui_controlnet_unit_for_input_mode(input_mode, *args):
-            args = list(args)
-            args[0] = input_mode
-            return input_mode, UiControlNetUnit(*args)
-
-        for input_tab in (
-            (upload_tab, batch_hijack.InputMode.SIMPLE),
-            (batch_tab, batch_hijack.InputMode.BATCH)
-        ):
-            input_tab[0].select(fn=ui_controlnet_unit_for_input_mode, inputs=[gr.State(input_tab[1])] + list(unit_args), outputs=[input_mode, unit])
-
-        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
-            if batch_dir:
-                return batch_dir
-            elif fallback_dir:
-                return fallback_dir
-            else:
-                return fallback_fallback_dir
-
-        # keep batch_dir in sync with global batch input textboxes
-        global img2img_batch_input_dir, img2img_batch_input_dir_callbacks
-        def subscribe_for_batch_dir():
-            global global_batch_input_dir, img2img_batch_input_dir
-            batch_dirs = [batch_image_dir, global_batch_input_dir, img2img_batch_input_dir]
-            for batch_dir_comp in batch_dirs:
-                subscriber = getattr(batch_dir_comp, 'blur', None)
-                if subscriber is None: continue
-                subscriber(
-                    fn=determine_batch_dir,
-                    inputs=batch_dirs,
-                    outputs=[batch_image_dir_state],
-                    queue=False,
-                )
-
-        if img2img_batch_input_dir is None:
-            # we are too soon, subscribe later when available
-            img2img_batch_input_dir_callbacks.append(subscribe_for_batch_dir)
-        else:
-            subscribe_for_batch_dir()
-
-        # keep output_dir in sync with global batch output textbox
-        global img2img_batch_output_dir, img2img_batch_output_dir_callbacks
-        def subscribe_for_output_dir():
-            global img2img_batch_output_dir
-            img2img_batch_output_dir.blur(
-                fn=lambda a: a,
-                inputs=[img2img_batch_output_dir],
-                outputs=[output_dir_state],
-                queue=False,
-            )
-
-        if img2img_batch_input_dir is None:
-            # we are too soon, subscribe later when available
-            img2img_batch_output_dir_callbacks.append(subscribe_for_output_dir)
-        else:
-            subscribe_for_output_dir()
-
-        if is_img2img:
-            img2img_submit_button.click(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit, queue=False)
-        else:
-            txt2img_submit_button.click(fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit, queue=False)
-
-        return unit
+    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str):
+        group = ControlNetUiGroup(
+            gradio_compat,
+            self.infotext_fields,
+            self.get_default_ui_unit(),
+            self.preprocessor,
+        )
+        group.render(tabname, elem_id_tabname)
+        group.register_callbacks(is_img2img)
+        return group.render_and_register_unit(tabname, is_img2img)
 
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
@@ -990,9 +475,6 @@ class Script(scripts.Script):
             detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
 
-    def is_ui(self, args):
-        return args and all(isinstance(arg, UiControlNetUnit) for arg in args)
-
     def get_enabled_units(self, p):
         units = external_code.get_all_units_in_processing(p)
         enabled_units = []
@@ -1068,7 +550,7 @@ class Script(scripts.Script):
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
-            unit.module = self.get_module_basename(unit.module)
+            unit.module = global_state.get_module_basename(unit.module)
             p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
             image = image_dict_from_any(unit.image)
             if image is not None:
@@ -1455,36 +937,6 @@ def on_ui_settings():
         False, "Disable control type selection", gr.Checkbox, {"interactive": True}, section=section))
 
 
-def on_after_component(component, **_kwargs):
-    global txt2img_submit_button
-    if getattr(component, 'elem_id', None) == 'txt2img_generate':
-        txt2img_submit_button = component
-        return
-
-    global img2img_submit_button
-    if getattr(component, 'elem_id', None) == 'img2img_generate':
-        img2img_submit_button = component
-        return
-
-    global img2img_batch_input_dir
-    if getattr(component, 'elem_id', None) == 'img2img_batch_input_dir':
-        img2img_batch_input_dir = component
-        for callback in img2img_batch_input_dir_callbacks:
-            callback()
-        return
-
-    global img2img_batch_output_dir
-    if getattr(component, 'elem_id', None) == 'img2img_batch_output_dir':
-        img2img_batch_output_dir = component
-        for callback in img2img_batch_output_dir_callbacks:
-            callback()
-        return
-
-    if getattr(component, 'elem_id', None) == 'img2img_batch_inpaint_mask_dir':
-        global_batch_input_dir.render()
-        return
-
-
 batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
-script_callbacks.on_after_component(on_after_component)
+script_callbacks.on_after_component(ControlNetUiGroup.on_after_component)
