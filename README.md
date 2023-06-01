@@ -241,6 +241,45 @@ Using this version is not a temporary stop of updates. You will stop all updates
 
 Please consider this version if you work with professional studios that requires 100% reproducing of all previous results pixel by pixel.
 
+# Contributing to the repository
+## Setting up pre-commit hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. To set up the pre-commit hooks:
+
+1. Ensure that you have `pre-commit` installed. If not, you can install it with:
+
+    ```shell
+    pip install pre-commit
+    ```
+
+2. Run the following command in the repository to install the hooks:
+
+    ```shell
+    pre-commit install
+    ```
+
+Now, the pre-commit hooks will automatically run each time you make a commit. If any issues are detected, the commit will be aborted, and you'll need to fix the issues before you can commit.
+
+## Updating Pre-commit Hooks
+
+Our project uses pre-commit hooks to maintain code quality and consistency. If you have not set up the hooks yet, please refer to the [Setting up pre-commit hooks](#setting-up-pre-commit-hooks) section.
+
+As the project evolves, we may update the `.pre-commit-config.yaml` file to change the hooks that we use. When this happens, you'll need to update your local pre-commit environment to include these changes.
+
+Here's how you can do that:
+
+1. First, open your terminal and navigate to the project directory.
+
+2. Run the following commands to clean your pre-commit environment and install the updated hooks:
+
+    ```shell
+    pre-commit clean
+    pre-commit install
+    ```
+
+Remember to do this every time you pull new changes from the repository and see that the `.pre-commit-config.yaml` file has been updated.
+
+Thank you for helping us maintain the quality and consistency of our codebase!
 # Thanks
 
 This implementation is inspired by kohya-ss/sd-webui-additional-networks
