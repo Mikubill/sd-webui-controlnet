@@ -677,15 +677,16 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
-                if resize_mode == external_code.ResizeMode.INNER_FIT:
-                    input_image = [images.resize_image(1, i, mask.width, mask.height) for i in input_image]
-                elif resize_mode == external_code.ResizeMode.OUTER_FIT:
-                    input_image = [images.resize_image(2, i, mask.width, mask.height) for i in input_image]
-                else:
-                    input_image = [images.resize_image(0, i, mask.width, mask.height) for i in input_image]
+                input_image = [
+                    images.resize_image(resize_mode.int_value(), i, mask.width, mask.height) 
+                    for i in input_image
+                ]
 
                 input_image = [x.crop(crop_region) for x in input_image]
-                input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
+                input_image = [
+                    images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height) 
+                    for x in input_image
+                ]
 
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
