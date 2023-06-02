@@ -136,7 +136,8 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
 
-    def get_default_ui_unit(self, is_ui=True):
+    @staticmethod
+    def get_default_ui_unit(is_ui=True):
         cls = UiControlNetUnit if is_ui else external_code.ControlNetUnit
         return cls(
             enabled=False,
@@ -148,7 +149,7 @@ class Script(scripts.Script):
         group = ControlNetUiGroup(
             gradio_compat,
             self.infotext_fields,
-            self.get_default_ui_unit(),
+            Script.get_default_ui_unit(),
             self.preprocessor,
         )
         group.render(tabname, elem_id_tabname)
@@ -181,13 +182,15 @@ class Script(scripts.Script):
                 self.paste_field_names.append(field_name)
 
         return controls
-
-    def clear_control_model_cache(self):
+    
+    @staticmethod
+    def clear_control_model_cache():
         Script.model_cache.clear()
         gc.collect()
         devices.torch_gc()
 
-    def load_control_model(self, p, unet, model, lowvram):
+    @staticmethod
+    def load_control_model(p, unet, model, lowvram):
         if model in Script.model_cache:
             print(f"Loading model from cache: {model}")
             return Script.model_cache[model]
@@ -198,14 +201,15 @@ class Script(scripts.Script):
             gc.collect()
             devices.torch_gc()
 
-        model_net = self.build_control_model(p, unet, model, lowvram)
+        model_net = Script.build_control_model(p, unet, model, lowvram)
 
         if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
             Script.model_cache[model] = model_net
 
         return model_net
 
-    def build_control_model(self, p, unet, model, lowvram):
+    @staticmethod
+    def build_control_model(p, unet, model, lowvram):
         if model is None or model == 'None':
             raise RuntimeError(f"You have not selected any ControlNet Model.")
 
@@ -305,8 +309,9 @@ class Script(scripts.Script):
         default_value = get_element(default)
         return attribute_value if attribute_value is not None else default_value
 
-    def parse_remote_call(self, p, unit: external_code.ControlNetUnit, idx):
-        selector = self.get_remote_call
+    @staticmethod
+    def parse_remote_call(p, unit: external_code.ControlNetUnit, idx):
+        selector = Script.get_remote_call
 
         unit.enabled = selector(p, "control_net_enabled", unit.enabled, idx, strict=True)
         unit.module = selector(p, "control_net_module", unit.module, idx)
@@ -326,7 +331,8 @@ class Script(scripts.Script):
 
         return unit
 
-    def detectmap_proc(self, detected_map, module, resize_mode, h, w):
+    @staticmethod
+    def detectmap_proc(detected_map, module, resize_mode, h, w):
 
         if 'inpaint' in module:
             detected_map = detected_map.astype(np.float32)
@@ -447,18 +453,19 @@ class Script(scripts.Script):
             detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
 
-    def get_enabled_units(self, p):
+    @staticmethod
+    def get_enabled_units(p):
         units = external_code.get_all_units_in_processing(p)
         enabled_units = []
 
         if len(units) == 0:
             # fill a null group
-            remote_unit = self.parse_remote_call(p, self.get_default_ui_unit(), 0)
+            remote_unit = Script.parse_remote_call(p, Script.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 units.append(remote_unit)
 
         for idx, unit in enumerate(units):
-            unit = self.parse_remote_call(p, unit, idx)
+            unit = Script.parse_remote_call(p, unit, idx)
             if not unit.enabled:
                 continue
 
@@ -499,7 +506,7 @@ class Script(scripts.Script):
             self.latest_network.restore(unet)
 
         if not batch_hijack.instance.is_batch:
-            self.enabled_units = self.get_enabled_units(p)
+            self.enabled_units = Script.get_enabled_units(p)
 
         if len(self.enabled_units) == 0:
            self.latest_network = None
@@ -512,7 +519,7 @@ class Script(scripts.Script):
 
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
-            self.clear_control_model_cache()
+            Script.clear_control_model_cache()
 
         # unload unused preproc
         module_list = [unit.module for unit in self.enabled_units]
@@ -523,7 +530,7 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
             unit.module = global_state.get_module_basename(unit.module)
-            p_input_image = self.get_remote_call(p, "control_net_input_image", None, idx)
+            p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
             image = image_dict_from_any(unit.image)
             if image is not None:
                 while len(image['mask'].shape) < 3:
@@ -538,7 +545,7 @@ class Script(scripts.Script):
             if unit.module in model_free_preprocessors:
                 model_net = None
             else:
-                model_net = self.load_control_model(p, unet, unit.model, unit.low_vram)
+                model_net = Script.load_control_model(p, unet, unit.model, unit.low_vram)
                 model_net.reset()
 
             if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
@@ -713,7 +720,7 @@ class Script(scripts.Script):
                 hr_x = (hr_x // 8) * 8
 
                 if is_image:
-                    hr_control, hr_detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                    hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
                     detected_maps.append((hr_detected_map, unit.module))
                 else:
                     hr_control = detected_map
@@ -721,7 +728,7 @@ class Script(scripts.Script):
                 hr_control = None
 
             if is_image:
-                control, detected_map = self.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
+                control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map
