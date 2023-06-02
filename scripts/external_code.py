@@ -31,6 +31,15 @@ class ResizeMode(Enum):
     INNER_FIT = "Crop and Resize"
     OUTER_FIT = "Resize and Fill"
 
+    def int_value(self):
+        if self == ResizeMode.RESIZE:
+            return 0
+        elif self == ResizeMode.INNER_FIT:
+            return 1
+        elif self == ResizeMode.OUTER_FIT:
+            return 2
+        assert False, "NOTREACHED"
+
 
 resize_mode_aliases = {
     'Inner Fit (Scale to Fit)': 'Crop and Resize',

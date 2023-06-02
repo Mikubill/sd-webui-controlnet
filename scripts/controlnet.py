@@ -2,7 +2,7 @@ import gc
 import os
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import importlib
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
@@ -107,6 +107,30 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
 
     return image
+
+
+def image_has_mask(input_image: np.ndarray) -> bool:
+    """
+    Determine if an image has an alpha channel (mask) that is not empty.
+
+    The function checks if the input image has three dimensions (height, width, channels), 
+    and if the third dimension (channel dimension) is of size 4 (presumably RGB + alpha). 
+    Then it checks if the maximum value in the alpha channel is greater than 127. This is 
+    presumably to check if there is any non-transparent (or semi-transparent) pixel in the 
+    image. A pixel is considered non-transparent if its alpha value is above 127.
+
+    Args:
+        input_image (np.ndarray): A 3D numpy array representing an image. The dimensions 
+        should represent [height, width, channels].
+
+    Returns:
+        bool: True if the image has a non-empty alpha channel, False otherwise.
+    """    
+    return (
+        input_image.ndim == 3 and 
+        input_image.shape[2] == 4 and 
+        np.max(input_image[:, :, 3]) > 127
+    )
 
 
 class Script(scripts.Script):
@@ -491,6 +515,82 @@ class Script(scripts.Script):
 
         return enabled_units
 
+    @staticmethod
+    def choose_input_image(
+            p: processing.StableDiffusionProcessing, 
+            unit: external_code.ControlNetUnit,
+            idx: int
+        ) -> Tuple[np.ndarray, Optional[external_code.ResizeMode]]:
+        """ Choose input image from following sources with descending priority:
+         - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
+         - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
+         - unit.image: 
+           - ControlNet tab input image.
+           - Input image from API call.
+         - p.init_images: A1111 img2img tab input image.
+
+        Returns:
+            - The input image in ndarray form.
+            - The value to overwrite `resize_mode`.
+        """
+        resize_mode = None
+
+        p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
+        image = image_dict_from_any(unit.image)
+
+        if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
+            print("Warn: Using legacy field 'p.image_control'.")
+            input_image = HWC3(np.asarray(p.image_control))
+        elif p_input_image is not None:
+            print("Warn: Using legacy field 'p.controlnet_input_image'")
+            if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
+                color = HWC3(np.asarray(p_input_image['image']))
+                alpha = np.asarray(p_input_image['mask'])[..., None]
+                input_image = np.concatenate([color, alpha], axis=2)
+            else:
+                input_image = HWC3(np.asarray(p_input_image))
+        elif image is not None:
+            while len(image['mask'].shape) < 3:
+                image['mask'] = image['mask'][..., np.newaxis]
+
+            # Need to check the image for API compatibility
+            if isinstance(image['image'], str):
+                from modules.api.api import decode_base64_to_image
+                input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
+            else:
+                input_image = HWC3(image['image'])
+
+            have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
+
+            if 'inpaint' in unit.module:
+                print("using inpaint as input")
+                color = HWC3(image['image'])
+                if have_mask:
+                    alpha = image['mask'][:, :, 0:1]
+                else:
+                    alpha = np.zeros_like(color)[:, :, 0:1]
+                input_image = np.concatenate([color, alpha], axis=2)
+            else:
+                if have_mask:
+                    print("using mask as input")
+                    input_image = HWC3(image['mask'][:, :, 0])
+                    unit.module = 'none'  # Always use black bg and white line
+        else:
+            # use img2img init_image as default
+            input_image = getattr(p, "init_images", [None])[0]
+            if input_image is None:
+                if batch_hijack.instance.is_batch:
+                    shared.state.interrupted = True
+                raise ValueError('controlnet is enabled but no input image is given')
+
+            input_image = HWC3(np.asarray(input_image))
+            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+            if a1111_i2i_resize_mode is not None:
+                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+        
+        assert isinstance(input_image, np.ndarray)
+        return input_image, resize_mode
+    
     def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
@@ -530,12 +630,6 @@ class Script(scripts.Script):
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
             unit.module = global_state.get_module_basename(unit.module)
-            p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
-            image = image_dict_from_any(unit.image)
-            if image is not None:
-                while len(image['mask'].shape) < 3:
-                    image['mask'] = image['mask'][..., np.newaxis]
-
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
 
@@ -548,64 +642,12 @@ class Script(scripts.Script):
                 model_net = Script.load_control_model(p, unet, unit.model, unit.low_vram)
                 model_net.reset()
 
-            if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
-                input_image = HWC3(np.asarray(p.image_control))
-            elif p_input_image is not None:
-                if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
-                    color = HWC3(np.asarray(p_input_image['image']))
-                    alpha = np.asarray(p_input_image['mask'])[..., None]
-                    input_image = np.concatenate([color, alpha], axis=2)
-                else:
-                    input_image = HWC3(np.asarray(p_input_image))
-            elif image is not None:
-                # Need to check the image for API compatibility
-                if isinstance(image['image'], str):
-                    from modules.api.api import decode_base64_to_image
-                    input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
-                else:
-                    input_image = HWC3(image['image'])
-
-                have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
-
-                if 'inpaint' in unit.module:
-                    print("using inpaint as input")
-                    color = HWC3(image['image'])
-                    if have_mask:
-                        alpha = image['mask'][:, :, 0:1]
-                    else:
-                        alpha = np.zeros_like(color)[:, :, 0:1]
-                    input_image = np.concatenate([color, alpha], axis=2)
-                else:
-                    if have_mask:
-                        print("using mask as input")
-                        input_image = HWC3(image['mask'][:, :, 0])
-                        unit.module = 'none'  # Always use black bg and white line
-            else:
-                # use img2img init_image as default
-                input_image = getattr(p, "init_images", [None])[0]
-                if input_image is None:
-                    if batch_hijack.instance.is_batch:
-                        shared.state.interrupted = True
-                    raise ValueError('controlnet is enabled but no input image is given')
-
-                input_image = HWC3(np.asarray(input_image))
-                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                if a1111_i2i_resize_mode is not None:
-                    if a1111_i2i_resize_mode == 0:
-                        resize_mode = external_code.ResizeMode.RESIZE
-                    elif a1111_i2i_resize_mode == 1:
-                        resize_mode = external_code.ResizeMode.INNER_FIT
-                    elif a1111_i2i_resize_mode == 2:
-                        resize_mode = external_code.ResizeMode.OUTER_FIT
-
-            has_mask = False
-            if input_image.ndim == 3:
-                if input_image.shape[2] == 4:
-                    if np.max(input_image[:, :, 3]) > 127:
-                        has_mask = True
-
+            input_image, resize_mode_overwrite = Script.choose_input_image(p, unit, idx)
+            if resize_mode_overwrite is not None:
+                resize_mode = resize_mode_overwrite
+            
             a1111_mask = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not has_mask and a1111_mask is not None:
+            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask is not None:
                 a1111_mask = a1111_mask.convert('L')
                 if getattr(p, "inpainting_mask_invert", False):
                     a1111_mask = ImageOps.invert(a1111_mask)
@@ -616,15 +658,9 @@ class Script(scripts.Script):
                     if a1111_mask.shape[0] == input_image.shape[0]:
                         if a1111_mask.shape[1] == input_image.shape[1]:
                             input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
-                            input_image = np.ascontiguousarray(input_image.copy()).copy()
                             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                             if a1111_i2i_resize_mode is not None:
-                                if a1111_i2i_resize_mode == 0:
-                                    resize_mode = external_code.ResizeMode.RESIZE
-                                elif a1111_i2i_resize_mode == 1:
-                                    resize_mode = external_code.ResizeMode.INNER_FIT
-                                elif a1111_i2i_resize_mode == 2:
-                                    resize_mode = external_code.ResizeMode.OUTER_FIT
+                                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
                     and p.inpaint_full_res and p.image_mask is not None:
@@ -641,15 +677,16 @@ class Script(scripts.Script):
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
-                if resize_mode == external_code.ResizeMode.INNER_FIT:
-                    input_image = [images.resize_image(1, i, mask.width, mask.height) for i in input_image]
-                elif resize_mode == external_code.ResizeMode.OUTER_FIT:
-                    input_image = [images.resize_image(2, i, mask.width, mask.height) for i in input_image]
-                else:
-                    input_image = [images.resize_image(0, i, mask.width, mask.height) for i in input_image]
+                input_image = [
+                    images.resize_image(resize_mode.int_value(), i, mask.width, mask.height) 
+                    for i in input_image
+                ]
 
                 input_image = [x.crop(crop_region) for x in input_image]
-                input_image = [images.resize_image(2, x, p.width, p.height) for x in input_image]
+                input_image = [
+                    images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height) 
+                    for x in input_image
+                ]
 
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
