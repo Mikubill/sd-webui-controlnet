@@ -498,8 +498,8 @@ class Script(scripts.Script):
             idx: int
         ) -> Tuple[np.ndarray, Optional[external_code.ResizeMode]]:
         """ Choose input image from following sources with descending priority:
-         - p.image_control: ????
-         - p.control_net_input_image: ????
+         - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
+         - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
          - unit.image: 
            - ControlNet tab input image.
            - Input image from API call.
@@ -515,8 +515,10 @@ class Script(scripts.Script):
         image = image_dict_from_any(unit.image)
 
         if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
+            print("Warn: Using legacy field 'p.image_control'.")
             input_image = HWC3(np.asarray(p.image_control))
         elif p_input_image is not None:
+            print("Warn: Using legacy field 'p.controlnet_input_image'")
             if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
                 color = HWC3(np.asarray(p_input_image['image']))
                 alpha = np.asarray(p_input_image['mask'])[..., None]
