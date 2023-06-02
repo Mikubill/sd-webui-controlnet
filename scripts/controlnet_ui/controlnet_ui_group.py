@@ -608,26 +608,12 @@ class ControlNetUiGroup(object):
             preprocessor = self.preprocessors[module]
 
             if pp:
-                raw_H, raw_W, _ = img.shape
-                target_H, target_W = t2i_h, t2i_w
-                rm = str(rm)
-
-                k0 = float(target_H) / float(raw_H)
-                k1 = float(target_W) / float(raw_W)
-
-                if rm == external_code.ResizeMode.OUTER_FIT.value:
-                    estimation = min(k0, k1) * float(min(raw_H, raw_W))
-                else:
-                    estimation = max(k0, k1) * float(min(raw_H, raw_W))
-
-                pres = int(np.round(estimation))
-                print(f"Pixel Perfect Mode Enabled In Preview.")
-                print(f"resize_mode = {rm}")
-                print(f"raw_H = {raw_H}")
-                print(f"raw_W = {raw_W}")
-                print(f"target_H = {target_H}")
-                print(f"target_W = {target_W}")
-                print(f"estimation = {estimation}")
+                pres = external_code.pixel_perfect_resolution(
+                    img,
+                    target_H=t2i_h,
+                    target_W=t2i_w,
+                    resize_mode=external_code.resize_mode_from_value(rm),
+                )
 
             class JsonAcceptor:
                 def __init__(self) -> None:
