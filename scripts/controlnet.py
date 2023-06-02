@@ -772,24 +772,25 @@ class Script(scripts.Script):
             if unit.module == 'inpaint_only':
 
                 final_inpaint_feed = hr_control if hr_control is not None else control
-                final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()[0].transpose([1, 2, 0])
+                final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
-                final_inpaint_mask = final_inpaint_feed[:, :, 3].astype(np.float32)
-                final_inpaint_raw = final_inpaint_feed[:, :, 0:3].astype(np.float32) * 255.0
+                final_inpaint_mask = final_inpaint_feed[0, 3, :, :].astype(np.float32)
+                final_inpaint_raw = final_inpaint_feed[0, :3].astype(np.float32)
                 sigma = 7
                 final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
-                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[:, :, None]
-                Hmask, Wmask, _ = final_inpaint_mask.shape
+                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[None]
+                _, Hmask, Wmask = final_inpaint_mask.shape
+                final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
+                final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())
 
                 def inpaint_only_post_processing(x):
-                    img = np.asarray(x).astype(np.float32)
-                    H, W, C = img.shape
+                    _, H, W = x.shape
                     if Hmask != H or Wmask != W:
+                        print('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
                         return x
-                    result = final_inpaint_mask * img + final_inpaint_raw * (1 - final_inpaint_mask)
-                    result = result.clip(0, 255).astype(np.uint8)
-                    result = np.ascontiguousarray(result).copy()
-                    return Image.fromarray(result)
+                    r = final_inpaint_raw.to(x.dtype).to(x.device)
+                    m = final_inpaint_mask.to(x.dtype).to(x.device)
+                    return m * x + (1 - m) * r
 
                 post_processors.append(inpaint_only_post_processing)
 
@@ -799,6 +800,13 @@ class Script(scripts.Script):
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
         self.post_processors = post_processors
+
+    def postprocess_batch(self, p, *args, **kwargs):
+        images = kwargs.get('images', [])
+        for post_processor in self.post_processors:
+            for i in range(images.shape[0]):
+                images[i] = post_processor(images[i])
+        return
 
     def postprocess(self, p, processed, *args):
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
@@ -818,10 +826,6 @@ class Script(scripts.Script):
 
         if self.latest_network is None:
             return
-
-        if 'sd upscale' not in processor_params_flag:
-            for post_processor in self.post_processors:
-                processed.images = list(map(post_processor, processed.images))
 
         if not batch_hijack.instance.is_batch:
             if not shared.opts.data.get("control_net_no_detectmap", False):
