@@ -562,12 +562,7 @@ class Script(scripts.Script):
             input_image = HWC3(np.asarray(input_image))
             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
             if a1111_i2i_resize_mode is not None:
-                if a1111_i2i_resize_mode == 0:
-                    resize_mode = external_code.ResizeMode.RESIZE
-                elif a1111_i2i_resize_mode == 1:
-                    resize_mode = external_code.ResizeMode.INNER_FIT
-                elif a1111_i2i_resize_mode == 2:
-                    resize_mode = external_code.ResizeMode.OUTER_FIT
+                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
         
         assert isinstance(input_image, np.ndarray)
         return input_image, resize_mode
@@ -648,12 +643,7 @@ class Script(scripts.Script):
                             input_image = np.ascontiguousarray(input_image.copy()).copy()
                             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                             if a1111_i2i_resize_mode is not None:
-                                if a1111_i2i_resize_mode == 0:
-                                    resize_mode = external_code.ResizeMode.RESIZE
-                                elif a1111_i2i_resize_mode == 1:
-                                    resize_mode = external_code.ResizeMode.INNER_FIT
-                                elif a1111_i2i_resize_mode == 2:
-                                    resize_mode = external_code.ResizeMode.OUTER_FIT
+                                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
                     and p.inpaint_full_res and p.image_mask is not None:
