@@ -443,6 +443,32 @@ class UnetHook(nn.Module):
                     if target is not None:
                         target[idx] = item + target[idx]
 
+            # Replace x_t to support inpaint models
+            for param in outer.control_params:
+                if param.used_hint_cond.shape[1] != 4:
+                    continue
+                if x.shape[1] != 9:
+                    continue
+                if param.used_hint_inpaint_hijack is None:
+                    mask_pixel = param.used_hint_cond[:, 3:4, :, :]
+                    image_pixel = param.used_hint_cond[:, 0:3, :, :]
+                    mask_pixel = (mask_pixel > 0.5).to(mask_pixel.dtype)
+                    masked_latent = vae_forward(image_pixel, batch_size, mask=mask_pixel)
+                    mask_latent = torch.nn.functional.max_pool2d(mask_pixel, (8, 8))
+                    if mask_latent.shape[0] != batch_size:
+                        mask_latent = torch.cat([mask_latent.clone() for _ in range(batch_size)], dim=0)
+                    param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
+                    param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
+                x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
+
+            # A1111 fix for medvram.
+            if shared.cmd_opts.medvram:
+                try:
+                    # Trigger the register_forward_pre_hook
+                    outer.sd_ldm.model()
+                except:
+                    pass
+
             # Clear attention and AdaIn cache
             for module in outer.attn_module_list:
                 module.bank = []
@@ -499,32 +525,6 @@ class UnetHook(nn.Module):
 
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read
-
-            # Replace x_t to support inpaint models
-            for param in outer.control_params:
-                if param.used_hint_cond.shape[1] != 4:
-                    continue
-                if x.shape[1] != 9:
-                    continue
-                if param.used_hint_inpaint_hijack is None:
-                    mask_pixel = param.used_hint_cond[:, 3:4, :, :]
-                    image_pixel = param.used_hint_cond[:, 0:3, :, :]
-                    mask_pixel = (mask_pixel > 0.5).to(mask_pixel.dtype)
-                    masked_latent = vae_forward(image_pixel, batch_size, mask=mask_pixel)
-                    mask_latent = torch.nn.functional.max_pool2d(mask_pixel, (8, 8))
-                    if mask_latent.shape[0] != batch_size:
-                        mask_latent = torch.cat([mask_latent.clone() for _ in range(batch_size)], dim=0)
-                    param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
-                    param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
-                x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
-
-            # A1111 fix for medvram.
-            if shared.cmd_opts.medvram:
-                try:
-                    # Trigger the register_forward_pre_hook
-                    outer.sd_ldm.model()
-                except:
-                    pass
 
             # U-Net Encoder
             hs = []
