@@ -658,7 +658,6 @@ class Script(scripts.Script):
                     if a1111_mask.shape[0] == input_image.shape[0]:
                         if a1111_mask.shape[1] == input_image.shape[1]:
                             input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
-                            input_image = np.ascontiguousarray(input_image.copy()).copy()
                             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                             if a1111_i2i_resize_mode is not None:
                                 resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
