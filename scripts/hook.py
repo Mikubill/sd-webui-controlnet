@@ -428,8 +428,8 @@ class UnetHook(nn.Module):
                     if 'mlsd' in param.preprocessor['name']:
                         high_res_fix_forced_soft_injection = True
 
-                if high_res_fix_forced_soft_injection:
-                    print('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
+                # if high_res_fix_forced_soft_injection:
+                #     print('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
 
                 if param.soft_injection or high_res_fix_forced_soft_injection:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
