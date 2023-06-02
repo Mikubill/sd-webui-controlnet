@@ -109,7 +109,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     return image
 
 
-def image_has_mask(image: np.ndarray) -> bool:
+def image_has_mask(input_image: np.ndarray) -> bool:
     """
     Determine if an image has an alpha channel (mask) that is not empty.
 
