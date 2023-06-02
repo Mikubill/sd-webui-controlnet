@@ -109,6 +109,30 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     return image
 
 
+def image_has_mask(image: np.ndarray) -> bool:
+    """
+    Determine if an image has an alpha channel (mask) that is not empty.
+
+    The function checks if the input image has three dimensions (height, width, channels), 
+    and if the third dimension (channel dimension) is of size 4 (presumably RGB + alpha). 
+    Then it checks if the maximum value in the alpha channel is greater than 127. This is 
+    presumably to check if there is any non-transparent (or semi-transparent) pixel in the 
+    image. A pixel is considered non-transparent if its alpha value is above 127.
+
+    Args:
+        image (np.ndarray): A 3D numpy array representing an image. The dimensions should represent 
+        [height, width, channels].
+
+    Returns:
+        bool: True if the image has a non-empty alpha channel, False otherwise.
+    """    
+    return (
+        input_image.ndim == 3 and 
+        input_image.shape[2] == 4 and 
+        np.max(input_image[:, :, 3]) > 127
+    )
+
+
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -622,14 +646,8 @@ class Script(scripts.Script):
             if resize_mode_overwrite is not None:
                 resize_mode = resize_mode_overwrite
             
-            has_mask = False
-            if input_image.ndim == 3:
-                if input_image.shape[2] == 4:
-                    if np.max(input_image[:, :, 3]) > 127:
-                        has_mask = True
-
             a1111_mask = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not has_mask and a1111_mask is not None:
+            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask is not None:
                 a1111_mask = a1111_mask.convert('L')
                 if getattr(p, "inpainting_mask_invert", False):
                     a1111_mask = ImageOps.invert(a1111_mask)
