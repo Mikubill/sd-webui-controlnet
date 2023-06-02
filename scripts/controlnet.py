@@ -109,7 +109,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     return image
 
 
-def image_has_mask(image: np.ndarray) -> bool:
+def image_has_mask(input_image: np.ndarray) -> bool:
     """
     Determine if an image has an alpha channel (mask) that is not empty.
 
@@ -120,8 +120,8 @@ def image_has_mask(image: np.ndarray) -> bool:
     image. A pixel is considered non-transparent if its alpha value is above 127.
 
     Args:
-        image (np.ndarray): A 3D numpy array representing an image. The dimensions should represent 
-        [height, width, channels].
+        input_image (np.ndarray): A 3D numpy array representing an image. The dimensions 
+        should represent [height, width, channels].
 
     Returns:
         bool: True if the image has a non-empty alpha channel, False otherwise.
