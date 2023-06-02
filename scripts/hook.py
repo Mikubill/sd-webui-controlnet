@@ -420,7 +420,18 @@ class UnetHook(nn.Module):
                         control = [torch.cat([c.clone() for _ in range(batch_size)], dim=0) for c in control]
                     control = [c * cond_mark for c in control]
 
-                if param.soft_injection or is_in_high_res_fix:
+                high_res_fix_forced_soft_injection = False
+
+                if is_in_high_res_fix:
+                    if 'canny' in param.preprocessor['name']:
+                        high_res_fix_forced_soft_injection = True
+                    if 'mlsd' in param.preprocessor['name']:
+                        high_res_fix_forced_soft_injection = True
+
+                if high_res_fix_forced_soft_injection:
+                    print('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
+
+                if param.soft_injection or high_res_fix_forced_soft_injection:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
