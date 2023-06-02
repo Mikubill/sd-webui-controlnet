@@ -797,7 +797,9 @@ class Script(scripts.Script):
                         return x
                     r = final_inpaint_raw.to(x.dtype).to(x.device)
                     m = final_inpaint_mask.to(x.dtype).to(x.device)
-                    return m * x + (1 - m) * r
+                    y = m * x.clip(0, 1) + (1 - m) * r
+                    y = y.clip(0, 1)
+                    return y
 
                 post_processors.append(inpaint_only_post_processing)
 
