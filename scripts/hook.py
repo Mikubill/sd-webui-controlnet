@@ -443,14 +443,6 @@ class UnetHook(nn.Module):
                     if target is not None:
                         target[idx] = item + target[idx]
 
-            # A1111 fix for medvram.
-            if shared.cmd_opts.medvram:
-                try:
-                    # Trigger the register_forward_pre_hook
-                    outer.sd_ldm.model()
-                except:
-                    pass
-
             # Clear attention and AdaIn cache
             for module in outer.attn_module_list:
                 module.bank = []
@@ -525,6 +517,14 @@ class UnetHook(nn.Module):
                     param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
                     param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
                 x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
+
+            # A1111 fix for medvram.
+            if shared.cmd_opts.medvram:
+                try:
+                    # Trigger the register_forward_pre_hook
+                    outer.sd_ldm.model()
+                except:
+                    pass
 
             # U-Net Encoder
             hs = []
