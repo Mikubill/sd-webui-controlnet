@@ -125,9 +125,6 @@ class ControlNetUiGroup(object):
         self.generated_image_group = None
         self.generated_image = None
         self.download_pose_link = None
-        self.preview_close_button_style = None
-        self.preview_check_elem_id = None
-        self.preview_close_button_js = None
         self.batch_tab = None
         self.batch_image_dir = None
         self.create_canvas = None
@@ -292,9 +289,7 @@ class ControlNetUiGroup(object):
                 label="Allow Preview", value=False, elem_id=preview_check_elem_id
             )
 
-        if shared.opts.data.get("controlnet_disable_control_type", False):
-            type_filter = None
-        else:
+        if not shared.opts.data.get("controlnet_disable_control_type", False):
             with gr.Row(elem_classes="controlnet_control_type"):
                 self.type_filter = gr.Radio(
                     list(preprocessor_filters.keys()),
