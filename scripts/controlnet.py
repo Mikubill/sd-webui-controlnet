@@ -120,8 +120,8 @@ def image_has_mask(input_image: np.ndarray) -> bool:
     image. A pixel is considered non-transparent if its alpha value is above 127.
 
     Args:
-        image (np.ndarray): A 3D numpy array representing an image. The dimensions should represent 
-        [height, width, channels].
+        input_image (np.ndarray): A 3D numpy array representing an image. The dimensions 
+        should represent [height, width, channels].
 
     Returns:
         bool: True if the image has a non-empty alpha channel, False otherwise.
