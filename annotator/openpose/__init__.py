@@ -20,7 +20,7 @@ from .face import Face
 from modules import devices
 from annotator.annotator_path import models_path
 
-from typing import NamedTuple, Tuple, List, Callable, Union
+from typing import NamedTuple, Tuple, List, Callable, Union, Optional
 
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
@@ -64,6 +64,72 @@ def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, dr
             canvas = util.draw_facepose(canvas, pose.face)
 
     return canvas
+
+
+def decode_json_as_poses(json_string: str, normalize_coords: bool = False) -> Tuple[List[PoseResult], int, int]:
+    """ Decode the json_string complying with the openpose JSON output format
+    to poses that controlnet recognizes.
+    https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md
+
+    Args:
+        json_string: The json string to decode.
+        normalize_coords: Whether to normalize coordinates of each keypoint by canvas height/width.
+                          `draw_pose` only accepts normalized keypoints. Set this param to True if
+                          the input coords are not normalized.
+    
+    Returns:
+        poses
+        canvas_height
+        canvas_width                      
+    """
+    pose_json = json.loads(json_string)
+    height = pose_json['canvas_height']
+    width = pose_json['canvas_width']
+
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+    
+    def normalize_keypoint(keypoint: Keypoint) -> Keypoint:
+        return Keypoint(
+            keypoint.x / width,
+            keypoint.y / height
+        )
+
+    def decompress_keypoints(numbers: Optional[List[float]]) -> Optional[List[Optional[Keypoint]]]:
+        if not numbers:
+            return None
+        
+        assert len(numbers) % 3 == 0
+
+        def create_keypoint(x, y, c):
+            if c < 1.0:
+                return None
+            keypoint = Keypoint(x, y)
+            if normalize_coords:
+                keypoint = normalize_keypoint(keypoint)
+            return keypoint
+
+        return [
+            create_keypoint(x, y, c)
+            for x, y, c in chunks(numbers, n=3)
+        ]
+    
+    return (
+        [
+            PoseResult(
+                body=BodyResult(keypoints=decompress_keypoints(pose.get('pose_keypoints_2d'))),
+                left_hand=decompress_keypoints(pose.get('hand_left_keypoints_2d')),
+                right_hand=decompress_keypoints(pose.get('hand_right_keypoints_2d')),
+                face=decompress_keypoints(pose.get('face_keypoints_2d'))
+            )
+            for pose in pose_json['people']
+        ],
+        height,
+        width,
+    )
+
 
 def encode_poses_as_json(poses: List[PoseResult], canvas_height: int, canvas_width: int) -> str:
     """ Encode the pose as a JSON string following openpose JSON output format:
