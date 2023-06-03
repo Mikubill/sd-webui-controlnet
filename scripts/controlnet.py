@@ -133,6 +133,37 @@ def image_has_mask(input_image: np.ndarray) -> bool:
     )
 
 
+def prepare_mask(
+    mask: Image.Image, p: processing.StableDiffusionProcessing
+) -> Image.Image:
+    """
+    Prepare an image mask for the inpainting process.
+
+    This function takes as input a PIL Image object and an instance of the 
+    StableDiffusionProcessing class, and performs the following steps to prepare the mask:
+
+    1. Convert the mask to grayscale (mode "L").
+    2. If the 'inpainting_mask_invert' attribute of the processing instance is True,
+       invert the mask colors.
+    3. If the 'mask_blur' attribute of the processing instance is greater than 0,
+       apply a Gaussian blur to the mask with a radius equal to 'mask_blur'.
+
+    Args:
+        mask (Image.Image): The input mask as a PIL Image object.
+        p (processing.StableDiffusionProcessing): An instance of the StableDiffusionProcessing class 
+                                                   containing the processing parameters.
+
+    Returns:
+        mask (Image.Image): The prepared mask as a PIL Image object.
+    """
+    mask = mask.convert("L")
+    if getattr(p, "inpainting_mask_invert", False):
+        mask = ImageOps.invert(mask)
+    if getattr(p, "mask_blur", 0) > 0:
+        mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+    return mask
+
+
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -646,14 +677,9 @@ class Script(scripts.Script):
             if resize_mode_overwrite is not None:
                 resize_mode = resize_mode_overwrite
             
-            a1111_mask = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask is not None:
-                a1111_mask = a1111_mask.convert('L')
-                if getattr(p, "inpainting_mask_invert", False):
-                    a1111_mask = ImageOps.invert(a1111_mask)
-                if getattr(p, "mask_blur", 0) > 0:
-                    a1111_mask = a1111_mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-                a1111_mask = np.asarray(a1111_mask)
+            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
+            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
+                a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
                 if a1111_mask.ndim == 2:
                     if a1111_mask.shape[0] == input_image.shape[0]:
                         if a1111_mask.shape[1] == input_image.shape[1]:
@@ -663,16 +689,12 @@ class Script(scripts.Script):
                                 resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
-                    and p.inpaint_full_res and p.image_mask is not None:
+                    and p.inpaint_full_res and a1111_mask_image is not None:
 
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
                 input_image = [Image.fromarray(x) for x in input_image]
 
-                mask = p.image_mask.convert('L')
-                if p.inpainting_mask_invert:
-                    mask = ImageOps.invert(mask)
-                if p.mask_blur > 0:
-                    mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+                mask = prepare_mask(a1111_mask_image, p)
 
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
@@ -838,6 +860,7 @@ class Script(scripts.Script):
         for post_processor in self.post_processors:
             for i in range(images.shape[0]):
                 images[i] = post_processor(images[i])
+        self.post_processors = []
         return
 
     def postprocess(self, p, processed, *args):
