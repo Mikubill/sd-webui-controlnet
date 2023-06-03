@@ -16,28 +16,28 @@ class TestPrepareMask(unittest.TestCase):
         p.inpainting_mask_invert = True
         p.mask_blur = 5
 
-        mask = Image.new("RGB", (10, 10), color="white")
+        mask = Image.new('RGB', (10, 10), color='white')
 
         processed_mask = prepare_mask(mask, p)
 
-        # Check that mask is correctly converted to grayscale and then to numpy array
-        self.assertEqual(processed_mask.shape, (10, 10))
+        # Check that mask is correctly converted to grayscale
+        self.assertTrue(processed_mask.mode, "L")
 
         # Check that mask colors are correctly inverted
-        self.assertEqual(processed_mask[0, 0], 0)  # inverted white should be black
+        self.assertEqual(processed_mask.getpixel((0, 0)), 0)  # inverted white should be black
 
         p.inpainting_mask_invert = False
         processed_mask = prepare_mask(mask, p)
 
         # Check that mask colors are not inverted when 'inpainting_mask_invert' is False
-        self.assertEqual(processed_mask[0, 0], 255)  # white should remain white
+        self.assertEqual(processed_mask.getpixel((0, 0)), 255)  # white should remain white
 
         p.mask_blur = 0
-        mask = Image.new("RGB", (10, 10), color="black")
+        mask = Image.new('RGB', (10, 10), color='black')
         processed_mask = prepare_mask(mask, p)
 
         # Check that mask is not blurred when 'mask_blur' is 0
-        self.assertEqual(processed_mask[0, 0], 0)  # black should remain black
+        self.assertEqual(processed_mask.getpixel((0, 0)), 0)  # black should remain black
 
 
 if __name__ == "__main__":
