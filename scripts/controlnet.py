@@ -860,6 +860,7 @@ class Script(scripts.Script):
         for post_processor in self.post_processors:
             for i in range(images.shape[0]):
                 images[i] = post_processor(images[i])
+        self.post_processors = []
         return
 
     def postprocess(self, p, processed, *args):
