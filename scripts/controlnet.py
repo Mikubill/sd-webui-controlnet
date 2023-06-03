@@ -677,9 +677,9 @@ class Script(scripts.Script):
             if resize_mode_overwrite is not None:
                 resize_mode = resize_mode_overwrite
             
-            a1111_mask = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask is not None:
-                a1111_mask = np.array(prepare_mask(a1111_mask, p))
+            a1111_mask_image : Image.Image = getattr(p, "image_mask", None)
+            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
+                a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
                 if a1111_mask.ndim == 2:
                     if a1111_mask.shape[0] == input_image.shape[0]:
                         if a1111_mask.shape[1] == input_image.shape[1]:
@@ -689,12 +689,12 @@ class Script(scripts.Script):
                                 resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
-                    and p.inpaint_full_res and a1111_mask is not None:
+                    and p.inpaint_full_res and a1111_mask_image is not None:
 
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
                 input_image = [Image.fromarray(x) for x in input_image]
 
-                mask = prepare_mask(a1111_mask, p)
+                mask = prepare_mask(a1111_mask_image, p)
 
                 crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
                 crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
