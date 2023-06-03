@@ -135,7 +135,7 @@ def image_has_mask(input_image: np.ndarray) -> bool:
 
 def prepare_mask(
     mask: Image.Image, p: processing.StableDiffusionProcessing
-) -> np.ndarray:
+) -> Image.Image:
     """
     Prepare an image mask for the inpainting process.
 
@@ -147,7 +147,6 @@ def prepare_mask(
        invert the mask colors.
     3. If the 'mask_blur' attribute of the processing instance is greater than 0,
        apply a Gaussian blur to the mask with a radius equal to 'mask_blur'.
-    4. Convert the mask to a numpy array for further processing.
 
     Args:
         mask (Image.Image): The input mask as a PIL Image object.
@@ -155,14 +154,13 @@ def prepare_mask(
                                                    containing the processing parameters.
 
     Returns:
-        mask (np.ndarray): The prepared mask as a numpy array.
+        mask (Image.Image): The prepared mask as a PIL Image object.
     """
     mask = mask.convert("L")
     if getattr(p, "inpainting_mask_invert", False):
         mask = ImageOps.invert(mask)
     if getattr(p, "mask_blur", 0) > 0:
         mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-    mask = np.asarray(mask)
     return mask
 
 
@@ -681,7 +679,7 @@ class Script(scripts.Script):
             
             a1111_mask = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask is not None:
-                a1111_mask = prepare_mask(a1111_mask, p)
+                a1111_mask = np.array(prepare_mask(a1111_mask, p))
                 if a1111_mask.ndim == 2:
                     if a1111_mask.shape[0] == input_image.shape[0]:
                         if a1111_mask.shape[1] == input_image.shape[1]:
