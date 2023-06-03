@@ -4,7 +4,6 @@ import numpy as np
 from modules import scripts, processing, shared
 from scripts import global_state
 from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
-from scripts.logging import logger
 
 from modules.api import api
 
@@ -59,7 +58,7 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
             return ResizeMode.RESIZE
         
         if value >= len(ResizeMode):
-            logger.warning(f'Unrecognized ResizeMode int value {value}. Fall back to RESIZE.')
+            print(f'Unrecognized ResizeMode int value {value}. Fall back to RESIZE.')
             return ResizeMode.RESIZE
 
         return [e for e in ResizeMode][value]
@@ -116,13 +115,13 @@ def pixel_perfect_resolution(
     else:
         estimation = max(k0, k1) * float(min(raw_H, raw_W))
     
-    logger.info(f"Pixel Perfect Computation:")
-    logger.info(f"resize_mode = {resize_mode}")
-    logger.info(f"raw_H = {raw_H}")
-    logger.info(f"raw_W = {raw_W}")
-    logger.info(f"target_H = {target_H}")
-    logger.info(f"target_W = {target_W}")
-    logger.info(f"estimation = {estimation}")
+    print(f"Pixel Perfect Computation:")
+    print(f"resize_mode = {resize_mode}")
+    print(f"raw_H = {raw_H}")
+    print(f"raw_W = {raw_W}")
+    print(f"target_H = {target_H}")
+    print(f"target_W = {target_W}")
+    print(f"estimation = {estimation}")
 
     return int(np.round(estimation))
 
@@ -270,7 +269,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
 
         if 'guess_mode' in unit:
-            logger.warning('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
+            print('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
 
         unit = ControlNetUnit(**unit)
 
