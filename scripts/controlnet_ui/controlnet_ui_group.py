@@ -43,29 +43,21 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         loopback: bool = False,
         use_preview_as_input: bool = False,
         generated_image: Optional[np.ndarray] = None,
-        enabled: bool=True,
-        module: Optional[str]=None,
-        model: Optional[str]=None,
-        weight: float=1.0,
-        input_image: Optional[np.ndarray]=None,
+        enabled: bool = True,
+        module: Optional[str] = None,
+        model: Optional[str] = None,
+        weight: float = 1.0,
+        image: Optional[np.ndarray] = None,
         *args,
         **kwargs,
     ):
         if use_preview_as_input and generated_image is not None:
-            image = generated_image
+            input_image = generated_image
             module = "none"
         else:
-            image = input_image
+            input_image = image
 
-        super().__init__(
-            enabled,
-            module,
-            model,
-            weight,
-            image,
-            *args, 
-            **kwargs
-        )
+        super().__init__(enabled, module, model, weight, input_image, *args, **kwargs)
         self.is_ui = True
         self.input_mode = input_mode
         self.batch_images = batch_images
@@ -790,10 +782,9 @@ class ControlNetUiGroup(object):
         self.register_shift_preview()
         self.register_create_canvas()
 
-    def register_modules(self, tabname: str, params):
-        enabled, module, model, weight = params[4:8]
-        guidance_start, guidance_end, pixel_perfect, control_mode = params[-4:]
-
+    def register_modules(
+        self, tabname: str, enabled, module, model, weight, guidance_start, guidance_end
+    ):
         self.infotext_fields.extend(
             [
                 (enabled, f"{tabname} Enabled"),
@@ -846,7 +837,15 @@ class ControlNetUiGroup(object):
             self.pixel_perfect,
             self.control_mode,
         )
-        self.register_modules(tabname, unit_args)
+        self.register_modules(
+            tabname,
+            self.enabled,
+            self.module,
+            self.model,
+            self.weight,
+            self.guidance_start,
+            self.guidance_end,
+        )
 
         self.input_image.preprocess = functools.partial(
             svg_preprocess, preprocess=self.input_image.preprocess
