@@ -7,7 +7,6 @@ import gradio as gr
 
 from typing import Any, Callable, Dict
 
-from scripts.logging import logger
 
 def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
@@ -20,7 +19,7 @@ def load_state_dict(ckpt_path, location="cpu"):
             torch.load(ckpt_path, map_location=torch.device(location))
         )
     state_dict = get_state_dict(state_dict)
-    logger.info(f"Loaded state_dict from [{ckpt_path}]")
+    print(f"Loaded state_dict from [{ckpt_path}]")
     return state_dict
 
 
