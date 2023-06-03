@@ -677,7 +677,7 @@ class Script(scripts.Script):
             if resize_mode_overwrite is not None:
                 resize_mode = resize_mode_overwrite
             
-            a1111_mask_image : Image.Image = getattr(p, "image_mask", None)
+            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
                 a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
                 if a1111_mask.ndim == 2:
