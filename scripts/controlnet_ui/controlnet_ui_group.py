@@ -18,6 +18,7 @@ from scripts.processor import (
     preprocessor_filters,
     HWC3,
 )
+from scripts.logging import logger
 from modules import shared
 from modules.ui_components import FormRow
 
@@ -624,7 +625,7 @@ class ControlNetUiGroup(object):
 
             json_acceptor = JsonAcceptor()
 
-            print(f"Preview Resolution = {pres}")
+            logger.info(f"Preview Resolution = {pres}")
 
             def is_openpose(module: str):
                 return "openpose" in module

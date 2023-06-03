@@ -10,6 +10,8 @@ from modules.api import api
 
 from scripts import external_code, global_state
 from scripts.processor import preprocessor_sliders_config
+from scripts.logging import logger
+
 
 def encode_to_base64(image):
     if type(image) is str:
@@ -33,13 +35,13 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/model_list")
     async def model_list():
         up_to_date_model_list = external_code.get_models(update=True)
-        print(up_to_date_model_list)
+        logger.debug(up_to_date_model_list)
         return {"model_list": up_to_date_model_list}
 
     @app.get("/controlnet/module_list")
     async def module_list(alias_names: bool = False):
         _module_list = external_code.get_modules(alias_names)
-        print(_module_list)
+        logger.debug(_module_list)
         
         return {
             "module_list": _module_list,
@@ -70,7 +72,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             raise HTTPException(
                 status_code=422, detail="No image selected")
 
-        print(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
+        logger.info(f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module.")
 
         results = []
 
