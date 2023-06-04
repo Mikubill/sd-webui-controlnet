@@ -58,7 +58,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_input_images: List[str] = Body([], title='Controlnet Input Images'),
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
-        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')
+        controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
+        controlnet_pixel_perfect: bool = Body(False, title='Pixel Perfect'),
+        controlnet_resize_mode: str = Body("Just Resize", title='Resize Mode')
     ):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(controlnet_module, controlnet_module)
 
@@ -77,8 +79,29 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         processor_module = cached_cn_preprocessors[controlnet_module]
 
         for input_image in controlnet_input_images:
+            
             img = external_code.to_base64_nparray(input_image)
-            results.append(processor_module(img, res=controlnet_processor_res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b)[0])
+
+            res = controlnet_processor_res
+
+            if controlnet_pixel_perfect:
+
+                h, w = img.shape[:2]
+
+                h = (h // 8) * 8
+                w = (w // 8) * 8
+
+                resize_mode = external_code.resize_mode_from_value(
+                    controlnet_resize_mode)
+
+                res = external_code.pixel_perfect_resolution(
+                    img,
+                    target_H=h,
+                    target_W=w,
+                    resize_mode=resize_mode
+                )
+    
+            results.append(processor_module(img, res=res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b)[0])
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
         results64 = list(map(encode_to_base64, results))
