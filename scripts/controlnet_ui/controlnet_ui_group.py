@@ -643,10 +643,7 @@ class ControlNetUiGroup(object):
                 is_image = True
 
             if is_image:
-                if result.ndim == 3 and result.shape[2] == 4:
-                    inpaint_mask = result[:, :, 3]
-                    result = result[:, :, 0:3]
-                    result[inpaint_mask > 127] = 0
+                result = external_code.visualize_inpaint_mask(result)
                 return (
                     # Update to `generated_image`
                     gr.update(value=result, visible=True, interactive=False),

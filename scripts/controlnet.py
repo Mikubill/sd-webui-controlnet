@@ -892,10 +892,7 @@ class Script(scripts.Script):
                             if detect_map is None:
                                 continue
                             detect_map = np.ascontiguousarray(detect_map.copy()).copy()
-                            if detect_map.ndim == 3 and detect_map.shape[2] == 4:
-                                inpaint_mask = detect_map[:, :, 3]
-                                detect_map = detect_map[:, :, 0:3]
-                                detect_map[inpaint_mask > 127] = 0
+                            detect_map = external_code.visualize_inpaint_mask(detect_map)
                             processed.images.extend([
                                 Image.fromarray(
                                     detect_map.clip(0, 255).astype(np.uint8)
