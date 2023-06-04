@@ -7,6 +7,7 @@ from modules import shared, scripts, sd_models
 from modules.paths import models_path
 from scripts.processor import *
 from scripts.utils import ndarray_lru_cache
+from scripts.logging import logger
 
 from typing import Dict, Callable, Optional
 
@@ -26,12 +27,11 @@ def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, 
     if CACHE_SIZE == 0:
         return preprocessor_modules
     
-    print(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
+    logger.debug(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
 
     @ndarray_lru_cache(max_size=CACHE_SIZE)
     def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
-        # TODO: Make this a debug log?
-        print(f'Calling preprocessor {preprocessor_name} outside of cache.')
+        logger.debug(f'Calling preprocessor {preprocessor_name} outside of cache.')
         return preprocessor_modules[preprocessor_name](*args, **kwargs)
     
     # TODO: Introduce a seed parameter for shuffle preprocessor?
