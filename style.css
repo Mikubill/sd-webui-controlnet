@@ -19,7 +19,7 @@
 
 .cnet-modal-content {
     position: relative;
-    background-color: #fefefe;
+    background-color: var(--background-fill-primary);
     margin: 5% auto;
     /* 15% from the top and centered */
     padding: 20px;
