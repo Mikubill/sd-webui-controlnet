@@ -716,7 +716,7 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
-            if 'inpaint' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
+            if 'inpaint_only' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
