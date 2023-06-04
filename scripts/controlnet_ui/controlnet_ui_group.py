@@ -19,6 +19,7 @@ from scripts.processor import (
     HWC3,
 )
 from scripts.logging import logger
+from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from modules import shared
 from modules.ui_components import FormRow
 
@@ -64,30 +65,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.batch_images = batch_images
         self.output_dir = output_dir
         self.loopback = loopback
-
-
-def update_json_download_link(json_string: str, file_name: str) -> Dict:
-    base64_encoded_json = base64.b64encode(json_string.encode("utf-8")).decode("utf-8")
-    data_uri = f"data:application/json;base64,{base64_encoded_json}"
-    style = """ 
-    position: absolute;
-    right: var(--size-2);
-    bottom: calc(var(--size-2) * 4);
-    font-size: x-small;
-    font-weight: bold;
-    padding: 2px;
-
-    box-shadow: var(--shadow-drop);
-    border: 1px solid var(--button-secondary-border-color);
-    border-radius: var(--radius-sm);
-    background: var(--background-fill-primary);
-    height: var(--size-5);
-    color: var(--block-label-text-color);
-    """
-    hint = "Download the pose as .json file"
-    html = f"""<a href='{data_uri}' download='{file_name}' style="{style}" title="{hint}">
-                Json</a>"""
-    return gr.update(value=html, visible=(json_string != ""))
 
 
 class ControlNetUiGroup(object):
@@ -138,7 +115,6 @@ class ControlNetUiGroup(object):
         self.input_image = None
         self.generated_image_group = None
         self.generated_image = None
-        self.download_pose_link = None
         self.batch_tab = None
         self.batch_image_dir = None
         self.create_canvas = None
@@ -170,6 +146,7 @@ class ControlNetUiGroup(object):
         self.resize_mode = None
         self.loopback = None
         self.use_preview_as_input = None
+        self.openpose_editor = None
 
     def render(self, tabname: str, elem_id_tabname: str) -> None:
         """The pure HTML structure of a single ControlNetUnit. Calling this
@@ -185,45 +162,39 @@ class ControlNetUiGroup(object):
         """
         with gr.Tabs():
             with gr.Tab(label="Single Image") as self.upload_tab:
-                with gr.Row().style(equal_height=True):
-                    self.input_image = gr.Image(
-                        source="upload",
-                        brush_radius=20,
-                        mirror_webcam=False,
-                        type="numpy",
-                        tool="sketch",
-                        elem_id=f"{elem_id_tabname}_{tabname}_input_image",
-                    )
-                    with gr.Group(visible=False) as self.generated_image_group:
+                with gr.Row(elem_classes=["cnet-image-row"]).style(equal_height=True):
+                    with gr.Group(elem_classes=["cnet-input-image-group"]):
+                        self.input_image = gr.Image(
+                            source="upload",
+                            brush_radius=20,
+                            mirror_webcam=False,
+                            type="numpy",
+                            tool="sketch",
+                            elem_id=f"{elem_id_tabname}_{tabname}_input_image",
+                            elem_classes=["cnet-image"],
+                        )
+                    with gr.Group(
+                        visible=False, elem_classes=["cnet-generated-image-group"]
+                    ) as self.generated_image_group:
                         self.generated_image = gr.Image(
                             label="Preprocessor Preview",
                             elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
+                            elem_classes=["cnet-image"],
                         ).style(
                             height=242
                         )  # Gradio's magic number. Only 242 works.
-                        self.download_pose_link = gr.HTML(value="", visible=False)
-                        preview_close_button_style = """ 
-                            position: absolute;
-                            right: var(--size-2);
-                            bottom: var(--size-2);
-                            font-size: x-small;
-                            font-weight: bold;
-                            padding: 2px;
-                            cursor: pointer;
 
-                            box-shadow: var(--shadow-drop);
-                            border: 1px solid var(--button-secondary-border-color);
-                            border-radius: var(--radius-sm);
-                            background: var(--background-fill-primary);
-                            height: var(--size-5);
-                            color: var(--block-label-text-color);
-                            """
-                        preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
-                        preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
-                        gr.HTML(
-                            value=f"""<a style="{preview_close_button_style}" title="Close Preview" onclick="{preview_close_button_js}">Close</a>""",
-                            visible=True,
-                        )
+                        with gr.Group(
+                            elem_classes=["cnet-generated-image-control-group"]
+                        ):
+                            self.openpose_editor = OpenposeEditor()
+                            preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
+                            preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
+                            gr.HTML(
+                                value=f"""<a title="Close Preview" onclick="{preview_close_button_js}">Close</a>""",
+                                visible=True,
+                                elem_classes=["cnet-close-preview"],
+                            )
 
             with gr.Tab(label="Batch") as self.batch_tab:
                 self.batch_image_dir = gr.Textbox(
@@ -679,19 +650,19 @@ class ControlNetUiGroup(object):
                 return (
                     # Update to `generated_image`
                     gr.update(value=result, visible=True, interactive=False),
-                    # Update to `download_pose_link`
-                    update_json_download_link(json_acceptor.value, "pose.json"),
                     # preprocessor_preview
                     gr.update(value=True),
+                    # openpose editor
+                    *self.openpose_editor.update(json_acceptor.value),
                 )
 
             return (
                 # Update to `generated_image`
                 gr.update(value=None, visible=True),
-                # Update to `download_pose_link`
-                update_json_download_link(json_acceptor.value, "pose.json"),
                 # preprocessor_preview
                 gr.update(value=True),
+                # openpose editor
+                *self.openpose_editor.update(json_acceptor.value),
             )
 
         self.trigger_preprocessor.click(
@@ -713,8 +684,8 @@ class ControlNetUiGroup(object):
             ],
             outputs=[
                 self.generated_image,
-                self.download_pose_link,
                 self.preprocessor_preview,
+                *self.openpose_editor.outputs(),
             ],
         )
 
@@ -729,6 +700,8 @@ class ControlNetUiGroup(object):
                 gr.update(visible=is_on),
                 # download_pose_link
                 gr.update() if is_on else gr.update(value=None),
+                # modal edit button
+                gr.update() if is_on else gr.update(visible=False),
             )
 
         self.preprocessor_preview.change(
@@ -738,7 +711,8 @@ class ControlNetUiGroup(object):
                 self.generated_image,
                 self.generated_image_group,
                 self.use_preview_as_input,
-                self.download_pose_link,
+                self.openpose_editor.download_link,
+                self.openpose_editor.modal,
             ],
         )
 
@@ -782,6 +756,9 @@ class ControlNetUiGroup(object):
         self.register_run_annotator(is_img2img)
         self.register_shift_preview()
         self.register_create_canvas()
+        self.openpose_editor.register_callbacks(
+            self.generated_image, self.use_preview_as_input
+        )
 
     def register_modules(
         self, tabname: str, enabled, module, model, weight, guidance_start, guidance_end

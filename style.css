@@ -1,0 +1,107 @@
+.cnet-modal {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    /* Stay in place */
+    z-index: 2147483647;
+    /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    /* Full width */
+    height: 100%;
+    /* Full height */
+    overflow: auto;
+    /* Enable scroll if needed */
+    background-color: rgba(0, 0, 0, 0.4);
+    /* Black with opacity */
+}
+
+.cnet-modal-content {
+    position: relative;
+    background-color: #fefefe;
+    margin: 5% auto;
+    /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    /* Could be more or less, depending on screen size */
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    animation-name: animatetop;
+    animation-duration: 0.4s;
+    padding-top: 75%;
+    /* This will give a 4:3 aspect ratio. Adjust as needed */
+    height: 0;
+    /* This is needed for the padding trick to work */
+}
+
+.cnet-modal-content.alert {
+    height: auto;
+}
+
+.cnet-modal-content iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.cnet-modal-content.alert * {
+    position: absolute;
+    top: var(--size-5);
+    left: var(--size-5);
+    width: 100%;
+}
+
+.cnet-modal-close {
+    color: white;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.cnet-modal-close:hover,
+.cnet-modal-close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+@keyframes animatetop {
+    from {
+        top: -300px;
+        opacity: 0
+    }
+
+    to {
+        top: 0;
+        opacity: 1
+    }
+}
+
+.cnet-generated-image-control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    position: absolute;
+    right: var(--size-2);
+    bottom: var(--size-2);
+}
+
+/* Gradio button style */
+.cnet-download-pose a,
+.cnet-close-preview,
+.cnet-edit-pose {
+    font-size: x-small !important;
+    font-weight: bold !important;
+    padding: 2px !important;
+    box-shadow: var(--shadow-drop);
+    border: 1px solid var(--button-secondary-border-color);
+    border-radius: var(--radius-sm);
+    background: var(--background-fill-primary);
+    height: var(--size-5);
+    color: var(--block-label-text-color) !important;
+}

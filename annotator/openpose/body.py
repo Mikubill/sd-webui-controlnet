@@ -26,8 +26,8 @@ class BodyResult(NamedTuple):
     # Python 3.8 environment.
     # https://github.com/lllyasviel/ControlNet/blob/d3284fcd0972c510635a4f5abe2eeb71dc0de524/environment.yaml#L6
     keypoints: List[Union[Keypoint, None]]
-    total_score: float
-    total_parts: int
+    total_score: float = 0.0
+    total_parts: int = 0
 
 
 class Body(object):
