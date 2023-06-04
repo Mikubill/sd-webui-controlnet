@@ -22,6 +22,7 @@ from scripts.adapter import PlugableAdapter
 from scripts.utils import load_state_dict
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
+from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
 
@@ -247,7 +248,7 @@ class Script(scripts.Script):
     @staticmethod
     def load_control_model(p, unet, model, lowvram):
         if model in Script.model_cache:
-            print(f"Loading model from cache: {model}")
+            logger.info(f"Loading model from cache: {model}")
             return Script.model_cache[model]
 
         # Remove model from cache to clear space before building another model
@@ -283,7 +284,7 @@ class Script(scripts.Script):
         if not os.path.exists(model_path):
             raise ValueError(f"file not found: {model_path}")
 
-        print(f"Loading model: {model}")
+        logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
         network_module = PlugableControlModel
         network_config = shared.opts.data.get("control_net_model_config", global_state.default_conf)
@@ -327,6 +328,8 @@ class Script(scripts.Script):
         if os.path.exists(override_config):
             network_config = override_config
         else:
+            # Note: This error is triggered in unittest, but not caught.
+            # TODO: Replace `print` with `logger.error`.
             print(f'ERROR: ControlNet cannot find model config [{override_config}] \n'
                   f'ERROR: ControlNet will use a WRONG config [{network_config}] to load your model. \n'
                   f'ERROR: The WRONG config may not match your model. The generated results can be bad. \n'
@@ -336,7 +339,7 @@ class Script(scripts.Script):
                   f'Solution: Please download YAML file, or ask your model provider to provide [{override_config}] for you to download.\n'
                   f'Hint: You can take a look at [{os.path.join(global_state.script_dir, "models")}] to find many existing YAML files.\n')
 
-        print(f"Loading config: {network_config}")
+        logger.info(f"Loading config: {network_config}")
         network = network_module(
             state_dict=state_dict,
             config_path=network_config,
@@ -344,7 +347,7 @@ class Script(scripts.Script):
             base_model=unet,
         )
         network.to(p.sd_model.device, dtype=p.sd_model.dtype)
-        print(f"ControlNet model {model} loaded.")
+        logger.info(f"ControlNet model {model} loaded.")
         return network
 
     @staticmethod
@@ -570,10 +573,10 @@ class Script(scripts.Script):
         image = image_dict_from_any(unit.image)
 
         if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
-            print("Warn: Using legacy field 'p.image_control'.")
+            logger.warning("Warn: Using legacy field 'p.image_control'.")
             input_image = HWC3(np.asarray(p.image_control))
         elif p_input_image is not None:
-            print("Warn: Using legacy field 'p.controlnet_input_image'")
+            logger.warning("Warn: Using legacy field 'p.controlnet_input_image'")
             if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
                 color = HWC3(np.asarray(p_input_image['image']))
                 alpha = np.asarray(p_input_image['mask'])[..., None]
@@ -594,7 +597,7 @@ class Script(scripts.Script):
             have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
 
             if 'inpaint' in unit.module:
-                print("using inpaint as input")
+                logger.info("using inpaint as input")
                 color = HWC3(image['image'])
                 if have_mask:
                     alpha = image['mask'][:, :, 0:1]
@@ -603,7 +606,7 @@ class Script(scripts.Script):
                 input_image = np.concatenate([color, alpha], axis=2)
             else:
                 if have_mask:
-                    print("using mask as input")
+                    logger.info("using mask as input")
                     input_image = HWC3(image['mask'][:, :, 0])
                     unit.module = 'none'  # Always use black bg and white line
         else:
@@ -714,7 +717,7 @@ class Script(scripts.Script):
                 input_image = np.stack(input_image, axis=2)
 
             if 'inpaint' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
-                print('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
+                logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
             try:
@@ -722,13 +725,13 @@ class Script(scripts.Script):
                 tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
                 np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
             except Exception as e:
-                print(e)
-                print('Warning: Failed to use consistent random seed.')
+                logger.warning(e)
+                logger.warning('Warning: Failed to use consistent random seed.')
 
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
 
-            print(f"Loading preprocessor: {unit.module}")
+            logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
 
@@ -744,7 +747,7 @@ class Script(scripts.Script):
                     resize_mode=resize_mode
                 )
 
-            print(f'preprocessor resolution = {preprocessor_resolution}')
+            logger.info(f'preprocessor resolution = {preprocessor_resolution}')
             detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
 
             if unit.module == "none" and "style" in unit.model:
@@ -837,7 +840,7 @@ class Script(scripts.Script):
                 def inpaint_only_post_processing(x):
                     _, H, W = x.shape
                     if Hmask != H or Wmask != W:
-                        print('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
+                        logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
                         return x
                     r = final_inpaint_raw.to(x.dtype).to(x.device)
                     m = final_inpaint_mask.to(x.dtype).to(x.device)
@@ -925,7 +928,7 @@ class Script(scripts.Script):
                 if output_images:
                     unit.image = np.array(output_images[0])
                 else:
-                    print(f'Warning: No loopback image found for controlnet unit {unit_i}. Using control map from last batch iteration instead')
+                    logger.warning(f'Warning: No loopback image found for controlnet unit {unit_i}. Using control map from last batch iteration instead')
 
     def batch_tab_postprocess(self, p, *args, **kwargs):
         self.enabled_units.clear()
