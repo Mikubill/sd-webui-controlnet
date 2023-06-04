@@ -4,6 +4,7 @@ from modules import shared
 
 # Create a new logger
 logger = logging.getLogger("ControlNet")
+logger.propagate = False
 
 # Add handler if we don't have one.
 if not logger.handlers:
