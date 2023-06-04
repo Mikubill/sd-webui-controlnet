@@ -14,8 +14,11 @@ def safer_memory(x):
     return np.ascontiguousarray(x.copy()).copy()
 
 
-def resize_image_with_pad(input_image, resolution):
-    img = HWC3(input_image)
+def resize_image_with_pad(input_image, resolution, skip_hwc3=False):
+    if skip_hwc3:
+        img = input_image
+    else:
+        img = HWC3(input_image)
     H_raw, W_raw, _ = img.shape
     k = float(resolution) / float(min(H_raw, W_raw))
     interpolation = cv2.INTER_CUBIC if k > 1 else cv2.INTER_AREA
@@ -463,6 +466,27 @@ def unload_lineart_anime_denoise():
     global model_manga_line
     if model_manga_line is not None:
         model_manga_line.unload_model()
+
+
+model_lama = None
+
+
+def lama_inpaint(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res, skip_hwc3=True)
+    global model_lama
+    if model_lama is None:
+        from annotator.lama import LamaInpainting
+        model_lama = LamaInpainting()
+
+    # applied auto inversion
+    result = model_lama(img)
+    return remove_pad(result), True
+
+
+def unload_lama_inpaint():
+    global model_lama
+    if model_lama is not None:
+        model_lama.unload_model()
 
 
 model_zoe_depth = None
