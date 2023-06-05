@@ -89,7 +89,7 @@ cn_preprocessor_modules = {
     "reference_adain+attn": identity,
     "inpaint": identity,
     "inpaint_only": identity,
-    # "inpaint_lama": lama_inpaint,
+    "inpaint_only+lama": lama_inpaint,
     "tile_colorfix": identity,
     "tile_colorfix+sharp": identity,
 }
@@ -116,7 +116,7 @@ cn_preprocessor_unloadable = {
     "lineart_coarse": unload_lineart_coarse,
     "lineart_anime": unload_lineart_anime,
     "lineart_anime_denoise": unload_lineart_anime_denoise,
-    # "inpaint_lama": unload_lama_inpaint
+    "inpaint_only+lama": unload_lama_inpaint
 }
 
 preprocessor_aliases = {

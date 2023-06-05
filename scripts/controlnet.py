@@ -716,7 +716,7 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
-            if 'inpaint_only' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
+            if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
@@ -746,6 +746,10 @@ class Script(scripts.Script):
                     target_W=w,
                     resize_mode=resize_mode
                 )
+
+            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+                # inpaint_only+lama is special and required outpaint fix
+                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, h, w)
 
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
             detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
@@ -823,8 +827,7 @@ class Script(scripts.Script):
             )
             forward_params.append(forward_param)
 
-            if unit.module == 'inpaint_only':
-
+            if 'inpaint_only' in unit.module:
                 final_inpaint_feed = hr_control if hr_control is not None else control
                 final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
