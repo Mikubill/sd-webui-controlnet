@@ -92,7 +92,6 @@ def create_random_tensors_hacked(*args, **kwargs):
     if p is None:
         return result
     controlnet_initial_noise_modifier = getattr(p, 'controlnet_initial_noise_modifier', None)
-    setattr(p, 'controlnet_initial_noise_modifier', None)
     if controlnet_initial_noise_modifier is not None:
         x0 = controlnet_initial_noise_modifier
         if result.shape[2] != x0.shape[2] or result.shape[3] != x0.shape[3]:
