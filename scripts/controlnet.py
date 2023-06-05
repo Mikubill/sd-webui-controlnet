@@ -740,6 +740,10 @@ class Script(scripts.Script):
             h = (h // 8) * 8
             w = (w // 8) * 8
 
+            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+                # inpaint_only+lama is special and required outpaint fix
+                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, h, w)
+
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 preprocessor_resolution = external_code.pixel_perfect_resolution(
@@ -748,10 +752,6 @@ class Script(scripts.Script):
                     target_W=w,
                     resize_mode=resize_mode
                 )
-
-            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
-                # inpaint_only+lama is special and required outpaint fix
-                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, h, w)
 
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
             detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
