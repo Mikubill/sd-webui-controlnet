@@ -4,7 +4,10 @@ import hashlib
 import numpy as np
 import torch.nn as nn
 
+import modules.processing
+
 from enum import Enum
+from scripts.logging import logger
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -81,6 +84,18 @@ def unmark_prompt_context(x):
     uc_indices = mark.detach().cpu().numpy().tolist()
     uc_indices = [i for i, item in enumerate(uc_indices) if item < 0.5]
     return mark_batch, uc_indices, context
+
+
+def create_random_tensors_hacked(*args, **kwargs):
+    result = modules.processing.create_random_tensors_original(*args, **kwargs)
+    logger.info('create_random_tensors_hacked')
+    return result
+
+
+if getattr(modules.processing, 'create_random_tensors_original', None) is None:
+    modules.processing.create_random_tensors_original = modules.processing.create_random_tensors
+
+modules.processing.create_random_tensors = create_random_tensors_hacked
 
 
 class ControlModelType(Enum):
