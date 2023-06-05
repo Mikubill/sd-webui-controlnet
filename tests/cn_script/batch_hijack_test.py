@@ -330,3 +330,6 @@ class TestProcessImagesPatchWorks(unittest.TestCase):
 
 def get_dummy_image(name: Any = 0):
     return f'base64#{name}...'
+
+if __name__ == '__main__':
+    unittest.main()
