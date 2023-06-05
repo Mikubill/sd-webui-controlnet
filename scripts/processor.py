@@ -865,8 +865,8 @@ preprocessor_sliders_config = {
             "name": r'Smoothness (Higher for object removal or outpainting)',
             "value": 0.0,
             "min": 0.0,
-            "max": 30.0,
-            "step": 1.0
+            "max": 1.0,
+            "step": 0.01
         }],
     "color": [
         {
