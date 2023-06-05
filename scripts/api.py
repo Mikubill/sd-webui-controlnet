@@ -91,8 +91,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 h = (h // 8) * 8
                 w = (w // 8) * 8
 
-                resize_mode = external_code.resize_mode_from_value(
-                    controlnet_resize_mode)
+                try:
+                    resize_mode = external_code.resize_mode_from_value(controlnet_resize_mode)
+                except ValueError:
+                    raise HTTPException(
+                        status_code=422, detail="Invalid resize_mode")
+                    
 
                 res = external_code.pixel_perfect_resolution(
                     img,
