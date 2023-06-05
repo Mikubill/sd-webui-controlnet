@@ -98,8 +98,9 @@ def create_random_tensors_hacked(*args, **kwargs):
             return result
         x0 = x0.to(result.dtype).to(result.device)
         ts = torch.tensor([999] * result.shape[0]).long().to(result.device)
-        result -= blur(result, 8)
-        result /= std_k(result, 8)
+        sigma = 2
+        result -= blur(result, sigma)
+        result /= std_k(result, sigma)
         result /= result.std()
         result = p.sd_model.q_sample(x0, ts, result)
         print(f'[ControlNet] Initial noise hack applied to {result.shape}.')
