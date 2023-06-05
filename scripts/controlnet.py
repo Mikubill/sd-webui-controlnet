@@ -731,6 +731,33 @@ class Script(scripts.Script):
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
 
+            if unit.processor_res < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.processor_res = int(cfg[0]['value'])
+                    logger.info(f'API used default config: unit.processor_res = {unit.processor_res}')
+                except:
+                    unit.processor_res = 512
+                    logger.info(f'API used default value: unit.processor_res = {unit.processor_res}')
+
+            if unit.threshold_a < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_a = float(cfg[1]['value'])
+                    logger.info(f'API used default config: unit.threshold_a = {unit.threshold_a}')
+                except:
+                    unit.threshold_a = 0
+                    logger.info(f'API used default value: unit.threshold_a = {unit.threshold_a}')
+
+            if unit.threshold_b < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_b = float(cfg[2]['value'])
+                    logger.info(f'API used default config: unit.threshold_b = {unit.threshold_b}')
+                except:
+                    unit.threshold_b = 0
+                    logger.info(f'API used default value: unit.threshold_b = {unit.threshold_b}')
+
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
