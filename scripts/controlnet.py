@@ -855,6 +855,7 @@ class Script(scripts.Script):
 
             if '+lama' in unit.module:
                 forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
+                setattr(p, 'controlnet_initial_noise_modifier', (forward_param.used_hint_cond_latent, 0.1))
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)

@@ -94,6 +94,9 @@ def create_random_tensors_hacked(*args, **kwargs):
     controlnet_initial_noise_modifier = getattr(p, 'controlnet_initial_noise_modifier', None)
     if controlnet_initial_noise_modifier is not None:
         xt, alpha = controlnet_initial_noise_modifier
+        if result.shape[2] != xt.shape[2] or result.shape[3] != xt.shape[3]:
+            return result
+        xt = xt.to(result.dtype).to(result.device)
         result = result * (1 - alpha) + xt * alpha
         print('[ControlNet] Initial noise hack applied.')
     return result
