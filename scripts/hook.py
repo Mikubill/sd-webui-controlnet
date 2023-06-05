@@ -537,19 +537,6 @@ class UnetHook(nn.Module):
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read
 
-            # xt hacking
-            for param in outer.control_params:
-                if param.guidance_stopped:
-                    continue
-
-                if param.used_hint_cond_latent is None:
-                    continue
-
-                if '+lama' not in param.preprocessor['name']:
-                    continue
-
-                x += param.used_hint_cond_latent.to(x.device).to(x.dtype) * 0.1
-
             # U-Net Encoder
             hs = []
             with th.no_grad():
