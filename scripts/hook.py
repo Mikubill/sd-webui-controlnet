@@ -266,6 +266,35 @@ class UnetHook(nn.Module):
         self.current_style_fidelity = 0.0
         self.current_uc_indices = None
 
+    @staticmethod
+    def call_vae_using_process(p, x, batch_size=None, mask=None):
+        vae_cache = getattr(p, 'controlnet_vae_cache', None)
+        if vae_cache is None:
+            vae_cache = TorchCache()
+            setattr(p, 'controlnet_vae_cache', vae_cache)
+        try:
+            if x.shape[1] > 3:
+                x = x[:, 0:3, :, :]
+            x = x * 2.0 - 1.0
+            if mask is not None:
+                x = x * (1.0 - mask)
+            x = x.type(devices.dtype_vae)
+            vae_output = vae_cache.get(x)
+            if vae_output is None:
+                with devices.autocast():
+                    vae_output = p.sd_model.encode_first_stage(x)
+                    vae_output = p.sd_model.get_first_stage_encoding(vae_output)
+                vae_cache.set(x, vae_output)
+                print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
+            latent = vae_output
+            if batch_size is not None and latent.shape[0] != batch_size:
+                latent = torch.cat([latent.clone() for _ in range(batch_size)], dim=0)
+            latent = latent.type(devices.dtype_unet)
+            return latent
+        except Exception as e:
+            print(e)
+            raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
+
     def guidance_schedule_handler(self, x):
         for param in self.control_params:
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
@@ -291,30 +320,6 @@ class UnetHook(nn.Module):
             mark_prompt_context(getattr(process, 'hr_c', []), positive=True)
             mark_prompt_context(getattr(process, 'hr_uc', []), positive=False)
             return process.sample_before_CN_hack(*args, **kwargs)
-
-        def vae_forward(x, batch_size, mask=None):
-            try:
-                if x.shape[1] > 3:
-                    x = x[:, 0:3, :, :]
-                x = x * 2.0 - 1.0
-                if mask is not None:
-                    x = x * (1.0 - mask)
-                x = x.type(devices.dtype_vae)
-                vae_output = outer.vae_cache.get(x)
-                if vae_output is None:
-                    with devices.autocast():
-                        vae_output = outer.sd_ldm.encode_first_stage(x)
-                        vae_output = outer.sd_ldm.get_first_stage_encoding(vae_output)
-                    outer.vae_cache.set(x, vae_output)
-                    print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
-                latent = vae_output
-                if latent.shape[0] != batch_size:
-                    latent = torch.cat([latent.clone() for _ in range(batch_size)], dim=0)
-                latent = latent.type(devices.dtype_unet)
-                return latent
-            except Exception as e:
-                print(e)
-                raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
@@ -362,7 +367,7 @@ class UnetHook(nn.Module):
                         and 'colorfix' not in param.preprocessor['name'] \
                         and 'inpaint_only' not in param.preprocessor['name']:
                     continue
-                param.used_hint_cond_latent = vae_forward(param.used_hint_cond, batch_size=batch_size)
+                param.used_hint_cond_latent = outer.call_vae_using_process(process, param.used_hint_cond, batch_size=batch_size)
 
             # handle prompt token control
             for param in outer.control_params:
@@ -464,7 +469,7 @@ class UnetHook(nn.Module):
                     mask_pixel = param.used_hint_cond[:, 3:4, :, :]
                     image_pixel = param.used_hint_cond[:, 0:3, :, :]
                     mask_pixel = (mask_pixel > 0.5).to(mask_pixel.dtype)
-                    masked_latent = vae_forward(image_pixel, batch_size, mask=mask_pixel)
+                    masked_latent = outer.call_vae_using_process(process, image_pixel, batch_size, mask=mask_pixel)
                     mask_latent = torch.nn.functional.max_pool2d(mask_pixel, (8, 8))
                     if mask_latent.shape[0] != batch_size:
                         mask_latent = torch.cat([mask_latent.clone() for _ in range(batch_size)], dim=0)
@@ -702,8 +707,6 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
-
-        outer.vae_cache = TorchCache()
 
         all_modules = torch_dfs(model)
 
