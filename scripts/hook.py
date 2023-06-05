@@ -97,7 +97,7 @@ def create_random_tensors_hacked(*args, **kwargs):
         if result.shape[2] != xt.shape[2] or result.shape[3] != xt.shape[3]:
             return result
         xt = xt.to(result.dtype).to(result.device)
-        result = result * (1 - alpha) + xt * alpha
+        result = result + xt * alpha
         print('[ControlNet] Initial noise hack applied.')
     return result
 
