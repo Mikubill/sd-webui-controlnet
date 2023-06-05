@@ -635,6 +635,8 @@ class Script(scripts.Script):
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
 
+        setattr(p, 'controlnet_initial_noise_modifier', None)
+
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
