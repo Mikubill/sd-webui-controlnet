@@ -97,7 +97,10 @@ def create_random_tensors_hacked(*args, **kwargs):
         if result.shape[2] != x0.shape[2] or result.shape[3] != x0.shape[3]:
             return result
         x0 = x0.to(result.dtype).to(result.device)
-        ts = torch.tensor([960] * result.shape[0]).long().to(result.device)
+        ts = torch.tensor([999] * result.shape[0]).long().to(result.device)
+        result -= blur(result, 8)
+        result /= std_k(result, 8)
+        result /= result.std()
         result = p.sd_model.q_sample(x0, ts, result)
         print(f'[ControlNet] Initial noise hack applied to {result.shape}.')
     return result
@@ -257,6 +260,13 @@ def blur(x, k):
     y = torch.nn.functional.pad(x, (k, k, k, k), mode='replicate')
     y = torch.nn.functional.avg_pool2d(y, (k*2+1, k*2+1), stride=(1, 1))
     return y
+
+
+def std_k(x, k, eps=1e-6):
+    mean = blur(x, k)
+    var = (x - mean) ** 2
+    std = blur(var, k) ** 0.5
+    return std + eps
 
 
 class TorchCache:
