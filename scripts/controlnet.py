@@ -868,10 +868,11 @@ class Script(scripts.Script):
         for post_processor in self.post_processors:
             for i in range(images.shape[0]):
                 images[i] = post_processor(images[i])
-        self.post_processors = []
         return
 
     def postprocess(self, p, processed, *args):
+        self.post_processors = []
+        
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
 
         if not batch_hijack.instance.is_batch:
