@@ -98,7 +98,7 @@ def create_random_tensors_hacked(*args, **kwargs):
             return result
         x0 = x0.to(result.dtype).to(result.device)
         ts = torch.tensor([999] * result.shape[0]).long().to(result.device)
-        sigma = 2
+        sigma = 4
         result -= blur(result, sigma)
         result /= std_k(result, sigma)
         result /= result.std()
