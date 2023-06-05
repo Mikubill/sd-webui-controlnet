@@ -93,11 +93,12 @@ def create_random_tensors_hacked(*args, **kwargs):
         return result
     controlnet_initial_noise_modifier = getattr(p, 'controlnet_initial_noise_modifier', None)
     if controlnet_initial_noise_modifier is not None:
-        xt, alpha = controlnet_initial_noise_modifier
-        if result.shape[2] != xt.shape[2] or result.shape[3] != xt.shape[3]:
+        x0, alpha = controlnet_initial_noise_modifier
+        if result.shape[2] != x0.shape[2] or result.shape[3] != x0.shape[3]:
             return result
-        xt = xt.to(result.dtype).to(result.device)
-        result = result + xt * alpha
+        x0 = x0.to(result.dtype).to(result.device)
+        ts = torch.tensor([999] * result.shape[0]).long().to(result.device)
+        result = p.sd_model.q_sample(x0, ts, result)
         print('[ControlNet] Initial noise hack applied.')
     return result
 
