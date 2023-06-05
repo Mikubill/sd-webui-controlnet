@@ -855,7 +855,8 @@ class Script(scripts.Script):
 
             if '+lama' in unit.module:
                 forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
-                setattr(p, 'controlnet_initial_noise_modifier', (forward_param.used_hint_cond_latent, 0.1))
+                smoothness = max(0.0, min(5.0, float(unit.threshold_a)))
+                setattr(p, 'controlnet_initial_noise_modifier', (forward_param.used_hint_cond_latent, 0.01 * smoothness))
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
@@ -872,7 +873,7 @@ class Script(scripts.Script):
 
     def postprocess(self, p, processed, *args):
         self.post_processors = []
-        
+
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
 
         if not batch_hijack.instance.is_batch:

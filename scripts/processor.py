@@ -859,7 +859,15 @@ preprocessor_sliders_config = {
             "step": 0.01
         }
     ],
-    "inpaint_only+lama": [],
+    "inpaint_only+lama": [
+        None,
+        {
+            "name": r'Smoothness (Higher for object removal or outpainting)',
+            "value": 1.0,
+            "min": 0.0,
+            "max": 5.0,
+            "step": 0.01
+        }],
     "color": [
         {
             "name": flag_preprocessor_resolution,
