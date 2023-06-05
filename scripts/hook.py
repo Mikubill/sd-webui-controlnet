@@ -88,7 +88,14 @@ def unmark_prompt_context(x):
 
 def create_random_tensors_hacked(*args, **kwargs):
     result = modules.processing.create_random_tensors_original(*args, **kwargs)
-    logger.info('create_random_tensors_hacked')
+    p = kwargs.get('p', None)
+    if p is None:
+        return result
+    controlnet_initial_noise_modifier = getattr(p, 'controlnet_initial_noise_modifier', None)
+    if controlnet_initial_noise_modifier is not None:
+        xt, alpha = controlnet_initial_noise_modifier
+        result = result * (1 - alpha) + xt * alpha
+        print('[ControlNet] Initial noise hack applied.')
     return result
 
 

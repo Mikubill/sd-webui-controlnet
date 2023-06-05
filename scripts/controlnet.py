@@ -853,6 +853,8 @@ class Script(scripts.Script):
 
                 post_processors.append(inpaint_only_post_processing)
 
+            if '+lama' in unit.module:
+                forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
