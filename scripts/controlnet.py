@@ -44,6 +44,13 @@ try:
 except ImportError:
     pass
 
+
+# Gradio 3.32 bug fix
+import tempfile
+gradio_tempfile_path = os.path.join(tempfile.gettempdir(), 'gradio')
+os.makedirs(gradio_tempfile_path, exist_ok=True)
+
+
 def find_closest_lora_model_name(search: str):
     if not search:
         return None
@@ -889,11 +896,11 @@ class Script(scripts.Script):
         for post_processor in self.post_processors:
             for i in range(images.shape[0]):
                 images[i] = post_processor(images[i])
-        self.post_processors = []
         return
 
     def postprocess(self, p, processed, *args):
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
+        self.post_processors = []
 
         if not batch_hijack.instance.is_batch:
             self.enabled_units.clear()
