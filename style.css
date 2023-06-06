@@ -105,3 +105,8 @@
     height: var(--size-5);
     color: var(--block-label-text-color) !important;
 }
+
+.cnet-unit-active {
+    color: green !important;
+    font-weight: bold !important;
+}
