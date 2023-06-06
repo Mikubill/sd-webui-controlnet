@@ -19,7 +19,7 @@ importlib.reload(batch_hijack)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
-from scripts.utils import load_state_dict
+from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.logging import logger
@@ -431,7 +431,7 @@ class Script(scripts.Script):
 
             new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
             new_size_is_bigger = (size[0] * size[1]) > (x.shape[0] * x.shape[1])
-            unique_color_count = np.unique(x.reshape(-1, x.shape[2]), axis=0).shape[0]
+            unique_color_count = len(get_unique_axis0(x.reshape(-1, x.shape[2])))
             is_one_pixel_edge = False
             is_binary = False
             if unique_color_count == 2:

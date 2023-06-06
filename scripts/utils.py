@@ -108,3 +108,11 @@ def svg_preprocess(inputs: Dict, preprocess: Callable):
         inputs["image"] = base64_str
     return preprocess(inputs)
 
+def get_unique_axis0(data):
+    arr = np.asanyarray(data)
+    idxs = np.lexsort(arr.T)
+    arr = arr[idxs]
+    unique_idxs = np.empty(len(arr), dtype=np.bool_)
+    unique_idxs[:1] = True
+    unique_idxs[1:] = np.any(arr[:-1, :] != arr[1:, :], axis=-1)
+    return arr[unique_idxs]
