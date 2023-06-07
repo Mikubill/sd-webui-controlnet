@@ -44,6 +44,13 @@ try:
 except ImportError:
     pass
 
+
+# Gradio 3.32 bug fix
+import tempfile
+gradio_tempfile_path = os.path.join(tempfile.gettempdir(), 'gradio')
+os.makedirs(gradio_tempfile_path, exist_ok=True)
+
+
 def find_closest_lora_model_name(search: str):
     if not search:
         return None
@@ -227,7 +234,8 @@ class Script(scripts.Script):
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"ControlNet Unit {i}"):
+                            with gr.Tab(f"ControlNet Unit {i}", 
+                                        elem_classes=['cnet-unit-tab']):
                                 controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
                 else:
                     with gr.Column():
@@ -733,6 +741,33 @@ class Script(scripts.Script):
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
 
+            if unit.processor_res < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.processor_res = int(cfg[0]['value'])
+                    logger.info(f'API used default config: unit.processor_res = {unit.processor_res}')
+                except:
+                    unit.processor_res = 512
+                    logger.info(f'API used default value: unit.processor_res = {unit.processor_res}')
+
+            if unit.threshold_a < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_a = float(cfg[1]['value'])
+                    logger.info(f'API used default config: unit.threshold_a = {unit.threshold_a}')
+                except:
+                    unit.threshold_a = 0
+                    logger.info(f'API used default value: unit.threshold_a = {unit.threshold_a}')
+
+            if unit.threshold_b < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_b = float(cfg[2]['value'])
+                    logger.info(f'API used default config: unit.threshold_b = {unit.threshold_b}')
+                except:
+                    unit.threshold_b = 0
+                    logger.info(f'API used default value: unit.threshold_b = {unit.threshold_b}')
+
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
@@ -877,6 +912,7 @@ class Script(scripts.Script):
         setattr(p, 'controlnet_initial_noise_modifier', None)
 
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
+        self.post_processors = []
 
         if not batch_hijack.instance.is_batch:
             self.enabled_units.clear()
