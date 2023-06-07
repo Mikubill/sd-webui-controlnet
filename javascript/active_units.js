@@ -1,11 +1,10 @@
 /**
- * [TODO] Give a badge on ControlNet Accordion indicating total number of active 
+ * Give a badge on ControlNet Accordion indicating total number of active 
  * units.
- * Give a dot indicator on each ControlNet unit tab, indicating whether
- * the unit is active.
+ * Make active unit's tab name green.
  */
 const cnetAllUnits = new Map/* <Element, GradioTab> */();
-
+const cnetAllAccordions = new Set();
 onUiUpdate(() => {
     function childIndex(element) {
         // Get all child nodes of the parent
@@ -31,15 +30,15 @@ onUiUpdate(() => {
         getTabNavButton() {
             return this.tabNav.querySelector(`:nth-child(${this.tabIndex + 1})`);
         }
-        
+
         applyActiveState() {
             const tabNavButton = this.getTabNavButton();
             if (!tabNavButton) return;
 
             if (this.enabledCheckbox.checked) {
-                tabNavButton.classList.add('cnet-unit-active'); 
+                tabNavButton.classList.add('cnet-unit-active');
             } else {
-                tabNavButton.classList.remove('cnet-unit-active'); 
+                tabNavButton.classList.remove('cnet-unit-active');
             }
         }
 
@@ -56,7 +55,7 @@ onUiUpdate(() => {
          */
         attachTabNavChangeObserver() {
             const observer = new MutationObserver((mutationsList, observer) => {
-                for(const mutation of mutationsList) {
+                for (const mutation of mutationsList) {
                     if (mutation.type === 'childList') {
                         this.applyActiveState();
                     }
@@ -69,5 +68,40 @@ onUiUpdate(() => {
     gradioApp().querySelectorAll('.cnet-unit-tab').forEach(tab => {
         if (cnetAllUnits.has(tab)) return;
         cnetAllUnits.set(tab, new GradioTab(tab));
+    });
+
+    function getActiveUnitCount(checkboxes) {
+        let activeUnitCount = 0;
+        for (const checkbox of checkboxes) {
+            if (checkbox.checked)
+                activeUnitCount++;
+        }
+        return activeUnitCount;
+    }
+
+    gradioApp().querySelectorAll('#controlnet').forEach(accordion => {
+        if (cnetAllAccordions.has(accordion)) return;
+        const checkboxes = accordion.querySelectorAll('.cnet-unit-enabled input');
+        if (!checkboxes) return;
+
+        const span = accordion.querySelector('.label-wrap span');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                // Remove existing badge.
+                if (span.childNodes.length !== 1) {
+                    span.removeChild(span.lastChild);
+                }
+                // Add new badge if necessary.
+                const activeUnitCount = getActiveUnitCount(checkboxes);
+                if (activeUnitCount > 0) {
+                    const div = document.createElement('div');
+                    div.classList.add('cnet-badge');
+                    div.classList.add('primary');
+                    div.innerHTML = `${activeUnitCount} unit${activeUnitCount > 1 ? 's' : ''}`;
+                    span.appendChild(div);
+                }
+            });
+        });
+        cnetAllAccordions.add(accordion);
     });
 });
