@@ -260,6 +260,7 @@ class ControlNetUiGroup(object):
                 label="Enable",
                 value=self.default_unit.enabled,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_enable_checkbox",
+                elem_classes=['cnet-unit-enabled'],
             )
             self.lowvram = gr.Checkbox(
                 label="Low VRAM",
