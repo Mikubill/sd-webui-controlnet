@@ -110,3 +110,7 @@
     color: green !important;
     font-weight: bold !important;
 }
+
+.dark .cnet-unit-active {
+    color: greenyellow !important;
+}
