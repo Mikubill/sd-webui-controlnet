@@ -261,13 +261,6 @@ def blur(x, k):
     return y
 
 
-def std_k(x, k, eps=1e-6):
-    mean = blur(x, k)
-    var = (x - mean) ** 2
-    std = blur(var, k) ** 0.5
-    return std + eps
-
-
 class TorchCache:
     def __init__(self):
         self.cache = {}
