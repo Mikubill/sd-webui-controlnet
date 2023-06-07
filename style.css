@@ -105,3 +105,28 @@
     height: var(--size-5);
     color: var(--block-label-text-color) !important;
 }
+
+.cnet-unit-active {
+    color: green !important;
+    font-weight: bold !important;
+}
+
+.dark .cnet-unit-active {
+    color: greenyellow !important;
+}
+
+.cnet-badge {
+    display: inline-block;
+    padding: 0.25em 0.75em;
+    font-size: 0.75em;
+    font-weight: bold;
+    color: white;    
+    border-radius: 0.5em;
+    text-align: center;
+    vertical-align: middle;
+    margin-left: var(--size-2);
+}
+
+.cnet-badge.primary {
+    background-color: green;
+}
