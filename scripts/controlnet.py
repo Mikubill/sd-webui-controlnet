@@ -910,6 +910,7 @@ class Script(scripts.Script):
     def postprocess(self, p, processed, *args):
         self.post_processors = []
         setattr(p, 'controlnet_initial_noise_modifier', None)
+        setattr(p, 'controlnet_vae_cache', None)
 
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
         self.post_processors = []
