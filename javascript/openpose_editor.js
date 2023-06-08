@@ -34,6 +34,10 @@ function loadOpenposeEditor() {
                 imageURL: inputImage.src,
                 poseURL: downloadLink.href,
             }, '*');
+            // Focus the iframe so that the focus is no longer on the `Edit` button.
+            // Pressing space when the focus is on `Edit` button will trigger
+            // the click again to resend the frame message.
+            modalIframe.contentWindow.focus();
         });
 
         window.addEventListener('message', (event) => {
