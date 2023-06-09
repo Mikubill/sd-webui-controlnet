@@ -59,8 +59,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_processor_res: int = Body(512, title='Controlnet Processor Resolution'),
         controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
         controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b'),
-        controlnet_pixel_perfect: bool = Body(False, title='Pixel Perfect'),
-        controlnet_resize_mode: str = Body("Just Resize", title='Resize Mode')
+        controlnet_pixel_perfect: bool = Body(False, title='Pixel Perfect')
     ):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(controlnet_module, controlnet_module)
 
@@ -88,22 +87,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
                 h, w = img.shape[:2]
 
-                h = (h // 8) * 8
-                w = (w // 8) * 8
-
-                try:
-                    resize_mode = external_code.resize_mode_from_value(controlnet_resize_mode)
-                except ValueError:
-                    raise HTTPException(
-                        status_code=422, detail="Invalid resize_mode")
-                    
-
-                res = external_code.pixel_perfect_resolution(
-                    img,
-                    target_H=h,
-                    target_W=w,
-                    resize_mode=resize_mode
-                )
+                res = min(h,w)
     
             results.append(processor_module(img, res=res, thr_a=controlnet_threshold_a, thr_b=controlnet_threshold_b)[0])
 

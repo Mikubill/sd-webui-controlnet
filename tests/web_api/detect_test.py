@@ -44,15 +44,6 @@ class TestDetectEndpointWorking(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-    def test_detect_with_invalid_resize_mode_performed(self):
-        detect_args = self.base_detect_args.copy()
-        detect_args.update({
-            "controlnet_pixel_perfect": True,
-            "controlnet_resize_mode": "INVALID"
-        })
-
-        self.assertEqual(utils.detect(detect_args).status_code, 422)
-
 
 if __name__ == "__main__":
     unittest.main()
