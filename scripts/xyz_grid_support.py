@@ -5,7 +5,8 @@ from modules import scripts, shared
 
 try:
     from scripts.global_state import update_cn_models, cn_models_names, cn_preprocessor_modules
-    from scripts.external_code import ResizeMode
+    from scripts.external_code import ResizeMode, ControlMode
+
 except (ImportError, NameError):
     import_error = True
 else:
@@ -400,6 +401,9 @@ def add_axis_options(xyz_grid):
         update_cn_models()
         return list(cn_models_names.values())
 
+    def choices_control_mode():
+        return [e.value for e in ControlMode]
+
     def choices_resize_mode():
         return [e.value for e in ResizeMode]
 
@@ -413,6 +417,7 @@ def add_axis_options(xyz_grid):
 
     validation_data = [
         {"name": "model", "type": str, "check": choices_model, "exclude": make_excluded_list},
+        {"name": "control_mode", "type": str, "check": choices_control_mode, "exclude": None},
         {"name": "resize_mode", "type": str, "check": choices_resize_mode, "exclude": None},
         {"name": "preprocessor", "type": str, "check": choices_preprocessor, "exclude": None},
     ]
@@ -423,6 +428,7 @@ def add_axis_options(xyz_grid):
         xyz_grid.AxisOption("[ControlNet] Weight", identity, apply_field("control_net_weight"), confirm=confirm(float)),
         xyz_grid.AxisOption("[ControlNet] Guidance Start", identity, apply_field("control_net_guidance_start"), confirm=confirm(float)),
         xyz_grid.AxisOption("[ControlNet] Guidance End", identity, apply_field("control_net_guidance_end"), confirm=confirm(float)),
+        xyz_grid.AxisOption("[ControlNet] Control Mode", identity, apply_field("control_net_control_mode"), confirm=confirm("control_mode"), choices=choices_control_mode),
         xyz_grid.AxisOption("[ControlNet] Resize Mode", identity, apply_field("control_net_resize_mode"), confirm=confirm("resize_mode"), choices=choices_resize_mode),
         xyz_grid.AxisOption("[ControlNet] Preprocessor", identity, apply_field("control_net_module"), confirm=confirm("preprocessor"), choices=choices_preprocessor),
         xyz_grid.AxisOption("[ControlNet] Pre Resolution", identity, apply_field("control_net_pres"), confirm=confirm(int)),

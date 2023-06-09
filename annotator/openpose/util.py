@@ -161,6 +161,9 @@ def draw_handpose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) ->
             cv2.line(canvas, (x1, y1), (x2, y2), matplotlib.colors.hsv_to_rgb([ie / float(len(edges)), 1.0, 1.0]) * 255, thickness=2)
 
     for keypoint in keypoints:
+        if keypoint is None:
+            continue
+
         x, y = keypoint.x, keypoint.y
         x = int(x * W)
         y = int(y * H)
@@ -189,6 +192,9 @@ def draw_facepose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) ->
     
     H, W, C = canvas.shape
     for keypoint in keypoints:
+        if keypoint is None:
+            continue
+        
         x, y = keypoint.x, keypoint.y
         x = int(x * W)
         y = int(y * H)
