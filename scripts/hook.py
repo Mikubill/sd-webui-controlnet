@@ -233,7 +233,7 @@ def aligned_adding(base, x, require_channel_alignment):
 
     if xh > 1 or xw > 1:
         if base_h != xh or base_w != xw:
-            print('[Warning] ControlNet finds unexpected mis-alignment in tensor shape.')
+            # print('[Warning] ControlNet finds unexpected mis-alignment in tensor shape.')
             x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
 
     return base + x
