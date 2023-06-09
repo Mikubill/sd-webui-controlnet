@@ -834,8 +834,6 @@ class ControlNetUiGroup(object):
                 event_subscribers.append(comp.edit)
             elif hasattr(comp, "click"):
                 event_subscribers.append(comp.click)
-            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
-                event_subscribers.append(comp.release)
             elif hasattr(comp, "change"):
                 event_subscribers.append(comp.change)
 
