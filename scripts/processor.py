@@ -472,15 +472,31 @@ model_lama = None
 
 
 def lama_inpaint(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res, skip_hwc3=True)
+    H, W, C = img.shape
+    raw_color = img[:, :, 0:3].copy()
+    raw_mask = img[:, :, 3:4].copy()
+
+    res = 256  # Always use 256 since lama is trained on 256
+
+    img_res, remove_pad = resize_image_with_pad(img, res, skip_hwc3=True)
+
     global model_lama
     if model_lama is None:
         from annotator.lama import LamaInpainting
         model_lama = LamaInpainting()
 
     # applied auto inversion
-    result = model_lama(img)
-    return remove_pad(result), True
+    prd_color = model_lama(img_res)
+    prd_color = remove_pad(prd_color)
+    prd_color = cv2.resize(prd_color, (W, H))
+
+    alpha = raw_mask.astype(np.float32) / 255.0
+    fin_color = prd_color.astype(np.float32) * alpha + raw_color.astype(np.float32) * (1 - alpha)
+    fin_color = fin_color.clip(0, 255).astype(np.uint8)
+
+    result = np.concatenate([fin_color, raw_mask], axis=2)
+
+    return result, True
 
 
 def unload_lama_inpaint():
@@ -843,6 +859,7 @@ preprocessor_sliders_config = {
             "step": 0.01
         }
     ],
+    "inpaint_only+lama": [],
     "color": [
         {
             "name": flag_preprocessor_resolution,

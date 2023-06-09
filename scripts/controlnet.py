@@ -643,6 +643,8 @@ class Script(scripts.Script):
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
 
+        setattr(p, 'controlnet_initial_noise_modifier', None)
+
         if self.latest_network is not None:
             # always restore (~0.05s)
             self.latest_network.restore(unet)
@@ -724,7 +726,7 @@ class Script(scripts.Script):
                 input_image = [np.asarray(x)[:, :, 0] for x in input_image]
                 input_image = np.stack(input_image, axis=2)
 
-            if 'inpaint_only' in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
+            if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
@@ -772,6 +774,10 @@ class Script(scripts.Script):
 
             h = (h // 8) * 8
             w = (w // 8) * 8
+
+            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+                # inpaint_only+lama is special and required outpaint fix
+                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, h, w)
 
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
@@ -858,8 +864,7 @@ class Script(scripts.Script):
             )
             forward_params.append(forward_param)
 
-            if unit.module == 'inpaint_only':
-
+            if 'inpaint_only' in unit.module:
                 final_inpaint_feed = hr_control if hr_control is not None else control
                 final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
@@ -885,6 +890,9 @@ class Script(scripts.Script):
 
                 post_processors.append(inpaint_only_post_processing)
 
+            if '+lama' in unit.module:
+                forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
+                setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)
             del model_net
 
         self.latest_network = UnetHook(lowvram=hook_lowvram)
@@ -900,6 +908,10 @@ class Script(scripts.Script):
         return
 
     def postprocess(self, p, processed, *args):
+        self.post_processors = []
+        setattr(p, 'controlnet_initial_noise_modifier', None)
+        setattr(p, 'controlnet_vae_cache', None)
+
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()
         self.post_processors = []
 
