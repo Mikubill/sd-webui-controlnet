@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from omegaconf import OmegaConf
 
-from annotator.lama.saicinpainting.training.data.datasets import make_constant_area_crop_params
+# from annotator.lama.saicinpainting.training.data.datasets import make_constant_area_crop_params
 from annotator.lama.saicinpainting.training.losses.distance_weighting import make_mask_distance_weighter
 from annotator.lama.saicinpainting.training.losses.feature_matching import feature_matching_loss, masked_l1_loss
 # from annotator.lama.saicinpainting.training.modules.fake_fakes import FakeFakesGenerator
