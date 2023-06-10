@@ -92,7 +92,7 @@ function loadPlaceHolder() {
         </div>
         `;
 
-        editButton.innerHTML = editButton.innerHTML + '⚠️';
+        editButton.innerHTML = '<del>' + editButton.innerHTML + '</del>';
     });
 }
 
