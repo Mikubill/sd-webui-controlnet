@@ -770,12 +770,11 @@ class Script(scripts.Script):
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
-            h, w, bsz = p.height, p.width, p.batch_size
 
             high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr
 
-            h = (h // 8) * 8
-            w = (w // 8) * 8
+            h = (p.height // 8) * 8
+            w = (p.width // 8) * 8
 
             if high_res_fix:
                 if p.hr_resize_x == 0 and p.hr_resize_y == 0:
