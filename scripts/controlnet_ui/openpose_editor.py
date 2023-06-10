@@ -4,7 +4,7 @@ import requests
 from typing import List, Dict, Any, Tuple
 
 from annotator.openpose import decode_json_as_poses, draw_poses
-from scripts.modal import ModalInterface
+from scripts.controlnet_ui.modal import ModalInterface
 from modules import shared
 
 
