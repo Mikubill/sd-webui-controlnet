@@ -14,6 +14,26 @@ function loadOpenposeEditor() {
         target.dispatchEvent(e);
     }
 
+    function navigateIframe(iframe) {
+        return new Promise((resolve) => {
+            const EDITOR_PATH = '/openpose_editor_index';
+            window.addEventListener('message', (event) => {
+                const message = event.data;
+                if (message['ready']) resolve();
+            }, {once: true});
+
+            if (new URL(iframe.src).pathname !== EDITOR_PATH) {
+                iframe.src = EDITOR_PATH;
+                // By default assume 1 second is enough for the openpose editor
+                // to load.
+                setTimeout(resolve, 1000);
+            } else {
+                // If no navigation is required, immediately return.
+                resolve();
+            }
+        });
+    }
+    
     const imageRows = gradioApp().querySelectorAll('.cnet-image-row');
     imageRows.forEach(imageRow => {
         if (cnetOpenposeEditorRegisteredElements.has(imageRow)) return;
@@ -22,13 +42,14 @@ function loadOpenposeEditor() {
         const generatedImageGroup = imageRow.querySelector('.cnet-generated-image-group');
         const editButton = generatedImageGroup.querySelector('.cnet-edit-pose');
 
-        editButton.addEventListener('click', () => {
+        editButton.addEventListener('click', async () => {
             const inputImageGroup = imageRow.querySelector('.cnet-input-image-group');
             const inputImage = inputImageGroup.querySelector('.cnet-image img');
             const downloadLink = generatedImageGroup.querySelector('.cnet-download-pose a');
             const modalId = editButton.id.replace('cnet-modal-open-', '');
             const modalIframe = generatedImageGroup.querySelector('.cnet-modal iframe');
 
+            await navigateIframe(modalIframe);
             modalIframe.contentWindow.postMessage({
                 modalId,
                 imageURL: inputImage.src,
