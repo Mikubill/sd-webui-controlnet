@@ -771,12 +771,12 @@ class Script(scripts.Script):
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
-            hign_res_fix = p.enable_hr
+            high_res_fix = p.enable_hr
 
             h = (h // 8) * 8
             w = (w // 8) * 8
 
-            if hign_res_fix:
+            if high_res_fix:
                 if p.hr_resize_x == 0 and p.hr_resize_y == 0:
                     hr_y = int(p.height * p.hr_scale)
                     hr_x = int(p.width * p.hr_scale)
