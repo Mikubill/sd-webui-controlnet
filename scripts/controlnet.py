@@ -771,7 +771,7 @@ class Script(scripts.Script):
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
 
-            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr
+            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
 
             h = (p.height // 8) * 8
             w = (p.width // 8) * 8
