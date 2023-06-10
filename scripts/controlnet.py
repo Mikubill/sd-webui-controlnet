@@ -771,7 +771,8 @@ class Script(scripts.Script):
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
             h, w, bsz = p.height, p.width, p.batch_size
-            high_res_fix = p.enable_hr
+
+            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr
 
             h = (h // 8) * 8
             w = (w // 8) * 8
@@ -810,7 +811,7 @@ class Script(scripts.Script):
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
                 is_image = False
 
-            if isinstance(p, StableDiffusionProcessingTxt2Img) and hign_res_fix:
+            if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
                     detected_maps.append((hr_detected_map, unit.module))
