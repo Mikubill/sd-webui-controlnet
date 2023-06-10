@@ -44,7 +44,11 @@ class OpenposeEditor(object):
         self.pose_input = gr.Textbox(visible=False, elem_classes=["cnet-pose-json"])
 
         self.modal = ModalInterface(
-            f'<iframe src="{OpenposeEditor.editor_url}"></iframe>',
+            # Use about:blank here as placeholder so that the iframe does not
+            # immediately navigate. Most of controlnet units do not need 
+            # openpose editor active. Only navigate when the user first click
+            # 'Edit'. The navigation logic is in `openpose_editor.js`.
+            f'<iframe src="about:blank"></iframe>',
             open_button_text="Edit",
             open_button_classes=["cnet-edit-pose"],
             open_button_extra_attrs=f'title="Send pose to {OpenposeEditor.editor_url} for edit."',
