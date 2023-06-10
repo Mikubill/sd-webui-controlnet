@@ -15,6 +15,14 @@ function loadOpenposeEditor() {
     }
 
     function navigateIframe(iframe) {
+        function getPathname(rawURL) {
+            try {
+                return new URL(rawURL).pathname;
+            } catch (e) {
+                return rawURL;
+            }
+        }
+
         return new Promise((resolve) => {
             const EDITOR_PATH = '/openpose_editor_index';
             window.addEventListener('message', (event) => {
@@ -22,7 +30,7 @@ function loadOpenposeEditor() {
                 if (message['ready']) resolve();
             }, {once: true});
 
-            if (new URL(iframe.src).pathname !== EDITOR_PATH) {
+            if (getPathname(iframe.src) !== EDITOR_PATH) {
                 iframe.src = EDITOR_PATH;
                 // By default assume 1 second is enough for the openpose editor
                 // to load.
