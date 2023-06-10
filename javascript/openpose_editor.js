@@ -87,8 +87,6 @@ function loadPlaceHolder() {
                 <li><a href="https://github.com/huchenlei/sd-webui-openpose-editor">
                     huchenlei/sd-webui-openpose-editor</a></li>
             </ul>
-
-
         </div>
         `;
 
