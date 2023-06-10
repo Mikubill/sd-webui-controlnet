@@ -770,14 +770,27 @@ class Script(scripts.Script):
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
-            h, w, bsz = p.height, p.width, p.batch_size
 
-            h = (h // 8) * 8
-            w = (w // 8) * 8
+            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+
+            h = (p.height // 8) * 8
+            w = (p.width // 8) * 8
+
+            if high_res_fix:
+                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                    hr_y = int(p.height * p.hr_scale)
+                    hr_x = int(p.width * p.hr_scale)
+                else:
+                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+                hr_y = (hr_y // 8) * 8
+                hr_x = (hr_x // 8) * 8
+            else:
+                hr_y = h
+                hr_x = w
 
             if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
                 # inpaint_only+lama is special and required outpaint fix
-                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, h, w)
+                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
 
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
@@ -797,16 +810,7 @@ class Script(scripts.Script):
                 detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
                 is_image = False
 
-            if isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr:
-                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
-                    hr_y = int(p.height * p.hr_scale)
-                    hr_x = int(p.width * p.hr_scale)
-                else:
-                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
-
-                hr_y = (hr_y // 8) * 8
-                hr_x = (hr_x // 8) * 8
-
+            if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
                     detected_maps.append((hr_detected_map, unit.module))
