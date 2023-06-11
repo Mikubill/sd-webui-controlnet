@@ -67,10 +67,10 @@ def unmark_prompt_context(x):
         # After you mark the prompts, the ControlNet will know which prompt is cond/uncond and works as expected.
         # After you mark the prompts, the mismatch errors will disappear.
         if not disable_controlnet_prompt_warning:
-            print('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
-            print('ControlNet Error: This is mainly because other extension(s) blocked A1111\'s \"process.sample()\" and deleted ControlNet\'s sample function.')
-            print('ControlNet Error: ControlNet will shift to a backup backend but the results will be worse than expectation.')
-            print('Solution (For extension developers): Take a look at ControlNet\' hook.py '
+            logger.warning('ControlNet Error: Failed to detect whether an instance is cond or uncond!')
+            logger.warning('ControlNet Error: This is mainly because other extension(s) blocked A1111\'s \"process.sample()\" and deleted ControlNet\'s sample function.')
+            logger.warning('ControlNet Error: ControlNet will shift to a backup backend but the results will be worse than expectation.')
+            logger.warning('Solution (For extension developers): Take a look at ControlNet\' hook.py '
                   'UnetHook.hook.process_sample and manually call mark_prompt_context to mark cond/uncond prompts.')
         mark_batch = torch.ones(size=(x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device)
         uc_indices = []
@@ -99,7 +99,7 @@ def create_random_tensors_hacked(*args, **kwargs):
         x0 = x0.to(result.dtype).to(result.device)
         ts = torch.tensor([p.sd_model.num_timesteps - 1] * result.shape[0]).long().to(result.device)
         result = p.sd_model.q_sample(x0, ts, result)
-        print(f'[ControlNet] Initial noise hack applied to {result.shape}.')
+        logger.info(f'[ControlNet] Initial noise hack applied to {result.shape}.')
     return result
 
 
@@ -233,7 +233,7 @@ def aligned_adding(base, x, require_channel_alignment):
 
     if xh > 1 or xw > 1:
         if base_h != xh or base_w != xw:
-            # print('[Warning] ControlNet finds unexpected mis-alignment in tensor shape.')
+            # logger.info('[Warning] ControlNet finds unexpected mis-alignment in tensor shape.')
             x = th.nn.functional.interpolate(x, size=(base_h, base_w), mode="nearest")
 
     return base + x
@@ -313,14 +313,14 @@ class UnetHook(nn.Module):
                     vae_output = p.sd_model.encode_first_stage(x)
                     vae_output = p.sd_model.get_first_stage_encoding(vae_output)
                 vae_cache.set(x, vae_output)
-                print(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
+                logger.info(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
             latent = vae_output
             if batch_size is not None and latent.shape[0] != batch_size:
                 latent = torch.cat([latent.clone() for _ in range(batch_size)], dim=0)
             latent = latent.type(devices.dtype_unet)
             return latent
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
 
     def guidance_schedule_handler(self, x):
@@ -358,7 +358,7 @@ class UnetHook(nn.Module):
 
             # Handle cond-uncond marker
             cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
-            # print(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
+            # logger.info(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
 
             # High-res fix
             for param in outer.control_params:
@@ -462,7 +462,7 @@ class UnetHook(nn.Module):
                         high_res_fix_forced_soft_injection = True
 
                 # if high_res_fix_forced_soft_injection:
-                #     print('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
+                #     logger.info('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
 
                 if param.soft_injection or high_res_fix_forced_soft_injection:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
