@@ -20,19 +20,16 @@
 .cnet-modal-content {
     position: relative;
     background-color: var(--background-fill-primary);
-    margin: 5% auto;
+    margin: 5vh auto;
     /* 15% from the top and centered */
     padding: 20px;
     border: 1px solid #888;
     width: 80%;
+    height: 90vh;
     /* Could be more or less, depending on screen size */
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     animation-name: animatetop;
     animation-duration: 0.4s;
-    padding-top: 75%;
-    /* This will give a 4:3 aspect ratio. Adjust as needed */
-    height: 0;
-    /* This is needed for the padding trick to work */
 }
 
 .cnet-modal-content.alert {
@@ -58,7 +55,7 @@
 .cnet-modal-close {
     color: white;
     float: right;
-    font-size: 28px;
+    font-size: 56px;
     font-weight: bold;
 }
 
