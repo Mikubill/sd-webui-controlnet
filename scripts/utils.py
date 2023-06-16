@@ -1,13 +1,16 @@
 import torch
 import os
 import functools
+import time
 import base64
 import numpy as np
 import gradio as gr
+import logging
 
 from typing import Any, Callable, Dict
 
 from scripts.logging import logger
+
 
 def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
@@ -80,6 +83,32 @@ def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
     return decorator
 
 
+def timer_decorator(func):
+    """Time the decorated function and output the result to debug logger."""
+    if logger.level != logging.DEBUG:
+        return func
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        logger.debug(f"{func.__name__} ran in: {end_time - start_time} sec")
+        return result
+
+    return wrapper
+
+
+class TimeMeta(type):
+    """ Metaclass to record execution time on all methods of the
+    child class. """
+    def __new__(cls, name, bases, attrs):
+        for attr_name, attr_value in attrs.items():
+            if callable(attr_value):
+                attrs[attr_name] = timer_decorator(attr_value)
+        return super().__new__(cls, name, bases, attrs)
+
+
 # svgsupports
 svgsupport = False
 try:
@@ -107,6 +136,7 @@ def svg_preprocess(inputs: Dict, preprocess: Callable):
         base64_str = "data:image/png;base64," + base64_str
         inputs["image"] = base64_str
     return preprocess(inputs)
+
 
 def get_unique_axis0(data):
     arr = np.asanyarray(data)
