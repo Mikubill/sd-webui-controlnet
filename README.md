@@ -2,7 +2,7 @@
 
 The WebUI extension for ControlNet and other injection-based SD controls.
 
-![image](https://user-images.githubusercontent.com/19834515/235606305-229b3d1e-5bfc-467f-9d55-0976eab71652.png)
+![image](https://user-images.githubusercontent.com/20929282/246632890-400b2e0d-b064-4505-b31d-49375216ca98.png)
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 

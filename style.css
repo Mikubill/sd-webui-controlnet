@@ -32,10 +32,6 @@
     animation-duration: 0.4s;
 }
 
-.cnet-modal-content.alert {
-    height: auto;
-}
-
 .cnet-modal-content iframe {
     position: absolute;
     top: 0;

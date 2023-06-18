@@ -25,13 +25,17 @@ function loadOpenposeEditor() {
 
         return new Promise((resolve) => {
             const EDITOR_PATH = '/openpose_editor_index';
+            const darkThemeParam = document.body.classList.contains('dark') ?
+                new URLSearchParams({ theme: 'dark' }).toString() :
+                '';
+
             window.addEventListener('message', (event) => {
                 const message = event.data;
                 if (message['ready']) resolve();
-            }, {once: true});
+            }, { once: true });
 
             if (getPathname(iframe.src) !== EDITOR_PATH) {
-                iframe.src = EDITOR_PATH;
+                iframe.src = `${EDITOR_PATH}?${darkThemeParam}`;
                 // By default assume 1 second is enough for the openpose editor
                 // to load.
                 setTimeout(resolve, 1000);
@@ -41,7 +45,7 @@ function loadOpenposeEditor() {
             }
         });
     }
-    
+
     const imageRows = gradioApp().querySelectorAll('.cnet-image-row');
     imageRows.forEach(imageRow => {
         if (cnetOpenposeEditorRegisteredElements.has(imageRow)) return;
