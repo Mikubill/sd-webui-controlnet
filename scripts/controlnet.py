@@ -645,17 +645,16 @@ class Script(scripts.Script):
         """
         cfg = preprocessor_sliders_config.get(
             global_state.get_module_basename(unit.module), [])
-        
-        defaults = tuple(
-            cfg[i]['value'] if i < len(cfg) else default
-            for i, default in enumerate((512, 0, 0))
-        )
-        assert len(defaults) >= 3
-        for param, default in zip(('processor_res', 'threshold_a', 'threshold_b'), defaults):
-            param_value = getattr(unit, param)
-            if param_value < 0:
-                setattr(unit, param, default)
-                logger.warning(f'Invalid value({param_value}) for {param}, using default value {default}.')
+        defaults = {
+            param: cfg_default['value']
+            for param, cfg_default in zip(
+                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
+            if cfg_default is not None
+        }
+        for param, default_value in defaults.items():
+            if getattr(unit, param) < 0:
+                setattr(unit, param, default_value)
+                logger.warning(f'Invalid value({getattr(unit, param)}) for {param}, using default value {default_value}.')
                 
     def process(self, p, *args):
         """
