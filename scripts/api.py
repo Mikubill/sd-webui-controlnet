@@ -9,7 +9,7 @@ from modules.api.models import *
 from modules.api import api
 
 from scripts import external_code, global_state
-from scripts.processor import preprocessor_sliders_config
+from scripts.processor import preprocessor_sliders_config, preprocessor_filters
 from scripts.logging import logger
 
 
@@ -48,6 +48,25 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             "module_detail": external_code.get_modules_detail(alias_names)
         }
     
+    @app.get("/controlnet/filter")
+    async def filter_list(keyword: str="All"):
+        filtered_preprocessor_list= []
+        filtered_model_list= []
+        default_option= 'none'
+        default_model= 'None'
+
+        try:
+            [filtered_preprocessor_list,filtered_model_list,default_option,default_model] = global_state.filter_selected_helper(keyword)
+        except Exception as e:
+            print("Invalid Keyword: ",e)
+
+        return {
+            "keywords": list(preprocessor_filters.keys()),
+            "module_list": filtered_preprocessor_list,
+            "model_list": filtered_model_list,
+            "default_option":default_option,
+            "default_model":default_model
+        }
     @app.get("/controlnet/settings")
     async def settings():
         max_models_num = external_code.get_max_models_num()
