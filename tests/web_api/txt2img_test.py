@@ -129,6 +129,17 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                 ]
                 self.assert_status_ok(f'Running preprocessor module: {module}')
 
+    def test_call_invalid_params(self):
+        for param in ('processor_res', 'threshold_a', 'threshold_b'):
+            with self.subTest(param=param):
+                self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+                    {
+                        "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                        "model": utils.get_model(),
+                        param: -1,
+                    }
+                ]
+                self.assert_status_ok(f'Run with {param} = -1.')
 
 if __name__ == "__main__":
     unittest.main()
