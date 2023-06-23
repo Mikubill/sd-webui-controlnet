@@ -657,7 +657,7 @@ class Script(scripts.Script):
             value = getattr(unit, param)
             if value < 0:
                 setattr(unit, param, default_value)
-                logger.warning(f'Invalid value({value}) for {param}, using default value {default_value}.')
+                logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
                 
     def process(self, p, *args):
         """
