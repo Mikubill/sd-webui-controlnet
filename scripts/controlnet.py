@@ -564,7 +564,7 @@ class Script(scripts.Script):
             p: processing.StableDiffusionProcessing, 
             unit: external_code.ControlNetUnit,
             idx: int
-        ) -> Tuple[np.ndarray, Optional[external_code.ResizeMode]]:
+        ) -> Tuple[np.ndarray, bool]:
         """ Choose input image from following sources with descending priority:
          - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
          - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
@@ -575,9 +575,9 @@ class Script(scripts.Script):
 
         Returns:
             - The input image in ndarray form.
-            - The value to overwrite `resize_mode`.
+            - Whether input image is from A1111.
         """
-        resize_mode = None
+        image_from_a1111 = False
 
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
         image = image_dict_from_any(unit.image)
@@ -628,12 +628,10 @@ class Script(scripts.Script):
                 raise ValueError('controlnet is enabled but no input image is given')
 
             input_image = HWC3(np.asarray(input_image))
-            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-            if a1111_i2i_resize_mode is not None:
-                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+            image_from_a1111 = True
         
         assert isinstance(input_image, np.ndarray)
-        return input_image, resize_mode
+        return input_image, image_from_a1111
     
     @staticmethod
     def bound_check_params(unit: external_code.ControlNetUnit) -> None:
@@ -713,9 +711,11 @@ class Script(scripts.Script):
                 model_net = Script.load_control_model(p, unet, unit.model, unit.low_vram)
                 model_net.reset()
 
-            input_image, resize_mode_overwrite = Script.choose_input_image(p, unit, idx)
-            if resize_mode_overwrite is not None:
-                resize_mode = resize_mode_overwrite
+            input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
+            if image_from_a1111:
+                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                if a1111_i2i_resize_mode is not None:
+                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
             
             a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
