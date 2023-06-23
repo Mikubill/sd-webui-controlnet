@@ -630,36 +630,13 @@ class Script(scripts.Script):
         assert isinstance(input_image, np.ndarray)
         return input_image, resize_mode
     
-    @staticmethod
-    def bound_check_params(unit: external_code.ControlNetUnit) -> None:
-        """
-        Checks and corrects negative parameters in ControlNetUnit 'unit'.
-        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to 
-        their default values if negative.
-        
-        Args:
-            unit (external_code.ControlNetUnit): The ControlNetUnit instance to check.
-        """
-        cfg = preprocessor_sliders_config.get(
-            global_state.get_module_basename(unit.module), [])
-        defaults = {
-            param: cfg_default['value']
-            for param, cfg_default in zip(
-                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
-            if cfg_default is not None
-        }
-        for param, default_value in defaults.items():
-            value = getattr(unit, param)
-            if value < 0:
-                setattr(unit, param, default_value)
-                logger.warning(f'Invalid value({value}) for {param}, using default value {default_value}.')
-                
     def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
         args contains all values returned by components from ui()
         """
+
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
 
@@ -693,8 +670,6 @@ class Script(scripts.Script):
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
-            Script.bound_check_params(unit)
-
             unit.module = global_state.get_module_basename(unit.module)
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
@@ -762,6 +737,33 @@ class Script(scripts.Script):
 
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
+
+            if unit.processor_res < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.processor_res = int(cfg[0]['value'])
+                    logger.info(f'API used default config: unit.processor_res = {unit.processor_res}')
+                except:
+                    unit.processor_res = 512
+                    logger.info(f'API used default value: unit.processor_res = {unit.processor_res}')
+
+            if unit.threshold_a < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_a = float(cfg[1]['value'])
+                    logger.info(f'API used default config: unit.threshold_a = {unit.threshold_a}')
+                except:
+                    unit.threshold_a = 0
+                    logger.info(f'API used default value: unit.threshold_a = {unit.threshold_a}')
+
+            if unit.threshold_b < 0:
+                try:
+                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
+                    unit.threshold_b = float(cfg[2]['value'])
+                    logger.info(f'API used default config: unit.threshold_b = {unit.threshold_b}')
+                except:
+                    unit.threshold_b = 0
+                    logger.info(f'API used default value: unit.threshold_b = {unit.threshold_b}')
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
