@@ -248,7 +248,7 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
         logger.warning("No ControlNetUnit detected in args. It is very likely that you are having an extension conflict."
                        f"Here are args received by ControlNet: {script_args}.")
     if any(is_stale_unit(script_arg) for script_arg in script_args):
-        logger.warning(
+        logger.debug(
             "Stale version of ControlNetUnit detected. The ControlNetUnit received"
             "by ControlNet is created before the newest load of ControlNet extension."
             "They will still be used by ControlNet as long as they provide same fields"
