@@ -652,9 +652,10 @@ class Script(scripts.Script):
             if cfg_default is not None
         }
         for param, default_value in defaults.items():
-            if getattr(unit, param) < 0:
+            value = getattr(unit, param)
+            if value < 0:
                 setattr(unit, param, default_value)
-                logger.warning(f'Invalid value({getattr(unit, param)}) for {param}, using default value {default_value}.')
+                logger.warning(f'Invalid value({value}) for {param}, using default value {default_value}.')
                 
     def process(self, p, *args):
         """
