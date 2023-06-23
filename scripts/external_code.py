@@ -220,14 +220,41 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     Fetch ControlNet processing units from ControlNet script arguments.
     Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
     """
+    def is_stale_unit(script_arg: Any) -> bool:
+        """ Returns whether the script_arg is potentially an stale version of 
+        ControlNetUnit created before module reload."""
+        return (
+            'ControlNetUnit' in type(script_arg).__name__ and
+            not isinstance(script_arg, ControlNetUnit)
+        )
+    
+    def is_controlnet_unit(script_arg: Any) -> bool:
+        """ Returns whether the script_arg is ControlNetUnit or anything that
+        can be treated like ControlNetUnit. """
+        return (
+            isinstance(script_arg, (ControlNetUnit, dict)) or
+            (
+                hasattr(script_arg, '__dict__') and
+                vars(ControlNetUnit()).keys() == vars(script_arg).keys()
+            )
+        )
+
     all_units = [
         to_processing_unit(script_arg)
         for script_arg in script_args
-        if isinstance(script_arg, ControlNetUnit) or isinstance(script_arg, dict)
+        if is_controlnet_unit(script_arg)
     ]
     if not all_units:
         logger.warning("No ControlNetUnit detected in args. It is very likely that you are having an extension conflict."
-                       f"Here are args passed to ControlNet: {script_args}.")
+                       f"Here are args received by ControlNet: {script_args}.")
+    if any(is_stale_unit(script_arg) for script_arg in script_args):
+        logger.warning(
+            "Stale version of ControlNetUnit detected. The ControlNetUnit received"
+            "by ControlNet is created before the newest load of ControlNet extension."
+            "They will still be used by ControlNet as long as they provide same fields"
+            "defined in the newest version of ControlNetUnit."
+        )
+
     return all_units
 
 
