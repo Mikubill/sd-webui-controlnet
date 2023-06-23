@@ -682,7 +682,6 @@ class Script(scripts.Script):
         detected_maps = []
         forward_params = []
         post_processors = []
-        hook_lowvram = False
 
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
@@ -701,9 +700,6 @@ class Script(scripts.Script):
             unit.module = global_state.get_module_basename(unit.module)
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
-
-            if unit.low_vram:
-                hook_lowvram = True
 
             if unit.module in model_free_preprocessors:
                 model_net = None
@@ -899,7 +895,7 @@ class Script(scripts.Script):
                 setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)
             del model_net
 
-        self.latest_network = UnetHook(lowvram=hook_lowvram)
+        self.latest_network = UnetHook(lowvram=any(unit.low_vram for unit in self.enabled_units))
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
         self.post_processors = post_processors
