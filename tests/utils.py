@@ -38,3 +38,6 @@ def get_modules():
 
 def detect(json):
     return requests.post(BASE_URL+"/controlnet/detect", json=json)
+
+def filter(payload):
+    return requests.get(BASE_URL+"/controlnet/filter",params=payload)
