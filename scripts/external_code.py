@@ -235,7 +235,8 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
             isinstance(script_arg, (ControlNetUnit, dict)) or
             (
                 hasattr(script_arg, '__dict__') and
-                vars(ControlNetUnit()).keys() == vars(script_arg).keys()
+                set(vars(ControlNetUnit()).keys()).issubset(
+                    set(vars(script_arg).keys()))
             )
         )
 
