@@ -220,15 +220,15 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     Fetch ControlNet processing units from ControlNet script arguments.
     Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
     """
-    all_units = [
-        to_processing_unit(script_arg)
-        for script_arg in script_args
-        if isinstance(script_arg, ControlNetUnit) or isinstance(script_arg, dict)
-    ]
-    if not all_units:
-        logger.warning("No ControlNetUnit detected in args. It is very likely that you are having an extension conflict."
-                       f"Here are args passed to ControlNet: {script_args}.")
-    return all_units
+
+    units = []
+    i = 0
+    while i < len(script_args):
+        if script_args[i] is not None:
+            units.append(to_processing_unit(script_args[i]))
+        i += 1
+
+    return units
 
 
 def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[ControlNetUnit]:
