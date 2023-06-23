@@ -993,7 +993,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
         global_state.default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_detectedmap_dir", shared.OptionInfo(
-        global_state.default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
+        os.path.join("detected_maps"), "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_modules_path", shared.OptionInfo(
