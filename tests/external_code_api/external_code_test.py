@@ -134,5 +134,37 @@ class TestPixelPerfectResolution(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
+class TestGetAllUnitsFrom(unittest.TestCase):
+    def test_none(self):
+        self.assertListEqual(external_code.get_all_units_from([None]), [])
+
+    def test_bool(self):
+        self.assertListEqual(external_code.get_all_units_from([True]), [])
+
+    def test_inheritance(self):
+        class Foo(external_code.ControlNetUnit):
+            def __init__(self):
+                super().__init__(self)
+                self.bar = 'a'
+        
+        foo = Foo()
+        self.assertListEqual(external_code.get_all_units_from([foo]), [foo])
+
+    def test_dict(self):
+        units = external_code.get_all_units_from([{}])
+        self.assertGreater(len(units), 0)
+        self.assertIsInstance(units[0], external_code.ControlNetUnit)
+
+    def test_unitlike(self):
+        class Foo(object):
+            """ bar """
+
+        foo = Foo()
+        for key in vars(external_code.ControlNetUnit()).keys():
+            setattr(foo, key, True)
+        setattr(foo, 'bar', False)
+        self.assertListEqual(external_code.get_all_units_from([foo]), [foo])
+
+
 if __name__ == '__main__':
     unittest.main()
