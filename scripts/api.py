@@ -49,7 +49,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         }
     
     @app.get("/controlnet/filter")
-    async def filter_list(keyword: str="All"):
+    async def filter(keyword: str="All"):
         filtered_preprocessor_list= []
         filtered_model_list= []
         default_option= 'none'
