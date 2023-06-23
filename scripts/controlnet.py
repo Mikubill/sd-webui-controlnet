@@ -10,11 +10,13 @@ import gradio as gr
 
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
+from scripts.controlnet_ui import controlnet_ui_group
 importlib.reload(processor)
 importlib.reload(utils)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
+importlib.reload(controlnet_ui_group)  # Reload ui group as `ControlNetUnit` is redefined in `external_code`.
 importlib.reload(batch_hijack)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
