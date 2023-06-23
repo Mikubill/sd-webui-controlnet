@@ -196,9 +196,6 @@ class Script(scripts.Script):
     def show(self, is_img2img):
         return scripts.AlwaysVisible
 
-    def get_threshold_block(self, proc):
-        pass
-
     @staticmethod
     def get_default_ui_unit(is_ui=True):
         cls = UiControlNetUnit if is_ui else external_code.ControlNetUnit
