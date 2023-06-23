@@ -16,7 +16,10 @@ importlib.reload(utils)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
-importlib.reload(controlnet_ui_group)  # Reload ui group as `ControlNetUnit` is redefined in `external_code`.
+# Reload ui group as `ControlNetUnit` is redefined in `external_code`. If `controlnet_ui_group`
+# is not reloaded, `UiControlNetUnit` will inherit from a stale version of `ControlNetUnit`,
+# which can cause typecheck to fail.
+importlib.reload(controlnet_ui_group)  
 importlib.reload(batch_hijack)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
