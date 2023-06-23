@@ -223,7 +223,7 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     all_units = [
         to_processing_unit(script_arg)
         for script_arg in script_args
-        if isinstance(script_arg, ControlNetUnit)
+        if isinstance(script_arg, ControlNetUnit) or isinstance(script_arg, dict)
     ]
     if not all_units:
         logger.warning("No ControlNetUnit detected in args. It is very likely that you are having an extension conflict."
