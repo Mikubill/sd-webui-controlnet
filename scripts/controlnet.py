@@ -177,6 +177,35 @@ def prepare_mask(
     return mask
 
 
+def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
+    """
+    Set the random seed for NumPy based on the provided parameters.
+
+    Args:
+        p (processing.StableDiffusionProcessing): The instance of the StableDiffusionProcessing class.
+
+    Returns:
+        Optional[int]: The computed random seed if successful, or None if an exception occurs.
+
+    This function sets the random seed for NumPy using the seed and subseed values from the given instance of
+    StableDiffusionProcessing. If either seed or subseed is -1, it uses the first value from `all_seeds`.
+    Otherwise, it takes the maximum of the provided seed value and 0.
+
+    The final random seed is computed by adding the seed and subseed values, applying a bitwise AND operation
+    with 0xFFFFFFFF to ensure it fits within a 32-bit integer.
+    """
+    try:
+        tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
+        tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
+        seed = (tmp_seed + tmp_subseed) & 0xFFFFFFFF
+        np.random.seed(seed)
+        return seed
+    except Exception as e:
+        logger.warning(e)
+        logger.warning('Warning: Failed to use consistent random seed.')
+        return None
+
+
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -656,7 +685,7 @@ class Script(scripts.Script):
             if value < 0:
                 setattr(unit, param, default_value)
                 logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
-                
+
     def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
@@ -753,14 +782,6 @@ class Script(scripts.Script):
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
-            try:
-                tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
-                tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
-                np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
-            except Exception as e:
-                logger.warning(e)
-                logger.warning('Warning: Failed to use consistent random seed.')
-
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
 
@@ -798,7 +819,19 @@ class Script(scripts.Script):
                 )
 
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
-            detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+            # Preprocessor result may depend on numpy random operations, use the
+            # random seed in `StableDiffusionProcessing` to make the 
+            # preprocessor result reproducable.
+            # Currently following preprocessors use numpy random:
+            # - shuffle
+            seed = set_numpy_seed(p)
+            logger.debug(f"Use numpy seed {seed}.")
+            detected_map, is_image = preprocessor(
+                input_image, 
+                res=preprocessor_resolution, 
+                thr_a=unit.threshold_a,
+                thr_b=unit.threshold_b,
+            )
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()

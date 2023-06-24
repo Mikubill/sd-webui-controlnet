@@ -9,7 +9,7 @@ utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "u
 utils.setup_test_env()
 
 from scripts import external_code, processor
-from scripts.controlnet import prepare_mask, Script
+from scripts.controlnet import prepare_mask, Script, set_numpy_seed
 from modules import processing
 
 
@@ -47,6 +47,55 @@ class TestPrepareMask(unittest.TestCase):
         self.assertEqual(
             processed_mask.getpixel((0, 0)), 0
         )  # black should remain black
+
+
+class TestSetNumpySeed(unittest.TestCase):
+    def test_seed_subseed_minus_one(self):
+        p = processing.StableDiffusionProcessing()
+        p.seed = -1
+        p.subseed = -1
+        p.all_seeds = [123, 456]
+        expected_seed = (123 + 123) & 0xFFFFFFFF
+        self.assertEqual(set_numpy_seed(p), expected_seed)
+
+    def test_valid_seed_subseed(self):
+        p = processing.StableDiffusionProcessing()
+        p.seed = 50
+        p.subseed = 100
+        p.all_seeds = [123, 456]
+        expected_seed = (50 + 100) & 0xFFFFFFFF
+        self.assertEqual(set_numpy_seed(p), expected_seed)
+
+    def test_invalid_seed_subseed(self):
+        p = processing.StableDiffusionProcessing()
+        p.seed = "invalid"
+        p.subseed = 2.5
+        p.all_seeds = [123, 456]
+        self.assertEqual(set_numpy_seed(p), None)
+
+    def test_empty_all_seeds(self):
+        p = processing.StableDiffusionProcessing()
+        p.seed = -1
+        p.subseed = 2
+        p.all_seeds = []
+        self.assertEqual(set_numpy_seed(p), None)
+
+    def test_random_state_change(self):
+        p = processing.StableDiffusionProcessing()
+        p.seed = 50
+        p.subseed = 100
+        p.all_seeds = [123, 456]
+        expected_seed = (50 + 100) & 0xFFFFFFFF
+
+        np.random.seed(0)  # set a known seed
+        before_random = np.random.randint(0, 1000)  # get a random integer
+
+        seed = set_numpy_seed(p)
+        self.assertEqual(seed, expected_seed)
+
+        after_random = np.random.randint(0, 1000)  # get another random integer
+
+        self.assertNotEqual(before_random, after_random)
 
 
 class MockImg2ImgProcessing(processing.StableDiffusionProcessing):
@@ -103,7 +152,9 @@ class TestScript(unittest.TestCase):
         with self.subTest(name="control net input"):
             _, from_a1111 = Script.choose_input_image(
                 p=MockImg2ImgProcessing(init_images=[TestScript.sample_np_image]),
-                unit=external_code.ControlNetUnit(image=TestScript.sample_base64_image, module='none'),
+                unit=external_code.ControlNetUnit(
+                    image=TestScript.sample_base64_image, module="none"
+                ),
                 idx=0,
             )
             self.assertFalse(from_a1111)
@@ -111,7 +162,7 @@ class TestScript(unittest.TestCase):
         with self.subTest(name="A1111 input"):
             _, from_a1111 = Script.choose_input_image(
                 p=MockImg2ImgProcessing(init_images=[TestScript.sample_np_image]),
-                unit=external_code.ControlNetUnit(module='none'),
+                unit=external_code.ControlNetUnit(module="none"),
                 idx=0,
             )
             self.assertTrue(from_a1111)
