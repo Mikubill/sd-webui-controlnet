@@ -20,7 +20,7 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
     """ We want to share the preprocessor results in a single big cache, instead of a small 
      cache for each preprocessor function. """
-    CACHE_SIZE = shared.cmd_opts.controlnet_preprocessor_cache_size
+    CACHE_SIZE = getattr(shared.cmd_opts, "controlnet_preprocessor_cache_size", 0)
 
     # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
     # helpful when debugging preprocessor code.
