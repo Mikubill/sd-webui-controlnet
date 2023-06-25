@@ -19,12 +19,14 @@ onUiUpdate(() => {
     class GradioTab {
         constructor(tab) {
             this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
+            this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
             const tabs = tab.parentNode;
             this.tabNav = tabs.querySelector('.tab-nav');
             this.tabIndex = childIndex(tab) - 1; // -1 because tab-nav is also at the same level.            
 
             this.attachEnabledButtonListener();
             this.attachTabNavChangeObserver();
+            this.attachImageUploadListener();
         }
 
         getTabNavButton() {
@@ -62,6 +64,14 @@ onUiUpdate(() => {
                 }
             });
             observer.observe(this.tabNav, { childList: true });
+        }
+
+        attachImageUploadListener() {
+            this.inputImage.addEventListener('change', (event) => {
+                if (!event.target.files) return;
+                if (!this.enabledCheckbox.checked)
+                    this.enabledCheckbox.click();
+            });
         }
     }
 
