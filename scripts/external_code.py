@@ -160,7 +160,7 @@ class ControlNetUnit:
         threshold_b: float=-1,
         guidance_start: float=0.0,
         guidance_end: float=1.0,
-        pixel_perfect: bool=False,
+        pixel_perfect: bool=True,
         control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
         **_kwargs,
     ):
