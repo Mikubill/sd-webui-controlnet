@@ -583,7 +583,11 @@ class ControlNetUiGroup(object):
     def register_run_annotator(self, is_img2img: bool):
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
             if image is None:
-                return gr.update(value=None, visible=True), gr.update(), gr.update()
+                return (
+                    gr.update(value=None, visible=True), 
+                    gr.update(), 
+                    *self.openpose_editor.update(''),
+                )
 
             img = HWC3(image["image"])
             if not (

@@ -20,7 +20,7 @@ cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
     """ We want to share the preprocessor results in a single big cache, instead of a small 
      cache for each preprocessor function. """
-    CACHE_SIZE = shared.cmd_opts.controlnet_preprocessor_cache_size
+    CACHE_SIZE = getattr(shared.cmd_opts, "controlnet_preprocessor_cache_size", 0)
 
     # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
     # helpful when debugging preprocessor code.
@@ -154,13 +154,10 @@ def get_module_basename(module: Optional[str]) -> str:
 
 default_conf = os.path.join("models", "cldm_v15.yaml")
 default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
-cn_detectedmap_dir = os.path.join("detected_maps")
-default_detectedmap_dir = cn_detectedmap_dir
+default_detectedmap_dir = os.path.join("detected_maps")
 script_dir = scripts.basedir()
 
 os.makedirs(cn_models_dir, exist_ok=True)
-os.makedirs(cn_detectedmap_dir, exist_ok=True)
-
 
 def traverse_all_files(curr_path, model_list):
     f_list = [(os.path.join(curr_path, entry.name), entry.stat())

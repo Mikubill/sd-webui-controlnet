@@ -10,11 +10,16 @@ import gradio as gr
 
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
+from scripts.controlnet_ui import controlnet_ui_group
 importlib.reload(processor)
 importlib.reload(utils)
 importlib.reload(global_state)
 importlib.reload(hook)
 importlib.reload(external_code)
+# Reload ui group as `ControlNetUnit` is redefined in `external_code`. If `controlnet_ui_group`
+# is not reloaded, `UiControlNetUnit` will inherit from a stale version of `ControlNetUnit`,
+# which can cause typecheck to fail.
+importlib.reload(controlnet_ui_group)  
 importlib.reload(batch_hijack)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
@@ -172,6 +177,35 @@ def prepare_mask(
     return mask
 
 
+def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
+    """
+    Set the random seed for NumPy based on the provided parameters.
+
+    Args:
+        p (processing.StableDiffusionProcessing): The instance of the StableDiffusionProcessing class.
+
+    Returns:
+        Optional[int]: The computed random seed if successful, or None if an exception occurs.
+
+    This function sets the random seed for NumPy using the seed and subseed values from the given instance of
+    StableDiffusionProcessing. If either seed or subseed is -1, it uses the first value from `all_seeds`.
+    Otherwise, it takes the maximum of the provided seed value and 0.
+
+    The final random seed is computed by adding the seed and subseed values, applying a bitwise AND operation
+    with 0xFFFFFFFF to ensure it fits within a 32-bit integer.
+    """
+    try:
+        tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
+        tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
+        seed = (tmp_seed + tmp_subseed) & 0xFFFFFFFF
+        np.random.seed(seed)
+        return seed
+    except Exception as e:
+        logger.warning(e)
+        logger.warning('Warning: Failed to use consistent random seed.')
+        return None
+
+
 class Script(scripts.Script):
     model_cache = OrderedDict()
 
@@ -195,9 +229,6 @@ class Script(scripts.Script):
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
-
-    def get_threshold_block(self, proc):
-        pass
 
     @staticmethod
     def get_default_ui_unit(is_ui=True):
@@ -562,7 +593,7 @@ class Script(scripts.Script):
             p: processing.StableDiffusionProcessing, 
             unit: external_code.ControlNetUnit,
             idx: int
-        ) -> Tuple[np.ndarray, Optional[external_code.ResizeMode]]:
+        ) -> Tuple[np.ndarray, bool]:
         """ Choose input image from following sources with descending priority:
          - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
          - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
@@ -573,9 +604,9 @@ class Script(scripts.Script):
 
         Returns:
             - The input image in ndarray form.
-            - The value to overwrite `resize_mode`.
+            - Whether input image is from A1111.
         """
-        resize_mode = None
+        image_from_a1111 = False
 
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
         image = image_dict_from_any(unit.image)
@@ -626,20 +657,41 @@ class Script(scripts.Script):
                 raise ValueError('controlnet is enabled but no input image is given')
 
             input_image = HWC3(np.asarray(input_image))
-            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-            if a1111_i2i_resize_mode is not None:
-                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+            image_from_a1111 = True
         
         assert isinstance(input_image, np.ndarray)
-        return input_image, resize_mode
+        return input_image, image_from_a1111
     
+    @staticmethod
+    def bound_check_params(unit: external_code.ControlNetUnit) -> None:
+        """
+        Checks and corrects negative parameters in ControlNetUnit 'unit'.
+        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to 
+        their default values if negative.
+        
+        Args:
+            unit (external_code.ControlNetUnit): The ControlNetUnit instance to check.
+        """
+        cfg = preprocessor_sliders_config.get(
+            global_state.get_module_basename(unit.module), [])
+        defaults = {
+            param: cfg_default['value']
+            for param, cfg_default in zip(
+                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
+            if cfg_default is not None
+        }
+        for param, default_value in defaults.items():
+            value = getattr(unit, param)
+            if value < 0:
+                setattr(unit, param, default_value)
+                logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
+
     def process(self, p, *args):
         """
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
         args contains all values returned by components from ui()
         """
-
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
 
@@ -659,7 +711,6 @@ class Script(scripts.Script):
         detected_maps = []
         forward_params = []
         post_processors = []
-        hook_lowvram = False
 
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
@@ -673,12 +724,11 @@ class Script(scripts.Script):
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
+            Script.bound_check_params(unit)
+
             unit.module = global_state.get_module_basename(unit.module)
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
-
-            if unit.low_vram:
-                hook_lowvram = True
 
             if unit.module in model_free_preprocessors:
                 model_net = None
@@ -686,9 +736,11 @@ class Script(scripts.Script):
                 model_net = Script.load_control_model(p, unet, unit.model, unit.low_vram)
                 model_net.reset()
 
-            input_image, resize_mode_overwrite = Script.choose_input_image(p, unit, idx)
-            if resize_mode_overwrite is not None:
-                resize_mode = resize_mode_overwrite
+            input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
+            if image_from_a1111:
+                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                if a1111_i2i_resize_mode is not None:
+                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
             
             a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
@@ -730,43 +782,8 @@ class Script(scripts.Script):
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
 
-            try:
-                tmp_seed = int(p.all_seeds[0] if p.seed == -1 else max(int(p.seed), 0))
-                tmp_subseed = int(p.all_seeds[0] if p.subseed == -1 else max(int(p.subseed), 0))
-                np.random.seed((tmp_seed + tmp_subseed) & 0xFFFFFFFF)
-            except Exception as e:
-                logger.warning(e)
-                logger.warning('Warning: Failed to use consistent random seed.')
-
             # safe numpy
             input_image = np.ascontiguousarray(input_image.copy()).copy()
-
-            if unit.processor_res < 0:
-                try:
-                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
-                    unit.processor_res = int(cfg[0]['value'])
-                    logger.info(f'API used default config: unit.processor_res = {unit.processor_res}')
-                except:
-                    unit.processor_res = 512
-                    logger.info(f'API used default value: unit.processor_res = {unit.processor_res}')
-
-            if unit.threshold_a < 0:
-                try:
-                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
-                    unit.threshold_a = float(cfg[1]['value'])
-                    logger.info(f'API used default config: unit.threshold_a = {unit.threshold_a}')
-                except:
-                    unit.threshold_a = 0
-                    logger.info(f'API used default value: unit.threshold_a = {unit.threshold_a}')
-
-            if unit.threshold_b < 0:
-                try:
-                    cfg = preprocessor_sliders_config[global_state.get_module_basename(unit.module)]
-                    unit.threshold_b = float(cfg[2]['value'])
-                    logger.info(f'API used default config: unit.threshold_b = {unit.threshold_b}')
-                except:
-                    unit.threshold_b = 0
-                    logger.info(f'API used default value: unit.threshold_b = {unit.threshold_b}')
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
@@ -802,7 +819,19 @@ class Script(scripts.Script):
                 )
 
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
-            detected_map, is_image = preprocessor(input_image, res=preprocessor_resolution, thr_a=unit.threshold_a, thr_b=unit.threshold_b)
+            # Preprocessor result may depend on numpy random operations, use the
+            # random seed in `StableDiffusionProcessing` to make the 
+            # preprocessor result reproducable.
+            # Currently following preprocessors use numpy random:
+            # - shuffle
+            seed = set_numpy_seed(p)
+            logger.debug(f"Use numpy seed {seed}.")
+            detected_map, is_image = preprocessor(
+                input_image, 
+                res=preprocessor_resolution, 
+                thr_a=unit.threshold_a,
+                thr_b=unit.threshold_b,
+            )
 
             if unit.module == "none" and "style" in unit.model:
                 detected_map_bytes = detected_map[:,:,0].tobytes()
@@ -899,7 +928,7 @@ class Script(scripts.Script):
                 setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)
             del model_net
 
-        self.latest_network = UnetHook(lowvram=hook_lowvram)
+        self.latest_network = UnetHook(lowvram=any(unit.low_vram for unit in self.enabled_units))
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
         self.detected_map = detected_maps
         self.post_processors = post_processors

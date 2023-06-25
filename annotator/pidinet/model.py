@@ -306,7 +306,7 @@ def createConvFunc(op_type):
             if weights.is_cuda:
                 buffer = torch.cuda.FloatTensor(shape[0], shape[1], 5 * 5).fill_(0).to(devices.get_device_for("controlnet"))
             else:
-                buffer = torch.zeros(shape[0], shape[1], 5 * 5)
+                buffer = torch.zeros(shape[0], shape[1], 5 * 5).to(devices.get_device_for("controlnet"))
             weights = weights.view(shape[0], shape[1], -1)
             buffer[:, :, [0, 2, 4, 10, 14, 20, 22, 24]] = weights[:, :, 1:]
             buffer[:, :, [6, 7, 8, 11, 13, 16, 17, 18]] = -weights[:, :, 1:]

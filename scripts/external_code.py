@@ -126,13 +126,13 @@ def pixel_perfect_resolution(
     else:
         estimation = max(k0, k1) * float(min(raw_H, raw_W))
     
-    logger.info(f"Pixel Perfect Computation:")
-    logger.info(f"resize_mode = {resize_mode}")
-    logger.info(f"raw_H = {raw_H}")
-    logger.info(f"raw_W = {raw_W}")
-    logger.info(f"target_H = {target_H}")
-    logger.info(f"target_W = {target_W}")
-    logger.info(f"estimation = {estimation}")
+    logger.debug(f"Pixel Perfect Computation:")
+    logger.debug(f"resize_mode = {resize_mode}")
+    logger.debug(f"raw_H = {raw_H}")
+    logger.debug(f"raw_W = {raw_W}")
+    logger.debug(f"target_H = {target_H}")
+    logger.debug(f"target_W = {target_W}")
+    logger.debug(f"estimation = {estimation}")
 
     return int(np.round(estimation))
 
@@ -220,15 +220,43 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
     Fetch ControlNet processing units from ControlNet script arguments.
     Use `external_code.get_all_units` to fetch units from the list of all scripts arguments.
     """
+    def is_stale_unit(script_arg: Any) -> bool:
+        """ Returns whether the script_arg is potentially an stale version of 
+        ControlNetUnit created before module reload."""
+        return (
+            'ControlNetUnit' in type(script_arg).__name__ and
+            not isinstance(script_arg, ControlNetUnit)
+        )
+    
+    def is_controlnet_unit(script_arg: Any) -> bool:
+        """ Returns whether the script_arg is ControlNetUnit or anything that
+        can be treated like ControlNetUnit. """
+        return (
+            isinstance(script_arg, (ControlNetUnit, dict)) or
+            (
+                hasattr(script_arg, '__dict__') and
+                set(vars(ControlNetUnit()).keys()).issubset(
+                    set(vars(script_arg).keys()))
+            )
+        )
 
-    units = []
-    i = 0
-    while i < len(script_args):
-        if script_args[i] is not None:
-            units.append(to_processing_unit(script_args[i]))
-        i += 1
+    all_units = [
+        to_processing_unit(script_arg)
+        for script_arg in script_args
+        if is_controlnet_unit(script_arg)
+    ]
+    if not all_units:
+        logger.warning("No ControlNetUnit detected in args. It is very likely that you are having an extension conflict."
+                       f"Here are args received by ControlNet: {script_args}.")
+    if any(is_stale_unit(script_arg) for script_arg in script_args):
+        logger.debug(
+            "Stale version of ControlNetUnit detected. The ControlNetUnit received"
+            "by ControlNet is created before the newest load of ControlNet extension."
+            "They will still be used by ControlNet as long as they provide same fields"
+            "defined in the newest version of ControlNetUnit."
+        )
 
-    return units
+    return all_units
 
 
 def get_single_unit_from(script_args: List[Any], index: int=0) -> Optional[ControlNetUnit]:
