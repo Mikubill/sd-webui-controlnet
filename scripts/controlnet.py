@@ -818,6 +818,11 @@ class Script(scripts.Script):
                     resize_mode=resize_mode
                 )
 
+            midas_modules = ("depth", "normal_map")
+            if unit.module in midas_modules and preprocessor_resolution > 512:
+                logger.info("Midas models are trained on 384 resolution, which perform bad when using resolution > 512."
+                            "Please consider lower the resolution and/or turn off pixel perfect mode.")
+
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
             # Preprocessor result may depend on numpy random operations, use the
             # random seed in `StableDiffusionProcessing` to make the 
