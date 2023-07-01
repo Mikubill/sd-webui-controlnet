@@ -422,6 +422,8 @@ class Script(scripts.Script):
         unit.threshold_b = selector(p, "control_net_pthr_b", unit.threshold_b, idx)
         unit.guidance_start = selector(p, "control_net_guidance_start", unit.guidance_start, idx)
         unit.guidance_end = selector(p, "control_net_guidance_end", unit.guidance_end, idx)
+        # Backward compatibility. See https://github.com/Mikubill/sd-webui-controlnet/issues/1740
+        # for more details.
         unit.guidance_end = selector(p, "control_net_guidance_strength", unit.guidance_end, idx)
         unit.control_mode = selector(p, "control_net_control_mode", unit.control_mode, idx)
         unit.pixel_perfect = selector(p, "control_net_pixel_perfect", unit.pixel_perfect, idx)
