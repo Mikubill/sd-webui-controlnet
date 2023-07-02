@@ -5,6 +5,7 @@ import sys
 import time
 import datetime
 from enum import Enum
+from typing import List, Tuple
 
 import cv2
 import requests
@@ -12,6 +13,7 @@ import numpy as np
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -78,6 +80,33 @@ class SeleniumTestCase(unittest.TestCase):
         if not input_image_group.is_displayed():
             controlnet_panel.click()
 
+    def iterate_preprocessor_types(self, ignore_none: bool = True):
+        dropdown = self.gen_type.controlnet_panel(self.driver).find_element(
+            By.CSS_SELECTOR,
+            f"#{self.gen_type.value}_controlnet_ControlNet-0_controlnet_preprocessor_dropdown",
+        )
+
+        index = 0
+        while True:
+            dropdown.click()
+            options = dropdown.find_elements(
+                By.XPATH, "//ul[contains(@class, 'options')]/li"
+            )
+            input_element = dropdown.find_element(By.CSS_SELECTOR, "input")
+
+            if index >= len(options):
+                return
+
+            option = options[index]
+            index += 1
+
+            if "none" in option.text and ignore_none:
+                continue
+            option_text = option.text
+            option.click()
+
+            yield option_text
+
     def select_control_type(self, control_type: str):
         controlnet_panel = self.gen_type.controlnet_panel(self.driver)
         control_type_radio = controlnet_panel.find_element(
@@ -119,6 +148,12 @@ class SeleniumTestCase(unittest.TestCase):
         )
         image_input.send_keys(img_path)
 
+    def upload_img2img_input(self, img_path: str):
+        image_input = self.driver.find_element(
+            By.CSS_SELECTOR, '#img2img_image input[type="file"]'
+        )
+        image_input.send_keys(img_path)
+
     def generate_image(self, name: str):
         self.gen_type.generate_button(self.driver).click()
         progress_bar_locator_visible = EC.visibility_of_element_located(
@@ -147,8 +182,13 @@ class SeleniumTestCase(unittest.TestCase):
                 img_file.write(img_content)
 
             if not overwrite_expectation:
-                img1 = cv2.imread(os.path.join(test_expectation_dir, img_file_name))
-                img2 = cv2.imread(os.path.join(test_result_dir, img_file_name))
+                try:
+                    img1 = cv2.imread(os.path.join(test_expectation_dir, img_file_name))
+                    img2 = cv2.imread(os.path.join(test_result_dir, img_file_name))
+                except Exception as e:
+                    self.assertTrue(False, f"Get exception reading imgs: {e}")
+                    continue
+
                 self.expect_same_image(
                     img1,
                     img2,
@@ -174,6 +214,23 @@ class SeleniumTestCase(unittest.TestCase):
         self.assertTrue(similar)
 
 
+simple_control_types = {
+    "Canny": "canny",
+    "Depth": "depth_midas",
+    "Normal": "normal_bae",
+    "OpenPose": "openpose_full",
+    "MLSD": "mlsd",
+    "Lineart": "lineart_standard (from white bg & black line)",
+    "SoftEdge": "softedge_pidinet",
+    "Scribble": "scribble_pidinet",
+    "Seg": "seg_ofade20k",
+    # Shuffle is currently non-deterministic
+    # "Shuffle": "shuffle",
+    "Tile": "tile_resample",
+    "Reference": "reference_only",
+}.keys()
+
+
 class SeleniumTxt2ImgTest(SeleniumTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -182,29 +239,67 @@ class SeleniumTxt2ImgTest(SeleniumTestCase):
         self.set_subseed(1000)
 
     def test_simple_control_types(self):
-        """Test simple control types that only requires a reference image."""
-        simple_control_types = {
-            "Canny": "canny",
-            "Depth": "depth_midas",
-            "Normal": "normal_bae",
-            "OpenPose": "openpose_full",
-            "MLSD": "mlsd",
-            "Lineart": "lineart_standard (from white bg & black line)",
-            "SoftEdge": "softedge_pidinet",
-            "Scribble": "scribble_pidinet",
-            "Seg": "seg_ofade20k",
-            # Shuffle is currently non-deterministic
-            # "Shuffle": "shuffle",
-            "Tile": "tile_resample", 
-            "Reference": "reference_only",
-        }.keys()
-
+        """Test simple control types that only requires input image."""
         for control_type in simple_control_types:
             with self.subTest(control_type=control_type):
                 self.expand_controlnet_panel()
                 self.select_control_type(control_type)
                 self.upload_controlnet_input(SKI_IMAGE)
                 self.generate_image(f"{control_type}_ski")
+
+
+class SeleniumImg2ImgTest(SeleniumTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.select_gen_type(GenType.img2img)
+        self.set_seed(100)
+        self.set_subseed(1000)
+
+    def test_simple_control_types(self):
+        """Test simple control types that only requires input image."""
+        for control_type in simple_control_types:
+            with self.subTest(control_type=control_type):
+                self.expand_controlnet_panel()
+                self.select_control_type(control_type)
+                self.upload_img2img_input(SKI_IMAGE)
+                self.upload_controlnet_input(SKI_IMAGE)
+                self.generate_image(f"img2img_{control_type}_ski")
+
+
+class SeleniumInpainTest(SeleniumTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.set_seed(100)
+        self.set_subseed(1000)
+
+    def draw_inpaint_mask(
+        self, target_canvas, trace: List[Tuple[int, int]] = [(5, 5), (50, 50)]
+    ):
+        if not trace:
+            return
+
+        actions = ActionChains(self.driver)
+        actions.move_to_element(target_canvas)  # move to the canvas
+        actions.move_by_offset(*trace[0])
+        actions.click_and_hold()  # click and hold the left mouse button down
+        for stop_point in trace[1:]:
+            actions.move_by_offset(*stop_point)
+        actions.release()  # release the left mouse button
+        actions.perform()  # perform the action chain
+
+    def test_txt2img_inpaint(self):
+        self.select_gen_type(GenType.txt2img)
+        self.expand_controlnet_panel()
+        self.select_control_type("Inpaint")
+        self.upload_controlnet_input(SKI_IMAGE)
+        # The first canvas in the first ControlNetUnit.
+        canvas = GenType.txt2img.controlnet_panel(self.driver).find_element(
+            By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
+        )
+        self.draw_inpaint_mask(canvas)
+
+        for option in self.iterate_preprocessor_types():
+            self.generate_image(f"{option}_txt2img_ski")
 
 
 if __name__ == "__main__":
@@ -215,9 +310,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target_url", type=str, default="http://localhost:7860", help="WebUI URL"
     )
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     overwrite_expectation = args.overwrite_expectation
     webui_url = args.target_url
 
-    sys.argv = sys.argv[:1]
+    sys.argv = unknown_args
     unittest.main()
