@@ -54,11 +54,12 @@ class GenType(Enum):
 class SeleniumTestCase(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
-        self.driver = webdriver.Chrome(ChromeDriverManager().install())
+        self.driver = None
         self.gen_type = None
 
     def setUp(self) -> None:
         super().setUp()
+        self.driver = webdriver.Chrome(ChromeDriverManager().install())
         self.driver.get(webui_url)
         wait = WebDriverWait(self.driver, TIMEOUT)
         wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "#controlnet")))
@@ -273,7 +274,7 @@ class SeleniumInpainTest(SeleniumTestCase):
         self.set_subseed(1000)
 
     def draw_inpaint_mask(
-        self, target_canvas, trace: List[Tuple[int, int]] = [(5, 5), (50, 50)]
+        self, target_canvas, trace: List[Tuple[int, int]] = [(5, 5), (10, 10)]
     ):
         if not trace:
             return
@@ -299,7 +300,46 @@ class SeleniumInpainTest(SeleniumTestCase):
         self.draw_inpaint_mask(canvas)
 
         for option in self.iterate_preprocessor_types():
-            self.generate_image(f"{option}_txt2img_ski")
+            with self.subTest(option=option):
+                self.generate_image(f"{option}_txt2img_ski")
+
+    def test_img2img_inpaint(self):
+        self._test_img2img_inpaint(True, True)
+        self.tearDown()
+        self.setUp()
+        self._test_img2img_inpaint(True, False)
+        self.tearDown()
+        self.setUp()
+        self._test_img2img_inpaint(False, True)
+
+    def _test_img2img_inpaint(self, use_cn_mask: bool, use_a1111_mask: bool):
+        self.select_gen_type(GenType.img2img)
+        self.expand_controlnet_panel()
+        self.select_control_type("Inpaint")
+        self.upload_img2img_input(SKI_IMAGE)
+        # Send to inpaint
+        self.driver.find_element(
+            By.XPATH, f"//*[@id='img2img_copy_to_img2img']//button[text()='inpaint']"
+        ).click()
+        time.sleep(3)
+        self.upload_controlnet_input(SKI_IMAGE)
+
+        prefix = ""
+        if use_cn_mask:
+            canvas = GenType.img2img.controlnet_panel(self.driver).find_element(
+                By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
+            )
+            self.draw_inpaint_mask(canvas)
+            prefix += "controlnet"
+
+        if use_a1111_mask:
+            canvas = self.driver.find_element(By.CSS_SELECTOR, "#img2maskimg canvas")
+            self.draw_inpaint_mask(canvas)
+            prefix += "A1111"
+
+        for option in self.iterate_preprocessor_types():
+            with self.subTest(option=option, mask_prefix=prefix):
+                self.generate_image(f"{option}_{prefix}_img2img_ski")
 
 
 if __name__ == "__main__":
