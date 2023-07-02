@@ -27,6 +27,7 @@ test_result_dir = os.path.join("results", f"test_result_{timestamp}")
 test_expectation_dir = "expectations"
 os.makedirs(test_result_dir, exist_ok=True)
 os.makedirs(test_expectation_dir, exist_ok=True)
+driver_path = ChromeDriverManager().install()
 
 
 class GenType(Enum):
@@ -50,6 +51,9 @@ class GenType(Enum):
     def generate_button(self, driver: webdriver.Chrome) -> "WebElement":
         return self._find_by_xpath(driver, f"//*[@id='{self.value}_generate_box']")
 
+    def prompt_textarea(self, driver: webdriver.Chrome) -> "WebElement":
+        return self._find_by_xpath(driver, f"//*[@id='{self.value}_prompt']//textarea")
+
 
 class SeleniumTestCase(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
@@ -59,7 +63,7 @@ class SeleniumTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.driver = webdriver.Chrome(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(driver_path)
         self.driver.get(webui_url)
         wait = WebDriverWait(self.driver, TIMEOUT)
         wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "#controlnet")))
@@ -72,6 +76,11 @@ class SeleniumTestCase(unittest.TestCase):
     def select_gen_type(self, gen_type: GenType):
         gen_type.tab(self.driver).click()
         self.gen_type = gen_type
+
+    def set_prompt(self, prompt: str):
+        textarea = self.gen_type.prompt_textarea(self.driver)
+        textarea.clear()
+        textarea.send_keys(prompt)
 
     def expand_controlnet_panel(self):
         controlnet_panel = self.gen_type.controlnet_panel(self.driver)
@@ -226,7 +235,7 @@ simple_control_types = {
     "Scribble": "scribble_pidinet",
     "Seg": "seg_ofade20k",
     # Shuffle is currently non-deterministic
-    # "Shuffle": "shuffle",
+    "Shuffle": "shuffle",
     "Tile": "tile_resample",
     "Reference": "reference_only",
 }.keys()
@@ -274,10 +283,20 @@ class SeleniumInpainTest(SeleniumTestCase):
         self.set_subseed(1000)
 
     def draw_inpaint_mask(
-        self, target_canvas, trace: List[Tuple[int, int]] = [(5, 5), (10, 10)]
+        self, target_canvas
     ):
-        if not trace:
-            return
+        size = target_canvas.size
+        width = size['width']
+        height = size['height']
+        brush_radius = 5
+        repeat = int(width * 0.1 / brush_radius)
+
+        trace: List[Tuple[int, int]] = [
+            (brush_radius, 0),
+            (0, height * 0.2),
+            (brush_radius, 0),
+            (0, - height * 0.2)
+        ] * repeat
 
         actions = ActionChains(self.driver)
         actions.move_to_element(target_canvas)  # move to the canvas
@@ -288,16 +307,22 @@ class SeleniumInpainTest(SeleniumTestCase):
         actions.release()  # release the left mouse button
         actions.perform()  # perform the action chain
 
+    def draw_cn_mask(self):        
+        canvas = self.gen_type.controlnet_panel(self.driver).find_element(
+            By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
+        )
+        self.draw_inpaint_mask(canvas)
+
+    def draw_a1111_mask(self):
+        canvas = self.driver.find_element(By.CSS_SELECTOR, "#img2maskimg canvas")
+        self.draw_inpaint_mask(canvas)
+
     def test_txt2img_inpaint(self):
         self.select_gen_type(GenType.txt2img)
         self.expand_controlnet_panel()
         self.select_control_type("Inpaint")
         self.upload_controlnet_input(SKI_IMAGE)
-        # The first canvas in the first ControlNetUnit.
-        canvas = GenType.txt2img.controlnet_panel(self.driver).find_element(
-            By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
-        )
-        self.draw_inpaint_mask(canvas)
+        self.draw_cn_mask()
 
         for option in self.iterate_preprocessor_types():
             with self.subTest(option=option):
@@ -322,19 +347,21 @@ class SeleniumInpainTest(SeleniumTestCase):
             By.XPATH, f"//*[@id='img2img_copy_to_img2img']//button[text()='inpaint']"
         ).click()
         time.sleep(3)
+        # Select latent noise to make inpaint effect more visible.
+        self.driver.find_element(
+            By.XPATH,
+            f"//input[@name='radio-img2img_inpainting_fill' and @value='latent noise']",
+        ).click()
+        self.set_prompt("(coca-cola:2.0)")
         self.upload_controlnet_input(SKI_IMAGE)
 
         prefix = ""
         if use_cn_mask:
-            canvas = GenType.img2img.controlnet_panel(self.driver).find_element(
-                By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
-            )
-            self.draw_inpaint_mask(canvas)
+            self.draw_cn_mask()
             prefix += "controlnet"
 
         if use_a1111_mask:
-            canvas = self.driver.find_element(By.CSS_SELECTOR, "#img2maskimg canvas")
-            self.draw_inpaint_mask(canvas)
+            self.draw_a1111_mask()
             prefix += "A1111"
 
         for option in self.iterate_preprocessor_types():
@@ -354,5 +381,5 @@ if __name__ == "__main__":
     overwrite_expectation = args.overwrite_expectation
     webui_url = args.target_url
 
-    sys.argv = unknown_args
+    sys.argv = sys.argv[:1] + unknown_args
     unittest.main()
