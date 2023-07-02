@@ -169,3 +169,7 @@ cython_debug/
 .vscode/
 detected_maps/
 annotator/downloads/
+
+# test results and expectations
+web_tests/results/
+web_tests/expectations/
