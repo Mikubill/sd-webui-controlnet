@@ -1,5 +1,6 @@
 import gc
 import os
+import logging
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
@@ -7,6 +8,7 @@ import importlib
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
+
 
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
@@ -206,7 +208,9 @@ def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
         return None
 
 
-class Script(scripts.Script, metaclass=utils.TimeMeta):
+class Script(scripts.Script, metaclass=(
+    utils.TimeMeta if logger.level == logging.DEBUG else type)):
+
     model_cache = OrderedDict()
 
     def __init__(self) -> None:

@@ -93,7 +93,10 @@ def timer_decorator(func):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        logger.debug(f"{func.__name__} ran in: {end_time - start_time} sec")
+        duration = end_time - start_time
+        # Only report function that are significant enough.
+        if duration > 1e-3:
+            logger.debug(f"{func.__name__} ran in: {duration} sec")
         return result
 
     return wrapper
