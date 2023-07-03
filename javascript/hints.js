@@ -1,4 +1,4 @@
-onUiUpdate(function () {
+(function () {
     // mouseover tooltips for various UI elements
     const titles = {
         '🔄': 'Refresh',
@@ -8,10 +8,13 @@ onUiUpdate(function () {
         '📷': 'Enable webcam',
         '⇄': 'Mirror webcam',
     };
-    gradioApp().querySelectorAll('.cnet-toolbutton').forEach(function (button) {
-        const tooltip = titles[button.textContent];
-        if (tooltip) {
-            button.title = tooltip;
-        }
-    })
-});
+
+    onUiUpdate(function () {
+        gradioApp().querySelectorAll('.cnet-toolbutton').forEach(function (button) {
+            const tooltip = titles[button.textContent];
+            if (tooltip) {
+                button.title = tooltip;
+            }
+        })
+    });
+})();
