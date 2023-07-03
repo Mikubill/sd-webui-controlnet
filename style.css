@@ -113,7 +113,7 @@
     padding: 0.25em 0.75em;
     font-size: 0.75em;
     font-weight: bold;
-    color: white;    
+    color: white;
     border-radius: 0.5em;
     text-align: center;
     vertical-align: middle;
@@ -122,4 +122,10 @@
 
 .cnet-badge.primary {
     background-color: green;
+}
+
+.cnet-a1111-badge {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
 }
