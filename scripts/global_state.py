@@ -159,8 +159,11 @@ script_dir = scripts.basedir()
 os.makedirs(cn_models_dir, exist_ok=True)
 
 def traverse_all_files(curr_path, model_list):
-    f_list = [(os.path.join(curr_path, entry.name), entry.stat())
-              for entry in os.scandir(curr_path)]
+    f_list = [
+        (os.path.join(curr_path, entry.name), entry.stat())
+        for entry in os.scandir(curr_path)
+        if os.path.isdir(curr_path)
+    ]
     for f_info in f_list:
         fname, fstat = f_info
         if os.path.splitext(fname)[1] in CN_MODEL_EXTS:
