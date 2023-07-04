@@ -2,6 +2,7 @@
  * Give a badge on ControlNet Accordion indicating total number of active 
  * units.
  * Make active unit's tab name green.
+ * Append control type to tab name.
  */
 (function () {
     const cnetAllUnits = new Map/* <Element, GradioTab> */();
@@ -21,17 +22,29 @@
             constructor(tab) {
                 this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
                 this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
+                this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
+
                 const tabs = tab.parentNode;
                 this.tabNav = tabs.querySelector('.tab-nav');
-                this.tabIndex = childIndex(tab) - 1; // -1 because tab-nav is also at the same level.            
+                this.tabIndex = childIndex(tab) - 1; // -1 because tab-nav is also at the same level.
 
                 this.attachEnabledButtonListener();
+                this.attachControlTypeRadioListener();
                 this.attachTabNavChangeObserver();
                 this.attachImageUploadListener();
             }
 
             getTabNavButton() {
                 return this.tabNav.querySelector(`:nth-child(${this.tabIndex + 1})`);
+            }
+
+            getActiveControlType() {
+                for (let radio of this.controlTypeRadios) {
+                    if (radio.checked) {
+                        return radio.value;
+                    }
+                }
+                return undefined;
             }
 
             applyActiveState() {
@@ -45,10 +58,39 @@
                 }
             }
 
+            /**
+             * Add the active control type to tab displayed text.
+             */
+            applyActiveControlType() {
+                const tabNavButton = this.getTabNavButton();
+                if (!tabNavButton) return;
+
+                // Remove the control if exists
+                const controlTypeSuffix = tabNavButton.querySelector('.control-type-suffix');
+                if (controlTypeSuffix) controlTypeSuffix.remove();
+
+                // Add new suffix.
+                const controlType = this.getActiveControlType();
+                if (controlType === 'All') return;
+
+                const span = document.createElement('span');
+                span.innerHTML = `[${controlType}]`;
+                span.classList.add('control-type-suffix');
+                tabNavButton.appendChild(span);
+            }
+
             attachEnabledButtonListener() {
                 this.enabledCheckbox.addEventListener('change', () => {
                     this.applyActiveState();
                 });
+            }
+
+            attachControlTypeRadioListener() {
+                for (const radio of this.controlTypeRadios) {
+                    radio.addEventListener('change', () => {
+                        this.applyActiveControlType();
+                    });
+                }
             }
 
             /**
@@ -57,17 +99,18 @@
              * them.
              */
             attachTabNavChangeObserver() {
-                const observer = new MutationObserver((mutationsList, observer) => {
+                new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         if (mutation.type === 'childList') {
                             this.applyActiveState();
+                            this.applyActiveControlType();
                         }
                     }
-                });
-                observer.observe(this.tabNav, { childList: true });
+                }).observe(this.tabNav, { childList: true });
             }
 
             attachImageUploadListener() {
+                // Automatically check `enable` checkbox when image is uploaded.
                 this.inputImage.addEventListener('change', (event) => {
                     if (!event.target.files) return;
                     if (!this.enabledCheckbox.checked)
