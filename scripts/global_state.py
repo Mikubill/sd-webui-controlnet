@@ -162,7 +162,7 @@ def traverse_all_files(curr_path, model_list):
     f_list = [
         (os.path.join(curr_path, entry.name), entry.stat())
         for entry in os.scandir(curr_path)
-        if os.path.exists(curr_path)
+        if os.path.isdir(curr_path)
     ]
     for f_info in f_list:
         fname, fstat = f_info
