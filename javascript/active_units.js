@@ -47,7 +47,7 @@
                 return undefined;
             }
 
-            applyActiveState() {
+            updateActiveState() {
                 const tabNavButton = this.getTabNavButton();
                 if (!tabNavButton) return;
 
@@ -61,7 +61,7 @@
             /**
              * Add the active control type to tab displayed text.
              */
-            applyActiveControlType() {
+            updateActiveControlType() {
                 const tabNavButton = this.getTabNavButton();
                 if (!tabNavButton) return;
 
@@ -81,14 +81,14 @@
 
             attachEnabledButtonListener() {
                 this.enabledCheckbox.addEventListener('change', () => {
-                    this.applyActiveState();
+                    this.updateActiveState();
                 });
             }
 
             attachControlTypeRadioListener() {
                 for (const radio of this.controlTypeRadios) {
                     radio.addEventListener('change', () => {
-                        this.applyActiveControlType();
+                        this.updateActiveControlType();
                     });
                 }
             }
@@ -102,8 +102,8 @@
                 new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         if (mutation.type === 'childList') {
-                            this.applyActiveState();
-                            this.applyActiveControlType();
+                            this.updateActiveState();
+                            this.updateActiveControlType();
                         }
                     }
                 }).observe(this.tabNav, { childList: true });
