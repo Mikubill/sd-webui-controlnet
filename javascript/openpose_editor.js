@@ -37,9 +37,9 @@
 
                 if (getPathname(iframe.src) !== EDITOR_PATH) {
                     iframe.src = `${EDITOR_PATH}?${darkThemeParam}`;
-                    // By default assume 1 second is enough for the openpose editor
+                    // By default assume 5 second is enough for the openpose editor
                     // to load.
-                    setTimeout(resolve, 1000);
+                    setTimeout(resolve, 5000);
                 } else {
                     // If no navigation is required, immediately return.
                     resolve();
