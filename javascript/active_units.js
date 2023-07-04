@@ -57,17 +57,17 @@
              * them.
              */
             attachTabNavChangeObserver() {
-                const observer = new MutationObserver((mutationsList, observer) => {
+                new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         if (mutation.type === 'childList') {
                             this.applyActiveState();
                         }
                     }
-                });
-                observer.observe(this.tabNav, { childList: true });
+                }).observe(this.tabNav, { childList: true });
             }
 
             attachImageUploadListener() {
+                // Automatically check `enable` checkbox when image is uploaded.
                 this.inputImage.addEventListener('change', (event) => {
                     if (!event.target.files) return;
                     if (!this.enabledCheckbox.checked)
