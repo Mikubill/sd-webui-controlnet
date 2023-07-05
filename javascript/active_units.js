@@ -5,7 +5,7 @@
  * Append control type to tab name.
  */
 (function () {
-    const cnetAllUnits = new Map/* <Element, GradioTab> */();
+    const cnetAllUnits = new Map/* <Element, ControlNetUnitTab> */();
     const cnetAllAccordions = new Set();
     onUiUpdate(() => {
         function childIndex(element) {
@@ -22,7 +22,7 @@
             alert('Inpaint control type must use a1111 input in img2img mode.');
         }
 
-        class GradioTab {
+        class ControlNetUnitTab {
             constructor(tab) {
                 this.tab = tab;
                 this.isImg2Img = tab.querySelector('.cnet-unit-enabled').id.includes('img2img');
@@ -153,7 +153,7 @@
 
         gradioApp().querySelectorAll('.cnet-unit-tab').forEach(tab => {
             if (cnetAllUnits.has(tab)) return;
-            cnetAllUnits.set(tab, new GradioTab(tab));
+            cnetAllUnits.set(tab, new ControlNetUnitTab(tab));
         });
 
         function getActiveUnitCount(checkboxes) {
