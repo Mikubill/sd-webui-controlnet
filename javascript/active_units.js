@@ -3,11 +3,52 @@
  * units.
  * Make active unit's tab name green.
  * Append control type to tab name.
+ * Disable resize mode selection when A1111 img2img input is used.
  */
 (function () {
     const cnetAllUnits = new Map/* <Element, ControlNetUnitTab> */();
     const cnetAllAccordions = new Set();
     onUiUpdate(() => {
+        const ImgChangeType = {
+            NO_CHANGE: 0,
+            REMOVE: 1,
+            ADD: 2,
+            SRC_CHANGE: 3,
+        };
+
+        function imgChangeObserved(mutationsList) {
+            // Iterate over all mutations that just occured
+            for (let mutation of mutationsList) {
+                // Check if the mutation is an addition or removal of a node
+                if (mutation.type === 'childList') {
+                    // Check if nodes were added
+                    if (mutation.addedNodes.length > 0) {
+                        for (const node of mutation.addedNodes) {
+                            if (node.tagName === 'IMG') {
+                                return ImgChangeType.ADD;
+                            }
+                        }
+                    }
+
+                    // Check if nodes were removed
+                    if (mutation.removedNodes.length > 0) {
+                        for (const node of mutation.removedNodes) {
+                            if (node.tagName === 'IMG') {
+                                return ImgChangeType.REMOVE;
+                            }
+                        }
+                    }
+                }
+                // Check if the mutation is a change of an attribute
+                else if (mutation.type === 'attributes') {
+                    if (mutation.target.tagName === 'IMG' && mutation.attributeName === 'src') {
+                        return ImgChangeType.SRC_CHANGE;
+                    }
+                }
+            }
+            return ImgChangeType.NO_CHANGE;
+        }
+
         function childIndex(element) {
             // Get all child nodes of the parent
             let children = Array.from(element.parentNode.childNodes);
@@ -29,7 +70,9 @@
 
                 this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
                 this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
+                this.inputImageContainer = tab.querySelector('.cnet-input-image-group .cnet-image');
                 this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
+                this.resizeModeRadios = tab.querySelectorAll('.controlnet_resize_mode_radio input[type="radio"]');
 
                 const tabs = tab.parentNode;
                 this.tabNav = tabs.querySelector('.tab-nav');
@@ -39,6 +82,11 @@
                 this.attachControlTypeRadioListener();
                 this.attachTabNavChangeObserver();
                 this.attachImageUploadListener();
+                this.attachImageStateChangeObserver();
+
+                // Initial updates:
+                if (this.isImg2Img)
+                    this.updateResizeModeState();
             }
 
             getTabNavButton() {
@@ -110,6 +158,26 @@
                 }
             }
 
+            /**
+             * For img2img, disable resize mode selection when using A1111
+             * input, as the selected resize mode won't take any effect in
+             * the backend when using A1111 input.
+             */
+            updateResizeModeState() {
+                const img = this.inputImageContainer.querySelector('img');
+                for (const radio of this.resizeModeRadios) {
+                    if (img) {
+                        radio.disabled = false;
+                        radio.parentNode.classList.remove('cnet-disabled-radio');
+                        radio.parentNode.removeAttribute('title');
+                    } else {
+                        radio.disabled = true;
+                        radio.parentNode.classList.add('cnet-disabled-radio');
+                        radio.parentNode.title = "Use A1111 resize mode when input is from A1111.";
+                    }
+                }
+            }
+
             attachEnabledButtonListener() {
                 this.enabledCheckbox.addEventListener('change', () => {
                     this.updateActiveState();
@@ -147,6 +215,21 @@
                     if (!event.target.files) return;
                     if (!this.enabledCheckbox.checked)
                         this.enabledCheckbox.click();
+                });
+            }
+
+            attachImageStateChangeObserver() {
+                if (!this.isImg2Img) return;
+
+                new MutationObserver((mutationsList) => {
+                    const changeObserved = imgChangeObserved(mutationsList);
+                    if (changeObserved === ImgChangeType.ADD ||
+                        changeObserved === ImgChangeType.REMOVE) {
+                        this.updateResizeModeState();
+                    }
+                }).observe(this.inputImageContainer, {
+                    childList: true,
+                    subtree: true,
                 });
             }
         }
