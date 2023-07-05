@@ -18,8 +18,15 @@
             return children.indexOf(element);
         }
 
+        function imageInputDisabledAlert() {
+            alert('Inpaint control type must use a1111 input in img2img mode.');
+        }
+
         class GradioTab {
             constructor(tab) {
+                this.tab = tab;
+                this.isImg2Img = tab.querySelector('.cnet-unit-enabled').id.includes('img2img');
+
                 this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
                 this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
                 this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
@@ -47,7 +54,7 @@
                 return undefined;
             }
 
-            applyActiveState() {
+            updateActiveState() {
                 const tabNavButton = this.getTabNavButton();
                 if (!tabNavButton) return;
 
@@ -61,7 +68,7 @@
             /**
              * Add the active control type to tab displayed text.
              */
-            applyActiveControlType() {
+            updateActiveControlType() {
                 const tabNavButton = this.getTabNavButton();
                 if (!tabNavButton) return;
 
@@ -79,16 +86,41 @@
                 tabNavButton.appendChild(span);
             }
 
+            /**
+             * When 'Inpaint' control type is selected in img2img:
+             * - Make image input disabled
+             * - Clear existing image input
+             */
+            updateImageInputState() {
+                if (!this.isImg2Img) return;
+
+                const tabNavButton = this.getTabNavButton();
+                if (!tabNavButton) return;
+
+                const controlType = this.getActiveControlType();
+                if (controlType.toLowerCase() === 'inpaint') {
+                    this.inputImage.disabled = true;
+                    this.inputImage.parentNode.addEventListener('click', imageInputDisabledAlert);
+                    const removeButton = this.tab.querySelector(
+                        '.cnet-input-image-group .cnet-image button[aria-label="Remove Image"]');
+                    if (removeButton) removeButton.click();
+                } else {
+                    this.inputImage.disabled = false;
+                    this.inputImage.parentNode.removeEventListener('click', imageInputDisabledAlert);
+                }
+            }
+
             attachEnabledButtonListener() {
                 this.enabledCheckbox.addEventListener('change', () => {
-                    this.applyActiveState();
+                    this.updateActiveState();
                 });
             }
 
             attachControlTypeRadioListener() {
                 for (const radio of this.controlTypeRadios) {
                     radio.addEventListener('change', () => {
-                        this.applyActiveControlType();
+                        this.updateActiveControlType();
+                        this.updateImageInputState();
                     });
                 }
             }
@@ -102,8 +134,8 @@
                 new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         if (mutation.type === 'childList') {
-                            this.applyActiveState();
-                            this.applyActiveControlType();
+                            this.updateActiveState();
+                            this.updateActiveControlType();
                         }
                     }
                 }).observe(this.tabNav, { childList: true });

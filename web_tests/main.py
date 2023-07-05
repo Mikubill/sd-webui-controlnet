@@ -90,6 +90,14 @@ class SeleniumTestCase(unittest.TestCase):
         if not input_image_group.is_displayed():
             controlnet_panel.click()
 
+    def enable_controlnet_unit(self):
+        controlnet_panel = self.gen_type.controlnet_panel(self.driver)
+        enable_checkbox = controlnet_panel.find_element(
+            By.CSS_SELECTOR, ".cnet-unit-enabled input[type='checkbox']"
+        )
+        if not enable_checkbox.is_selected():
+            enable_checkbox.click()
+
     def iterate_preprocessor_types(self, ignore_none: bool = True):
         dropdown = self.gen_type.controlnet_panel(self.driver).find_element(
             By.CSS_SELECTOR,
@@ -277,18 +285,14 @@ class SeleniumImg2ImgTest(SeleniumTestCase):
                 self.generate_image(f"img2img_{control_type}_ski")
 
 
-class SeleniumInpainTest(SeleniumTestCase):
+class SeleniumInpaintTest(SeleniumTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.set_seed(100)
-        self.set_subseed(1000)
 
-    def draw_inpaint_mask(
-        self, target_canvas
-    ):
+    def draw_inpaint_mask(self, target_canvas):
         size = target_canvas.size
-        width = size['width']
-        height = size['height']
+        width = size["width"]
+        height = size["height"]
         brush_radius = 5
         repeat = int(width * 0.1 / brush_radius)
 
@@ -296,7 +300,7 @@ class SeleniumInpainTest(SeleniumTestCase):
             (brush_radius, 0),
             (0, height * 0.2),
             (brush_radius, 0),
-            (0, - height * 0.2)
+            (0, -height * 0.2),
         ] * repeat
 
         actions = ActionChains(self.driver)
@@ -308,7 +312,7 @@ class SeleniumInpainTest(SeleniumTestCase):
         actions.release()  # release the left mouse button
         actions.perform()  # perform the action chain
 
-    def draw_cn_mask(self):        
+    def draw_cn_mask(self):
         canvas = self.gen_type.controlnet_panel(self.driver).find_element(
             By.CSS_SELECTOR, ".cnet-input-image-group .cnet-image canvas"
         )
@@ -325,18 +329,17 @@ class SeleniumInpainTest(SeleniumTestCase):
         self.upload_controlnet_input(SKI_IMAGE)
         self.draw_cn_mask()
 
+        self.set_seed(100)
+        self.set_subseed(1000)
+
         for option in self.iterate_preprocessor_types():
             with self.subTest(option=option):
                 self.generate_image(f"{option}_txt2img_ski")
 
     def test_img2img_inpaint(self):
-        self._test_img2img_inpaint(True, True)
-        self.tearDown()
-        self.setUp()
-        self._test_img2img_inpaint(True, False)
-        self.tearDown()
-        self.setUp()
-        self._test_img2img_inpaint(False, True)
+        # Note: img2img inpaint can only use A1111 mask.
+        # ControlNet input is disabled in img2img inpaint.
+        self._test_img2img_inpaint(use_cn_mask=False, use_a1111_mask=True)
 
     def _test_img2img_inpaint(self, use_cn_mask: bool, use_a1111_mask: bool):
         self.select_gen_type(GenType.img2img)
@@ -354,7 +357,11 @@ class SeleniumInpainTest(SeleniumTestCase):
             f"//input[@name='radio-img2img_inpainting_fill' and @value='latent noise']",
         ).click()
         self.set_prompt("(coca-cola:2.0)")
+        self.enable_controlnet_unit()
         self.upload_controlnet_input(SKI_IMAGE)
+
+        self.set_seed(100)
+        self.set_subseed(1000)
 
         prefix = ""
         if use_cn_mask:
