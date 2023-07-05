@@ -188,7 +188,6 @@
                 for (const radio of this.controlTypeRadios) {
                     radio.addEventListener('change', () => {
                         this.updateActiveControlType();
-                        this.updateImageInputState();
                     });
                 }
             }
