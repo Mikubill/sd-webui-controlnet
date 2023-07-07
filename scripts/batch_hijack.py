@@ -187,7 +187,7 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
     output_dir = ''
     input_file_names = []
     for unit in units:
-        if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH:
+        if str(getattr(unit, 'input_mode', InputMode.SIMPLE)) == str(InputMode.BATCH):
             any_unit_is_batch = True
             output_dir = getattr(unit, 'output_dir', '')
             if isinstance(unit.batch_images, str):
@@ -197,14 +197,14 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
     if any_unit_is_batch:
         cn_batch_size = min(len(getattr(unit, 'batch_images', []))
                          for unit in units
-                         if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH)
+                         if str(getattr(unit, 'input_mode', InputMode.SIMPLE)) == str(InputMode.BATCH))
     else:
         cn_batch_size = 1
 
     batches = [[] for _ in range(cn_batch_size)]
     for i in range(cn_batch_size):
         for unit in units:
-            if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.SIMPLE:
+            if str(getattr(unit, 'input_mode', InputMode.SIMPLE)) == str(InputMode.SIMPLE):
                 batches[i].append(unit.image)
             else:
                 batches[i].append(unit.batch_images[i])
