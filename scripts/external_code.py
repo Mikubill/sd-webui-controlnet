@@ -305,7 +305,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             del unit['mask']
 
         if 'image' in unit and not isinstance(unit['image'], dict):
-            unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] else None
+            unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit['image'] is not None else None
 
         if 'guess_mode' in unit:
             logger.warning('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
