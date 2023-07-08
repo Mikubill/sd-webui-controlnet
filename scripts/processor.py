@@ -95,7 +95,9 @@ def greyscale(img, res=512, **kwargs):
     """convert input image to greyscale
     to be use with https://huggingface.co/ioclab/control_v1p_sd15_brightness
     """
-    return cv2.cvtColor(HWC3(img), cv2.COLOR_RGB2GRAY, dstCn=3), True
+    img, remove_pad = resize_image_with_pad(img, res)
+    result = cv2.cvtColor(HWC3(img), cv2.COLOR_RGB2GRAY, dstCn=3)
+    return remove_pad(result), True
 
 
 model_hed = None
@@ -895,6 +897,14 @@ preprocessor_sliders_config = {
             "min": 0.01,
             "max": 1.0,
             "step": 0.01
+        }
+    ],
+    "greyscale": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048,
         }
     ],
 }

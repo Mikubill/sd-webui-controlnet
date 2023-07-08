@@ -138,6 +138,7 @@ preprocessor_aliases = {
     "oneformer_ade20k": "seg_ofade20k",
     "pidinet_scribble": "scribble_pidinet",
     "inpaint": "inpaint_global_harmonious",
+    "greyscale": "greyscale (for brightness control)",
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
