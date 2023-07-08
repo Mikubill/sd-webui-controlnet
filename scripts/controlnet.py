@@ -4,7 +4,6 @@ import logging
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
-import importlib
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
@@ -13,16 +12,6 @@ import gradio as gr
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
 from scripts.controlnet_ui import controlnet_ui_group
-importlib.reload(processor)
-importlib.reload(utils)
-importlib.reload(global_state)
-importlib.reload(hook)
-importlib.reload(external_code)
-# Reload ui group as `ControlNetUnit` is redefined in `external_code`. If `controlnet_ui_group`
-# is not reloaded, `UiControlNetUnit` will inherit from a stale version of `ControlNetUnit`,
-# which can cause typecheck to fail.
-importlib.reload(controlnet_ui_group)  
-importlib.reload(batch_hijack)
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
 from scripts.adapter import PlugableAdapter
