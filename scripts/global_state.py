@@ -9,7 +9,7 @@ from scripts.processor import *
 from scripts.utils import ndarray_lru_cache
 from scripts.logging import logger
 
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, Tuple, List
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -224,9 +224,9 @@ def update_cn_models():
         cn_models_names[name] = name_and_hash
 
 
-def filter_selected_helper(k):
-    default_option = preprocessor_filters[k]
-    pattern = k.lower()
+def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, str]:
+    default_option = preprocessor_filters[control_type]
+    pattern = control_type.lower()
     preprocessor_list = ui_preprocessor_keys
     model_list = list(cn_models.keys())
     if pattern == "all":
@@ -235,7 +235,7 @@ def filter_selected_helper(k):
             model_list,
             'none', #default option
             "None"  #default model 
-            ] 
+        ]
     filtered_preprocessor_list = [
         x
         for x in preprocessor_list
@@ -260,4 +260,9 @@ def filter_selected_helper(k):
                 default_model = x
                 break
     
-    return [filtered_preprocessor_list,filtered_model_list, default_option,default_model]
+    return (
+        filtered_preprocessor_list,
+        filtered_model_list, 
+        default_option,
+        default_model
+    )

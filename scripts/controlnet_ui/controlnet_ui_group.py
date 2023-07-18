@@ -533,11 +533,16 @@ class ControlNetUiGroup(object):
         if self.type_filter is not None:
 
             def filter_selected(k, pp):
-                [filtered_preprocessor_list,filtered_model_list,default_option,default_model ] =  global_state.filter_selected_helper(k)                    
+                (
+                    filtered_preprocessor_list,
+                    filtered_model_list,
+                    default_option,
+                    default_model
+                ) =  global_state.select_control_type(k)
                 return [
-                            gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
-                            gr.Dropdown.update(value=default_model, choices=filtered_model_list),
-                        ] + build_sliders(default_option, pp)
+                    gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
+                    gr.Dropdown.update(value=default_model, choices=filtered_model_list),
+                ] + build_sliders(default_option, pp)
                 
             self.type_filter.change(
                 filter_selected,
