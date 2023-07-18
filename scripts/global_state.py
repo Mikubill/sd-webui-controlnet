@@ -9,7 +9,7 @@ from scripts.processor import *
 from scripts.utils import ndarray_lru_cache
 from scripts.logging import logger
 
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, Tuple, List
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -222,3 +222,47 @@ def update_cn_models():
             continue
         name = os.path.splitext(os.path.basename(filename))[0].lower()
         cn_models_names[name] = name_and_hash
+
+
+def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, str]:
+    default_option = preprocessor_filters[control_type]
+    pattern = control_type.lower()
+    preprocessor_list = ui_preprocessor_keys
+    model_list = list(cn_models.keys())
+    if pattern == "all":
+        return [
+            preprocessor_list,
+            model_list,
+            'none', #default option
+            "None"  #default model 
+        ]
+    filtered_preprocessor_list = [
+        x
+        for x in preprocessor_list
+        if pattern in x.lower() or x.lower() == "none"
+    ]
+    if pattern in ["canny", "lineart", "scribble", "mlsd"]:
+        filtered_preprocessor_list += [
+            x for x in preprocessor_list if "invert" in x.lower()
+        ]
+    filtered_model_list = [
+        x for x in model_list if pattern in x.lower() or x.lower() == "none"
+    ]
+    if default_option not in filtered_preprocessor_list:
+        default_option = filtered_preprocessor_list[0]
+    if len(filtered_model_list) == 1:
+        default_model = "None"
+        filtered_model_list = model_list
+    else:
+        default_model = filtered_model_list[1]
+        for x in filtered_model_list:
+            if "11" in x.split("[")[0]:
+                default_model = x
+                break
+    
+    return (
+        filtered_preprocessor_list,
+        filtered_model_list, 
+        default_option,
+        default_model
+    )
