@@ -331,7 +331,7 @@ def update_cn_script_in_processing(
     Update the arguments of the ControlNet script in `p.script_args` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
 
-    Does not update `p.script_args` if any of the folling is true:
+    Does not update `p.script_args` if any of the following is true:
     - ControlNet is not present in `p.scripts`
     - `p.script_args` is not filled with script arguments for scripts that are processed before ControlNet
     """
@@ -352,7 +352,7 @@ def update_cn_script_in_place(
     Update the arguments of the ControlNet script in `script_args` in place, reading from `cn_units`.
     `cn_units` and its elements are not modified. You can call this function repeatedly, as many times as you want.
 
-    Does not update `script_args` if any of the folling is true:
+    Does not update `script_args` if any of the following is true:
     - ControlNet is not present in `script_runner`
     - `script_args` is not filled with script arguments for scripts that are processed before ControlNet
     """

@@ -1,11 +1,12 @@
 import json
 import gradio as gr
 import functools
+import types
 from copy import copy
 from typing import List, Optional, Union, Callable
 import numpy as np
 
-from scripts.utils import svg_preprocess
+from scripts.utils import image_preprocess
 from scripts import (
     global_state,
     external_code,
@@ -870,9 +871,7 @@ class ControlNetUiGroup(object):
             self.control_mode,
         )
 
-        self.image.preprocess = functools.partial(
-            svg_preprocess, preprocess=self.image.preprocess
-        )
+        self.image.preprocess = types.MethodType(image_preprocess, self.image)
 
         unit = gr.State(self.default_unit)
         for comp in unit_args:

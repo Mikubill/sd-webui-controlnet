@@ -104,7 +104,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         elif image['image']:
             image['image'] = external_code.to_base64_nparray(image['image'])
         else:
-            image['image'] = None            
+            image['image'] = None
 
     # If there is no image, return image with None image and None mask
     if image['image'] is None:
@@ -543,8 +543,8 @@ class Script(scripts.Script, metaclass=(
             idx: int
         ) -> Tuple[np.ndarray, bool]:
         """ Choose input image from following sources with descending priority:
-         - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
-         - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
+         - p.image_control: [Deprecated] Legacy way to pass image to controlnet.
+         - p.control_net_input_image: [Deprecated] Legacy way to pass image to controlnet.
          - unit.image: 
            - ControlNet tab input image.
            - Input image from API call.
