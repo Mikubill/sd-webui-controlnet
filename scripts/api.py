@@ -33,8 +33,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         return {"version": external_code.get_api_version()}
 
     @app.get("/controlnet/model_list")
-    async def model_list():
-        up_to_date_model_list = external_code.get_models(update=True)
+    async def model_list(update: bool = True):
+        up_to_date_model_list = external_code.get_models(update=update)
         logger.debug(up_to_date_model_list)
         return {"model_list": up_to_date_model_list}
 
