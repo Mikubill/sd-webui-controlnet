@@ -702,6 +702,11 @@ class Script(scripts.Script, metaclass=(
         if len(self.enabled_units) == 0:
            self.latest_network = None
            return
+        
+        is_sdxl = getattr(p.sd_model, 'is_sdxl', False)
+        if is_sdxl:
+            logger.warning('ControlNet does not support SDXL -- disabling')
+            return
 
         detected_maps = []
         forward_params = []
@@ -934,7 +939,7 @@ class Script(scripts.Script, metaclass=(
     def postprocess_batch(self, p, *args, **kwargs):
         images = kwargs.get('images', [])
         for post_processor in self.post_processors:
-            for i in range(images.shape[0]):
+            for i in range(len(images)):
                 images[i] = post_processor(images[i])
         return
 
@@ -1033,6 +1038,8 @@ def on_ui_settings():
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
     shared.opts.add_option("control_net_inpaint_blur_sigma", shared.OptionInfo(
         7, "ControlNet inpainting Gaussian blur sigma", gr.Slider, {"minimum": 0, "maximum": 64, "step": 1}, section=section))
+    shared.opts.add_option("control_net_no_high_res_fix", shared.OptionInfo(
+        False, "Do not apply ControlNet during highres fix", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
