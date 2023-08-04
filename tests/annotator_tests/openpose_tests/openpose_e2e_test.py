@@ -92,17 +92,27 @@ class TestOpenposeDetector(unittest.TestCase):
         )
 
     def test_dw(self):
-        self.template(
-            test_image = f'{TestOpenposeDetector.image_path}/woman.jpeg',
-            expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_dw_all_output.png',
-            detector_config=dict(
-                include_body=True,
-                include_face=True,
-                include_hand=True,
-                use_dw_pose=True,
-            ),
-            overwrite_expectation=False,
-        )
+        # Need following code to pass A1111 safety check.
+        import mmengine
+        from modules import safe
+
+        def handler(module, name):
+            if module == 'mmengine.logging.history_buffer' and name in ['HistoryBuffer']:
+                return mmengine.logging.history_buffer.HistoryBuffer
+            return None
+
+        with safe.Extra(handler):
+            self.template(
+                test_image = f'{TestOpenposeDetector.image_path}/woman.jpeg',
+                expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_dw_all_output.png',
+                detector_config=dict(
+                    include_body=True,
+                    include_face=True,
+                    include_hand=True,
+                    use_dw_pose=True,
+                ),
+                overwrite_expectation=False,
+            )
         
 if __name__ == '__main__':
     unittest.main()
