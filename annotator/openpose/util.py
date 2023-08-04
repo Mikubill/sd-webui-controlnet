@@ -68,7 +68,7 @@ def transfer(model, model_weights):
 
 
 def is_normalized(keypoints: List[Optional[Keypoint]]) -> bool:
-    return all(0 <= k.x <= 1 and 0 <= k.y <= 1 for k in keypoints if k is not None)
+    return all(0 <= abs(k.x) <= 1 and 0 <= abs(k.y) <= 1 for k in keypoints if k is not None)
     
 def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
     """
