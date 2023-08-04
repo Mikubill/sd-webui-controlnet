@@ -101,7 +101,7 @@ class TestOpenposeDetector(unittest.TestCase):
                 include_hand=True,
                 use_dw_pose=True,
             ),
-            overwrite_expectation=True,
+            overwrite_expectation=False,
         )
         
 if __name__ == '__main__':
