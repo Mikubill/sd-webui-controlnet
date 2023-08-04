@@ -27,6 +27,7 @@ from typing import Tuple, List, Callable, Union, Optional
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
+remote_dw_model_path = "https://huggingface.co/camenduru/DWPose/resolve/main/dw-ll_ucoco_384.pth"
 
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
@@ -182,6 +183,7 @@ class OpenposeDetector:
         body_modelpath = os.path.join(self.model_dir, "body_pose_model.pth")
         hand_modelpath = os.path.join(self.model_dir, "hand_pose_model.pth")
         face_modelpath = os.path.join(self.model_dir, "facenet.pth")
+        dw_modelpath = os.path.join(self.model_dir, "dw-ll_ucoco_384.pth")
 
         if not os.path.exists(body_modelpath):
             from basicsr.utils.download_util import load_file_from_url
@@ -194,11 +196,15 @@ class OpenposeDetector:
         if not os.path.exists(face_modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(face_model_path, model_dir=self.model_dir)
+        
+        if not os.path.exists(dw_modelpath):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(remote_dw_model_path, model_dir=self.model_dir)
 
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)
         self.face_estimation = Face(face_modelpath)
-        self.dw_pose_estimation = Wholebody()
+        self.dw_pose_estimation = Wholebody(dw_modelpath, device=self.device)
 
     def unload_model(self):
         """
@@ -208,8 +214,8 @@ class OpenposeDetector:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
-            self.dw_pose_estimation.detector.to("cpu")
-            self.dw_pose_estimation.pose_estimator.to("cpu")
+            # self.dw_pose_estimation.detector.to("cpu")
+            # self.dw_pose_estimation.pose_estimator.to("cpu")
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
@@ -269,6 +275,8 @@ class OpenposeDetector:
         self.body_estimation.model.to(self.device)
         self.hand_estimation.model.to(self.device)
         self.face_estimation.model.to(self.device)
+        # self.dw_pose_estimation.detector.to(self.device)
+        # self.dw_pose_estimation.pose_estimator.to(self.device)
 
         self.body_estimation.cn_device = self.device
         self.hand_estimation.cn_device = self.device

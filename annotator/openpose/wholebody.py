@@ -12,17 +12,21 @@ from mmpose.structures import merge_data_samples
 
 from mmdet.apis import inference_detector, init_detector
 
+import os
 from typing import List, Optional
 from .types import PoseResult, BodyResult, Keypoint
 
+def get_current_file_directory():
+    return os.path.dirname(os.path.realpath(__file__))
 
 class Wholebody:
-    def __init__(self):
-        device = "cuda:0"
-        det_config = "annotator/dwpose/yolox_config/yolox_l_8xb8-300e_coco.py"
+    def __init__(self, dw_modelpath: str, device: str):
+        directory = get_current_file_directory()
+
+        det_config = f"{directory}/yolox_config/yolox_l_8xb8-300e_coco.py"
         det_ckpt = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_l_8x8_300e_coco/yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth"
-        pose_config = "annotator/dwpose/dwpose_config/dwpose-l_384x288.py"
-        pose_ckpt = "annotator/ckpts/dw-ll_ucoco_384.pth"
+        pose_config = f"{directory}/dwpose_config/dwpose-l_384x288.py"
+        pose_ckpt = dw_modelpath
 
         # build detector
         self.detector = init_detector(det_config, det_ckpt, device=device)
