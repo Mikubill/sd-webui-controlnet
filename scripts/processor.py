@@ -261,7 +261,7 @@ class OpenposeModel(object):
     def unload(self):
         if self.model_openpose is not None:
             self.model_openpose.unload_model()
-
+            self.model_openpose.unload_dw_model()
 
 g_openpose_model = OpenposeModel()
 
@@ -907,7 +907,7 @@ preprocessor_filters = {
     "Canny": "canny",
     "Depth": "depth_midas",
     "Normal": "normal_bae",
-    "OpenPose": "dw_openpose_full",
+    "OpenPose": "openpose_full",
     "MLSD": "mlsd",
     "Lineart": "lineart_standard (from white bg & black line)",
     "SoftEdge": "softedge_pidinet",

@@ -183,7 +183,6 @@ class OpenposeDetector:
         body_modelpath = os.path.join(self.model_dir, "body_pose_model.pth")
         hand_modelpath = os.path.join(self.model_dir, "hand_pose_model.pth")
         face_modelpath = os.path.join(self.model_dir, "facenet.pth")
-        dw_modelpath = os.path.join(self.model_dir, "dw-ll_ucoco_384.pth")
 
         if not os.path.exists(body_modelpath):
             from basicsr.utils.download_util import load_file_from_url
@@ -197,13 +196,15 @@ class OpenposeDetector:
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(face_model_path, model_dir=self.model_dir)
         
-        if not os.path.exists(dw_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_dw_model_path, model_dir=self.model_dir)
-
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)
         self.face_estimation = Face(face_modelpath)
+    
+    def load_dw_model(self):
+        dw_modelpath = os.path.join(self.model_dir, "dw-ll_ucoco_384.pth")
+        if not os.path.exists(dw_modelpath):
+            from basicsr.utils.download_util import load_file_from_url
+            load_file_from_url(remote_dw_model_path, model_dir=self.model_dir)
         self.dw_pose_estimation = Wholebody(dw_modelpath, device=self.device)
 
     def unload_model(self):
@@ -214,8 +215,11 @@ class OpenposeDetector:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
-            # self.dw_pose_estimation.detector.to("cpu")
-            # self.dw_pose_estimation.pose_estimator.to("cpu")
+    
+    def unload_dw_model(self):
+        if self.dw_pose_estimation is not None:
+            self.dw_pose_estimation.detector.to("cpu")
+            self.dw_pose_estimation.pose_estimator.to("cpu")
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
@@ -274,9 +278,7 @@ class OpenposeDetector:
             
         self.body_estimation.model.to(self.device)
         self.hand_estimation.model.to(self.device)
-        self.face_estimation.model.to(self.device)
-        # self.dw_pose_estimation.detector.to(self.device)
-        # self.dw_pose_estimation.pose_estimator.to(self.device)
+        self.face_estimation.model.to(self.device)        
 
         self.body_estimation.cn_device = self.device
         self.hand_estimation.cn_device = self.device
@@ -311,6 +313,12 @@ class OpenposeDetector:
             return results
     
     def detect_poses_dw(self, oriImg) -> List[PoseResult]:
+        if self.dw_pose_estimation is None:
+            self.load_dw_model()
+
+        self.dw_pose_estimation.detector.to(self.device)
+        self.dw_pose_estimation.pose_estimator.to(self.device)
+
         with torch.no_grad():
             keypoints_info = self.dw_pose_estimation(oriImg.copy())
             return Wholebody.format_result(keypoints_info)
