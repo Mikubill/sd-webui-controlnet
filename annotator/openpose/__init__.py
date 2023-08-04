@@ -17,23 +17,17 @@ from . import util
 from .body import Body, BodyResult, Keypoint
 from .hand import Hand
 from .face import Face
+from .wholebody import Wholebody # DW Pose
+from .types import PoseResult, HandResult, FaceResult
 from modules import devices
 from annotator.annotator_path import models_path
 
-from typing import NamedTuple, Tuple, List, Callable, Union, Optional
+from typing import Tuple, List, Callable, Union, Optional
 
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
 
-HandResult = List[Keypoint]
-FaceResult = List[Keypoint]
-
-class PoseResult(NamedTuple):
-    body: BodyResult
-    left_hand: Union[HandResult, None]
-    right_hand: Union[HandResult, None]
-    face: Union[FaceResult, None]
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
     """
@@ -179,6 +173,8 @@ class OpenposeDetector:
         self.hand_estimation = None
         self.face_estimation = None
 
+        self.dw_pose_estimation = None
+
     def load_model(self):
         """
         Load the Openpose body, hand, and face models.
@@ -202,6 +198,7 @@ class OpenposeDetector:
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)
         self.face_estimation = Face(face_modelpath)
+        self.dw_pose_estimation = Wholebody()
 
     def unload_model(self):
         """
@@ -302,10 +299,15 @@ class OpenposeDetector:
                 ), left_hand, right_hand, face))
             
             return results
-        
+    
+    def detect_poses_dw(self, oriImg) -> List[PoseResult]:
+        with torch.no_grad():
+            keypoints_info = self.dw_pose_estimation(oriImg.copy())
+            return Wholebody.format_result(keypoints_info)
+
     def __call__(
-            self, oriImg, include_body=True, include_hand=False, include_face=False,
-            json_pose_callback: Callable[[str], None] = None,
+            self, oriImg, include_body=True, include_hand=False, include_face=False, 
+            use_dw_pose=False, json_pose_callback: Callable[[str], None] = None,
         ):
         """
         Detect and draw poses in the given image.
@@ -315,14 +317,19 @@ class OpenposeDetector:
             include_body (bool, optional): Whether to include body keypoints. Defaults to True.
             include_hand (bool, optional): Whether to include hand keypoints. Defaults to False.
             include_face (bool, optional): Whether to include face keypoints. Defaults to False.
+            use_dw_pose (bool, optional): Whether to use DW pose detection algorithm. Defaults to False.
             json_pose_callback (Callable, optional): A callback that accepts the pose JSON string.
 
         Returns:
             numpy.ndarray: The image with detected and drawn poses.
         """
         H, W, _ = oriImg.shape
-        poses = self.detect_poses(oriImg, include_hand, include_face)
+
+        if use_dw_pose:
+            poses = self.detect_poses_dw(oriImg)
+        else:
+            poses = self.detect_poses(oriImg, include_hand, include_face)
+
         if json_pose_callback:
             json_pose_callback(encode_poses_as_json(poses, H, W))
-        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face) 
-                     
+        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face)
