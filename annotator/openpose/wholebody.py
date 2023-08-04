@@ -94,7 +94,7 @@ class Wholebody:
             return None if all(keypoint is None for keypoint in keypoints) else keypoints
 
         def total_score(keypoints: List[Keypoint]) -> float:
-            return sum(keypoint.score for keypoint in keypoints)
+            return sum(keypoint.score for keypoint in keypoints if keypoint is not None)
         
         pose_results = []
 

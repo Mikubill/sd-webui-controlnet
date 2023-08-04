@@ -94,7 +94,7 @@ class TestOpenposeDetector(unittest.TestCase):
     def test_dw(self):
         self.template(
             test_image = f'{TestOpenposeDetector.image_path}/woman.jpeg',
-            expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_all_output.png',
+            expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_dw_all_output.png',
             detector_config=dict(
                 include_body=True,
                 include_face=True,

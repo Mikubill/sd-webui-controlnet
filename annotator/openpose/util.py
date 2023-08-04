@@ -2,7 +2,7 @@ import math
 import numpy as np
 import matplotlib
 import cv2
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 
 from .body import BodyResult, Keypoint
 
@@ -67,8 +67,8 @@ def transfer(model, model_weights):
     return transfered_model_weights
 
 
-def is_normalized(keypoints: List[Keypoint]) -> bool:
-    return all(0 <= k.x <= 1 and 0 <= k.y <= 1 for k in keypoints)
+def is_normalized(keypoints: List[Optional[Keypoint]]) -> bool:
+    return all(0 <= k.x <= 1 and 0 <= k.y <= 1 for k in keypoints if k is not None)
     
 def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
     """
