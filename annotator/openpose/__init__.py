@@ -17,7 +17,6 @@ from . import util
 from .body import Body, BodyResult, Keypoint
 from .hand import Hand
 from .face import Face
-from .wholebody import Wholebody # DW Pose
 from .types import PoseResult, HandResult, FaceResult
 from modules import devices
 from annotator.annotator_path import models_path
@@ -201,6 +200,8 @@ class OpenposeDetector:
         self.face_estimation = Face(face_modelpath)
     
     def load_dw_model(self):
+        from .wholebody import Wholebody # DW Pose
+        
         dw_modelpath = os.path.join(self.model_dir, "dw-ll_ucoco_384.pth")
         if not os.path.exists(dw_modelpath):
             from basicsr.utils.download_util import load_file_from_url
@@ -323,6 +324,8 @@ class OpenposeDetector:
         Returns:
             List[PoseResult]: A list of PoseResult objects containing the detected poses.
         """
+        from .wholebody import Wholebody # DW Pose
+
         if self.dw_pose_estimation is None:
             self.load_dw_model()
 
