@@ -229,6 +229,7 @@ class OpenposeModel(object):
             include_body: bool,
             include_hand: bool,
             include_face: bool,
+            use_dw_pose: bool = False,
             json_pose_callback: Callable[[str], None] = None,
             res: int = 512,
             **kwargs  # Ignore rest of kwargs
@@ -253,6 +254,7 @@ class OpenposeModel(object):
             include_body=include_body,
             include_hand=include_hand,
             include_face=include_face,
+            use_dw_pose=use_dw_pose,
             json_pose_callback=json_pose_callback
         )), True
 
@@ -688,6 +690,14 @@ preprocessor_sliders_config = {
             "value": 512
         }
     ],
+    "dw_openpose_full": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
     "segmentation": [
         {
             "name": flag_preprocessor_resolution,
@@ -897,7 +907,7 @@ preprocessor_filters = {
     "Canny": "canny",
     "Depth": "depth_midas",
     "Normal": "normal_bae",
-    "OpenPose": "openpose_full",
+    "OpenPose": "dw_openpose_full",
     "MLSD": "mlsd",
     "Lineart": "lineart_standard (from white bg & black line)",
     "SoftEdge": "softedge_pidinet",

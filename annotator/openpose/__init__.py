@@ -208,6 +208,8 @@ class OpenposeDetector:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
+            self.dw_pose_estimation.detector.to("cpu")
+            self.dw_pose_estimation.pose_estimator.to("cpu")
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None

@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import numpy as np
-from . import util
 import cv2
 import mmcv
 import torch

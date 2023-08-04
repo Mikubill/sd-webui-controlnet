@@ -90,6 +90,19 @@ class TestOpenposeDetector(unittest.TestCase):
             ),
             overwrite_expectation=False
         )
+
+    def test_dw(self):
+        self.template(
+            test_image = f'{TestOpenposeDetector.image_path}/woman.jpeg',
+            expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_all_output.png',
+            detector_config=dict(
+                include_body=True,
+                include_face=True,
+                include_hand=True,
+                use_dw_pose=True,
+            ),
+            overwrite_expectation=True,
+        )
         
 if __name__ == '__main__':
     unittest.main()
