@@ -1,9 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import numpy as np
-import cv2
-import mmcv
-import torch
-import matplotlib.pyplot as plt
 from mmpose.apis import inference_topdown
 from mmpose.apis import init_model as init_pose_estimator
 from mmpose.evaluation.functional import nms

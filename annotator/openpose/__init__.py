@@ -313,6 +313,16 @@ class OpenposeDetector:
             return results
     
     def detect_poses_dw(self, oriImg) -> List[PoseResult]:
+        """
+        Detect poses in the given image using DW Pose:
+        https://github.com/IDEA-Research/DWPose
+
+        Args:
+            oriImg (numpy.ndarray): The input image for pose detection.
+
+        Returns:
+            List[PoseResult]: A list of PoseResult objects containing the detected poses.
+        """
         if self.dw_pose_estimation is None:
             self.load_dw_model()
 
