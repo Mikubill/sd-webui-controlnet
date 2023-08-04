@@ -2,7 +2,7 @@ import math
 import numpy as np
 import matplotlib
 import cv2
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Union
 
 from .body import BodyResult, Keypoint
 
@@ -67,9 +67,6 @@ def transfer(model, model_weights):
     return transfered_model_weights
 
 
-def is_normalized(keypoints: List[Optional[Keypoint]]) -> bool:
-    return all(0 <= abs(k.x) <= 1 and 0 <= abs(k.y) <= 1 for k in keypoints if k is not None)
-    
 def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
     """
     Draw keypoints and limbs representing body pose on a given canvas.
@@ -84,11 +81,7 @@ def draw_bodypose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
     Note:
         The function expects the x and y coordinates of the keypoints to be normalized between 0 and 1.
     """
-    if not is_normalized(keypoints):
-        H, W = 1.0, 1.0
-    else:
-        H, W, _ = canvas.shape
-
+    H, W, C = canvas.shape
     stickwidth = 4
 
     limbSeq = [
@@ -149,10 +142,7 @@ def draw_handpose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) ->
     if not keypoints:
         return canvas
     
-    if not is_normalized(keypoints):
-        H, W = 1.0, 1.0
-    else:
-        H, W, _ = canvas.shape
+    H, W, C = canvas.shape
 
     edges = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], \
              [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20]]
@@ -200,11 +190,7 @@ def draw_facepose(canvas: np.ndarray, keypoints: Union[List[Keypoint], None]) ->
     if not keypoints:
         return canvas
     
-    if not is_normalized(keypoints):
-        H, W = 1.0, 1.0
-    else:
-        H, W, _ = canvas.shape
-
+    H, W, C = canvas.shape
     for keypoint in keypoints:
         if keypoint is None:
             continue
