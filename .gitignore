@@ -173,3 +173,4 @@ annotator/downloads/
 # test results and expectations
 web_tests/results/
 web_tests/expectations/
+*_diff.png

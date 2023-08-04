@@ -4,6 +4,18 @@ import numpy as np
 from annotator.util import HWC3
 from typing import Callable, Tuple
 
+from modules import safe
+
+
+def torch_extra_handler(module, name):
+    """ Register HistoryBuffer to whitelist, so that A1111 does not complain. 
+    This is for mmengine used by DW Pose detector.
+    """
+    import mmengine
+    if module == 'mmengine.logging.history_buffer' and name in ['HistoryBuffer']:
+        return mmengine.logging.history_buffer.HistoryBuffer
+    return None
+
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -229,6 +241,7 @@ class OpenposeModel(object):
             include_body: bool,
             include_hand: bool,
             include_face: bool,
+            use_dw_pose: bool = False,
             json_pose_callback: Callable[[str], None] = None,
             res: int = 512,
             **kwargs  # Ignore rest of kwargs
@@ -244,22 +257,25 @@ class OpenposeModel(object):
 
         img, remove_pad = resize_image_with_pad(img, res)
 
-        if self.model_openpose is None:
-            from annotator.openpose import OpenposeDetector
-            self.model_openpose = OpenposeDetector()
+        with safe.Extra(torch_extra_handler):
+            if self.model_openpose is None:
+                from annotator.openpose import OpenposeDetector
+                self.model_openpose = OpenposeDetector()
 
-        return remove_pad(self.model_openpose(
-            img,
-            include_body=include_body,
-            include_hand=include_hand,
-            include_face=include_face,
-            json_pose_callback=json_pose_callback
-        )), True
+            return remove_pad(self.model_openpose(
+                img,
+                include_body=include_body,
+                include_hand=include_hand,
+                include_face=include_face,
+                use_dw_pose=use_dw_pose,
+                json_pose_callback=json_pose_callback
+            )), True
 
     def unload(self):
-        if self.model_openpose is not None:
-            self.model_openpose.unload_model()
-
+        with safe.Extra(torch_extra_handler):
+            if self.model_openpose is not None:
+                self.model_openpose.unload_model()
+                self.model_openpose.unload_dw_model()
 
 g_openpose_model = OpenposeModel()
 
@@ -681,6 +697,14 @@ preprocessor_sliders_config = {
         }
     ],
     "openpose_full": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "dw_openpose_full": [
         {
             "name": flag_preprocessor_resolution,
             "min": 64,
