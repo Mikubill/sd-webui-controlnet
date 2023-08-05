@@ -31,20 +31,20 @@ class TestOpenposeDetector(unittest.TestCase):
         similar = np.allclose(img1, img2, rtol=1e-05, atol=1e-08)
         if not similar:
             # Save the diff_highlighted image to inspect the differences
-            cv2.imwrite(diff_img_path, diff_highlighted)
+            cv2.imwrite(diff_img_path, cv2.cvtColor(diff_highlighted, cv2.COLOR_RGB2BGR))
 
         self.assertTrue(similar)
 
     # Save expectation image as png so that no compression issue happens.
     def template(self, test_image: str, expected_image: str, detector_config: Dict, overwrite_expectation: bool = False):
-        oriImg = cv2.imread(test_image)
+        oriImg = cv2.cvtColor(cv2.imread(test_image), cv2.COLOR_BGR2RGB)
         canvas = self.detector(oriImg, **detector_config)
 
         # Create expectation file
         if overwrite_expectation:
-            cv2.imwrite(expected_image, canvas)
+            cv2.imwrite(expected_image, cv2.cvtColor(canvas, cv2.COLOR_RGB2BGR))
         else:
-            expected_canvas = cv2.imread(expected_image)
+            expected_canvas = cv2.cvtColor(cv2.imread(expected_image), cv2.COLOR_BGR2RGB)
             self.expect_same_image(canvas, expected_canvas, diff_img_path=expected_image.replace('.png', '_diff.png'))
 
     def test_body(self):
