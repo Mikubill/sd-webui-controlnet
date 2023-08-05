@@ -82,20 +82,24 @@ class Wholebody:
 
     @staticmethod
     def format_result(keypoints_info: np.ndarray) -> List[PoseResult]:
-        def format_keypoint_part(part: np.ndarray) -> Optional[List[Keypoint]]:
+        def format_keypoint_part(part: np.ndarray) -> Optional[List[Optional[Keypoint]]]:
             keypoints = [
                 Keypoint(x, y, score, i) if score >= 0.3 else None
                 for i, (x, y, score) in enumerate(part)
             ]
             return None if all(keypoint is None for keypoint in keypoints) else keypoints
 
-        def total_score(keypoints: List[Keypoint]) -> float:
-            return sum(keypoint.score for keypoint in keypoints if keypoint is not None)
+        def total_score(keypoints: Optional[List[Optional[Keypoint]]]) -> float:
+            return (
+                sum(keypoint.score for keypoint in keypoints if keypoint is not None) 
+                if keypoints is not None 
+                else 0.0
+            )
         
         pose_results = []
 
         for instance in keypoints_info:
-            body_keypoints = format_keypoint_part(instance[:18])
+            body_keypoints = format_keypoint_part(instance[:18]) or ([None] * 18)
             left_hand = format_keypoint_part(instance[92:113])
             right_hand = format_keypoint_part(instance[113:134])
             face = format_keypoint_part(instance[24:92])
