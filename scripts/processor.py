@@ -5,13 +5,13 @@ from annotator.util import HWC3
 from typing import Callable, Tuple
 
 from modules import safe
-import mmengine
 
 
 def torch_extra_handler(module, name):
     """ Register HistoryBuffer to whitelist, so that A1111 does not complain. 
     This is for mmengine used by DW Pose detector.
     """
+    import mmengine
     if module == 'mmengine.logging.history_buffer' and name in ['HistoryBuffer']:
         return mmengine.logging.history_buffer.HistoryBuffer
     return None
