@@ -17,19 +17,23 @@ from . import util
 from .body import Body, BodyResult, Keypoint
 from .hand import Hand
 from .face import Face
-from .types import PoseResult, HandResult, FaceResult
 from modules import devices
 from annotator.annotator_path import models_path
 
-from typing import Tuple, List, Callable, Union, Optional
+from typing import NamedTuple, Tuple, List, Callable, Union, Optional
 
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
 
-remote_onnx_det = "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
-remote_onnx_pose = "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
+HandResult = List[Keypoint]
+FaceResult = List[Keypoint]
 
+class PoseResult(NamedTuple):
+    body: BodyResult
+    left_hand: Union[HandResult, None]
+    right_hand: Union[HandResult, None]
+    face: Union[FaceResult, None]
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
     """
@@ -175,8 +179,6 @@ class OpenposeDetector:
         self.hand_estimation = None
         self.face_estimation = None
 
-        self.dw_pose_estimation = None
-
     def load_model(self):
         """
         Load the Openpose body, hand, and face models.
@@ -200,20 +202,6 @@ class OpenposeDetector:
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)
         self.face_estimation = Face(face_modelpath)
-    
-    def load_dw_model(self):
-        from .wholebody import Wholebody # DW Pose
-
-        def load_model(filename: str, remote_url: str):
-            local_path = os.path.join(self.model_dir, filename)
-            if not os.path.exists(local_path):
-                from basicsr.utils.download_util import load_file_from_url
-                load_file_from_url(remote_url, model_dir=self.model_dir)
-            return local_path
-
-        onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
-        onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
-        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose, self.device)
 
     def unload_model(self):
         """
@@ -223,12 +211,6 @@ class OpenposeDetector:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
-    
-    def unload_dw_model(self):
-        if hasattr(self.dw_pose_estimation, 'session_det'):
-            del self.dw_pose_estimation.session_det
-        if hasattr(self.dw_pose_estimation, 'session_pose'):
-            del self.dw_pose_estimation.session_pose
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
@@ -320,29 +302,10 @@ class OpenposeDetector:
                 ), left_hand, right_hand, face))
             
             return results
-    
-    def detect_poses_dw(self, oriImg) -> List[PoseResult]:
-        """
-        Detect poses in the given image using DW Pose:
-        https://github.com/IDEA-Research/DWPose
-
-        Args:
-            oriImg (numpy.ndarray): The input image for pose detection.
-
-        Returns:
-            List[PoseResult]: A list of PoseResult objects containing the detected poses.
-        """
-        from .wholebody import Wholebody # DW Pose
-
-        self.load_dw_model()
-
-        with torch.no_grad():
-            keypoints_info = self.dw_pose_estimation(oriImg.copy())
-            return Wholebody.format_result(keypoints_info)
-
+        
     def __call__(
-            self, oriImg, include_body=True, include_hand=False, include_face=False, 
-            use_dw_pose=False, json_pose_callback: Callable[[str], None] = None,
+            self, oriImg, include_body=True, include_hand=False, include_face=False,
+            json_pose_callback: Callable[[str], None] = None,
         ):
         """
         Detect and draw poses in the given image.
@@ -352,19 +315,14 @@ class OpenposeDetector:
             include_body (bool, optional): Whether to include body keypoints. Defaults to True.
             include_hand (bool, optional): Whether to include hand keypoints. Defaults to False.
             include_face (bool, optional): Whether to include face keypoints. Defaults to False.
-            use_dw_pose (bool, optional): Whether to use DW pose detection algorithm. Defaults to False.
             json_pose_callback (Callable, optional): A callback that accepts the pose JSON string.
 
         Returns:
             numpy.ndarray: The image with detected and drawn poses.
         """
         H, W, _ = oriImg.shape
-
-        if use_dw_pose:
-            poses = self.detect_poses_dw(oriImg)
-        else:
-            poses = self.detect_poses(oriImg, include_hand, include_face)
-
+        poses = self.detect_poses(oriImg, include_hand, include_face)
         if json_pose_callback:
             json_pose_callback(encode_poses_as_json(poses, H, W))
-        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face)
+        return draw_poses(poses, H, W, draw_body=include_body, draw_hand=include_hand, draw_face=include_face) 
+                     
