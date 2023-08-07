@@ -162,7 +162,7 @@ class ControlNetUiGroup(object):
         """
         with gr.Tabs():
             with gr.Tab(label="Single Image") as self.upload_tab:
-                with gr.Row(elem_classes=["cnet-image-row"]).style(equal_height=True):
+                with gr.Row(elem_classes=["cnet-image-row"], equal_height=True):
                     with gr.Group(elem_classes=["cnet-input-image-group"]):
                         self.input_image = gr.Image(
                             source="upload",
@@ -180,9 +180,8 @@ class ControlNetUiGroup(object):
                             label="Preprocessor Preview",
                             elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
                             elem_classes=["cnet-image"],
-                        ).style(
-                            height=242
-                        )  # Gradio's magic number. Only 242 works.
+                            height=242, # Gradio's magic number. Only 242 works.
+                        )
 
                         with gr.Group(
                             elem_classes=["cnet-generated-image-control-group"]
