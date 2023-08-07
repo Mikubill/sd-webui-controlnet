@@ -213,7 +213,7 @@ class OpenposeDetector:
 
         onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
         onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
-        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose)
+        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose, self.device)
 
     def unload_model(self):
         """
