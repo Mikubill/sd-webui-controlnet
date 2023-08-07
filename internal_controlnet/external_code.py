@@ -15,7 +15,7 @@ def get_api_version() -> int:
 
 class ControlMode(Enum):
     """
-    The improved guess mode.
+    The improved guess mode. 
     """
 
     BALANCED = "Balanced"

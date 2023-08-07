@@ -1,4 +1,3 @@
 mediapipe
 svglib
 fvcore
-onnxruntime-gpu

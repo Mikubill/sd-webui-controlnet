@@ -27,8 +27,8 @@ body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/bod
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
 
-remote_onnx_det = "https://huggingface.co/camenduru/DWPose/resolve/main/dw-ll_ucoco_384.pth"
-remote_onnx_pose = ""
+remote_onnx_det = "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
+remote_onnx_pose = "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
 
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
@@ -213,7 +213,7 @@ class OpenposeDetector:
 
         onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
         onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
-        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose, device=self.device)
+        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose)
 
     def unload_model(self):
         """

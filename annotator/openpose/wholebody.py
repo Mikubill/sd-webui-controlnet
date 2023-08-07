@@ -1,5 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import cv2
 import numpy as np
 
 import onnxruntime as ort
@@ -9,11 +8,27 @@ from .onnxpose import inference_pose
 from typing import List, Optional
 from .types import PoseResult, BodyResult, Keypoint
 
-class Wholebody:
-    def __init__(self, onnx_det: str, onnx_pose: str, device: str):
-        providers = (
-            ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
+import subprocess
+
+
+def has_nvidia_gpu() -> bool:
+    """Returns whether Nvdia GPU is available on device by checking driver availability."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
         )
+        if "NVIDIA" in result.stdout.decode():
+            return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return False
+
+
+class Wholebody:
+    def __init__(self, onnx_det: str, onnx_pose: str):
+        use_cuda = has_nvidia_gpu()
+        providers = ["CUDAExecutionProvider" if use_cuda else "CPUExecutionProvider"]
+
         self.session_det = ort.InferenceSession(
             path_or_bytes=onnx_det, providers=providers
         )
