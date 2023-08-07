@@ -4,18 +4,6 @@ import numpy as np
 from annotator.util import HWC3
 from typing import Callable, Tuple
 
-from modules import safe
-
-
-def torch_extra_handler(module, name):
-    """ Register HistoryBuffer to whitelist, so that A1111 does not complain. 
-    This is for mmengine used by DW Pose detector.
-    """
-    import mmengine
-    if module == 'mmengine.logging.history_buffer' and name in ['HistoryBuffer']:
-        return mmengine.logging.history_buffer.HistoryBuffer
-    return None
-
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -257,25 +245,23 @@ class OpenposeModel(object):
 
         img, remove_pad = resize_image_with_pad(img, res)
 
-        with safe.Extra(torch_extra_handler):
-            if self.model_openpose is None:
-                from annotator.openpose import OpenposeDetector
-                self.model_openpose = OpenposeDetector()
+        if self.model_openpose is None:
+            from annotator.openpose import OpenposeDetector
+            self.model_openpose = OpenposeDetector()
 
-            return remove_pad(self.model_openpose(
-                img,
-                include_body=include_body,
-                include_hand=include_hand,
-                include_face=include_face,
-                use_dw_pose=use_dw_pose,
-                json_pose_callback=json_pose_callback
-            )), True
+        return remove_pad(self.model_openpose(
+            img,
+            include_body=include_body,
+            include_hand=include_hand,
+            include_face=include_face,
+            use_dw_pose=use_dw_pose,
+            json_pose_callback=json_pose_callback
+        )), True
 
     def unload(self):
-        with safe.Extra(torch_extra_handler):
-            if self.model_openpose is not None:
-                self.model_openpose.unload_model()
-                self.model_openpose.unload_dw_model()
+        if self.model_openpose is not None:
+            self.model_openpose.unload_model()
+            self.model_openpose.unload_dw_model()
 
 g_openpose_model = OpenposeModel()
 

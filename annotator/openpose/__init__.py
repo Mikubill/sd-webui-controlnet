@@ -26,7 +26,9 @@ from typing import Tuple, List, Callable, Union, Optional
 body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
-remote_dw_model_path = "https://huggingface.co/camenduru/DWPose/resolve/main/dw-ll_ucoco_384.pth"
+
+remote_onnx_det = "https://huggingface.co/camenduru/DWPose/resolve/main/dw-ll_ucoco_384.pth"
+remote_onnx_pose = ""
 
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
@@ -201,12 +203,17 @@ class OpenposeDetector:
     
     def load_dw_model(self):
         from .wholebody import Wholebody # DW Pose
-        
-        dw_modelpath = os.path.join(self.model_dir, "dw-ll_ucoco_384.pth")
-        if not os.path.exists(dw_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_dw_model_path, model_dir=self.model_dir)
-        self.dw_pose_estimation = Wholebody(dw_modelpath, device=self.device)
+
+        def load_model(filename: str, remote_url: str):
+            local_path = os.path.join(self.model_dir, filename)
+            if not os.path.exists(local_path):
+                from basicsr.utils.download_util import load_file_from_url
+                load_file_from_url(remote_url, model_dir=self.model_dir)
+            return local_path
+
+        onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
+        onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
+        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose, device=self.device)
 
     def unload_model(self):
         """
@@ -218,9 +225,10 @@ class OpenposeDetector:
             self.face_estimation.model.to("cpu")
     
     def unload_dw_model(self):
-        if self.dw_pose_estimation is not None:
-            self.dw_pose_estimation.detector.to("cpu")
-            self.dw_pose_estimation.pose_estimator.to("cpu")
+        if hasattr(self.dw_pose_estimation, 'session_det'):
+            del self.dw_pose_estimation.session_det
+        if hasattr(self.dw_pose_estimation, 'session_pose'):
+            del self.dw_pose_estimation.session_pose
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
@@ -326,11 +334,7 @@ class OpenposeDetector:
         """
         from .wholebody import Wholebody # DW Pose
 
-        if self.dw_pose_estimation is None:
-            self.load_dw_model()
-
-        self.dw_pose_estimation.detector.to(self.device)
-        self.dw_pose_estimation.pose_estimator.to(self.device)
+        self.load_dw_model()
 
         with torch.no_grad():
             keypoints_info = self.dw_pose_estimation(oriImg.copy())
