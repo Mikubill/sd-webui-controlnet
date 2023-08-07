@@ -18,11 +18,23 @@
             const badge = container.querySelector('.cnet-badge');
             if (badge) badge.remove();
 
-            if (imgDataURL) {
-                // Do not add fallback image if controlnet input already exists.
-                if (container.querySelector('img'))
-                    continue;
+            // retrieve the beginning of the container name to build the corresponding button selector
+            id_slice = container.id.slice(0,31);
+            const run_preprocess_btn = document.querySelector('#'+id_slice+'_controlnet_trigger_preprocessor');
 
+            // Do not add fallback image if controlnet input already exists.
+            if (container.querySelector('img')) {
+                // enabling the run preprocessor button
+                run_preprocess_btn.removeAttribute("disabled");
+                run_preprocess_btn.title = 'Run preprocessor';
+                continue;
+            } else {
+                // disabling the run preprocessor button
+                run_preprocess_btn.setAttribute("disabled","disabled");
+                run_preprocess_btn.title = "No ControlNet input image available";
+            }
+            
+            if (imgDataURL) {
                 // Set the background image
                 container.style.backgroundImage = `url('${imgDataURL}')`;
 
