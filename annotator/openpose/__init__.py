@@ -196,7 +196,7 @@ class OpenposeDetector:
         if not os.path.exists(face_modelpath):
             from basicsr.utils.download_util import load_file_from_url
             load_file_from_url(face_model_path, model_dir=self.model_dir)
-        
+
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)
         self.face_estimation = Face(face_modelpath)
@@ -287,7 +287,7 @@ class OpenposeDetector:
             
         self.body_estimation.model.to(self.device)
         self.hand_estimation.model.to(self.device)
-        self.face_estimation.model.to(self.device)        
+        self.face_estimation.model.to(self.device)
 
         self.body_estimation.cn_device = self.device
         self.hand_estimation.cn_device = self.device

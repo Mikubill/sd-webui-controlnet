@@ -12,7 +12,7 @@ from .types import PoseResult, BodyResult, Keypoint
 
 class Wholebody:
     def __init__(self, onnx_det: str, onnx_pose: str, device: torch.device):
-        use_cuda = device.type == 'cuda'
+        use_cuda = device.type == "cuda"
         providers = ["CUDAExecutionProvider" if use_cuda else "CPUExecutionProvider"]
 
         self.session_det = ort.InferenceSession(
