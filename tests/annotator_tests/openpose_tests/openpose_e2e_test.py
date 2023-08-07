@@ -90,6 +90,22 @@ class TestOpenposeDetector(unittest.TestCase):
             ),
             overwrite_expectation=False
         )
+
+    # Note: onnx environment has non-deterministic behaviour on the detected map.
+    # There can be several pixel diff from run to run.
+    # TODO: Tolerante the minor difference for dw pose.
+    def disabled_test_dw(self):
+        self.template(
+            test_image = f'{TestOpenposeDetector.image_path}/woman.jpeg',
+            expected_image = f'{TestOpenposeDetector.image_path}/expected_woman_dw_all_output.png',
+            detector_config=dict(
+                include_body=True,
+                include_face=True,
+                include_hand=True,
+                use_dw_pose=True,
+            ),
+            overwrite_expectation=False,
+        )
         
 if __name__ == '__main__':
     unittest.main()
