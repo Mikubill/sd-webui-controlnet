@@ -159,45 +159,6 @@ def encode_poses_as_json(poses: List[PoseResult], canvas_height: int, canvas_wid
         'canvas_width': canvas_width,
     }, indent=4)
 
-
-def check_onnx_environment():
-    import importlib
-    import importlib_metadata
-    onnx_available = importlib.util.find_spec("onnxruntime") is not None
-    if onnx_available:
-        candidates = (
-            "onnxruntime",
-            "onnxruntime-gpu",
-            "ort_nightly_gpu",
-            "onnxruntime-directml",
-            "onnxruntime-openvino",
-            "ort_nightly_directml",
-            "onnxruntime-rocm",
-            "onnxruntime-training",
-        )
-        _onnxruntime_version = None
-        # For the metadata, we have to look for both onnxruntime and onnxruntime-gpu
-        for pkg in candidates:
-            try:
-                _onnxruntime_version = importlib_metadata.version(pkg)
-                break
-            except importlib_metadata.PackageNotFoundError:
-                pass
-        onnx_available = _onnxruntime_version is not None
-        if onnx_available:
-            print(f"Successfully imported onnxruntime version {_onnxruntime_version}")
-
-    if not onnx_available:
-        # Guidelines on which package to use:
-        # - only install one of the two pip packages
-        # - the GPU package includes most CPU capabilities
-        # - stick to onnxruntime for ARM CPUs and/or macOS operating system
-        # https://github.com/microsoft/onnxruntime/issues/10685
-        raise Exception(f"DW Pose dependency 'onnxruntime' not available.\n"
-                        "Please install it before using DW Pose.\n"
-                        "https://onnxruntime.ai/docs/install/")
-
-
 class OpenposeDetector:
     """
     A class for detecting human poses in images using the Openpose model.
@@ -251,22 +212,17 @@ class OpenposeDetector:
 
         onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
         onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
-        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose, self.device)
+        self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose)
 
     def unload_model(self):
         """
         Unload the Openpose models by moving them to the CPU.
+        Note: DW Pose models always run on CPU, so no need to `unload` them.
         """
         if self.body_estimation is not None:
             self.body_estimation.model.to("cpu")
             self.hand_estimation.model.to("cpu")
             self.face_estimation.model.to("cpu")
-    
-    def unload_dw_model(self):
-        if hasattr(self.dw_pose_estimation, 'session_det'):
-            del self.dw_pose_estimation.session_det
-        if hasattr(self.dw_pose_estimation, 'session_pose'):
-            del self.dw_pose_estimation.session_pose
 
     def detect_hands(self, body: BodyResult, oriImg) -> Tuple[Union[HandResult, None], Union[HandResult, None]]:
         left_hand = None
@@ -370,7 +326,6 @@ class OpenposeDetector:
         Returns:
             List[PoseResult]: A list of PoseResult objects containing the detected poses.
         """
-        check_onnx_environment()
         from .wholebody import Wholebody # DW Pose
 
         self.load_dw_model()

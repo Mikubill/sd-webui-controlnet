@@ -2,13 +2,11 @@ from typing import List, Tuple
 
 import cv2
 import numpy as np
-import onnxruntime as ort
-
 
 def preprocess(
     img: np.ndarray, out_bbox, input_size: Tuple[int, int] = (192, 256)
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Do preprocessing for RTMPose model inference.
+    """Do preprocessing for DWPose model inference.
 
     Args:
         img (np.ndarray): Input image in shape.
@@ -47,65 +45,41 @@ def preprocess(
         out_center.append(center)
         out_scale.append(scale)
 
-    # return resized_img, center, scale
     return out_img, out_center, out_scale
 
 
-def build_session(onnx_file: str, device: str = "cpu") -> ort.InferenceSession:
-    """Build onnxruntime session.
+def inference(sess, img):
+    """Inference DWPose model.
 
     Args:
-        onnx_file (str): ONNX file path.
-        device (str): Device type for inference.
+        sess : ONNXRuntime session.
+        img : Input image in shape.
 
     Returns:
-        sess (ort.InferenceSession): ONNXRuntime session.
-    """
-    providers = (
-        ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-    )
-    sess = ort.InferenceSession(path_or_bytes=onnx_file, providers=providers)
-
-    return sess
-
-
-def inference(sess: ort.InferenceSession, img: np.ndarray) -> np.ndarray:
-    """Inference RTMPose model.
-
-    Args:
-        sess (ort.InferenceSession): ONNXRuntime session.
-        img (np.ndarray): Input image in shape.
-
-    Returns:
-        outputs (np.ndarray): Output of RTMPose model.
+        outputs : Output of DWPose model.
     """
     all_out = []
     # build input
     for i in range(len(img)):
-        input = [img[i].transpose(2, 0, 1)]
 
-        # build output
-        sess_input = {sess.get_inputs()[0].name: input}
-        sess_output = []
-        for out in sess.get_outputs():
-            sess_output.append(out.name)
+        input = img[i].transpose(2, 0, 1)
+        input = input[None, :, :, :]
 
-        # run model
-        outputs = sess.run(sess_output, sess_input)
+        outNames = sess.getUnconnectedOutLayersNames()
+        sess.setInput(input)
+        outputs = sess.forward(outNames)
         all_out.append(outputs)
 
-    # return outputs
     return all_out
 
 
-def postprocess(
-    outputs: List[np.ndarray],
-    model_input_size: Tuple[int, int],
-    center: Tuple[int, int],
-    scale: Tuple[int, int],
-    simcc_split_ratio: float = 2.0,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Postprocess for RTMPose model output.
+def postprocess(outputs: List[np.ndarray],
+                model_input_size: Tuple[int, int],
+                center: Tuple[int, int],
+                scale: Tuple[int, int],
+                simcc_split_ratio: float = 2.0
+                ) -> Tuple[np.ndarray, np.ndarray]:
+    """Postprocess for DWPose model output.
 
     Args:
         outputs (np.ndarray): Output of RTMPose model.
@@ -131,13 +105,11 @@ def postprocess(
         all_key.append(keypoints[0])
         all_score.append(scores[0])
 
-    # return keypoints, scores
     return np.array(all_key), np.array(all_score)
 
 
-def bbox_xyxy2cs(
-    bbox: np.ndarray, padding: float = 1.0
-) -> Tuple[np.ndarray, np.ndarray]:
+def bbox_xyxy2cs(bbox: np.ndarray,
+                 padding: float = 1.) -> Tuple[np.ndarray, np.ndarray]:
     """Transform the bbox format from (x,y,w,h) into (center, scale)
 
     Args:
@@ -170,7 +142,8 @@ def bbox_xyxy2cs(
     return center, scale
 
 
-def _fix_aspect_ratio(bbox_scale: np.ndarray, aspect_ratio: float) -> np.ndarray:
+def _fix_aspect_ratio(bbox_scale: np.ndarray,
+                      aspect_ratio: float) -> np.ndarray:
     """Extend the scale to match the given aspect ratio.
 
     Args:
@@ -181,11 +154,9 @@ def _fix_aspect_ratio(bbox_scale: np.ndarray, aspect_ratio: float) -> np.ndarray
         np.ndarray: The reshaped image scale in (2, )
     """
     w, h = np.hsplit(bbox_scale, [1])
-    bbox_scale = np.where(
-        w > h * aspect_ratio,
-        np.hstack([w, w / aspect_ratio]),
-        np.hstack([h * aspect_ratio, h]),
-    )
+    bbox_scale = np.where(w > h * aspect_ratio,
+                          np.hstack([w, w / aspect_ratio]),
+                          np.hstack([h * aspect_ratio, h]))
     return bbox_scale
 
 
@@ -223,14 +194,12 @@ def _get_3rd_point(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return c
 
 
-def get_warp_matrix(
-    center: np.ndarray,
-    scale: np.ndarray,
-    rot: float,
-    output_size: Tuple[int, int],
-    shift: Tuple[float, float] = (0.0, 0.0),
-    inv: bool = False,
-) -> np.ndarray:
+def get_warp_matrix(center: np.ndarray,
+                    scale: np.ndarray,
+                    rot: float,
+                    output_size: Tuple[int, int],
+                    shift: Tuple[float, float] = (0., 0.),
+                    inv: bool = False) -> np.ndarray:
     """Calculate the affine transformation matrix that can warp the bbox area
     in the input image to the output size.
 
@@ -256,8 +225,8 @@ def get_warp_matrix(
 
     # compute transformation matrix
     rot_rad = np.deg2rad(rot)
-    src_dir = _rotate_point(np.array([0.0, src_w * -0.5]), rot_rad)
-    dst_dir = np.array([0.0, dst_w * -0.5])
+    src_dir = _rotate_point(np.array([0., src_w * -0.5]), rot_rad)
+    dst_dir = np.array([0., dst_w * -0.5])
 
     # get four corners of the src rectangle in the original image
     src = np.zeros((3, 2), dtype=np.float32)
@@ -279,9 +248,8 @@ def get_warp_matrix(
     return warp_mat
 
 
-def top_down_affine(
-    input_size: dict, bbox_scale: dict, bbox_center: dict, img: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+def top_down_affine(input_size: dict, bbox_scale: dict, bbox_center: dict,
+                    img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Get the bbox image as the model input by affine transform.
 
     Args:
@@ -313,9 +281,8 @@ def top_down_affine(
     return img, bbox_scale
 
 
-def get_simcc_maximum(
-    simcc_x: np.ndarray, simcc_y: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+def get_simcc_maximum(simcc_x: np.ndarray,
+                      simcc_y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Get maximum response location and value from simcc representations.
 
     Note:
@@ -350,7 +317,7 @@ def get_simcc_maximum(
     mask = max_val_x > max_val_y
     max_val_x[mask] = max_val_y[mask]
     vals = max_val_x
-    locs[vals <= 0.0] = -1
+    locs[vals <= 0.] = -1
 
     # reshape
     locs = locs.reshape(N, K, 2)
@@ -359,9 +326,8 @@ def get_simcc_maximum(
     return locs, vals
 
 
-def decode(
-    simcc_x: np.ndarray, simcc_y: np.ndarray, simcc_split_ratio
-) -> Tuple[np.ndarray, np.ndarray]:
+def decode(simcc_x: np.ndarray, simcc_y: np.ndarray,
+           simcc_split_ratio) -> Tuple[np.ndarray, np.ndarray]:
     """Modulate simcc distribution with Gaussian.
 
     Args:
@@ -381,8 +347,7 @@ def decode(
 
 
 def inference_pose(session, out_bbox, oriImg):
-    h, w = session.get_inputs()[0].shape[2:]
-    model_input_size = (w, h)
+    model_input_size = (288, 384)
     resized_img, center, scale = preprocess(oriImg, out_bbox, model_input_size)
     outputs = inference(session, resized_img)
     keypoints, scores = postprocess(outputs, model_input_size, center, scale)

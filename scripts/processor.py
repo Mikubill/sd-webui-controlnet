@@ -261,7 +261,7 @@ class OpenposeModel(object):
     def unload(self):
         if self.model_openpose is not None:
             self.model_openpose.unload_model()
-            self.model_openpose.unload_dw_model()
+
 
 g_openpose_model = OpenposeModel()
 
