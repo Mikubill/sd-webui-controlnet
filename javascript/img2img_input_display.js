@@ -20,9 +20,9 @@
 
             if (imgDataURL) {
                 // Do not add fallback image if controlnet input already exists.
-                if (container.querySelector('img'))
+                if (container.querySelector('img')) {
                     continue;
-
+                }
                 // Set the background image
                 container.style.backgroundImage = `url('${imgDataURL}')`;
 

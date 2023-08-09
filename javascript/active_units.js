@@ -73,6 +73,7 @@
                 this.inputImageContainer = tab.querySelector('.cnet-input-image-group .cnet-image');
                 this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
                 this.resizeModeRadios = tab.querySelectorAll('.controlnet_resize_mode_radio input[type="radio"]');
+                this.runPreprocessorButton = tab.querySelector('.cnet-run-preprocessor');
 
                 const tabs = tab.parentNode;
                 this.tabNav = tabs.querySelector('.tab-nav');
@@ -218,13 +219,24 @@
             }
 
             attachImageStateChangeObserver() {
-                if (!this.isImg2Img) return;
-
                 new MutationObserver((mutationsList) => {
                     const changeObserved = imgChangeObserved(mutationsList);
                     if (changeObserved === ImgChangeType.ADD ||
                         changeObserved === ImgChangeType.REMOVE) {
-                        this.updateResizeModeState();
+                        if (this.isImg2Img)
+                            this.updateResizeModeState();
+                    }
+
+                    if (changeObserved === ImgChangeType.ADD) {
+                        // enabling the run preprocessor button
+                        this.runPreprocessorButton.removeAttribute("disabled");
+                        this.runPreprocessorButton.title = 'Run preprocessor';
+                    }
+
+                    if (changeObserved === ImgChangeType.REMOVE) {
+                        // disabling the run preprocessor button
+                        this.runPreprocessorButton.setAttribute("disabled", true);
+                        this.runPreprocessorButton.title = "No ControlNet input image available";
                     }
                 }).observe(this.inputImageContainer, {
                     childList: true,
