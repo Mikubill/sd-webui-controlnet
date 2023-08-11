@@ -163,8 +163,22 @@ def prepare_mask(
     mask = mask.convert("L")
     if getattr(p, "inpainting_mask_invert", False):
         mask = ImageOps.invert(mask)
-    if getattr(p, "mask_blur", 0) > 0:
-        mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+    
+    if hasattr(p, 'mask_blur'):
+        if getattr(p, "mask_blur", 0) > 0:
+            mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+    else:
+        if getattr(p, "mask_blur_x", 0) > 0:
+            np_mask = np.array(mask)
+            kernel_size = 2 * int(4 * p.mask_blur_x + 0.5) + 1
+            np_mask = cv2.GaussianBlur(np_mask, (kernel_size, 1), p.mask_blur_x)
+            mask = Image.fromarray(np_mask)
+        if getattr(p, "mask_blur_y", 0) > 0:
+            np_mask = np.array(mask)
+            kernel_size = 2 * int(4 * p.mask_blur_y + 0.5) + 1
+            np_mask = cv2.GaussianBlur(np_mask, (1, kernel_size), p.mask_blur_y)
+            mask = Image.fromarray(np_mask)
+    
     return mask
 
 
