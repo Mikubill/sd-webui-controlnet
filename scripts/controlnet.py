@@ -167,12 +167,12 @@ def prepare_mask(
     if hasattr(p, 'mask_blur_x'):
         if getattr(p, "mask_blur_x", 0) > 0:
             np_mask = np.array(mask)
-            kernel_size = 2 * int(4 * p.mask_blur_x + 0.5) + 1
+            kernel_size = 2 * int(2.5 * p.mask_blur_x + 0.5) + 1
             np_mask = cv2.GaussianBlur(np_mask, (kernel_size, 1), p.mask_blur_x)
             mask = Image.fromarray(np_mask)
         if getattr(p, "mask_blur_y", 0) > 0:
             np_mask = np.array(mask)
-            kernel_size = 2 * int(4 * p.mask_blur_y + 0.5) + 1
+            kernel_size = 2 * int(2.5 * p.mask_blur_y + 0.5) + 1
             np_mask = cv2.GaussianBlur(np_mask, (1, kernel_size), p.mask_blur_y)
             mask = Image.fromarray(np_mask)
     else:
