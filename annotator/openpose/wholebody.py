@@ -25,8 +25,11 @@ class Wholebody:
         self.session_pose.setPreferableBackend(backend)
         self.session_pose.setPreferableTarget(providers)
     
-    def __call__(self, oriImg):
+    def __call__(self, oriImg) -> Optional[np.ndarray]:
         det_result = inference_detector(self.session_det, oriImg)
+        if det_result is None:
+            return None
+
         keypoints, scores = inference_pose(self.session_pose, det_result, oriImg)
 
         keypoints_info = np.concatenate(
@@ -52,7 +55,7 @@ class Wholebody:
         return keypoints_info
 
     @staticmethod
-    def format_result(keypoints_info: np.ndarray) -> List[PoseResult]:
+    def format_result(keypoints_info: Optional[np.ndarray]) -> List[PoseResult]:
         def format_keypoint_part(
             part: np.ndarray,
         ) -> Optional[List[Optional[Keypoint]]]:
@@ -72,6 +75,8 @@ class Wholebody:
             )
 
         pose_results = []
+        if keypoints_info is None:
+            return pose_results
 
         for instance in keypoints_info:
             body_keypoints = format_keypoint_part(instance[:18]) or ([None] * 18)
