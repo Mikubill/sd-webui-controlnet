@@ -114,11 +114,11 @@ def inference_detector(session, oriImg):
     boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3]/2.
     boxes_xyxy /= ratio
     dets = multiclass_nms(boxes_xyxy, scores, nms_thr=0.45, score_thr=0.1)
-    if dets is not None:
-        final_boxes, final_scores, final_cls_inds = dets[:, :4], dets[:, 4], dets[:, 5]
-        isscore = final_scores>0.3
-        iscat = final_cls_inds == 0
-        isbbox = [ i and j for (i, j) in zip(isscore, iscat)]
-        final_boxes = final_boxes[isbbox]
-
+    if dets is None:
+        return None
+    final_boxes, final_scores, final_cls_inds = dets[:, :4], dets[:, 4], dets[:, 5]
+    isscore = final_scores>0.3
+    iscat = final_cls_inds == 0
+    isbbox = [ i and j for (i, j) in zip(isscore, iscat)]
+    final_boxes = final_boxes[isbbox]
     return final_boxes
