@@ -87,12 +87,6 @@ def decode_json_as_poses(json_string: str, normalize_coords: bool = False) -> Tu
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
     
-    def normalize_keypoint(keypoint: Keypoint) -> Keypoint:
-        return Keypoint(
-            keypoint.x / width,
-            keypoint.y / height
-        )
-
     def decompress_keypoints(numbers: Optional[List[float]]) -> Optional[List[Optional[Keypoint]]]:
         if not numbers:
             return None
@@ -103,8 +97,6 @@ def decode_json_as_poses(json_string: str, normalize_coords: bool = False) -> Tu
             if c < 1.0:
                 return None
             keypoint = Keypoint(x, y)
-            if normalize_coords:
-                keypoint = normalize_keypoint(keypoint)
             return keypoint
 
         return [
