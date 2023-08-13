@@ -562,17 +562,17 @@ class ControlNetUiGroup(object):
                     *self.openpose_editor.update(''),
                 )
 
-            img = HWC3(image["image"])
-            if not (
-                (image["mask"][:, :, 0] == 0).all()
-                or (image["mask"][:, :, 0] == 255).all()
-            ):
-                img = HWC3(image["mask"][:, :, 0])
-
+            img = HWC3(image["image"])            
+            has_mask = not (
+                (image["mask"][:, :, 0] <= 5).all()
+                or (image["mask"][:, :, 0] >= 250).all()
+            )
             if "inpaint" in module:
                 color = HWC3(image["image"])
                 alpha = image["mask"][:, :, 0:1]
                 img = np.concatenate([color, alpha], axis=2)
+            elif has_mask and not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
+                img = HWC3(image["mask"][:, :, 0])
 
             module = global_state.get_module_basename(module)
             preprocessor = self.preprocessors[module]
