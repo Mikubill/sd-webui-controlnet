@@ -84,6 +84,14 @@ class Wholebody:
             right_hand = format_keypoint_part(instance[113:134])
             face = format_keypoint_part(instance[24:92])
 
+            # Openpose face consists of 70 points in total, while DWPose only
+            # provides 68 points. Padding the last 2 points.
+            if face is not None:
+                # left eye
+                face.append(body_keypoints[14])
+                # right eye
+                face.append(body_keypoints[15])
+
             body = BodyResult(
                 body_keypoints, total_score(body_keypoints), len(body_keypoints)
             )
