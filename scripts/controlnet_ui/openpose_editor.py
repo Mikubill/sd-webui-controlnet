@@ -62,9 +62,7 @@ class OpenposeEditor(object):
     ):
         def render_pose(pose_url: str) -> Tuple[Dict, Dict]:
             json_string = parse_data_url(pose_url)
-            poses, height, weight = decode_json_as_poses(
-                json_string, normalize_coords=True
-            )
+            poses, height, weight = decode_json_as_poses(json_string)
             return (
                 # Generated image.
                 gr.update(

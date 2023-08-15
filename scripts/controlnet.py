@@ -163,8 +163,22 @@ def prepare_mask(
     mask = mask.convert("L")
     if getattr(p, "inpainting_mask_invert", False):
         mask = ImageOps.invert(mask)
-    if getattr(p, "mask_blur", 0) > 0:
-        mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+    
+    if hasattr(p, 'mask_blur_x'):
+        if getattr(p, "mask_blur_x", 0) > 0:
+            np_mask = np.array(mask)
+            kernel_size = 2 * int(2.5 * p.mask_blur_x + 0.5) + 1
+            np_mask = cv2.GaussianBlur(np_mask, (kernel_size, 1), p.mask_blur_x)
+            mask = Image.fromarray(np_mask)
+        if getattr(p, "mask_blur_y", 0) > 0:
+            np_mask = np.array(mask)
+            kernel_size = 2 * int(2.5 * p.mask_blur_y + 0.5) + 1
+            np_mask = cv2.GaussianBlur(np_mask, (1, kernel_size), p.mask_blur_y)
+            mask = Image.fromarray(np_mask)
+    else:
+        if getattr(p, "mask_blur", 0) > 0:
+            mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
+    
     return mask
 
 
@@ -628,7 +642,10 @@ class Script(scripts.Script, metaclass=(
             else:
                 input_image = HWC3(image['image'])
 
-            have_mask = 'mask' in image and not ((image['mask'][:, :, 0] == 0).all() or (image['mask'][:, :, 0] == 255).all())
+            have_mask = 'mask' in image and not (
+                (image['mask'][:, :, 0] <= 5).all() or 
+                (image['mask'][:, :, 0] >= 250).all()
+            )
 
             if 'inpaint' in unit.module:
                 logger.info("using inpaint as input")
@@ -639,7 +656,7 @@ class Script(scripts.Script, metaclass=(
                     alpha = np.zeros_like(color)[:, :, 0:1]
                 input_image = np.concatenate([color, alpha], axis=2)
             else:
-                if have_mask:
+                if have_mask and not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
                     logger.info("using mask as input")
                     input_image = HWC3(image['mask'][:, :, 0])
                     unit.module = 'none'  # Always use black bg and white line
@@ -1056,6 +1073,9 @@ def on_ui_settings():
         False, "Disable control type selection", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_disable_openpose_edit", shared.OptionInfo(
         False, "Disable openpose edit", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
+        False, "Ignore mask on ControlNet input image if control type is not inpaint", 
+        gr.Checkbox, {"interactive": True}, section=section))
 
 
 batch_hijack.instance.do_hijack()
