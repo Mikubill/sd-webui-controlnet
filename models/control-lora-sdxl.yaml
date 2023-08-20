@@ -1,0 +1,23 @@
+model:
+  target: cldm.cldm.ControlLDM
+  params:
+    control_stage_config:
+      target: cldm.cldm.ControlNet
+      params:
+        use_checkpoint: False
+        image_size: 32
+        use_spatial_transformer: True
+        legacy: False
+        use_fp16: True
+        in_channels: 4
+        model_channels: 320
+        num_res_blocks: 2
+        attention_resolutions: [2, 4]
+        transformer_depth: [0, 2, 10]
+        transformer_depth_middle: 10
+        channel_mult: [1, 2, 4]
+        use_linear_in_transformer: True
+        context_dim: [2048,2048,2048,2048,2048,2048,2048,2048,2048,2048]
+        num_heads: -1
+        num_head_channels: 64
+        hint_channels: 3

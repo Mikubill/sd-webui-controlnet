@@ -46,11 +46,17 @@ def mark_prompt_context(x, positive):
         return x
     if isinstance(x, ScheduledPromptConditioning):
         cond = x.cond
-        if prompt_context_is_marked(cond):
+        tensor_cond = cond if isinstance(cond, torch.Tensor) else cond['crossattn']
+        if prompt_context_is_marked(tensor_cond):
             return x
         mark = POSITIVE_MARK_TOKEN if positive else NEGATIVE_MARK_TOKEN
-        cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
-        return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
+        tensor_cond = torch.cat([torch.zeros_like(tensor_cond)[:1] + mark, tensor_cond], dim=0)
+
+        return ScheduledPromptConditioning(end_at_step=x.end_at_step, 
+                                           cond=(tensor_cond if isinstance(cond, torch.Tensor) else {
+                                               **cond,
+                                               'crossattn': tensor_cond,
+                                           }))
     return x
 
 
@@ -334,6 +340,8 @@ class UnetHook(nn.Module):
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
 
     def hook(self, model, sd_ldm, control_params, process):
+        is_sdxl = getattr(process.sd_model, 'is_sdxl', False)
+
         self.model = model
         self.sd_ldm = sd_ldm
         self.control_params = control_params
@@ -355,8 +363,6 @@ class UnetHook(nn.Module):
             return process.sample_before_CN_hack(*args, **kwargs)
 
         def forward(self, x, timesteps=None, context=None, **kwargs):
-            total_controlnet_embedding = [0.0] * 13
-            total_t2i_adapter_embedding = [0.0] * 4
             require_inpaint_hijack = False
             is_in_high_res_fix = False
             batch_size = int(x.shape[0])
@@ -423,6 +429,11 @@ class UnetHook(nn.Module):
                 context = torch.cat([context, control.clone()], dim=1)
 
             # handle ControlNet / T2I_Adapter
+            input_block_num = 9 if is_sdxl else 12
+            assert input_block_num % 3 == 0
+            total_controlnet_embedding = [0.0] * (input_block_num + 1)
+            total_t2i_adapter_embedding = [0.0] * (input_block_num // 3 + 1)
+
             for param in outer.control_params:
                 if no_high_res_control:
                     continue
@@ -605,6 +616,9 @@ class UnetHook(nn.Module):
             h = aligned_adding(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
 
             # U-Net Decoder
+            assert len(hs) == len(total_controlnet_embedding), \
+                f"Misaligned `hs` and `controlnet_embedding`\n{len(hs)} != {len(total_controlnet_embedding)}"
+            
             for i, module in enumerate(self.output_blocks):
                 h = th.cat([h, aligned_adding(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
@@ -768,7 +782,7 @@ class UnetHook(nn.Module):
         gn_modules = [model.middle_block]
         model.middle_block.gn_weight = 0
 
-        input_block_indices = [4, 5, 7, 8, 10, 11]
+        input_block_indices = [4, 5, 7, 8, 10, 11] if not is_sdxl else [4, 5, 7, 8]
         for w, i in enumerate(input_block_indices):
             module = model.input_blocks[i]
             module.gn_weight = 1.0 - float(w) / float(len(input_block_indices))

@@ -312,6 +312,8 @@ class Script(scripts.Script, metaclass=(
 
     @staticmethod
     def build_control_model(p, unet, model, lowvram):
+        is_sdxl = getattr(p.sd_model, 'is_sdxl', False)
+
         if model is None or model == 'None':
             raise RuntimeError(f"You have not selected any ControlNet Model.")
 
@@ -361,6 +363,9 @@ class Script(scripts.Script, metaclass=(
             os.path.join(global_state.script_dir, 'models', model_stem.replace('-diff', '') + ".yaml")
         ]
 
+        if is_sdxl:
+            possible_config_filenames.append(os.path.join(model_dir_name, 'control-lora-sdxl.yaml'))
+        
         override_config = possible_config_filenames[0]
 
         for possible_config_filename in possible_config_filenames:
@@ -720,11 +725,6 @@ class Script(scripts.Script, metaclass=(
            self.latest_network = None
            return
         
-        is_sdxl = getattr(p.sd_model, 'is_sdxl', False)
-        if is_sdxl:
-            logger.warning('ControlNet does not support SDXL -- disabling')
-            return
-
         detected_maps = []
         forward_params = []
         post_processors = []

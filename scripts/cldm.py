@@ -1,14 +1,17 @@
+from contextlib import contextmanager
 import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
 from modules import devices, shared
+
+from scripts.controlnet_lora import ControlLoraOps
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 from ldm.util import exists
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
-from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
+from ldm.modules.diffusionmodules.openaimodel import TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 
 
 class TorchHijackForUnet:
@@ -57,12 +60,42 @@ def get_node_name(name, parent_name):
     return True, name[len(parent_name):]
 
 
+@contextmanager
+def use_controlnet_lora_operations():
+    original_torch_nn_linear = torch.nn.Linear
+    original_torch_nn_conv_2d = torch.nn.Conv2d
+    ops = ControlLoraOps()
+
+    torch.nn.Linear = ops.Linear
+    torch.nn.Conv2d = ops.Conv2d
+
+    try:
+        yield
+    finally:
+        torch.nn.Linear = original_torch_nn_linear
+        torch.nn.Conv2d = original_torch_nn_conv_2d
+
+
+def set_attr(obj, attr, value):
+    attrs = attr.split(".")
+    for name in attrs[:-1]:
+        obj = getattr(obj, name)
+    prev = getattr(obj, attrs[-1])
+    setattr(obj, attrs[-1], torch.nn.Parameter(value))
+    del prev
+
+
 class PlugableControlModel(nn.Module):
     def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
         super().__init__()
-        self.config = OmegaConf.load(config_path)        
-        self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
-            
+        is_controlnet_lora = "lora_controlnet" in state_dict
+        self.config = OmegaConf.load(config_path)
+        if is_controlnet_lora:
+            with use_controlnet_lora_operations():
+                self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
+        else:
+            self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
+
         if any([k.startswith("control_model.") for k, v in state_dict.items()]):
             if 'difference' in state_dict and base_model is not None:
                 print('We will stop supporting diff models soon because of its lack of robustness.')
@@ -87,17 +120,34 @@ class PlugableControlModel(nn.Module):
                 print(f'Diff model cloned: {counter} values')
                 state_dict = final_state_dict
             state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
-            
-        self.control_model.load_state_dict(state_dict)
+
+        if is_controlnet_lora:
+            # For ControlNet LoRA, state_dict contains up/down tensors to 
+            # dynamically compute full weight from base_model's state_dict.
+            control_weights = state_dict
+            sd = base_model.state_dict()
+            for k in sd:
+                try:
+                    set_attr(self.control_model, k, sd[k])
+                except:
+                    pass
+
+            for k in control_weights:
+                if k != "lora_controlnet" and 'label_emb' not in k:
+                    set_attr(self.control_model, k, control_weights[k].to(devices.get_device_for("controlnet")))
+        else:
+            self.control_model.load_state_dict(state_dict)
+
         if not lowvram:
             self.control_model.to(devices.get_device_for("controlnet"))
             
     def reset(self):
         pass
-            
+
     def forward(self, *args, **kwargs):
         return self.control_model(*args, **kwargs)
-            
+
+
 
 class ControlNet(nn.Module):
     def __init__(
@@ -130,6 +180,7 @@ class ControlNet(nn.Module):
         num_attention_blocks=None,
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
+        transformer_depth_middle=None,
     ):
         use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not getattr(shared.cmd_opts, "no_half_controlnet", False)
             
@@ -151,6 +202,13 @@ class ControlNet(nn.Module):
 
         if num_head_channels == -1:
             assert num_heads != -1, 'Either num_heads or num_head_channels has to be set'
+
+        if isinstance(transformer_depth, int):
+            transformer_depth = len(channel_mult) * [transformer_depth]
+        if transformer_depth_middle is None:
+            transformer_depth_middle =  transformer_depth[-1]
+
+        self.max_transformer_depth = max([*transformer_depth, transformer_depth_middle])
 
         self.dims = dims
         self.image_size = image_size
@@ -261,7 +319,7 @@ class ControlNet(nn.Module):
                                 num_head_channels=dim_head,
                                 use_new_attention_order=use_new_attention_order,
                             ) if not use_spatial_transformer else SpatialTransformer(
-                                ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,
+                                ch, num_heads, dim_head, depth=transformer_depth[level], context_dim=context_dim,
                                 disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
                                 use_checkpoint=use_checkpoint
                             )
@@ -321,7 +379,7 @@ class ControlNet(nn.Module):
                 use_new_attention_order=use_new_attention_order,
                 # always uses a self-attn
             ) if not use_spatial_transformer else SpatialTransformer(
-                ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,
+                ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=context_dim,
                 disable_self_attn=disable_middle_self_attn, use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint
             ),
@@ -357,6 +415,12 @@ class ControlNet(nn.Module):
         guided_hint = self.align(guided_hint, h1, w1)
 
         h = x.type(self.dtype)
+
+        # `context` is only used in SpatialTransformer.
+        if not isinstance(context, list):
+            context = [context] * self.max_transformer_depth
+        assert len(context) >= self.max_transformer_depth
+
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
             if guided_hint is not None:
                 h = module(h, emb, context)
