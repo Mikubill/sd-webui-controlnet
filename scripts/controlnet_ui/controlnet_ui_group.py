@@ -283,7 +283,7 @@ class ControlNetUiGroup(object):
             )
 
         if not shared.opts.data.get("controlnet_disable_control_type", False):
-            with gr.Row(elem_classes="controlnet_control_type"):
+            with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
                 self.type_filter = gr.Radio(
                     list(preprocessor_filters.keys()),
                     label=f"Control Type",
@@ -292,7 +292,7 @@ class ControlNetUiGroup(object):
                     elem_classes="controlnet_control_type_filter_group",
                 )
 
-        with gr.Row(elem_classes="controlnet_preprocessor_model"):
+        with gr.Row(elem_classes=["controlnet_preprocessor_model", "controlnet_row"]):
             self.module = gr.Dropdown(
                 global_state.ui_preprocessor_keys,
                 label=f"Preprocessor",
@@ -316,7 +316,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
             )
 
-        with gr.Row(elem_classes="controlnet_weight_steps"):
+        with gr.Row(elem_classes=["controlnet_weight_steps", "controlnet_row"]):
             self.weight = gr.Slider(
                 label=f"Control Weight",
                 value=self.default_unit.weight,
