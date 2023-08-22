@@ -255,10 +255,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_send_dimen_button",
             )
 
-        with FormRow(
-            elem_classes=["checkboxes-row", "controlnet_main_options"],
-            variant="compact",
-        ):
+        with FormRow(elem_classes=["controlnet_main_options"]):
             self.enabled = gr.Checkbox(
                 label="Enable",
                 value=self.default_unit.enabled,
