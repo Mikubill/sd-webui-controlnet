@@ -133,3 +133,7 @@
 .cnet-disabled-radio {
     opacity: 50%;
 }
+
+.controlnet_row{
+    margin-top: 10px !important;
+}
