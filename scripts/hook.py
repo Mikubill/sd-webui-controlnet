@@ -18,6 +18,7 @@ from ldm.modules.attention import BasicTransformerBlock
 from ldm.models.diffusion.ddpm import extract_into_tensor
 
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
+from modules.processing import StableDiffusionProcessing
 
 
 POSITIVE_MARK_TOKEN = 1024
@@ -83,6 +84,10 @@ def unmark_prompt_context(x):
     mark_batch = mark[:, None, None, None].to(x.dtype).to(x.device)
     uc_indices = mark.detach().cpu().numpy().tolist()
     uc_indices = [i for i, item in enumerate(uc_indices) if item < 0.5]
+
+    StableDiffusionProcessing.cached_c = [None, None]
+    StableDiffusionProcessing.cached_uc = [None, None]
+
     return mark_batch, uc_indices, context
 
 
