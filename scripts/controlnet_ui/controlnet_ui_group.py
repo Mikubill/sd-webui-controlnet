@@ -670,7 +670,7 @@ class ControlNetUiGroup(object):
                 # generated_image_group
                 gr.update(visible=is_on),
                 # use_preview_as_input,
-                gr.update(visible=is_on),
+                gr.update(visible=False),  # Now this is automatically managed
                 # download_pose_link
                 gr.update() if is_on else gr.update(value=None),
                 # modal edit button
@@ -820,6 +820,36 @@ class ControlNetUiGroup(object):
             for event_subscriber in event_subscribers:
                 event_subscriber(
                     fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit
+                )
+
+        def clear_preview(x):
+            if x:
+                logger.info('Preview as input is cancelled.')
+            return gr.update(value=False), gr.update(value=None)
+
+        for comp in (
+            self.pixel_perfect,
+            self.module,
+            self.input_image,
+            self.processor_res,
+            self.threshold_a,
+            self.threshold_b,
+        ):
+            event_subscribers = []
+            if hasattr(comp, "edit"):
+                event_subscribers.append(comp.edit)
+            elif hasattr(comp, "click"):
+                event_subscribers.append(comp.click)
+            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
+                event_subscribers.append(comp.release)
+            elif hasattr(comp, "change"):
+                event_subscribers.append(comp.change)
+            if hasattr(comp, "clear"):
+                event_subscribers.append(comp.clear)
+            for event_subscriber in event_subscribers:
+                event_subscriber(
+                    fn=clear_preview, inputs=self.use_preview_as_input, outputs=[self.use_preview_as_input,
+                                                                                 self.generated_image]
                 )
 
         # keep input_mode in sync
