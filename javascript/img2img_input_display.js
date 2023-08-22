@@ -4,6 +4,8 @@
  * that if no ControlNet input image is uploaded, by default ControlNet will
  * fallback onto img2img input image.
  */
+
+/*
 (function () {
     function getActiveImg2ImgTabImgSrc(img2imgTabs) {
         const tabs = img2imgTabs.querySelectorAll('.tabitem');
@@ -155,3 +157,4 @@
         callback_registered = true;
     });
 })();
+*/
