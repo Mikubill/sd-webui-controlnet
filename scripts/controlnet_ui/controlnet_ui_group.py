@@ -179,9 +179,10 @@ class ControlNetUiGroup(object):
                         visible=False, elem_classes=["cnet-generated-image-group"]
                     ) as self.generated_image_group:
                         self.generated_image = gr.Image(
+                            value=None,
                             label="Preprocessor Preview",
                             elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
-                            elem_classes=["cnet-image"],
+                            elem_classes=["cnet-image"], interactive=False
                         ).style(
                             height=242
                         )  # Gradio's magic number. Only 242 works.
