@@ -541,7 +541,7 @@ class UnetHook(nn.Module):
                 x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
 
             # A1111 fix for medvram.
-            if shared.cmd_opts.medvram:
+            if shared.cmd_opts.medvram or (getattr(shared.cmd_opts, 'medvram_sdxl', False) and is_sdxl):
                 try:
                     # Trigger the register_forward_pre_hook
                     outer.sd_ldm.model()
