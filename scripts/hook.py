@@ -23,10 +23,10 @@ from modules.processing import StableDiffusionProcessing
 
 
 try:
-    import sgm.modules.diffusionmodules.discretizer
     from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
 except:
     print('Webui version too old!')
+    BasicTransformerBlockSGM = BasicTransformerBlock
 
 
 POSITIVE_MARK_TOKEN = 1024
