@@ -615,6 +615,12 @@ class UnetHook(nn.Module):
                 outer.current_style_fidelity = float(param.preprocessor['threshold_a'])
                 outer.current_style_fidelity = max(0.0, min(1.0, outer.current_style_fidelity))
 
+                if is_sdxl:
+                    # sdxl's attention hacking is highly unstable.
+                    # We have no other methods but to reduce the style_fidelity a bit.
+                    # By default, 0.5 ** 3.0 = 0.125
+                    outer.current_style_fidelity = outer.current_style_fidelity ** 3.0
+
                 if param.cfg_injection:
                     outer.current_style_fidelity = 1.0
                 elif param.soft_injection or is_in_high_res_fix:
