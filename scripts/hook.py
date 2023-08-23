@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn as nn
 from functools import partial
 import modules.processing
-import sgm.modules.diffusionmodules.discretizer
 
 
 from enum import Enum
@@ -22,7 +21,12 @@ from ldm.models.diffusion.ddpm import extract_into_tensor
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 from modules.processing import StableDiffusionProcessing
 
-from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
+
+try:
+    import sgm.modules.diffusionmodules.discretizer
+    from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
+except:
+    print('Webui version too old!')
 
 
 POSITIVE_MARK_TOKEN = 1024
