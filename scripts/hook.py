@@ -696,8 +696,7 @@ class UnetHook(nn.Module):
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
 
-                if model_is_sdxl:
-                    return forward(*args, **kwargs)
+                return forward(*args, **kwargs)
             finally:
                 if self.lowvram:
                     for param in self.control_params:
