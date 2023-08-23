@@ -20,6 +20,8 @@ from ldm.models.diffusion.ddpm import extract_into_tensor
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 from modules.processing import StableDiffusionProcessing
 
+from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
+
 
 POSITIVE_MARK_TOKEN = 1024
 NEGATIVE_MARK_TOKEN = - POSITIVE_MARK_TOKEN
@@ -45,12 +47,20 @@ def mark_prompt_context(x, positive):
         x.schedules = mark_prompt_context(x.schedules, positive)
         return x
     if isinstance(x, ScheduledPromptConditioning):
-        cond = x.cond
-        if prompt_context_is_marked(cond):
-            return x
-        mark = POSITIVE_MARK_TOKEN if positive else NEGATIVE_MARK_TOKEN
-        cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
-        return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
+        if isinstance(x.cond, dict):
+            cond = x.cond['crossattn']
+            if prompt_context_is_marked(cond):
+                return x
+            mark = POSITIVE_MARK_TOKEN if positive else NEGATIVE_MARK_TOKEN
+            cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
+            return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=dict(crossattn=cond, vector=x.cond['vector']))
+        else:
+            cond = x.cond
+            if prompt_context_is_marked(cond):
+                return x
+            mark = POSITIVE_MARK_TOKEN if positive else NEGATIVE_MARK_TOKEN
+            cond = torch.cat([torch.zeros_like(cond)[:1] + mark, cond], dim=0)
+            return ScheduledPromptConditioning(end_at_step=x.end_at_step, cond=cond)
     return x
 
 
@@ -338,6 +348,8 @@ class UnetHook(nn.Module):
         self.sd_ldm = sd_ldm
         self.control_params = control_params
 
+        model_is_sdxl = self.sd_ldm.is_sdxl
+
         outer = self
 
         def process_sample(*args, **kwargs):
@@ -354,7 +366,7 @@ class UnetHook(nn.Module):
             mark_prompt_context(getattr(process, 'hr_uc', []), positive=False)
             return process.sample_before_CN_hack(*args, **kwargs)
 
-        def forward(self, x, timesteps=None, context=None, **kwargs):
+        def forward_sd15(self, x, timesteps=None, context=None, **kwargs):
             total_controlnet_embedding = [0.0] * 13
             total_t2i_adapter_embedding = [0.0] * 4
             require_inpaint_hijack = False
@@ -668,13 +680,40 @@ class UnetHook(nn.Module):
 
             return h
 
+        def forward_sdxl(self, x, timesteps=None, context=None, y=None, **kwargs):
+            # Handle cond-uncond marker
+            cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
+
+            hs = []
+            t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+            emb = self.time_embed(t_emb)
+
+            if self.num_classes is not None:
+                assert y.shape[0] == x.shape[0]
+                emb = emb + self.label_emb(y)
+
+            h = x
+            for module in self.input_blocks:
+                h = module(h, emb, context)
+                hs.append(h)
+            h = self.middle_block(h, emb, context)
+            for module in self.output_blocks:
+                h = th.cat([h, hs.pop()], dim=1)
+                h = module(h, emb, context)
+            h = h.type(x.dtype)
+
+            return self.out(h)
+
         def forward_webui(*args, **kwargs):
             # webui will handle other compoments 
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
 
-                return forward(*args, **kwargs)
+                if model_is_sdxl:
+                    return forward_sdxl(*args, **kwargs)
+                else:
+                    return forward_sd15(*args, **kwargs)
             finally:
                 if self.lowvram:
                     for param in self.control_params:
@@ -754,7 +793,7 @@ class UnetHook(nn.Module):
 
         all_modules = torch_dfs(model)
 
-        attn_modules = [module for module in all_modules if isinstance(module, BasicTransformerBlock)]
+        attn_modules = [module for module in all_modules if isinstance(module, BasicTransformerBlock) or isinstance(module, BasicTransformerBlockSGM)]
         attn_modules = sorted(attn_modules, key=lambda x: - x.norm1.normalized_shape[0])
 
         for i, module in enumerate(attn_modules):
@@ -768,13 +807,18 @@ class UnetHook(nn.Module):
         gn_modules = [model.middle_block]
         model.middle_block.gn_weight = 0
 
-        input_block_indices = [4, 5, 7, 8, 10, 11]
+        if model_is_sdxl:
+            input_block_indices = [4, 5, 7, 8]
+            output_block_indices = [0, 1, 2, 3, 4, 5]
+        else:
+            input_block_indices = [4, 5, 7, 8, 10, 11]
+            output_block_indices = [0, 1, 2, 3, 4, 5, 6, 7]
+
         for w, i in enumerate(input_block_indices):
             module = model.input_blocks[i]
             module.gn_weight = 1.0 - float(w) / float(len(input_block_indices))
             gn_modules.append(module)
 
-        output_block_indices = [0, 1, 2, 3, 4, 5, 6, 7]
         for w, i in enumerate(output_block_indices):
             module = model.output_blocks[i]
             module.gn_weight = float(w) / float(len(output_block_indices))
