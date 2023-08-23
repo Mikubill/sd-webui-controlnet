@@ -719,11 +719,6 @@ class Script(scripts.Script, metaclass=(
         if len(self.enabled_units) == 0:
            self.latest_network = None
            return
-        
-        is_sdxl = getattr(p.sd_model, 'is_sdxl', False)
-        if is_sdxl:
-            logger.warning('ControlNet does not support SDXL -- disabling')
-            return
 
         detected_maps = []
         forward_params = []
