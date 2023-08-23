@@ -3,8 +3,10 @@ import einops
 import hashlib
 import numpy as np
 import torch.nn as nn
-
+from functools import partial
 import modules.processing
+import sgm.modules.diffusionmodules.discretizer
+
 
 from enum import Enum
 from scripts.logging import logger
@@ -113,7 +115,7 @@ def create_random_tensors_hacked(*args, **kwargs):
             return result
         x0 = x0.to(result.dtype).to(result.device)
         ts = torch.tensor([p.sd_model.num_timesteps - 1] * result.shape[0]).long().to(result.device)
-        result = p.sd_model.q_sample(x0, ts, result)
+        result = predict_q_sample(p.sd_model, x0, ts, result)
         logger.info(f'[ControlNet] Initial noise hack applied to {result.shape}.')
     return result
 
@@ -262,12 +264,41 @@ def torch_dfs(model: torch.nn.Module):
     return result
 
 
+def register_schedule(self):
+    linear_start = 0.00085
+    linear_end = 0.0120
+    num_timesteps = 1000
+
+    betas = (torch.linspace(linear_start ** 0.5, linear_end ** 0.5, num_timesteps, dtype=torch.float64) ** 2.0).numpy()
+
+    alphas = 1. - betas
+    alphas_cumprod = np.cumprod(alphas, axis=0)
+    alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
+
+    to_torch = partial(torch.tensor, dtype=torch.float32)
+
+    setattr(self, 'betas', to_torch(betas))
+    # setattr(self, 'alphas_cumprod', to_torch(alphas_cumprod))  # a1111 already has this
+    setattr(self, 'alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
+    setattr(self, 'sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+    setattr(self, 'sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
+    setattr(self, 'log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
+    setattr(self, 'sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
+    setattr(self, 'sqrt_recipm1_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod - 1)))
+
+
+def predict_q_sample(ldm, x_start, t, noise=None):
+    if noise is None:
+        noise = torch.randn_like(x_start)
+    return extract_into_tensor(ldm.sqrt_alphas_cumprod.to(x_start), t, x_start.shape) * x_start + extract_into_tensor(ldm.sqrt_one_minus_alphas_cumprod.to(x_start), t, x_start.shape) * noise
+
+
 def predict_start_from_noise(ldm, x_t, t, noise):
-    return extract_into_tensor(ldm.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
+    return extract_into_tensor(ldm.sqrt_recip_alphas_cumprod.to(x_t), t, x_t.shape) * x_t - extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod.to(x_t), t, x_t.shape) * noise
 
 
 def predict_noise_from_start(ldm, x_t, t, x0):
-    return (extract_into_tensor(ldm.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - x0) / extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod, t, x_t.shape)
+    return (extract_into_tensor(ldm.sqrt_recip_alphas_cumprod.to(x_t), t, x_t.shape) * x_t - x0) / extract_into_tensor(ldm.sqrt_recipm1_alphas_cumprod.to(x_t), t, x_t.shape)
 
 
 def blur(x, k):
@@ -571,7 +602,7 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
 
-                ref_xt = outer.sd_ldm.q_sample(param.used_hint_cond_latent, torch.round(timesteps.float()).long())
+                ref_xt = predict_q_sample(outer.sd_ldm, param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
                 # Inpaint Hijack
                 if x.shape[1] == 9:
@@ -599,11 +630,19 @@ class UnetHook(nn.Module):
                     outer.gn_auto_machine = AutoMachine.Write
                     outer.gn_auto_machine_weight = param.weight
 
-                outer.original_forward(
-                    x=ref_xt.to(devices.dtype_unet),
-                    timesteps=timesteps.to(devices.dtype_unet),
-                    context=context.to(devices.dtype_unet)
-                )
+                if is_sdxl:
+                    outer.original_forward(
+                        x=ref_xt.to(devices.dtype_unet),
+                        timesteps=timesteps.to(devices.dtype_unet),
+                        context=context.to(devices.dtype_unet),
+                        y=y
+                    )
+                else:
+                    outer.original_forward(
+                        x=ref_xt.to(devices.dtype_unet),
+                        timesteps=timesteps.to(devices.dtype_unet),
+                        context=context.to(devices.dtype_unet)
+                    )
 
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read
@@ -613,7 +652,12 @@ class UnetHook(nn.Module):
             with th.no_grad():
                 t_emb = cond_cast_unet(timestep_embedding(timesteps, self.model_channels, repeat_only=False))
                 emb = self.time_embed(t_emb)
-                h = x.type(self.dtype)
+
+                if is_sdxl:
+                    assert y.shape[0] == x.shape[0]
+                    emb = emb + self.label_emb(y)
+
+                h = x
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
 
@@ -773,6 +817,9 @@ class UnetHook(nn.Module):
         model._original_forward = model.forward
         outer.original_forward = model.forward
         model.forward = forward_webui.__get__(model, UNetModel)
+
+        if model_is_sdxl:
+            register_schedule(sd_ldm)
 
         all_modules = torch_dfs(model)
 
