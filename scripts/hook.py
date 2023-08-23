@@ -392,7 +392,7 @@ class UnetHook(nn.Module):
         self.sd_ldm = sd_ldm
         self.control_params = control_params
 
-        model_is_sdxl = self.sd_ldm.is_sdxl
+        model_is_sdxl = getattr(self.sd_ldm, 'is_sdxl', False)
 
         outer = self
 
