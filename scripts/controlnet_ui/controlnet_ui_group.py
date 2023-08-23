@@ -179,9 +179,10 @@ class ControlNetUiGroup(object):
                         visible=False, elem_classes=["cnet-generated-image-group"]
                     ) as self.generated_image_group:
                         self.generated_image = gr.Image(
+                            value=None,
                             label="Preprocessor Preview",
                             elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
-                            elem_classes=["cnet-image"],
+                            elem_classes=["cnet-image"], interactive=False
                         ).style(
                             height=242
                         )  # Gradio's magic number. Only 242 works.
@@ -254,10 +255,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_send_dimen_button",
             )
 
-        with FormRow(
-            elem_classes=["checkboxes-row", "controlnet_main_options"],
-            variant="compact",
-        ):
+        with FormRow(elem_classes=["controlnet_main_options"]):
             self.enabled = gr.Checkbox(
                 label="Enable",
                 value=self.default_unit.enabled,
@@ -285,7 +283,7 @@ class ControlNetUiGroup(object):
             )
 
         if not shared.opts.data.get("controlnet_disable_control_type", False):
-            with gr.Row(elem_classes="controlnet_control_type"):
+            with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
                 self.type_filter = gr.Radio(
                     list(preprocessor_filters.keys()),
                     label=f"Control Type",
@@ -294,7 +292,7 @@ class ControlNetUiGroup(object):
                     elem_classes="controlnet_control_type_filter_group",
                 )
 
-        with gr.Row(elem_classes="controlnet_preprocessor_model"):
+        with gr.Row(elem_classes=["controlnet_preprocessor_model", "controlnet_row"]):
             self.module = gr.Dropdown(
                 global_state.ui_preprocessor_keys,
                 label=f"Preprocessor",
@@ -318,7 +316,7 @@ class ControlNetUiGroup(object):
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
             )
 
-        with gr.Row(elem_classes="controlnet_weight_steps"):
+        with gr.Row(elem_classes=["controlnet_weight_steps", "controlnet_row"]):
             self.weight = gr.Slider(
                 label=f"Control Weight",
                 value=self.default_unit.weight,
@@ -672,7 +670,7 @@ class ControlNetUiGroup(object):
                 # generated_image_group
                 gr.update(visible=is_on),
                 # use_preview_as_input,
-                gr.update(visible=is_on),
+                gr.update(visible=False),  # Now this is automatically managed
                 # download_pose_link
                 gr.update() if is_on else gr.update(value=None),
                 # modal edit button
@@ -822,6 +820,36 @@ class ControlNetUiGroup(object):
             for event_subscriber in event_subscribers:
                 event_subscriber(
                     fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit
+                )
+
+        def clear_preview(x):
+            if x:
+                logger.info('Preview as input is cancelled.')
+            return gr.update(value=False), gr.update(value=None)
+
+        for comp in (
+            self.pixel_perfect,
+            self.module,
+            self.input_image,
+            self.processor_res,
+            self.threshold_a,
+            self.threshold_b,
+        ):
+            event_subscribers = []
+            if hasattr(comp, "edit"):
+                event_subscribers.append(comp.edit)
+            elif hasattr(comp, "click"):
+                event_subscribers.append(comp.click)
+            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
+                event_subscribers.append(comp.release)
+            elif hasattr(comp, "change"):
+                event_subscribers.append(comp.change)
+            if hasattr(comp, "clear"):
+                event_subscribers.append(comp.clear)
+            for event_subscriber in event_subscribers:
+                event_subscriber(
+                    fn=clear_preview, inputs=self.use_preview_as_input, outputs=[self.use_preview_as_input,
+                                                                                 self.generated_image]
                 )
 
         # keep input_mode in sync
