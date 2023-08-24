@@ -36,7 +36,10 @@ def serialize_unit(unit: external_code.ControlNetUnit) -> str:
         if field not in ("image", "enabled") and getattr(unit, field) != -1
         # Note: exclude hidden slider values.
     }
-    assert all("," not in str(v) and ":" not in str(v) for v in log_value.values())
+    if not all("," not in str(v) and ":" not in str(v) for v in log_value.values()):
+        logger.error(f"Unexpected tokens encountered:\n{log_value}")
+        return ""
+    
     return ", ".join(f"{field}: {value}" for field, value in log_value.items())
 
 
