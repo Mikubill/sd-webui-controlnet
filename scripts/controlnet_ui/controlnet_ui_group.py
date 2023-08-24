@@ -288,7 +288,7 @@ class ControlNetUiGroup(object):
         with gr.Row(elem_classes="controlnet_img2img_options"):
             if is_img2img:
                 self.upload_independent_img_in_img2img = gr.Checkbox(
-                    label="Upload control image different from img2img inputs",
+                    label="Upload independent control image",
                     value=False,
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_same_img2img_checkbox",
                     elem_classes=['cnet-unit-same_img2img'],
