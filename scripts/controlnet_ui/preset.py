@@ -5,10 +5,12 @@ from typing import Dict, List
 
 from modules import ui_components, scripts
 from scripts.infotext import parse_unit, serialize_unit
+from scripts.logging import logger
 from scripts import external_code
 
 save_symbol = "\U0001f4be"  # 💾
 delete_symbol = "\U0001f5d1\ufe0f"  # 🗑️
+refresh_symbol = "\U0001f504"  # 🔄
 
 NEW_PRESET = "New Preset"
 
@@ -22,7 +24,10 @@ def load_presets(preset_dir: str) -> Dict[str, str]:
     for filename in os.listdir(preset_dir):
         if filename.endswith(".txt"):
             with open(os.path.join(preset_dir, filename), "r") as f:
-                presets[filename.replace(".txt", "")] = f.read()
+                name = filename.replace(".txt", "")
+                if name == NEW_PRESET:
+                    continue
+                presets[name] = f.read()
     return presets
 
 
@@ -34,6 +39,7 @@ class ControlNetPresetUI(object):
         self.dropdown = None
         self.save_button = None
         self.delete_button = None
+        self.refresh_button = None
         self.preset_name = None
         self.confirm_preset_name = None
         self.name_dialog = None
@@ -42,12 +48,11 @@ class ControlNetPresetUI(object):
     def render(self, id_prefix: str):
         with gr.Row():
             self.dropdown = gr.Dropdown(
-                label="Styles",
-                show_label=False,
+                label="Presets",
+                show_label=True,
                 elem_classes=["cnet-preset-dropdown"],
                 choices=ControlNetPresetUI.dropdown_choices(),
                 value=NEW_PRESET,
-                tooltip="Presets",
             )
             self.save_button = ui_components.ToolButton(
                 value=save_symbol,
@@ -58,6 +63,11 @@ class ControlNetPresetUI(object):
                 value=delete_symbol,
                 elem_classes=["cnet-preset-delete"],
                 tooltip="Delete preset",
+            )
+            self.refresh_button = ui_components.ToolButton(
+                value=refresh_symbol,
+                elem_classes=["cnet-preset-refresh"],
+                tooltip="Refresh preset",
             )
 
         with gr.Box(
@@ -128,6 +138,10 @@ class ControlNetPresetUI(object):
         self.name_dialog.visible = False
 
         def save_new_preset(new_name: str, *ui_states):
+            if new_name == NEW_PRESET:
+                logger.warn(f"Cannot save preset with reserved name '{NEW_PRESET}'")
+                return gr.update(visible=False), gr.update()
+
             ControlNetPresetUI.save_preset(
                 new_name, external_code.ControlNetUnit(*ui_states)
             )
@@ -141,6 +155,13 @@ class ControlNetPresetUI(object):
             outputs=[self.name_dialog, self.dropdown],
             show_progress=False,
         ).then(fn=None, _js="closePopup")
+
+        self.refresh_button.click(
+            fn=ControlNetPresetUI.refresh_preset,
+            inputs=None,
+            outputs=[self.dropdown],
+            show_progress=False,
+        )
 
     @staticmethod
     def dropdown_choices() -> List[str]:
@@ -183,3 +204,8 @@ class ControlNetPresetUI(object):
             gr.update(value=value) if value is not None else gr.update()
             for value in vars(unit).values()
         ]
+
+    @staticmethod
+    def refresh_preset():
+        ControlNetPresetUI.presets = load_presets(ControlNetPresetUI.preset_directory)
+        return gr.update(choices=ControlNetPresetUI.dropdown_choices())
