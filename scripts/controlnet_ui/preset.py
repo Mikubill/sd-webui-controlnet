@@ -30,16 +30,16 @@ class ControlNetPresetUI(object):
     preset_directory = os.path.join(scripts.basedir(), "presets")
     presets = load_presets(preset_directory)
 
-    def __init__(self):
+    def __init__(self, id_prefix: str):
         self.dropdown = None
         self.save_button = None
         self.delete_button = None
         self.preset_name = None
         self.confirm_preset_name = None
         self.name_dialog = None
-        self.render()
+        self.render(id_prefix)
 
-    def render(self):
+    def render(self, id_prefix: str):
         with gr.Row():
             self.dropdown = gr.Dropdown(
                 label="Styles",
@@ -62,16 +62,20 @@ class ControlNetPresetUI(object):
 
         with gr.Box(
             elem_classes=["popup-dialog", "cnet-preset-enter-name"],
+            elem_id=f"{id_prefix}_cnet_preset_enter_name",
         ) as self.name_dialog:
-            self.preset_name = gr.Textbox(
-                label="Preset name",
-                show_label=True,
-                lines=1,
-                elem_classes=["cnet-preset-name"],
-            )
-            self.confirm_preset_name = gr.Button(
-                value="Confirm", elem_classes=["cnet-preset-confirm-name"]
-            )
+            with gr.Row():
+                self.preset_name = gr.Textbox(
+                    label="Preset name",
+                    show_label=True,
+                    lines=1,
+                    elem_classes=["cnet-preset-name"],
+                )
+                self.confirm_preset_name = ui_components.ToolButton(
+                    value=save_symbol,
+                    elem_classes=["cnet-preset-confirm-name"],
+                    tooltip="Save preset",
+                )
 
     def register_callbacks(self, *ui_states):
         self.dropdown.change(
@@ -83,23 +87,25 @@ class ControlNetPresetUI(object):
 
         def save_preset(name: str, *ui_states):
             if name == NEW_PRESET:
-                return gr.update(visible=True)
+                return gr.update(visible=True), gr.update()
 
             ControlNetPresetUI.save_preset(
                 name, external_code.ControlNetUnit(*ui_states)
             )
-            return gr.update()
+            return gr.update(), gr.update(
+                choices=ControlNetPresetUI.dropdown_choices(), value=name
+            )
 
         self.save_button.click(
             fn=save_preset,
             inputs=[self.dropdown, *ui_states],
-            outputs=[self.name_dialog],
+            outputs=[self.name_dialog, self.dropdown],
             show_progress=False,
         ).then(
             fn=None,
             _js=f"""
             (name) => {{
-                if (name !== "{NEW_PRESET}")
+                if (name === "{NEW_PRESET}")
                     popup(gradioApp().getElementById('{self.name_dialog.elem_id}'));
             }}""",
             inputs=[self.dropdown],
@@ -125,11 +131,14 @@ class ControlNetPresetUI(object):
             ControlNetPresetUI.save_preset(
                 new_name, external_code.ControlNetUnit(*ui_states)
             )
+            return gr.update(visible=False), gr.update(
+                choices=ControlNetPresetUI.dropdown_choices(), value=new_name
+            )
 
         self.confirm_preset_name.click(
             fn=save_new_preset,
             inputs=[self.preset_name, *ui_states],
-            outputs=None,
+            outputs=[self.name_dialog, self.dropdown],
             show_progress=False,
         ).then(fn=None, _js="closePopup")
 
@@ -163,7 +172,7 @@ class ControlNetPresetUI(object):
         if name == NEW_PRESET:
             return (
                 gr.update(visible=False),
-                (gr.update(),) * len(vars(external_code.ControlNetUnit()).keys()),
+                *((gr.update(),) * len(vars(external_code.ControlNetUnit()).keys())),
             )
 
         assert name in ControlNetPresetUI.presets

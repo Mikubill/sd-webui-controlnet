@@ -414,7 +414,7 @@ class ControlNetUiGroup(object):
             visible=not is_img2img
         )
 
-        self.preset_panel = ControlNetPresetUI()
+        self.preset_panel = ControlNetPresetUI(id_prefix=f"{elem_id_tabname}_{tabname}_")
 
     def register_send_dimensions(self, is_img2img: bool):
         """Register event handler for send dimension button."""
