@@ -574,7 +574,7 @@ class Script(scripts.Script, metaclass=(
                 units.append(remote_unit)
         
         enabled_units = [
-            local_unit
+            copy(local_unit)
             for idx, unit in enumerate(units)
             for local_unit in (Script.parse_remote_call(p, unit, idx),)
             if local_unit.enabled
