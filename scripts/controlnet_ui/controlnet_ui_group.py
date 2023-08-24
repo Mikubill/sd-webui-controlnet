@@ -174,6 +174,7 @@ class ControlNetUiGroup(object):
                                     tool="sketch",
                                     elem_id=f"{elem_id_tabname}_{tabname}_input_image",
                                     elem_classes=["cnet-image"],
+                                    brush_color=shared.opts.img2img_inpaint_mask_brush_color
                                 )
                             with gr.Group(
                                 visible=False, elem_classes=["cnet-generated-image-group"]
