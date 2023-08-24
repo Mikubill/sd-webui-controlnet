@@ -1,5 +1,6 @@
 import gradio as gr
 import functools
+from copy import copy
 from typing import List, Optional, Union, Callable
 import numpy as np
 
@@ -174,6 +175,7 @@ class ControlNetUiGroup(object):
                                     tool="sketch",
                                     elem_id=f"{elem_id_tabname}_{tabname}_input_image",
                                     elem_classes=["cnet-image"],
+                                    brush_color=shared.opts.img2img_inpaint_mask_brush_color if hasattr(shared.opts, 'img2img_inpaint_mask_brush_color') else None
                                 )
                             with gr.Group(
                                 visible=False, elem_classes=["cnet-generated-image-group"]
@@ -506,8 +508,8 @@ class ControlNetUiGroup(object):
                         visible=not pp,
                         interactive=not pp,
                     ),
-                    clear_slider_update,
-                    clear_slider_update,
+                    copy(clear_slider_update),
+                    copy(clear_slider_update),
                     gr.update(visible=True),
                 ]
             else:
@@ -530,9 +532,9 @@ class ControlNetUiGroup(object):
                             )
                         )
                     else:
-                        grs.append(clear_slider_update)
+                        grs.append(copy(clear_slider_update))
                 while len(grs) < 3:
-                    grs.append(clear_slider_update)
+                    grs.append(copy(clear_slider_update))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
                 grs += [
