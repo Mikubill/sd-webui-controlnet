@@ -1,5 +1,6 @@
 import gradio as gr
 import functools
+from copy import copy
 from typing import List, Optional, Union, Callable
 import numpy as np
 
@@ -506,8 +507,8 @@ class ControlNetUiGroup(object):
                         visible=not pp,
                         interactive=not pp,
                     ),
-                    clear_slider_update,
-                    clear_slider_update,
+                    copy(clear_slider_update),
+                    copy(clear_slider_update),
                     gr.update(visible=True),
                 ]
             else:
@@ -530,9 +531,9 @@ class ControlNetUiGroup(object):
                             )
                         )
                     else:
-                        grs.append(clear_slider_update)
+                        grs.append(copy(clear_slider_update))
                 while len(grs) < 3:
-                    grs.append(clear_slider_update)
+                    grs.append(copy(clear_slider_update))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
                 grs += [
