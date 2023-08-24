@@ -866,6 +866,7 @@ class ControlNetUiGroup(object):
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
+            self.upload_independent_img_in_img2img
         ):
             event_subscribers = []
             if hasattr(comp, "edit"):
