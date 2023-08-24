@@ -253,7 +253,7 @@ class Script(scripts.Script, metaclass=(
             Script.get_default_ui_unit(),
             self.preprocessor,
         )
-        group.render(tabname, elem_id_tabname)
+        group.render(tabname, elem_id_tabname, is_img2img)
         group.register_callbacks(is_img2img)
         return group.render_and_register_unit(tabname, is_img2img)
 
