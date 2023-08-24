@@ -1,6 +1,7 @@
 import gc
 import os
 import logging
+import re
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
@@ -21,6 +22,7 @@ from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiContr
 from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
+from scripts.infotext import Infotext
 
 import cv2
 import numpy as np
@@ -246,24 +248,23 @@ class Script(scripts.Script, metaclass=(
             model="None"
         )
 
-    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str):
+    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
             gradio_compat,
-            self.infotext_fields,
             Script.get_default_ui_unit(),
             self.preprocessor,
         )
-        group.render(tabname, elem_id_tabname)
+        group.render(tabname, elem_id_tabname, is_img2img)
         group.register_callbacks(is_img2img)
-        return group.render_and_register_unit(tabname, is_img2img)
+        return group, group.render_and_register_unit(tabname, is_img2img)
 
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
         The return value should be an array of all components that are used in processing.
         Values of those returned components will be passed to run() and process() functions.
         """
-        self.infotext_fields = []
-        self.paste_field_names = []
+        infotext = Infotext()
+        
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
@@ -274,14 +275,18 @@ class Script(scripts.Script, metaclass=(
                         for i in range(max_models):
                             with gr.Tab(f"ControlNet Unit {i}", 
                                         elem_classes=['cnet-unit-tab']):
-                                controls += (self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname),)
+                                group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname)
+                                infotext.register_unit(i, group)
+                                controls += (state,)
                 else:
                     with gr.Column():
-                        controls += (self.uigroup(f"ControlNet", is_img2img, elem_id_tabname),)
+                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname)
+                        infotext.register_unit(0, group)
+                        controls += (state,)
 
-        if shared.opts.data.get("control_net_sync_field_args", False):
-            for _, field_name in self.infotext_fields:
-                self.paste_field_names.append(field_name)
+        if shared.opts.data.get("control_net_sync_field_args", True):
+            self.infotext_fields = infotext.infotext_fields
+            self.paste_field_names = infotext.paste_field_names
 
         return controls
     
@@ -562,39 +567,19 @@ class Script(scripts.Script, metaclass=(
     @staticmethod
     def get_enabled_units(p):
         units = external_code.get_all_units_in_processing(p)
-        enabled_units = []
-
         if len(units) == 0:
             # fill a null group
             remote_unit = Script.parse_remote_call(p, Script.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 units.append(remote_unit)
-
-        for idx, unit in enumerate(units):
-            unit = Script.parse_remote_call(p, unit, idx)
-            if not unit.enabled:
-                continue
-
-            enabled_units.append(copy(unit))
-            if len(units) != 1:
-                log_key = f"ControlNet {idx}"
-            else:
-                log_key = "ControlNet"
-
-            log_value = {
-                "preprocessor": unit.module,
-                "model": unit.model,
-                "weight": unit.weight,
-                "starting/ending": str((unit.guidance_start, unit.guidance_end)),
-                "resize mode": str(unit.resize_mode),
-                "pixel perfect": str(unit.pixel_perfect),
-                "control mode": str(unit.control_mode),
-                "preprocessor params": str((unit.processor_res, unit.threshold_a, unit.threshold_b)),
-            }
-            log_value = str(log_value).replace('\'', '').replace('{', '').replace('}', '')
-
-            p.extra_generation_params.update({log_key: log_value})
-
+        
+        enabled_units = [
+            copy(local_unit)
+            for idx, unit in enumerate(units)
+            for local_unit in (Script.parse_remote_call(p, unit, idx),)
+            if local_unit.enabled
+        ]
+        Infotext.write_infotext(enabled_units, p)
         return enabled_units
 
     @staticmethod
@@ -1064,7 +1049,7 @@ def on_ui_settings():
     shared.opts.add_option("control_net_allow_script_control", shared.OptionInfo(
         False, "Allow other script to control this extension", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_sync_field_args", shared.OptionInfo(
-        False, "Passing ControlNet parameters with \"Send to img2img\"", gr.Checkbox, {"interactive": True}, section=section))
+        True, "Paste ControlNet parameters in infotext", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_show_batch_images_in_ui", shared.OptionInfo(
         False, "Show batch images in gradio gallery output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_increment_seed_during_batch", shared.OptionInfo(
@@ -1080,4 +1065,5 @@ def on_ui_settings():
 
 batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
+script_callbacks.on_infotext_pasted(Infotext.on_infotext_pasted)
 script_callbacks.on_after_component(ControlNetUiGroup.on_after_component)
