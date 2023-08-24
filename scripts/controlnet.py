@@ -263,7 +263,7 @@ class Script(scripts.Script, metaclass=(
         The return value should be an array of all components that are used in processing.
         Values of those returned components will be passed to run() and process() functions.
         """
-        infotext = Infotext()        
+        infotext = Infotext()
         
         controls = ()
         max_models = shared.opts.data.get("control_net_max_models_num", 1)

@@ -59,7 +59,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
 
         batch_units = [unit for unit in self.p.script_args if getattr(unit, 'input_mode', batch_hijack.InputMode.SIMPLE) == batch_hijack.InputMode.BATCH]
         if batch_units:
-            self.assertEqual(min(len(unit.batch_images) for unit in batch_units), len(batches))
+            self.assertEqual(min(len(list(unit.batch_images)) for unit in batch_units), len(batches))
         else:
             self.assertEqual(1, len(batches))
 
