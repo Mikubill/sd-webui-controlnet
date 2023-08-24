@@ -1,8 +1,7 @@
 import gradio as gr
 import functools
-from typing import List, Optional, Union, Dict, Callable
+from typing import List, Optional, Union, Callable
 import numpy as np
-import base64
 
 from scripts.utils import svg_preprocess
 from scripts import (
@@ -101,12 +100,10 @@ class ControlNetUiGroup(object):
     def __init__(
         self,
         gradio_compat: bool,
-        infotext_fields: List[str],
         default_unit: external_code.ControlNetUnit,
         preprocessors: List[Callable],
     ):
         self.gradio_compat = gradio_compat
-        self.infotext_fields = infotext_fields
         self.default_unit = default_unit
         self.preprocessors = preprocessors
         self.webcam_enabled = False
@@ -114,7 +111,7 @@ class ControlNetUiGroup(object):
 
         # Note: All gradio elements declared in `render` will be defined as member variable.
         self.upload_tab = None
-        self.input_image = None
+        self.image = None
         self.generated_image_group = None
         self.generated_image = None
         self.batch_tab = None
@@ -129,7 +126,7 @@ class ControlNetUiGroup(object):
         self.webcam_mirror = None
         self.send_dimen_button = None
         self.enabled = None
-        self.lowvram = None
+        self.low_vram = None
         self.pixel_perfect = None
         self.preprocessor_preview = None
         self.type_filter = None
@@ -169,7 +166,7 @@ class ControlNetUiGroup(object):
                     with gr.Tab(label="Single Image") as self.upload_tab:
                         with gr.Row(elem_classes=["cnet-image-row"]).style(equal_height=True):
                             with gr.Group(elem_classes=["cnet-input-image-group"]):
-                                self.input_image = gr.Image(
+                                self.image = gr.Image(
                                     source="upload",
                                     brush_radius=20,
                                     mirror_webcam=False,
@@ -263,9 +260,9 @@ class ControlNetUiGroup(object):
                 label="Enable",
                 value=self.default_unit.enabled,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_enable_checkbox",
-                elem_classes=['cnet-unit-enabled'],
+                elem_classes=["cnet-unit-enabled"],
             )
-            self.lowvram = gr.Checkbox(
+            self.low_vram = gr.Checkbox(
                 label="Low VRAM",
                 value=self.default_unit.low_vram,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_low_vram_checkbox",
@@ -444,7 +441,7 @@ class ControlNetUiGroup(object):
         )
         self.send_dimen_button.click(
             fn=send_dimensions,
-            inputs=[self.input_image],
+            inputs=[self.image],
             outputs=outputs,
         )
 
@@ -457,16 +454,14 @@ class ControlNetUiGroup(object):
                 "__type__": "update",
             }
 
-        self.webcam_enable.click(webcam_toggle, inputs=None, outputs=self.input_image)
+        self.webcam_enable.click(webcam_toggle, inputs=None, outputs=self.image)
 
     def register_webcam_mirror_toggle(self):
         def webcam_mirror_toggle():
             self.webcam_mirrored = not self.webcam_mirrored
             return {"mirror_webcam": self.webcam_mirrored, "__type__": "update"}
 
-        self.webcam_mirror.click(
-            webcam_mirror_toggle, inputs=None, outputs=self.input_image
-        )
+        self.webcam_mirror.click(webcam_mirror_toggle, inputs=None, outputs=self.image)
 
     def register_refresh_all_models(self):
         def refresh_all_models(*inputs):
@@ -485,21 +480,34 @@ class ControlNetUiGroup(object):
             return
 
         def build_sliders(module, pp):
+            default_res_slider_config = dict(
+                label=flag_preprocessor_resolution,
+                value=512,
+                minimum=64,
+                maximum=2048,
+                step=1,
+            )
+            # Clear old slider values so that they do not cause confusion in
+            # infotext.
+            clear_slider_update = gr.update(
+                visible=False,
+                interactive=False,
+                minimum=-1,
+                maximum=-1,
+                value=-1,
+            )
+
             grs = []
             module = global_state.get_module_basename(module)
             if module not in preprocessor_sliders_config:
                 grs += [
                     gr.update(
-                        label=flag_preprocessor_resolution,
-                        value=512,
-                        minimum=64,
-                        maximum=2048,
-                        step=1,
+                        **default_res_slider_config,
                         visible=not pp,
                         interactive=not pp,
                     ),
-                    gr.update(visible=False, interactive=False),
-                    gr.update(visible=False, interactive=False),
+                    clear_slider_update,
+                    clear_slider_update,
                     gr.update(visible=True),
                 ]
             else:
@@ -522,9 +530,9 @@ class ControlNetUiGroup(object):
                             )
                         )
                     else:
-                        grs.append(gr.update(visible=False, interactive=False))
+                        grs.append(clear_slider_update)
                 while len(grs) < 3:
-                    grs.append(gr.update(visible=False, interactive=False))
+                    grs.append(clear_slider_update)
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
                 grs += [
@@ -554,13 +562,17 @@ class ControlNetUiGroup(object):
                     filtered_preprocessor_list,
                     filtered_model_list,
                     default_option,
-                    default_model
-                ) =  global_state.select_control_type(k)
+                    default_model,
+                ) = global_state.select_control_type(k)
                 return [
-                    gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
-                    gr.Dropdown.update(value=default_model, choices=filtered_model_list),
+                    gr.Dropdown.update(
+                        value=default_option, choices=filtered_preprocessor_list
+                    ),
+                    gr.Dropdown.update(
+                        value=default_model, choices=filtered_model_list
+                    ),
                 ] + build_sliders(default_option, pp)
-                
+
             self.type_filter.change(
                 filter_selected,
                 inputs=[self.type_filter, self.pixel_perfect],
@@ -571,9 +583,9 @@ class ControlNetUiGroup(object):
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
             if image is None:
                 return (
-                    gr.update(value=None, visible=True), 
-                    gr.update(), 
-                    *self.openpose_editor.update(''),
+                    gr.update(value=None, visible=True),
+                    gr.update(),
+                    *self.openpose_editor.update(""),
                 )
 
             img = HWC3(image["image"])            
@@ -657,7 +669,7 @@ class ControlNetUiGroup(object):
         self.trigger_preprocessor.click(
             fn=run_annotator,
             inputs=[
-                self.input_image,
+                self.image,
                 self.module,
                 self.processor_res,
                 self.threshold_a,
@@ -725,7 +737,7 @@ class ControlNetUiGroup(object):
         self.canvas_create_button.click(
             fn=fn_canvas,
             inputs=[self.canvas_height, self.canvas_width],
-            outputs=[self.input_image, self.create_canvas],
+            outputs=[self.image, self.create_canvas],
         )
 
     def register_img2img_same_input(self):
@@ -737,7 +749,7 @@ class ControlNetUiGroup(object):
             ] + [gr.update(visible=x)] * 4
 
         self.upload_independent_img_in_img2img.change(fn_same_checked, inputs=self.upload_independent_img_in_img2img, outputs=[
-            self.input_image, self.batch_image_dir, self.preprocessor_preview,
+            self.image, self.batch_image_dir, self.preprocessor_preview,
             self.image_upload_panel, self.trigger_preprocessor, self.loopback, self.resize_mode
         ])
         return
@@ -764,20 +776,6 @@ class ControlNetUiGroup(object):
         )
         if is_img2img:
             self.register_img2img_same_input()
-
-    def register_modules(
-        self, tabname: str, enabled, module, model, weight, guidance_start, guidance_end
-    ):
-        self.infotext_fields.extend(
-            [
-                (enabled, f"{tabname} Enabled"),
-                (module, f"{tabname} Preprocessor"),
-                (model, f"{tabname} Model"),
-                (weight, f"{tabname} Weight"),
-                (guidance_start, f"{tabname} Guidance Start"),
-                (guidance_end, f"{tabname} Guidance End"),
-            ]
-        )
 
     def render_and_register_unit(self, tabname: str, is_img2img: bool):
         """Render the invisible states elements for misc persistent
@@ -809,9 +807,9 @@ class ControlNetUiGroup(object):
             self.module,
             self.model,
             self.weight,
-            self.input_image,
+            self.image,
             self.resize_mode,
-            self.lowvram,
+            self.low_vram,
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
@@ -820,18 +818,9 @@ class ControlNetUiGroup(object):
             self.pixel_perfect,
             self.control_mode,
         )
-        self.register_modules(
-            tabname,
-            self.enabled,
-            self.module,
-            self.model,
-            self.weight,
-            self.guidance_start,
-            self.guidance_end,
-        )
 
-        self.input_image.preprocess = functools.partial(
-            svg_preprocess, preprocess=self.input_image.preprocess
+        self.image.preprocess = functools.partial(
+            svg_preprocess, preprocess=self.image.preprocess
         )
 
         unit = gr.State(self.default_unit)
@@ -862,7 +851,7 @@ class ControlNetUiGroup(object):
         for comp in (
             self.pixel_perfect,
             self.module,
-            self.input_image,
+            self.image,
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
