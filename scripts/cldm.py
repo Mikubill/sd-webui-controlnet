@@ -58,40 +58,12 @@ def get_node_name(name, parent_name):
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
+    def __init__(self, config, state_dict):
         super().__init__()
-        self.config = OmegaConf.load(config_path)        
-        self.control_model = ControlNet(**self.config.model.params.control_stage_config.params)
-            
-        if any([k.startswith("control_model.") for k, v in state_dict.items()]):
-            if 'difference' in state_dict and base_model is not None:
-                print('We will stop supporting diff models soon because of its lack of robustness.')
-                print('Please begin to use official models as soon as possible.')
+        self.config = config
+        self.control_model = ControlNet(**self.config).cpu()
+        self.control_model.load_state_dict(state_dict, strict=False)
 
-                unet_state_dict = base_model.state_dict()
-                unet_state_dict_keys = unet_state_dict.keys()
-                final_state_dict = {}
-                counter = 0
-                for key in state_dict.keys():
-                    if not key.startswith("control_model."):
-                        continue
-                    p = state_dict[key]
-                    is_control, node_name = get_node_name(key, 'control_')
-                    key_name = node_name.replace("model.", "") if is_control else key
-                    if key_name in unet_state_dict_keys:
-                        p_new = p + unet_state_dict[key_name].clone().cpu()
-                        counter += 1
-                    else:
-                        p_new = p
-                    final_state_dict[key] = p_new
-                print(f'Diff model cloned: {counter} values')
-                state_dict = final_state_dict
-            state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items() if k.startswith("control_model.")}
-            
-        self.control_model.load_state_dict(state_dict)
-        if not lowvram:
-            self.control_model.to(devices.get_device_for("controlnet"))
-            
     def reset(self):
         pass
             
@@ -102,7 +74,6 @@ class PlugableControlModel(nn.Module):
 class ControlNet(nn.Module):
     def __init__(
         self,
-        image_size,
         in_channels,
         model_channels,
         hint_channels,
@@ -130,7 +101,11 @@ class ControlNet(nn.Module):
         num_attention_blocks=None,
         disable_middle_self_attn=False,
         use_linear_in_transformer=False,
+        global_average_pooling=False,
     ):
+
+        self.global_average_pooling = global_average_pooling
+
         use_fp16 = getattr(devices, 'dtype_unet', devices.dtype) == th.float16 and not getattr(shared.cmd_opts, "no_half_controlnet", False)
             
         super().__init__()
@@ -153,7 +128,7 @@ class ControlNet(nn.Module):
             assert num_heads != -1, 'Either num_heads or num_head_channels has to be set'
 
         self.dims = dims
-        self.image_size = image_size
+        self.image_size = None
         self.in_channels = in_channels
         self.model_channels = model_channels
         if isinstance(num_res_blocks, int):

@@ -9,8 +9,6 @@ from omegaconf import OmegaConf
 from copy import deepcopy
 from modules import devices, lowvram, shared, scripts
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
-from ldm.modules.diffusionmodules.util import timestep_embedding
-from ldm.modules.diffusionmodules.openaimodel import UNetModel
 
 
 class TorchHijackForUnet:
@@ -50,42 +48,12 @@ def align(hint, size):
     return hint
 
 
-def get_node_name(name, parent_name):
-    if len(name) <= len(parent_name):
-        return False, ''
-    p = name[:len(parent_name)]
-    if p != parent_name:
-        return False, ''
-    return True, name[len(parent_name):]
-    
-    
-def get_obj_from_str(string, reload=False):
-    module, cls = string.rsplit(".", 1)
-    if reload:
-        module_imp = importlib.import_module(module)
-        importlib.reload(module_imp)
-    return getattr(importlib.import_module(module, package=None), cls)
-
-
 class PlugableAdapter(nn.Module):
-    def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
+    def __init__(self, control_model) -> None:
         super().__init__()
-        self.config = OmegaConf.load(config_path)
-        model = Adapter
-        try:
-            self.target = self.config.model.target
-            model = get_obj_from_str(self.config.model.target)
-        except ImportError:
-            pass
-        
-        self.control_model = model(**self.config.model.params)       
-        self.control_model.load_state_dict(state_dict)
-        self.lowvram = lowvram 
+        self.control_model = control_model
         self.control = None
         self.hint_cond = None
-        
-        if not self.lowvram:
-            self.control_model.to(devices.get_device_for("controlnet"))
             
     def reset(self):
         self.control = None

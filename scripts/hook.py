@@ -474,6 +474,9 @@ class UnetHook(nn.Module):
 
                 param.control_model.to(devices.get_device_for("controlnet"))
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
+                if outer.lowvram:
+                    param.control_model.to("cpu")
+
                 control = torch.cat([control.clone() for _ in range(batch_size)], dim=0)
                 control *= param.weight
                 control *= cond_mark[:, :, :, 0]

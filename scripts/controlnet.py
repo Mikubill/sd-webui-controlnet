@@ -15,7 +15,7 @@ from scripts import global_state, hook, external_code, processor, batch_hijack, 
 from scripts.controlnet_ui import controlnet_ui_group
 from scripts.cldm import PlugableControlModel
 from scripts.processor import *
-from scripts.adapter import PlugableAdapter
+from scripts.adapter import Adapter, StyleAdapter, Adapter_light
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
@@ -32,6 +32,8 @@ from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
 from scripts.processor import model_free_preprocessors
+from scripts.controlnet_model_guess import build_model_by_guess
+
 
 gradio_compat = True
 try:
@@ -337,66 +339,7 @@ class Script(scripts.Script, metaclass=(
 
         logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
-        network_module = PlugableControlModel
-        network_config = shared.opts.data.get("control_net_model_config", global_state.default_conf)
-        if not os.path.isabs(network_config):
-            network_config = os.path.join(global_state.script_dir, network_config)
-
-        if any([k.startswith("body.") or k == 'style_embedding' for k, v in state_dict.items()]):
-            # adapter model
-            network_module = PlugableAdapter
-            network_config = shared.opts.data.get("control_net_model_adapter_config", global_state.default_conf_adapter)
-            if not os.path.isabs(network_config):
-                network_config = os.path.join(global_state.script_dir, network_config)
-
-        model_path = os.path.abspath(model_path)
-        model_stem = Path(model_path).stem
-        model_dir_name = os.path.dirname(model_path)
-
-        possible_config_filenames = [
-            os.path.join(model_dir_name, model_stem + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem + ".yaml"),
-            os.path.join(model_dir_name, model_stem.replace('_fp16', '') + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem.replace('_fp16', '') + ".yaml"),
-            os.path.join(model_dir_name, model_stem.replace('_diff', '') + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem.replace('_diff', '') + ".yaml"),
-            os.path.join(model_dir_name, model_stem.replace('-fp16', '') + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem.replace('-fp16', '') + ".yaml"),
-            os.path.join(model_dir_name, model_stem.replace('-diff', '') + ".yaml"),
-            os.path.join(global_state.script_dir, 'models', model_stem.replace('-diff', '') + ".yaml")
-        ]
-
-        override_config = possible_config_filenames[0]
-
-        for possible_config_filename in possible_config_filenames:
-            if os.path.exists(possible_config_filename):
-                override_config = possible_config_filename
-                break
-
-        if 'v11' in model_stem.lower() or 'shuffle' in model_stem.lower():
-            assert os.path.exists(override_config), f'Error: The model config {override_config} is missing. ControlNet 1.1 must have configs.'
-
-        if os.path.exists(override_config):
-            network_config = override_config
-        else:
-            # Note: This error is triggered in unittest, but not caught.
-            # TODO: Replace `print` with `logger.error`.
-            print(f'ERROR: ControlNet cannot find model config [{override_config}] \n'
-                  f'ERROR: ControlNet will use a WRONG config [{network_config}] to load your model. \n'
-                  f'ERROR: The WRONG config may not match your model. The generated results can be bad. \n'
-                  f'ERROR: You are using a ControlNet model [{model_stem}] without correct YAML config file. \n'
-                  f'ERROR: The performance of this model may be worse than your expectation. \n'
-                  f'ERROR: If this model cannot get good results, the reason is that you do not have a YAML file for the model. \n'
-                  f'Solution: Please download YAML file, or ask your model provider to provide [{override_config}] for you to download.\n'
-                  f'Hint: You can take a look at [{os.path.join(global_state.script_dir, "models")}] to find many existing YAML files.\n')
-
-        logger.info(f"Loading config: {network_config}")
-        network = network_module(
-            state_dict=state_dict,
-            config_path=network_config,
-            lowvram=lowvram,
-            base_model=unet,
-        )
+        network = build_model_by_guess(state_dict, unet, model_path)
         network.to(p.sd_model.device, dtype=p.sd_model.dtype)
         logger.info(f"ControlNet model {model} loaded.")
         return network
@@ -857,21 +800,17 @@ class Script(scripts.Script, metaclass=(
                     detected_maps.append((processor.clip_vision_visualization(detected_map), unit.module))
 
             control_model_type = ControlModelType.ControlNet
-
-            if isinstance(model_net, PlugableAdapter):
-                control_model_type = ControlModelType.T2I_Adapter
-
-            if getattr(model_net, "target", None) == "scripts.adapter.StyleAdapter":
-                control_model_type = ControlModelType.T2I_StyleAdapter
+            global_average_pooling = False
 
             if 'reference' in unit.module:
                 control_model_type = ControlModelType.AttentionInjection
+            elif isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light):
+                control_model_type = ControlModelType.T2I_Adapter
+            elif isinstance(model_net.control_model, StyleAdapter):
+                control_model_type = ControlModelType.T2I_StyleAdapter
 
-            global_average_pooling = False
-
-            if model_net is not None:
-                if model_net.config.model.params.get("global_average_pooling", False):
-                    global_average_pooling = True
+            if control_model_type is ControlModelType.ControlNet:
+                global_average_pooling = model_net.control_model.global_average_pooling
 
             preprocessor_dict = dict(
                 name=unit.module,
@@ -1019,10 +958,6 @@ class Script(scripts.Script, metaclass=(
 
 def on_ui_settings():
     section = ('control_net', "ControlNet")
-    shared.opts.add_option("control_net_model_config", shared.OptionInfo(
-        global_state.default_conf, "Config file for Control Net models", section=section))
-    shared.opts.add_option("control_net_model_adapter_config", shared.OptionInfo(
-        global_state.default_conf_adapter, "Config file for Adapter models", section=section))
     shared.opts.add_option("control_net_detectedmap_dir", shared.OptionInfo(
         global_state.default_detectedmap_dir, "Directory for detected maps auto saving", section=section))
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(

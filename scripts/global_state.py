@@ -148,17 +148,18 @@ ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
 
 reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
 
+
 def get_module_basename(module: Optional[str]) -> str:
     if module is None:
         module = 'none'
     return reverse_preprocessor_aliases.get(module, module)
 
-default_conf = os.path.join("models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
+
 default_detectedmap_dir = os.path.join("detected_maps")
 script_dir = scripts.basedir()
 
 os.makedirs(cn_models_dir, exist_ok=True)
+
 
 def traverse_all_files(curr_path, model_list):
     f_list = [
