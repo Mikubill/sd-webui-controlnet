@@ -311,6 +311,7 @@
                             setTimeout(() => {
                                 this.updateActiveState();
                                 this.updateActiveUnitCount();
+                                this.updateActiveControlType();
                             }, 100);
                             return;
                         }
