@@ -312,7 +312,7 @@
                                 this.updateActiveState();
                                 this.updateActiveUnitCount();
                                 this.updateActiveControlType();
-                            }, 100);
+                            }, 1000);
                             return;
                         }
                     }
