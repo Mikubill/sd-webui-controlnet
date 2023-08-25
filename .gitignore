@@ -174,3 +174,6 @@ annotator/downloads/
 web_tests/results/
 web_tests/expectations/
 *_diff.png
+
+# Presets
+presets/
