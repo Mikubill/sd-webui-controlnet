@@ -7,6 +7,7 @@ from modules import scripts
 from scripts.infotext import parse_unit, serialize_unit
 from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.logging import logger
+from scripts.processor import preprocessor_filters
 from scripts import external_code
 
 save_symbol = "\U0001f4be"  # 💾
@@ -30,6 +31,20 @@ def load_presets(preset_dir: str) -> Dict[str, str]:
                     continue
                 presets[name] = f.read()
     return presets
+
+
+def infer_control_type(module: str, model: str) -> str:
+    control_types = preprocessor_filters.keys()
+    control_type_candidates = [
+        control_type
+        for control_type in control_types
+        if control_type.lower() in module or control_type.lower() in model
+    ]
+    if len(control_type_candidates) != 1:
+        raise ValueError(
+            f"Unable to infer control type from module {module} and model {model}"
+        )
+    return control_type_candidates[0]
 
 
 class ControlNetPresetUI(object):
@@ -88,11 +103,11 @@ class ControlNetPresetUI(object):
                     tooltip="Save preset",
                 )
 
-    def register_callbacks(self, *ui_states):
+    def register_callbacks(self, control_type: gr.Radio, *ui_states):
         self.dropdown.change(
             fn=ControlNetPresetUI.apply_preset,
             inputs=[self.dropdown],
-            outputs=[self.delete_button, *ui_states],
+            outputs=[self.delete_button, control_type, *ui_states],
             show_progress=False,
         )
 
@@ -194,17 +209,32 @@ class ControlNetPresetUI(object):
         if name == NEW_PRESET:
             return (
                 gr.update(visible=False),
-                *((gr.update(),) * len(vars(external_code.ControlNetUnit()).keys())),
+                *(
+                    (gr.update(),)
+                    * (len(vars(external_code.ControlNetUnit()).keys()) + 1)
+                ),
             )
 
         assert name in ControlNetPresetUI.presets
         infotext = ControlNetPresetUI.presets[name]
         unit = parse_unit(infotext)
 
-        return gr.update(visible=True), *[
-            gr.update(value=value) if value is not None else gr.update()
-            for value in vars(unit).values()
-        ]
+        try:
+            control_type_update = gr.update(
+                value=infer_control_type(unit.module, unit.model)
+            )
+        except ValueError as e:
+            logger.error(e)
+            control_type_update = gr.update()
+
+        return (
+            gr.update(visible=True),
+            control_type_update,
+            *[
+                gr.update(value=value) if value is not None else gr.update()
+                for value in vars(unit).values()
+            ],
+        )
 
     @staticmethod
     def refresh_preset():

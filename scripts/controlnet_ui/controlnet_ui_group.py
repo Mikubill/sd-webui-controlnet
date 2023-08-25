@@ -768,7 +768,7 @@ class ControlNetUiGroup(object):
         self.openpose_editor.register_callbacks(
             self.generated_image, self.use_preview_as_input
         )
-        self.preset_panel.register_callbacks(*[
+        self.preset_panel.register_callbacks(self.type_filter, *[
             getattr(self, key) for key in vars(external_code.ControlNetUnit()).keys()
         ])
         if is_img2img:
