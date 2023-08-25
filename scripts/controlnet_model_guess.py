@@ -5,7 +5,7 @@ from pathlib import Path
 from modules import devices
 
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
-from scripts.cldm import PlugableControlModel
+from scripts.cldm import PlugableControlModel, ControlNet
 from scripts.diffuser import convert_from_diffuser_state_dict
 
 controlnet_default_config = {'adm_in_channels': None,
@@ -88,8 +88,8 @@ t2i_adapter_style_config = {
 
 
 def build_model_by_guess(state_dict, unet, model_path):
-    # if "controlnet_cond_embedding.conv_in.weight" in state_dict:
-    #     state_dict = convert_from_diffuser_state_dict(state_dict)
+    if "controlnet_cond_embedding.conv_in.weight" in state_dict:
+        state_dict = convert_from_diffuser_state_dict(state_dict)
 
     model_has_shuffle_in_filename = 'shuffle' in Path(os.path.abspath(model_path)).stem.lower()
     state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items()}
