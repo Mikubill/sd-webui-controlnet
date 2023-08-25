@@ -3,8 +3,9 @@ import gradio as gr
 
 from typing import Dict, List
 
-from modules import ui_components, scripts
+from modules import scripts
 from scripts.infotext import parse_unit, serialize_unit
+from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.logging import logger
 from scripts import external_code
 
@@ -54,17 +55,17 @@ class ControlNetPresetUI(object):
                 choices=ControlNetPresetUI.dropdown_choices(),
                 value=NEW_PRESET,
             )
-            self.save_button = ui_components.ToolButton(
+            self.save_button = ToolButton(
                 value=save_symbol,
                 elem_classes=["cnet-preset-save"],
                 tooltip="Save preset",
             )
-            self.delete_button = ui_components.ToolButton(
+            self.delete_button = ToolButton(
                 value=delete_symbol,
                 elem_classes=["cnet-preset-delete"],
                 tooltip="Delete preset",
             )
-            self.refresh_button = ui_components.ToolButton(
+            self.refresh_button = ToolButton(
                 value=refresh_symbol,
                 elem_classes=["cnet-preset-refresh"],
                 tooltip="Refresh preset",
@@ -81,7 +82,7 @@ class ControlNetPresetUI(object):
                     lines=1,
                     elem_classes=["cnet-preset-name"],
                 )
-                self.confirm_preset_name = ui_components.ToolButton(
+                self.confirm_preset_name = ToolButton(
                     value=save_symbol,
                     elem_classes=["cnet-preset-confirm-name"],
                     tooltip="Save preset",
