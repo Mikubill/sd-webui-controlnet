@@ -6,7 +6,6 @@ from modules.processing import StableDiffusionProcessing
 
 from scripts import external_code
 from scripts.logging import logger
-from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup
 
 
 def field_to_displaytext(fieldname: str) -> str:
@@ -63,7 +62,7 @@ class Infotext(object):
     def unit_prefix(unit_index: int) -> str:
         return f"ControlNet {unit_index}"
 
-    def register_unit(self, unit_index: int, uigroup: ControlNetUiGroup) -> None:
+    def register_unit(self, unit_index: int, uigroup) -> None:
         """Register the unit's UI group. By regsitering the unit, A1111 will be
         able to paste values from infotext to IOComponents.
 
