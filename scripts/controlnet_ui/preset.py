@@ -153,6 +153,26 @@ class ControlNetPresetUI(object):
             inputs=[self.dropdown],
             outputs=[self.delete_button, control_type, *ui_states],
             show_progress=False,
+        ).then(
+            fn=ControlNetPresetUI.apply_preset,
+            inputs=[self.dropdown],
+            outputs=[self.delete_button, control_type, *ui_states],
+            show_progress=False,
+        ).then(
+            fn=ControlNetPresetUI.apply_preset,
+            inputs=[self.dropdown],
+            outputs=[self.delete_button, control_type, *ui_states],
+            show_progress=False,
+        ).then(
+            fn=ControlNetPresetUI.apply_preset,
+            inputs=[self.dropdown],
+            outputs=[self.delete_button, control_type, *ui_states],
+            show_progress=False,
+        ).then(
+            fn=ControlNetPresetUI.apply_preset,
+            inputs=[self.dropdown],
+            outputs=[self.delete_button, control_type, *ui_states],
+            show_progress=False,
         )
 
         def save_preset(name: str, *ui_states):
@@ -234,6 +254,12 @@ class ControlNetPresetUI(object):
             current_unit = external_code.ControlNetUnit(*ui_states)
             preset_unit.image = None
             current_unit.image = None
+            
+            # Do not compare module param that are not used in preset.
+            for module_param in ('processor_res', 'threshold_a', 'threshold_b'):
+                if getattr(preset_unit, module_param) == -1:
+                    setattr(current_unit, module_param, -1)
+
             return gr.update(visible=vars(current_unit) != vars(preset_unit))
 
         for ui_state in ui_states:
