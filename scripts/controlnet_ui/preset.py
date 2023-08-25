@@ -122,58 +122,40 @@ class ControlNetPresetUI(object):
         # 5th update will be updating slider values
         # TODO(huchenlei): This is exetremely hacky, need to find a better way
         # to achieve the functionality.
-        self.dropdown.change(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        )
-        self.reset_button.click(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        )
+        for element, action in (
+            (self.dropdown, "change"),
+            (self.reset_button, "click"),
+        ):
+            getattr(element, action)(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=lambda: gr.update(visible=False),
+                inputs=None,
+                outputs=[self.reset_button],
+            )
 
         def save_preset(name: str, *ui_states):
             if name == NEW_PRESET:
@@ -192,7 +174,7 @@ class ControlNetPresetUI(object):
             fn=save_preset,
             inputs=[self.dropdown, *ui_states],
             outputs=[self.name_dialog, self.dropdown, self.reset_button],
-            show_progress=False,
+            show_progress="hidden",
         ).then(
             fn=None,
             _js=f"""
@@ -214,7 +196,7 @@ class ControlNetPresetUI(object):
             fn=delete_preset,
             inputs=[self.dropdown],
             outputs=[self.dropdown, self.reset_button],
-            show_progress=False,
+            show_progress="hidden",
         )
 
         self.name_dialog.visible = False
@@ -235,14 +217,14 @@ class ControlNetPresetUI(object):
             fn=save_new_preset,
             inputs=[self.preset_name, *ui_states],
             outputs=[self.name_dialog, self.dropdown],
-            show_progress=False,
+            show_progress="hidden",
         ).then(fn=None, _js="closePopup")
 
         self.refresh_button.click(
             fn=ControlNetPresetUI.refresh_preset,
             inputs=None,
             outputs=[self.dropdown],
-            show_progress=False,
+            show_progress="hidden",
         )
 
         def update_reset_button(preset_name: str, *ui_states):
@@ -254,9 +236,9 @@ class ControlNetPresetUI(object):
             current_unit = external_code.ControlNetUnit(*ui_states)
             preset_unit.image = None
             current_unit.image = None
-            
+
             # Do not compare module param that are not used in preset.
-            for module_param in ('processor_res', 'threshold_a', 'threshold_b'):
+            for module_param in ("processor_res", "threshold_a", "threshold_b"):
                 if getattr(preset_unit, module_param) == -1:
                     setattr(current_unit, module_param, -1)
 
