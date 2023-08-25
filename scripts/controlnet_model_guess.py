@@ -5,7 +5,8 @@ from pathlib import Path
 from modules import devices
 
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
-from scripts.cldm import PlugableControlModel, ControlNet
+from scripts.cldm import PlugableControlModel
+from scripts.logging import logger
 from scripts.diffuser import convert_from_diffuser_state_dict
 
 controlnet_default_config = {'adm_in_channels': None,
@@ -97,10 +98,32 @@ def build_model_by_guess(state_dict, unet, model_path):
     network = None
 
     if 'input_hint_block.0.weight' in state_dict:
-        config = copy.deepcopy(controlnet_default_config)
-        config['global_average_pooling'] = model_has_shuffle_in_filename
-        config['hint_channels'] = int(state_dict['input_hint_block.0.weight'].shape[1])
-        config['context_dim'] = int(state_dict['input_blocks.5.1.transformer_blocks.0.attn2.to_k.weight'].shape[1])
+        if 'label_emb.0.0.bias' not in state_dict:
+            config = copy.deepcopy(controlnet_default_config)
+            logger.info('controlnet_default_config')
+            config['global_average_pooling'] = model_has_shuffle_in_filename
+            config['hint_channels'] = int(state_dict['input_hint_block.0.weight'].shape[1])
+            config['context_dim'] = int(state_dict['input_blocks.5.1.transformer_blocks.0.attn2.to_k.weight'].shape[1])
+            for key in state_dict.keys():
+                p = state_dict[key]
+                if 'proj_in.weight' in key or 'proj_out.weight' in key:
+                    if len(p.shape) == 2:
+                        p = p[..., None, None]
+                state_dict[key] = p
+        else:
+            has_full_layers = 'input_blocks.8.1.transformer_blocks.9.norm3.weight' in state_dict
+            has_mid_layers = 'input_blocks.8.1.transformer_blocks.0.norm3.weight' in state_dict
+            if has_full_layers:
+                config = copy.deepcopy(controlnet_sdxl_config)
+                logger.info('controlnet_sdxl_config')
+            elif has_mid_layers:
+                config = copy.deepcopy(controlnet_sdxl_mid_config)
+                logger.info('controlnet_sdxl_mid_config')
+            else:
+                config = copy.deepcopy(controlnet_sdxl_small_config)
+                logger.info('controlnet_sdxl_small_config')
+            config['global_average_pooling'] = False
+            config['hint_channels'] = int(state_dict['input_hint_block.0.weight'].shape[1])
 
         if 'difference' in state_dict and unet is not None:
             unet_state_dict = unet.state_dict()
@@ -115,19 +138,13 @@ def build_model_by_guess(state_dict, unet, model_path):
                 final_state_dict[key] = p_new
             state_dict = final_state_dict
 
-        for key in state_dict.keys():
-            p = state_dict[key]
-            if 'proj_in.weight' in key or 'proj_out.weight' in key:
-                if len(p.shape) == 2:
-                    p = p[..., None, None]
-            state_dict[key] = p
-
         config['use_fp16'] = devices.dtype_unet == torch.float16
 
         network = PlugableControlModel(config, state_dict)
 
     if 'conv_in.weight' in state_dict:
         config = copy.deepcopy(t2i_adapter_config)
+        logger.info('t2i_adapter_config')
         config['cin'] = int(state_dict['conv_in.weight'].shape[1])
         adapter = Adapter(**config).cpu()
         adapter.load_state_dict(state_dict, strict=False)
@@ -135,12 +152,14 @@ def build_model_by_guess(state_dict, unet, model_path):
 
     if 'style_embedding' in state_dict:
         config = copy.deepcopy(t2i_adapter_style_config)
+        logger.info('t2i_adapter_style_config')
         adapter = StyleAdapter(**config).cpu()
         adapter.load_state_dict(state_dict, strict=False)
         network = PlugableAdapter(adapter)
 
     if 'body.0.in_conv.weight' in state_dict:
         config = copy.deepcopy(t2i_adapter_light_config)
+        logger.info('t2i_adapter_light_config')
         config['cin'] = int(state_dict['body.0.in_conv.weight'].shape[1])
         adapter = Adapter_light(**config).cpu()
         adapter.load_state_dict(state_dict, strict=False)

@@ -173,7 +173,7 @@ class ControlNet(nn.Module):
                     if not exists(num_attention_blocks) or nr < num_attention_blocks[level]:
                         layers.append(
                             SpatialTransformer(
-                                ch, num_heads, dim_head, depth=transformer_depth[level], context_dim=context_dim,
+                                ch, num_heads, dim_head, depth=transformer_depth[level], context_dim=[context_dim] * transformer_depth[level],
                                 disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
                                 use_checkpoint=use_checkpoint
                             )
@@ -226,7 +226,7 @@ class ControlNet(nn.Module):
                 use_scale_shift_norm=use_scale_shift_norm
             ),
             SpatialTransformer(  # always uses a self-attn
-                            ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=context_dim,
+                            ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=[context_dim] * transformer_depth_middle,
                             disable_self_attn=disable_middle_self_attn, use_linear=use_linear_in_transformer,
                             use_checkpoint=use_checkpoint
                         ),
