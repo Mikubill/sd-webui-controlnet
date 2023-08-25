@@ -8,8 +8,7 @@ from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_ligh
 from scripts.cldm import PlugableControlModel
 from scripts.diffuser import convert_from_diffuser_state_dict
 
-controlnet_default_config = {'use_spatial_transformer': True,
-                             'adm_in_channels': None,
+controlnet_default_config = {'adm_in_channels': None,
                              'in_channels': 4,
                              'model_channels': 320,
                              'num_res_blocks': 2,
@@ -22,8 +21,7 @@ controlnet_default_config = {'use_spatial_transformer': True,
                              "num_heads": 8,
                              "global_average_pooling": False}
 
-controlnet_sdxl_config = {'use_spatial_transformer': True,
-                          'num_classes': 'sequential',
+controlnet_sdxl_config = {'num_classes': 'sequential',
                           'adm_in_channels': 2816,
                           'in_channels': 4,
                           'model_channels': 320,
@@ -37,8 +35,7 @@ controlnet_sdxl_config = {'use_spatial_transformer': True,
                           "num_head_channels": 64,
                           "global_average_pooling": False}
 
-controlnet_sdxl_mid_config = {'use_spatial_transformer': True,
-                              'num_classes': 'sequential',
+controlnet_sdxl_mid_config = {'num_classes': 'sequential',
                               'adm_in_channels': 2816,
                               'in_channels': 4,
                               'model_channels': 320,
@@ -52,8 +49,7 @@ controlnet_sdxl_mid_config = {'use_spatial_transformer': True,
                               "num_head_channels": 64,
                               "global_average_pooling": False}
 
-controlnet_sdxl_small_config = {'use_spatial_transformer': True,
-                                'num_classes': 'sequential',
+controlnet_sdxl_small_config = {'num_classes': 'sequential',
                                 'adm_in_channels': 2816,
                                 'in_channels': 4,
                                 'model_channels': 320,

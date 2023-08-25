@@ -1,60 +1,10 @@
 import torch
 import torch.nn as nn
-from omegaconf import OmegaConf
-from modules import devices, shared
-
-cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 from ldm.util import exists
 from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
-from ldm.modules.diffusionmodules.openaimodel import TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
-
-
-class TorchHijackForUnet:
-    """
-    This is torch, but with cat that resizes tensors to appropriate dimensions if they do not match;
-    this makes it possible to create pictures with dimensions that are multiples of 8 rather than 64
-    """
-
-    def __getattr__(self, item):
-        if item == 'cat':
-            return self.cat
-
-        if hasattr(torch, item):
-            return getattr(torch, item)
-
-        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
-
-    def cat(self, tensors, *args, **kwargs):
-        if len(tensors) == 2:
-            a, b = tensors
-            if a.shape[-2:] != b.shape[-2:]:
-                a = torch.nn.functional.interpolate(a, b.shape[-2:], mode="nearest")
-
-            tensors = (a, b)
-
-        return torch.cat(tensors, *args, **kwargs)
-
-
-th = TorchHijackForUnet()
-
-
-def align(hint, size):
-    b, c, h1, w1 = hint.shape
-    h, w = size
-    if h != h1 or w != w1:
-         hint = th.nn.functional.interpolate(hint, size=size, mode="nearest")
-    return hint
-
-
-def get_node_name(name, parent_name):
-    if len(name) <= len(parent_name):
-        return False, ''
-    p = name[:len(parent_name)]
-    if p != parent_name:
-        return False, ''
-    return True, name[len(parent_name):]
+from ldm.modules.diffusionmodules.openaimodel import TimestepEmbedSequential, ResBlock, Downsample
 
 
 class PlugableControlModel(nn.Module):
@@ -91,7 +41,7 @@ class ControlNet(nn.Module):
         num_heads_upsample=-1,
         use_scale_shift_norm=False,
         resblock_updown=False,
-        use_spatial_transformer=False,
+        use_spatial_transformer=True,
         transformer_depth=1,
         context_dim=None,
         n_embed=None,
@@ -130,7 +80,7 @@ class ControlNet(nn.Module):
         self.conv_resample = conv_resample
         self.num_classes = num_classes
         self.use_checkpoint = use_checkpoint
-        self.dtype = th.float16 if use_fp16 else th.float32
+        self.dtype = torch.float16 if use_fp16 else torch.float32
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
