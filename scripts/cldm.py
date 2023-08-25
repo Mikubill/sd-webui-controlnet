@@ -1,10 +1,8 @@
 import torch
 import torch.nn as nn
 
-from ldm.util import exists
-from ldm.modules.attention import SpatialTransformer
-from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
-from ldm.modules.diffusionmodules.openaimodel import TimestepEmbedSequential, ResBlock, Downsample
+from scripts.controlnet_openai import conv_nd, linear, zero_module, timestep_embedding, TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
+from modules import devices
 
 
 class PlugableControlModel(nn.Module):
@@ -13,12 +11,41 @@ class PlugableControlModel(nn.Module):
         self.config = config
         self.control_model = ControlNet(**self.config).cpu()
         self.control_model.load_state_dict(state_dict, strict=False)
+        self.gpu_component = None
 
     def reset(self):
         pass
             
     def forward(self, *args, **kwargs):
         return self.control_model(*args, **kwargs)
+
+    def aggressive_lowvram(self):
+        self.to('cpu')
+
+        def send_me_to_gpu(module, _):
+            if self.gpu_component == module:
+                return
+
+            if self.gpu_component is not None:
+                self.gpu_component.to('cpu')
+
+            module.to(devices.get_device_for("controlnet"))
+            self.gpu_component = module
+
+        self.control_model.time_embed.register_forward_pre_hook(send_me_to_gpu)
+        self.control_model.input_hint_block.register_forward_pre_hook(send_me_to_gpu)
+        self.control_model.label_emb.register_forward_pre_hook(send_me_to_gpu)
+        for m in self.control_model.input_blocks:
+            m.register_forward_pre_hook(send_me_to_gpu)
+        for m in self.control_model.zero_convs:
+            m.register_forward_pre_hook(send_me_to_gpu)
+        self.control_model.middle_block.register_forward_pre_hook(send_me_to_gpu)
+        self.control_model.middle_block_out.register_forward_pre_hook(send_me_to_gpu)
+        return
+
+    def fullvram(self):
+        self.to(devices.get_device_for("controlnet"))
+        return
             
 
 class ControlNet(nn.Module):
@@ -173,7 +200,7 @@ class ControlNet(nn.Module):
                     if not exists(num_attention_blocks) or nr < num_attention_blocks[level]:
                         layers.append(
                             SpatialTransformer(
-                                ch, num_heads, dim_head, depth=transformer_depth[level], context_dim=[context_dim] * transformer_depth[level],
+                                ch, num_heads, dim_head, depth=transformer_depth[level], context_dim=context_dim,
                                 disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
                                 use_checkpoint=use_checkpoint
                             )
@@ -226,7 +253,7 @@ class ControlNet(nn.Module):
                 use_scale_shift_norm=use_scale_shift_norm
             ),
             SpatialTransformer(  # always uses a self-attn
-                            ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=[context_dim] * transformer_depth_middle,
+                            ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=context_dim,
                             disable_self_attn=disable_middle_self_attn, use_linear=use_linear_in_transformer,
                             use_checkpoint=use_checkpoint
                         ),

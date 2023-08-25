@@ -1,8 +1,5 @@
-
-
 import torch
 import torch.nn as nn
-import importlib
 from collections import OrderedDict
 
 from omegaconf import OmegaConf
@@ -71,6 +68,14 @@ class PlugableAdapter(nn.Module):
 
         self.control = self.control_model(hint_in)
         return deepcopy(self.control)
+
+    def aggressive_lowvram(self):
+        self.to(devices.get_device_for("controlnet"))
+        return
+
+    def fullvram(self):
+        self.to(devices.get_device_for("controlnet"))
+        return
 
 
 def conv_nd(dims, *args, **kwargs):

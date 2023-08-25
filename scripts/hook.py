@@ -497,7 +497,11 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
                     continue
 
-                param.control_model.to(devices.get_device_for("controlnet"))
+                if outer.lowvram and is_sdxl:
+                    param.control_model.aggressive_lowvram()
+                else:
+                    param.control_model.fullvram()
+
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
@@ -545,20 +549,18 @@ class UnetHook(nn.Module):
                 # if high_res_fix_forced_soft_injection:
                 #     logger.info('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
 
+                if param.soft_injection or high_res_fix_forced_soft_injection:
+                    # important! use the soft weights with high-res fix can significantly reduce artifacts.
+                    if param.control_model_type == ControlModelType.T2I_Adapter:
+                        control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
+                    elif param.control_model_type == ControlModelType.ControlNet:
+                        control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
+
                 if is_sdxl:
-                    if param.soft_injection or high_res_fix_forced_soft_injection:
-                        # important! use the soft weights with high-res fix can significantly reduce artifacts.
-                        if param.control_model_type == ControlModelType.T2I_Adapter:
-                            control_scales = [param.weight * x for x in (0.25, 0.77, 1.0)]
-                        elif param.control_model_type == ControlModelType.ControlNet:
-                            control_scales = [param.weight * (0.774 ** float(8 - i)) for i in range(10)]
-                else:
-                    if param.soft_injection or high_res_fix_forced_soft_injection:
-                        # important! use the soft weights with high-res fix can significantly reduce artifacts.
-                        if param.control_model_type == ControlModelType.T2I_Adapter:
-                            control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
-                        elif param.control_model_type == ControlModelType.ControlNet:
-                            control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
+                    if param.control_model_type == ControlModelType.T2I_Adapter:
+                        control_scales = control_scales[:3]
+                    elif param.control_model_type == ControlModelType.ControlNet:
+                        control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting

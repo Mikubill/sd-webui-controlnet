@@ -299,7 +299,7 @@ class Script(scripts.Script, metaclass=(
         devices.torch_gc()
 
     @staticmethod
-    def load_control_model(p, unet, model, lowvram):
+    def load_control_model(p, unet, model):
         if model in Script.model_cache:
             logger.info(f"Loading model from cache: {model}")
             return Script.model_cache[model]
@@ -310,7 +310,7 @@ class Script(scripts.Script, metaclass=(
             gc.collect()
             devices.torch_gc()
 
-        model_net = Script.build_control_model(p, unet, model, lowvram)
+        model_net = Script.build_control_model(p, unet, model)
 
         if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
             Script.model_cache[model] = model_net
@@ -318,7 +318,7 @@ class Script(scripts.Script, metaclass=(
         return model_net
 
     @staticmethod
-    def build_control_model(p, unet, model, lowvram):
+    def build_control_model(p, unet, model):
         if model is None or model == 'None':
             raise RuntimeError(f"You have not selected any ControlNet Model.")
 
@@ -340,7 +340,7 @@ class Script(scripts.Script, metaclass=(
         logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
         network = build_model_by_guess(state_dict, unet, model_path)
-        network.to(p.sd_model.device, dtype=p.sd_model.dtype)
+        network.to('cpu', dtype=p.sd_model.dtype)
         logger.info(f"ControlNet model {model} loaded.")
         return network
 
@@ -673,7 +673,7 @@ class Script(scripts.Script, metaclass=(
             if unit.module in model_free_preprocessors:
                 model_net = None
             else:
-                model_net = Script.load_control_model(p, unet, unit.model, unit.low_vram)
+                model_net = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
 
             input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
