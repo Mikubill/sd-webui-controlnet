@@ -209,34 +209,73 @@ class ResnetBlock(nn.Module):
 
 
 class Adapter(nn.Module):
-    def __init__(self, channels=[320, 640, 1280, 1280], nums_rb=3, cin=64, ksize=3, sk=False, use_conv=True):
+    def __init__(self, channels=[320, 640, 1280, 1280], nums_rb=3, cin=64, ksize=3, sk=False, use_conv=True, is_sdxl=True):
         super(Adapter, self).__init__()
-        self.unshuffle = nn.PixelUnshuffle(8)
+
+        if is_sdxl:
+            self.pixel_shuffle = 16
+            downsample_avoided = [1]
+            downsample_layers = [2]
+        else:
+            downsample_avoided = []
+            downsample_layers = [3, 2, 1]
+
+        self.pixel_shuffle = 8
+        self.input_channels = cin // (self.pixel_shuffle * self.pixel_shuffle)
         self.channels = channels
         self.nums_rb = nums_rb
         self.body = []
+
+        self.unshuffle = nn.PixelUnshuffle(self.pixel_shuffle)
+
         for i in range(len(channels)):
-            for j in range(nums_rb):
-                if (i!=0) and (j==0):
-                    self.body.append(ResnetBlock(channels[i-1], channels[i], down=True, ksize=ksize, sk=sk, use_conv=use_conv))
-                else:
-                    self.body.append(ResnetBlock(channels[i], channels[i], down=False, ksize=ksize, sk=sk, use_conv=use_conv))
+            for r in range(nums_rb):
+
+                if i in downsample_layers and r == 0:
+                    self.body.append(ResnetBlock(
+                        channels[i - 1],
+                        channels[i],
+                        down=True,
+                        ksize=ksize,
+                        sk=sk,
+                        use_conv=use_conv))
+                    continue
+
+                if i in downsample_avoided and r == 0:
+                    self.body.append(ResnetBlock(
+                        channels[i - 1],
+                        channels[i],
+                        down=False,
+                        ksize=ksize,
+                        sk=sk,
+                        use_conv=use_conv))
+                    continue
+
+                self.body.append(ResnetBlock(
+                    channels[i],
+                    channels[i],
+                    down=False,
+                    ksize=ksize,
+                    sk=sk,
+                    use_conv=use_conv
+                ))
+
         self.body = nn.ModuleList(self.body)
         self.conv_in = nn.Conv2d(cin, channels[0], 3, 1, 1)
 
     def forward(self, x):
-        # unshuffle
         x = self.unshuffle(x)
-        # extract features
-        features = []
+        hs = []
+
         x = self.conv_in(x)
         for i in range(len(self.channels)):
-            for j in range(self.nums_rb):
-                idx = i*self.nums_rb +j
+            for r in range(self.nums_rb):
+                idx = i * self.nums_rb + r
                 x = self.body[idx](x)
-            features.append(x)
+            hs.append(x)
 
-        return features
+        return hs
+
 
 class LayerNorm(nn.LayerNorm):
     """Subclass torch's LayerNorm to handle fp16."""

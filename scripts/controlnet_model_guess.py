@@ -94,6 +94,7 @@ def build_model_by_guess(state_dict, unet, model_path):
 
     model_has_shuffle_in_filename = 'shuffle' in Path(os.path.abspath(model_path)).stem.lower()
     state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items()}
+    state_dict = {k.replace("adapter.", ""): v for k, v in state_dict.items()}
 
     network = None
 
@@ -143,10 +144,22 @@ def build_model_by_guess(state_dict, unet, model_path):
         network = PlugableControlModel(config, state_dict)
 
     if 'conv_in.weight' in state_dict:
-        config = copy.deepcopy(t2i_adapter_config)
         logger.info('t2i_adapter_config')
-        config['cin'] = int(state_dict['conv_in.weight'].shape[1])
-        adapter = Adapter(**config).cpu()
+        cin = int(state_dict['conv_in.weight'].shape[1])
+        channel = int(state_dict['conv_in.weight'].shape[0])
+        ksize = 1
+        down_opts = tuple(filter(lambda item: item.endswith("down_opt.op.weight"), state_dict))
+        use_conv = len(down_opts) > 0
+        is_sdxl = cin == 256
+        adapter = Adapter(
+            cin=cin,
+            channels=[channel, channel*2, channel*4, channel*4],
+            nums_rb=2,
+            ksize=ksize,
+            sk=True,
+            use_conv=use_conv,
+            is_sdxl=is_sdxl
+        ).cpu()
         adapter.load_state_dict(state_dict, strict=False)
         network = PlugableAdapter(adapter)
 
