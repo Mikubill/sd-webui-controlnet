@@ -13,6 +13,7 @@ from scripts import external_code
 save_symbol = "\U0001f4be"  # 💾
 delete_symbol = "\U0001f5d1\ufe0f"  # 🗑️
 refresh_symbol = "\U0001f504"  # 🔄
+reset_symbol = "\U000021A9"  # ↩
 
 NEW_PRESET = "New Preset"
 
@@ -52,16 +53,6 @@ class ControlNetPresetUI(object):
     presets = load_presets(preset_directory)
 
     def __init__(self, id_prefix: str):
-        self.dropdown = None
-        self.save_button = None
-        self.delete_button = None
-        self.refresh_button = None
-        self.preset_name = None
-        self.confirm_preset_name = None
-        self.name_dialog = None
-        self.render(id_prefix)
-
-    def render(self, id_prefix: str):
         with gr.Row():
             self.dropdown = gr.Dropdown(
                 label="Presets",
@@ -69,6 +60,12 @@ class ControlNetPresetUI(object):
                 elem_classes=["cnet-preset-dropdown"],
                 choices=ControlNetPresetUI.dropdown_choices(),
                 value=NEW_PRESET,
+            )
+            self.reset_button = ToolButton(
+                value=reset_symbol,
+                elem_classes=["cnet-preset-reset"],
+                tooltip="Reset preset",
+                visible=False,
             )
             self.save_button = ToolButton(
                 value=save_symbol,
@@ -114,49 +111,59 @@ class ControlNetPresetUI(object):
         # 5th update will be updating slider values
         # TODO(huchenlei): This is exetremely hacky, need to find a better way
         # to achieve the functionality.
-        self.dropdown.change(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        ).then(
-            fn=ControlNetPresetUI.apply_preset,
-            inputs=[self.dropdown],
-            outputs=[self.delete_button, control_type, *ui_states],
-            show_progress=False,
-        )
+        for element, action in (
+            (self.dropdown, "change"),
+            (self.reset_button, "click"),
+        ):
+            getattr(element, action)(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=ControlNetPresetUI.apply_preset,
+                inputs=[self.dropdown],
+                outputs=[self.delete_button, control_type, *ui_states],
+                show_progress="hidden",
+            ).then(
+                fn=lambda: gr.update(visible=False),
+                inputs=None,
+                outputs=[self.reset_button],
+            )
 
         def save_preset(name: str, *ui_states):
             if name == NEW_PRESET:
-                return gr.update(visible=True), gr.update()
+                return gr.update(visible=True), gr.update(), gr.update()
 
             ControlNetPresetUI.save_preset(
                 name, external_code.ControlNetUnit(*ui_states)
             )
-            return gr.update(), gr.update(
-                choices=ControlNetPresetUI.dropdown_choices(), value=name
+            return (
+                gr.update(),  # name dialog
+                gr.update(choices=ControlNetPresetUI.dropdown_choices(), value=name),
+                gr.update(visible=False),  # Reset button
             )
 
         self.save_button.click(
             fn=save_preset,
             inputs=[self.dropdown, *ui_states],
-            outputs=[self.name_dialog, self.dropdown],
-            show_progress=False,
+            outputs=[self.name_dialog, self.dropdown, self.reset_button],
+            show_progress="hidden",
         ).then(
             fn=None,
             _js=f"""
@@ -172,13 +179,13 @@ class ControlNetPresetUI(object):
             return gr.Dropdown.update(
                 choices=ControlNetPresetUI.dropdown_choices(),
                 value=NEW_PRESET,
-            )
+            ), gr.update(visible=False)
 
         self.delete_button.click(
             fn=delete_preset,
             inputs=[self.dropdown],
-            outputs=[self.dropdown],
-            show_progress=False,
+            outputs=[self.dropdown, self.reset_button],
+            show_progress="hidden",
         )
 
         self.name_dialog.visible = False
@@ -199,15 +206,44 @@ class ControlNetPresetUI(object):
             fn=save_new_preset,
             inputs=[self.preset_name, *ui_states],
             outputs=[self.name_dialog, self.dropdown],
-            show_progress=False,
+            show_progress="hidden",
         ).then(fn=None, _js="closePopup")
 
         self.refresh_button.click(
             fn=ControlNetPresetUI.refresh_preset,
             inputs=None,
             outputs=[self.dropdown],
-            show_progress=False,
+            show_progress="hidden",
         )
+
+        def update_reset_button(preset_name: str, *ui_states):
+            if preset_name == NEW_PRESET:
+                return gr.update(visible=False)
+
+            infotext = ControlNetPresetUI.presets[preset_name]
+            preset_unit = parse_unit(infotext)
+            current_unit = external_code.ControlNetUnit(*ui_states)
+            preset_unit.image = None
+            current_unit.image = None
+
+            # Do not compare module param that are not used in preset.
+            for module_param in ("processor_res", "threshold_a", "threshold_b"):
+                if getattr(preset_unit, module_param) == -1:
+                    setattr(current_unit, module_param, -1)
+
+            return gr.update(visible=vars(current_unit) != vars(preset_unit))
+
+        for ui_state in ui_states:
+            for action in ("edit", "click", "change", "clear", "release"):
+                if action == "release" and not isinstance(ui_state, gr.Slider):
+                    continue
+
+                if hasattr(ui_state, action):
+                    getattr(ui_state, action)(
+                        fn=update_reset_button,
+                        inputs=[self.dropdown, *ui_states],
+                        outputs=[self.reset_button],
+                    )
 
     @staticmethod
     def dropdown_choices() -> List[str]:
