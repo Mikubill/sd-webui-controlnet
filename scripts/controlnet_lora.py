@@ -128,6 +128,7 @@ def recursive_bind_lora(obj, key, value):
     else:
         if key == 'weight':
             if hasattr(obj, 'bind_lora'):
+                # obj.bind_lora(torch.nn.Parameter(value))
                 obj.bind_lora(value)
 
 

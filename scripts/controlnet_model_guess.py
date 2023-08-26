@@ -91,6 +91,7 @@ t2i_adapter_style_config = {
 
 def build_model_by_guess(state_dict, unet, model_path):
     if "lora_controlnet" in state_dict:
+        del state_dict['lora_controlnet']
         config = copy.deepcopy(controlnet_sdxl_config)
         logger.info('controlnet_sdxl_config (using lora)')
         config['global_average_pooling'] = False
