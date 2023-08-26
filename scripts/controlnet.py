@@ -867,6 +867,50 @@ class Script(scripts.Script, metaclass=(
 
                 post_processors.append(inpaint_only_post_processing)
 
+            if 'recolor' in unit.module:
+                final_feed = hr_control if hr_control is not None else control
+                final_feed = final_feed.detach().cpu().numpy()
+                final_feed = np.ascontiguousarray(final_feed).copy()
+                final_feed = final_feed[0, 0, :, :].astype(np.float32)
+                final_feed = (final_feed * 255).clip(0, 255).astype(np.uint8)
+                Hfeed, Wfeed = final_feed.shape
+
+                if 'luminance' in unit.module:
+
+                    def recolor_luminance_post_processing(x):
+                        C, H, W = x.shape
+                        if Hfeed != H or Wfeed != W or C != 3:
+                            logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
+                            return x
+                        h = x.detach().cpu().numpy().transpose((1, 2, 0))
+                        h = (h * 255).clip(0, 255).astype(np.uint8)
+                        h = cv2.cvtColor(h, cv2.COLOR_RGB2LAB)
+                        h[:, :, 0] = final_feed
+                        h = cv2.cvtColor(h, cv2.COLOR_LAB2RGB)
+                        h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
+                        y = torch.from_numpy(h).clip(0, 1).to(x)
+                        return y
+
+                    post_processors.append(recolor_luminance_post_processing)
+
+                if 'intensity' in unit.module:
+
+                    def recolor_intensity_post_processing(x):
+                        C, H, W = x.shape
+                        if Hfeed != H or Wfeed != W or C != 3:
+                            logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
+                            return x
+                        h = x.detach().cpu().numpy().transpose((1, 2, 0))
+                        h = (h * 255).clip(0, 255).astype(np.uint8)
+                        h = cv2.cvtColor(h, cv2.COLOR_RGB2HSV)
+                        h[:, :, 2] = final_feed
+                        h = cv2.cvtColor(h, cv2.COLOR_HSV2RGB)
+                        h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
+                        y = torch.from_numpy(h).clip(0, 1).to(x)
+                        return y
+
+                    post_processors.append(recolor_intensity_post_processing)
+
             if '+lama' in unit.module:
                 forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
                 setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)

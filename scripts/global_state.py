@@ -93,6 +93,8 @@ cn_preprocessor_modules = {
     "inpaint_only+lama": lama_inpaint,
     "tile_colorfix": identity,
     "tile_colorfix+sharp": identity,
+    "recolor_luminance": recolor_luminance,
+    "recolor_intensity": recolor_intensity,
 }
 
 cn_preprocessor_unloadable = {

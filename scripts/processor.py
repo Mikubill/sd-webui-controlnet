@@ -597,6 +597,24 @@ def shuffle(img, res=512, **kwargs):
     return result, True
 
 
+def recolor_luminance(img, res=512, thr_a=1.0, **kwargs):
+    result = cv2.cvtColor(HWC3(img), cv2.COLOR_BGR2LAB)
+    result = result[:, :, 0].astype(np.float32) / 255.0
+    result = result ** thr_a
+    result = (result * 255.0).clip(0, 255).astype(np.uint8)
+    result = cv2.cvtColor(result, cv2.COLOR_GRAY2RGB)
+    return result, True
+
+
+def recolor_intensity(img, res=512, thr_a=1.0, **kwargs):
+    result = cv2.cvtColor(HWC3(img), cv2.COLOR_BGR2HSV)
+    result = result[:, :, 2].astype(np.float32) / 255.0
+    result = result ** thr_a
+    result = (result * 255.0).clip(0, 255).astype(np.uint8)
+    result = cv2.cvtColor(result, cv2.COLOR_GRAY2RGB)
+    return result, True
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -900,6 +918,26 @@ preprocessor_sliders_config = {
             "step": 0.01
         }
     ],
+    "recolor_luminance": [
+        None,
+        {
+            "name": "Gamma Correction",
+            "value": 1.0,
+            "min": 0.1,
+            "max": 2.0,
+            "step": 0.001
+        }
+    ],
+    "recolor_intensity": [
+        None,
+        {
+            "name": "Gamma Correction",
+            "value": 1.0,
+            "min": 0.1,
+            "max": 2.0,
+            "step": 0.001
+        }
+    ],
 }
 
 preprocessor_filters = {
@@ -919,4 +957,5 @@ preprocessor_filters = {
     "IP2P": "none",
     "Reference": "reference_only",
     "T2IA": "none",
+    "Recolor": "recolor_luminance",
 }
