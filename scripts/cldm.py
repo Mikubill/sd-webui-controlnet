@@ -6,12 +6,14 @@ from modules import devices
 
 
 class PlugableControlModel(nn.Module):
-    def __init__(self, config, state_dict):
+    def __init__(self, config, state_dict=None):
         super().__init__()
         self.config = config
         self.control_model = ControlNet(**self.config).cpu()
-        self.control_model.load_state_dict(state_dict, strict=False)
+        if state_dict is not None:
+            self.control_model.load_state_dict(state_dict, strict=False)
         self.gpu_component = None
+        self.is_control_lora = False
 
     def reset(self):
         pass

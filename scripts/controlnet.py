@@ -12,8 +12,7 @@ import gradio as gr
 
 from einops import rearrange
 from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
-from scripts.controlnet_ui import controlnet_ui_group
-from scripts.cldm import PlugableControlModel
+from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
 from scripts.utils import load_state_dict, get_unique_axis0
@@ -636,6 +635,7 @@ class Script(scripts.Script, metaclass=(
         unet = sd_ldm.model.diffusion_model
 
         setattr(p, 'controlnet_initial_noise_modifier', None)
+        setattr(p, 'controlnet_control_loras', [])
 
         if self.latest_network is not None:
             # always restore (~0.05s)
@@ -675,6 +675,11 @@ class Script(scripts.Script, metaclass=(
             else:
                 model_net = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
+
+                if getattr(model_net, 'is_control_lora', False):
+                    control_lora = model_net.control_model
+                    bind_control_lora(unet, control_lora)
+                    p.controlnet_control_loras.append(control_lora)
 
             input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
             if image_from_a1111:
@@ -880,6 +885,9 @@ class Script(scripts.Script, metaclass=(
         return
 
     def postprocess(self, p, processed, *args):
+        for control_lora in getattr(p, 'controlnet_control_loras', []):
+            unbind_control_lora(control_lora)
+
         self.post_processors = []
         setattr(p, 'controlnet_initial_noise_modifier', None)
         setattr(p, 'controlnet_vae_cache', None)
