@@ -101,6 +101,7 @@ def build_model_by_guess(state_dict, unet, model_path):
             network = PlugableControlModel(config, state_dict=None)
         force_load_state_dict(network.control_model, state_dict)
         network.is_control_lora = True
+        network.to(devices.dtype_unet)
         return network
 
     if "controlnet_cond_embedding.conv_in.weight" in state_dict:
@@ -154,6 +155,7 @@ def build_model_by_guess(state_dict, unet, model_path):
         config['use_fp16'] = devices.dtype_unet == torch.float16
 
         network = PlugableControlModel(config, state_dict)
+        network.to(devices.dtype_unet)
         return network
 
     if 'conv_in.weight' in state_dict:
