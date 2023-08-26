@@ -7,7 +7,7 @@ from modules import devices
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
 from scripts.cldm import PlugableControlModel
 from scripts.logging import logger
-from scripts.diffuser import convert_from_diffuser_state_dict
+from scripts.controlnet_diffusers import convert_from_diffuser_state_dict
 from scripts.controlnet_lora import controlnet_lora_hijack, force_load_state_dict
 
 controlnet_default_config = {'adm_in_channels': None,
