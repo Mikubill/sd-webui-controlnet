@@ -53,17 +53,6 @@ class ControlNetPresetUI(object):
     presets = load_presets(preset_directory)
 
     def __init__(self, id_prefix: str):
-        self.dropdown = None
-        self.save_button = None
-        self.delete_button = None
-        self.refresh_button = None
-        self.reset_button = None
-        self.preset_name = None
-        self.confirm_preset_name = None
-        self.name_dialog = None
-        self.render(id_prefix)
-
-    def render(self, id_prefix: str):
         with gr.Row():
             self.dropdown = gr.Dropdown(
                 label="Presets",
