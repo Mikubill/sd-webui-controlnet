@@ -85,6 +85,7 @@
                 this.attachImageUploadListener();
                 this.attachImageStateChangeObserver();
                 this.attachA1111SendInfoObserver();
+                this.attachPresetDropdownObserver();
 
                 // Initial updates:
                 if (this.isImg2Img)
@@ -299,6 +300,26 @@
                         }, 2000);
                     });
                 }
+            }
+
+            attachPresetDropdownObserver() {
+                const presetDropDown = this.tab.querySelector('.cnet-preset-dropdown');
+
+                new MutationObserver((mutationsList) => {
+                    for (const mutation of mutationsList) {
+                        if (mutation.removedNodes.length > 0) {
+                            setTimeout(() => {
+                                this.updateActiveState();
+                                this.updateActiveUnitCount();
+                                this.updateActiveControlType();
+                            }, 1000);
+                            return;
+                        }
+                    }
+                }).observe(presetDropDown, {
+                    childList: true,
+                    subtree: true,
+                });
             }
         }
 

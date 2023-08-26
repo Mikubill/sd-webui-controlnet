@@ -1,5 +1,6 @@
 import gradio as gr
 import functools
+from copy import copy
 from typing import List, Optional, Union, Callable
 import numpy as np
 
@@ -19,21 +20,10 @@ from scripts.processor import (
 )
 from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
+from scripts.controlnet_ui.preset import ControlNetPresetUI
+from scripts.controlnet_ui.tool_button import ToolButton
 from modules import shared
 from modules.ui_components import FormRow
-
-
-class ToolButton(gr.Button, gr.components.FormComponent):
-    """Small button with single emoji as text, fits inside gradio forms"""
-
-    def __init__(self, **kwargs):
-        super().__init__(variant="tool", 
-                         elem_classes=kwargs.pop('elem_classes', []) + ["cnet-toolbutton"], 
-                         **kwargs)
-
-    def get_block_name(self):
-        return "button"
-
 
 class UiControlNetUnit(external_code.ControlNetUnit):
     """The data class that stores all states of a ControlNetUnit."""
@@ -146,6 +136,7 @@ class ControlNetUiGroup(object):
         self.loopback = None
         self.use_preview_as_input = None
         self.openpose_editor = None
+        self.preset_panel = None
         self.upload_independent_img_in_img2img = None
         self.image_upload_panel = None
 
@@ -174,6 +165,7 @@ class ControlNetUiGroup(object):
                                     tool="sketch",
                                     elem_id=f"{elem_id_tabname}_{tabname}_input_image",
                                     elem_classes=["cnet-image"],
+                                    brush_color=shared.opts.img2img_inpaint_mask_brush_color if hasattr(shared.opts, 'img2img_inpaint_mask_brush_color') else None
                                 )
                             with gr.Group(
                                 visible=False, elem_classes=["cnet-generated-image-group"]
@@ -411,6 +403,8 @@ class ControlNetUiGroup(object):
             visible=not is_img2img
         )
 
+        self.preset_panel = ControlNetPresetUI(id_prefix=f"{elem_id_tabname}_{tabname}_")
+
     def register_send_dimensions(self, is_img2img: bool):
         """Register event handler for send dimension button."""
 
@@ -506,8 +500,8 @@ class ControlNetUiGroup(object):
                         visible=not pp,
                         interactive=not pp,
                     ),
-                    clear_slider_update,
-                    clear_slider_update,
+                    copy(clear_slider_update),
+                    copy(clear_slider_update),
                     gr.update(visible=True),
                 ]
             else:
@@ -530,9 +524,9 @@ class ControlNetUiGroup(object):
                             )
                         )
                     else:
-                        grs.append(clear_slider_update)
+                        grs.append(copy(clear_slider_update))
                 while len(grs) < 3:
-                    grs.append(clear_slider_update)
+                    grs.append(copy(clear_slider_update))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
                 grs += [
@@ -774,6 +768,9 @@ class ControlNetUiGroup(object):
         self.openpose_editor.register_callbacks(
             self.generated_image, self.use_preview_as_input
         )
+        self.preset_panel.register_callbacks(self.type_filter, *[
+            getattr(self, key) for key in vars(external_code.ControlNetUnit()).keys()
+        ])
         if is_img2img:
             self.register_img2img_same_input()
 
