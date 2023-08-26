@@ -852,50 +852,67 @@ class UnetHook(nn.Module):
         if model_is_sdxl:
             register_schedule(sd_ldm)
 
+        need_attention_hijack = False
+
+        for param in outer.control_params:
+            if param.control_model_type in [ControlModelType.AttentionInjection]:
+                need_attention_hijack = True
+
         all_modules = torch_dfs(model)
 
-        attn_modules = [module for module in all_modules if isinstance(module, BasicTransformerBlock) or isinstance(module, BasicTransformerBlockSGM)]
-        attn_modules = sorted(attn_modules, key=lambda x: - x.norm1.normalized_shape[0])
+        if need_attention_hijack:
+            attn_modules = [module for module in all_modules if isinstance(module, BasicTransformerBlock) or isinstance(module, BasicTransformerBlockSGM)]
+            attn_modules = sorted(attn_modules, key=lambda x: - x.norm1.normalized_shape[0])
 
-        for i, module in enumerate(attn_modules):
-            if getattr(module, '_original_inner_forward', None) is None:
-                module._original_inner_forward = module._forward
-            module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
-            module.bank = []
-            module.style_cfgs = []
-            module.attn_weight = float(i) / float(len(attn_modules))
+            for i, module in enumerate(attn_modules):
+                if getattr(module, '_original_inner_forward_cn_hijack', None) is None:
+                    module._original_inner_forward_cn_hijack = module._forward
+                module._forward = hacked_basic_transformer_inner_forward.__get__(module, BasicTransformerBlock)
+                module.bank = []
+                module.style_cfgs = []
+                module.attn_weight = float(i) / float(len(attn_modules))
 
-        gn_modules = [model.middle_block]
-        model.middle_block.gn_weight = 0
+            gn_modules = [model.middle_block]
+            model.middle_block.gn_weight = 0
 
-        if model_is_sdxl:
-            input_block_indices = [4, 5, 7, 8]
-            output_block_indices = [0, 1, 2, 3, 4, 5]
+            if model_is_sdxl:
+                input_block_indices = [4, 5, 7, 8]
+                output_block_indices = [0, 1, 2, 3, 4, 5]
+            else:
+                input_block_indices = [4, 5, 7, 8, 10, 11]
+                output_block_indices = [0, 1, 2, 3, 4, 5, 6, 7]
+
+            for w, i in enumerate(input_block_indices):
+                module = model.input_blocks[i]
+                module.gn_weight = 1.0 - float(w) / float(len(input_block_indices))
+                gn_modules.append(module)
+
+            for w, i in enumerate(output_block_indices):
+                module = model.output_blocks[i]
+                module.gn_weight = float(w) / float(len(output_block_indices))
+                gn_modules.append(module)
+
+            for i, module in enumerate(gn_modules):
+                if getattr(module, 'original_forward_cn_hijack', None) is None:
+                    module.original_forward_cn_hijack = module.forward
+                module.forward = hacked_group_norm_forward.__get__(module, torch.nn.Module)
+                module.mean_bank = []
+                module.var_bank = []
+                module.style_cfgs = []
+                module.gn_weight *= 2
+
+            outer.attn_module_list = attn_modules
+            outer.gn_module_list = gn_modules
         else:
-            input_block_indices = [4, 5, 7, 8, 10, 11]
-            output_block_indices = [0, 1, 2, 3, 4, 5, 6, 7]
-
-        for w, i in enumerate(input_block_indices):
-            module = model.input_blocks[i]
-            module.gn_weight = 1.0 - float(w) / float(len(input_block_indices))
-            gn_modules.append(module)
-
-        for w, i in enumerate(output_block_indices):
-            module = model.output_blocks[i]
-            module.gn_weight = float(w) / float(len(output_block_indices))
-            gn_modules.append(module)
-
-        for i, module in enumerate(gn_modules):
-            if getattr(module, 'original_forward', None) is None:
-                module.original_forward = module.forward
-            module.forward = hacked_group_norm_forward.__get__(module, torch.nn.Module)
-            module.mean_bank = []
-            module.var_bank = []
-            module.style_cfgs = []
-            module.gn_weight *= 2
-
-        outer.attn_module_list = attn_modules
-        outer.gn_module_list = gn_modules
+            for module in enumerate(all_modules):
+                _original_inner_forward_cn_hijack = getattr(module, '_original_inner_forward_cn_hijack', None)
+                original_forward_cn_hijack = getattr(module, 'original_forward_cn_hijack', None)
+                if _original_inner_forward_cn_hijack is not None:
+                    module._forward = _original_inner_forward_cn_hijack
+                if original_forward_cn_hijack is not None:
+                    module.forward = original_forward_cn_hijack
+            outer.attn_module_list = []
+            outer.gn_module_list = []
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
