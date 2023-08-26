@@ -9,7 +9,6 @@
         '⇄': 'Mirror webcam',
         '💾': 'Save preset',
         '🗑️': 'Delete preset',
-        '↩': 'Reset preset',
     };
 
     onUiUpdate(function () {
