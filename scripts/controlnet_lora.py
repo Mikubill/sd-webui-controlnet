@@ -29,7 +29,8 @@ class LinearWithLoRA(torch.nn.Module):
         self.weight = weight
 
     def unbind_lora(self):
-        self.weight = None
+        if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
+            self.weight = None
 
     def forward(self, input):
         if self.weight is None:
@@ -78,7 +79,8 @@ class Conv2dWithLoRA(torch.nn.Module):
         self.weight = weight
 
     def unbind_lora(self):
-        self.weight = None
+        if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
+            self.weight = None
 
     def forward(self, input):
         if self.weight is None:

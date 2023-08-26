@@ -887,6 +887,7 @@ class Script(scripts.Script, metaclass=(
     def postprocess(self, p, processed, *args):
         for control_lora in getattr(p, 'controlnet_control_loras', []):
             unbind_control_lora(control_lora)
+        p.controlnet_control_loras = []
 
         self.post_processors = []
         setattr(p, 'controlnet_initial_noise_modifier', None)
