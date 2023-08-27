@@ -15,6 +15,7 @@ from scripts import global_state, hook, external_code, processor, batch_hijack, 
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
+from scripts.controlmodel_ipadapter import PlugableIPAdapter
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
@@ -770,6 +771,8 @@ class Script(scripts.Script, metaclass=(
                 control_model_type = ControlModelType.T2I_Adapter
             elif isinstance(model_net.control_model, StyleAdapter):
                 control_model_type = ControlModelType.T2I_StyleAdapter
+            elif isinstance(model_net, PlugableIPAdapter):
+                control_model_type = ControlModelType.IPAdapter
 
             if control_model_type is ControlModelType.ControlNet:
                 global_average_pooling = model_net.control_model.global_average_pooling
@@ -930,6 +933,15 @@ class Script(scripts.Script, metaclass=(
                 revision_conds_weight += param.weight
         revision_conds_weight = max(revision_conds_weight, 1e-3)
         self.latest_network.global_revision = revision_conds / revision_conds_weight
+
+        for param in forward_params:
+            if param.control_model_type == ControlModelType.IPAdapter:
+                param.control_model.hook(
+                    model=unet,
+                    clip_vision_output=param.hint_cond,
+                    weight=param.weight,
+                    dtype=torch.float32
+                )
 
         self.detected_map = detected_maps
         self.post_processors = post_processors

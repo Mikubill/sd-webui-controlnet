@@ -6,6 +6,7 @@ from modules import devices
 
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
 from scripts.cldm import PlugableControlModel
+from scripts.controlmodel_ipadapter import PlugableIPAdapter
 from scripts.logging import logger
 from scripts.controlnet_diffusers import convert_from_diffuser_state_dict
 from scripts.controlnet_lora import controlnet_lora_hijack, force_load_state_dict
@@ -194,6 +195,12 @@ def build_model_by_guess(state_dict, unet, model_path):
         adapter = Adapter_light(**config).cpu()
         adapter.load_state_dict(state_dict, strict=False)
         network = PlugableAdapter(adapter)
+        return network
+
+    if 'ip_adapter' in state_dict:
+        channel = int(state_dict['image_proj']['proj.weight'].shape[1])
+        network = PlugableIPAdapter(state_dict, channel)
+        network.to('cpu')
         return network
 
     raise '[ControlNet Error] Cannot recognize the ControlModel!'

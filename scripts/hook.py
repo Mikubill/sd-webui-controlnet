@@ -146,6 +146,7 @@ class ControlModelType(Enum):
     PromptDiffusion = "PromptDiffusion, Zhendong Wang"
     ControlLoRA = "ControlLoRA, Wu Hecong"
     ReVision = "ReVision, Stability"
+    IPAdapter = "IPAdapter, Hu Ye"
 
 
 # Written by Lvmin
@@ -589,6 +590,8 @@ class UnetHook(nn.Module):
 
             # Replace x_t to support inpaint models
             for param in outer.control_params:
+                if not isinstance(param.used_hint_cond, torch.Tensor):
+                    continue
                 if param.used_hint_cond.shape[1] != 4:
                     continue
                 if x.shape[1] != 9:
