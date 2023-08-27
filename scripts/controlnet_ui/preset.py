@@ -100,41 +100,24 @@ class ControlNetPresetUI(object):
                     tooltip="Save preset",
                 )
 
-    def register_callbacks(self, control_type: gr.Radio, *ui_states):
-        # Do application 5 times
-        # If first update triggers control type change, wrong module will be
-        # selected
-        # 2nd update will be executed at the same time with the module update
-        # If 3rd update triggers module change, wrong slider values will
-        # be used.
-        # 4th update will be executed at the same time with slider updates
-        # 5th update will be updating slider values
-        # TODO(huchenlei): This is exetremely hacky, need to find a better way
-        # to achieve the functionality.
+    def register_callbacks(
+        self,
+        uigroup,
+        control_type: gr.Radio,
+        *ui_states,
+    ):
+        def prevent_update():
+            uigroup.prevent_next_n_module_update = 1
+            uigroup.prevent_next_n_slider_value_update = 2
+
         for element, action in (
             (self.dropdown, "change"),
             (self.reset_button, "click"),
         ):
             getattr(element, action)(
-                fn=ControlNetPresetUI.apply_preset,
-                inputs=[self.dropdown],
-                outputs=[self.delete_button, control_type, *ui_states],
-                show_progress="hidden",
-            ).then(
-                fn=ControlNetPresetUI.apply_preset,
-                inputs=[self.dropdown],
-                outputs=[self.delete_button, control_type, *ui_states],
-                show_progress="hidden",
-            ).then(
-                fn=ControlNetPresetUI.apply_preset,
-                inputs=[self.dropdown],
-                outputs=[self.delete_button, control_type, *ui_states],
-                show_progress="hidden",
-            ).then(
-                fn=ControlNetPresetUI.apply_preset,
-                inputs=[self.dropdown],
-                outputs=[self.delete_button, control_type, *ui_states],
-                show_progress="hidden",
+                fn=prevent_update,
+                inputs=None,
+                outputs=None,
             ).then(
                 fn=ControlNetPresetUI.apply_preset,
                 inputs=[self.dropdown],
@@ -236,7 +219,7 @@ class ControlNetPresetUI(object):
         for ui_state in ui_states:
             if isinstance(ui_state, gr.Image):
                 continue
-            
+
             for action in ("edit", "click", "change", "clear", "release"):
                 if action == "release" and not isinstance(ui_state, gr.Slider):
                     continue
