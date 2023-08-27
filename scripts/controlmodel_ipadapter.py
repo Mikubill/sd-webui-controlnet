@@ -69,15 +69,11 @@ class IPAdapterModel(torch.nn.Module):
 
     @torch.inference_mode()
     def get_image_embeds(self, clip_image_embeds):
-        '''
-        clip_image_embeds: clip_vision_output, size: batch_size, 1024(sdv1-2) or 1280(sdxl)
-        return: cond, uncond for CFG, size: batch_size, num_tokens, 768(sdv1) or 1024(sdv2) or 2048(sdxl)
-        '''
-        self.image_proj_model.to(clip_image_embeds.device)
+        clip_image_embeds = clip_image_embeds.cpu()
+        self.image_proj_model.cpu()
         image_prompt_embeds = self.image_proj_model(clip_image_embeds)
         # input zero vector for unconditional.
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
-        self.image_proj_model.to('cpu')
         return image_prompt_embeds, uncond_image_prompt_embeds
 
 
@@ -125,9 +121,11 @@ class PlugableIPAdapter(torch.nn.Module):
         self.control_model = self.ipadapter
         self.dtype = None
         self.weight = 1.0
+        self.cache = {}
         return
 
     def reset(self):
+        self.cache = {}
         return
 
     @torch.no_grad()
@@ -135,8 +133,10 @@ class PlugableIPAdapter(torch.nn.Module):
         global current_model
         current_model = model
 
+        self.cache = {}
+
         self.weight = weight
-        device = torch.device('cpu') if lowvram else devices.get_device_for("controlnet")
+        device = torch.device('cpu')
         self.dtype = dtype
 
         self.ipadapter.to(device, dtype=self.dtype)
@@ -174,6 +174,14 @@ class PlugableIPAdapter(torch.nn.Module):
 
         return
 
+    def call_ip(self, number, feat, device):
+        if number in self.cache:
+            return self.cache[number]
+        else:
+            ip = self.ipadapter.ip_layers.to_kvs[number](feat).to(device)
+            self.cache[number] = ip
+            return ip
+
     @torch.no_grad()
     def patch_forward(self, number):
         @torch.no_grad()
@@ -189,22 +197,35 @@ class PlugableIPAdapter(torch.nn.Module):
             k = self_hacked.to_k(context)
             v = self_hacked.to_v(context)
 
-            cond_mark = current_model.cond_mark[:, :, :, 0]
-            cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
-            ip_k = self.ipadapter.ip_layers.to_kvs[number * 2](cond_uncond_image_emb)
-            ip_v = self.ipadapter.ip_layers.to_kvs[number * 2 + 1](cond_uncond_image_emb)
+            del x, context
 
-            q, k, v, ip_k, ip_v = map(
+            q, k, v = map(
                 lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
-                (q, k, v, ip_k, ip_v),
+                (q, k, v),
             )
 
             out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
             out = out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
+            del k, v
+
+            cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
+            cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
+            ip_k = self.call_ip(number * 2, cond_uncond_image_emb, device=q.device)
+            ip_v = self.call_ip(number * 2 + 1, cond_uncond_image_emb, device=q.device)
+
+            ip_k, ip_v = map(
+                lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
+                (ip_k, ip_v),
+            )
+
             ip_out = torch.nn.functional.scaled_dot_product_attention(q, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False)
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
-            out = out + ip_out * self.weight
-            return self_hacked.to_out(out)
+            del q, ip_k, ip_v
+
+            h = out + ip_out * self.weight
+            del out, ip_out
+
+            return self_hacked.to_out(h)
         return forward
