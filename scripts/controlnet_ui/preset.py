@@ -234,6 +234,9 @@ class ControlNetPresetUI(object):
             return gr.update(visible=vars(current_unit) != vars(preset_unit))
 
         for ui_state in ui_states:
+            if isinstance(ui_state, gr.Image):
+                continue
+            
             for action in ("edit", "click", "change", "clear", "release"):
                 if action == "release" and not isinstance(ui_state, gr.Slider):
                     continue
