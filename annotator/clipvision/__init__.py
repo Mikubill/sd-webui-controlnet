@@ -72,7 +72,8 @@ configs = {
 
 downloads = {
     'clip_vitl': 'https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin',
-    'clip_g': 'https://huggingface.co/lllyasviel/Annotators/resolve/main/clip_g.pth'
+    'clip_g': 'https://huggingface.co/lllyasviel/Annotators/resolve/main/clip_g.pth',
+    'clip_h': 'https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/pytorch_model.bin'
 }
 
 
