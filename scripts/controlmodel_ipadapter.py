@@ -73,10 +73,11 @@ class IPAdapterModel(torch.nn.Module):
         clip_image_embeds: clip_vision_output, size: batch_size, 1024(sdv1-2) or 1280(sdxl)
         return: cond, uncond for CFG, size: batch_size, num_tokens, 768(sdv1) or 1024(sdv2) or 2048(sdxl)
         '''
-
+        self.image_proj_model.to(clip_image_embeds.device)
         image_prompt_embeds = self.image_proj_model(clip_image_embeds)
         # input zero vector for unconditional.
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
+        self.image_proj_model.to('cpu')
         return image_prompt_embeds, uncond_image_prompt_embeds
 
 
@@ -129,6 +130,7 @@ class PlugableIPAdapter(torch.nn.Module):
     def reset(self):
         return
 
+    @torch.no_grad()
     def hook(self, model, clip_vision_output, weight, dtype=torch.float32, lowvram=False):
         global current_model
         current_model = model
@@ -172,7 +174,9 @@ class PlugableIPAdapter(torch.nn.Module):
 
         return
 
+    @torch.no_grad()
     def patch_forward(self, number):
+        @torch.no_grad()
         def forward(self_hacked, x, context=None, **kwargs):
             batch_size, sequence_length, inner_dim = x.shape
             h = self_hacked.heads
