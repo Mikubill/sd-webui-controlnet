@@ -656,6 +656,9 @@ class Script(scripts.Script, metaclass=(
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             Script.clear_control_model_cache()
 
+        for idx, unit in enumerate(self.enabled_units):
+            unit.module = global_state.get_module_basename(unit.module)
+
         # unload unused preproc
         module_list = [unit.module for unit in self.enabled_units]
         for key in self.unloadable:
@@ -666,7 +669,6 @@ class Script(scripts.Script, metaclass=(
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
 
-            unit.module = global_state.get_module_basename(unit.module)
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
 
@@ -757,6 +759,21 @@ class Script(scripts.Script, metaclass=(
                 # inpaint_only+lama is special and required outpaint fix
                 _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
 
+            control_model_type = ControlModelType.ControlNet
+            global_average_pooling = False
+
+            if 'reference' in unit.module:
+                control_model_type = ControlModelType.AttentionInjection
+            elif 'revision' in unit.module:
+                control_model_type = ControlModelType.ReVision
+            elif isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light):
+                control_model_type = ControlModelType.T2I_Adapter
+            elif isinstance(model_net.control_model, StyleAdapter):
+                control_model_type = ControlModelType.T2I_StyleAdapter
+
+            if control_model_type is ControlModelType.ControlNet:
+                global_average_pooling = model_net.control_model.global_average_pooling
+
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 preprocessor_resolution = external_code.pixel_perfect_resolution(
@@ -797,18 +814,11 @@ class Script(scripts.Script, metaclass=(
                 control = detected_map
                 detected_maps.append((input_image, unit.module))
 
-            control_model_type = ControlModelType.ControlNet
-            global_average_pooling = False
+            if control_model_type == ControlModelType.T2I_StyleAdapter:
+                control = control['last_hidden_state']
 
-            if 'reference' in unit.module:
-                control_model_type = ControlModelType.AttentionInjection
-            elif isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light):
-                control_model_type = ControlModelType.T2I_Adapter
-            elif isinstance(model_net.control_model, StyleAdapter):
-                control_model_type = ControlModelType.T2I_StyleAdapter
-
-            if control_model_type is ControlModelType.ControlNet:
-                global_average_pooling = model_net.control_model.global_average_pooling
+            if control_model_type == ControlModelType.ReVision:
+                control = control['image_embeds']
 
             preprocessor_dict = dict(
                 name=unit.module,
@@ -911,6 +921,16 @@ class Script(scripts.Script, metaclass=(
 
         self.latest_network = UnetHook(lowvram=any(unit.low_vram for unit in self.enabled_units))
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
+
+        revision_conds = 0
+        revision_conds_weight = 0
+        for param in forward_params:
+            if param.control_model_type == ControlModelType.ReVision:
+                revision_conds = revision_conds + param.hint_cond * param.weight
+                revision_conds_weight += param.weight
+        revision_conds_weight = max(revision_conds_weight, 1e-3)
+        self.latest_network.global_revision = revision_conds / revision_conds_weight
+
         self.detected_map = detected_maps
         self.post_processors = post_processors
 

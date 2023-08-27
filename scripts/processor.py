@@ -336,24 +336,28 @@ def unload_pidinet():
         unload_pid_model()
 
 
-clip_encoder = None
+clip_encoder = {
+    'clip_g': None,
+    'clip_h': None,
+    'clip_vitl': None,
+}
 
 
-def clip(img, res=512, **kwargs):
+def clip(img, res=512, config='clip_vitl', **kwargs):
     img = HWC3(img)
     global clip_encoder
-    if clip_encoder is None:
-        from annotator.clip import apply_clip
-        clip_encoder = apply_clip
-    result = clip_encoder(img)
+    if clip_encoder[config] is None:
+        from annotator.clipvision import ClipVisionDetector
+        clip_encoder[config] = ClipVisionDetector(config)
+    result = clip_encoder[config](img)
     return result, False
 
 
-def unload_clip():
+def unload_clip(config='clip_vitl'):
     global clip_encoder
-    if clip_encoder is not None:
-        from annotator.clip import unload_clip_model
-        unload_clip_model()
+    if clip_encoder[config] is not None:
+        clip_encoder[config].unload_model()
+        clip_encoder[config] = None
 
 
 model_color = None
@@ -612,7 +616,8 @@ def recolor_intensity(img, res=512, thr_a=1.0, **kwargs):
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
-    "reference_adain+attn"
+    "reference_adain+attn",
+    "revision_clipvision"
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
@@ -952,4 +957,5 @@ preprocessor_filters = {
     "Reference": "reference_only",
     "T2IA": "none",
     "Recolor": "recolor_luminance",
+    "Revision": "revision_clipvision",
 }

@@ -145,6 +145,7 @@ class ControlModelType(Enum):
     StableSR = "StableSR, Jianyi Wang"
     PromptDiffusion = "PromptDiffusion, Zhendong Wang"
     ControlLoRA = "ControlLoRA, Wu Hecong"
+    ReVision = "ReVision, Stability"
 
 
 # Written by Lvmin
@@ -343,6 +344,7 @@ class UnetHook(nn.Module):
         self.gn_auto_machine_weight = 1.0
         self.current_style_fidelity = 0.0
         self.current_uc_indices = None
+        self.global_revision = None
 
     @staticmethod
     def call_vae_using_process(p, x, batch_size=None, mask=None):
@@ -425,6 +427,13 @@ class UnetHook(nn.Module):
             # Handle cond-uncond marker
             cond_mark, outer.current_uc_indices, context = unmark_prompt_context(context)
             # logger.info(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
+
+            # Revision
+            if is_sdxl and outer.global_revision is not None:
+                y1280 = y[:, :1280]
+                cond_mark1280 = cond_mark[:, :, 0, 0]
+                y1280 = y1280 * (1 - cond_mark1280) + outer.global_revision * cond_mark1280
+                y[:, :1280] = y1280
 
             # High-res fix
             for param in outer.control_params:
