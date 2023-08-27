@@ -15,7 +15,7 @@ from scripts import global_state, hook, external_code, processor, batch_hijack, 
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
-from scripts.controlmodel_ipadapter import PlugableIPAdapter
+from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, ControlModelType
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
@@ -957,6 +957,8 @@ class Script(scripts.Script, metaclass=(
         return
 
     def postprocess(self, p, processed, *args):
+        clear_all_ip_adapter()
+
         for control_lora in getattr(p, 'controlnet_control_loras', []):
             unbind_control_lora(control_lora)
         p.controlnet_control_loras = []
