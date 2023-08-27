@@ -636,24 +636,14 @@ class ControlNetUiGroup(object):
                 else None,
             )
 
-            if "clip" in module:
-                result = processor.clip_vision_visualization(result)
+            if not is_image:
+                result = img
                 is_image = True
 
-            if is_image:
-                result = external_code.visualize_inpaint_mask(result)
-                return (
-                    # Update to `generated_image`
-                    gr.update(value=result, visible=True, interactive=False),
-                    # preprocessor_preview
-                    gr.update(value=True),
-                    # openpose editor
-                    *self.openpose_editor.update(json_acceptor.value),
-                )
-
+            result = external_code.visualize_inpaint_mask(result)
             return (
                 # Update to `generated_image`
-                gr.update(value=None, visible=True),
+                gr.update(value=result, visible=True, interactive=False),
                 # preprocessor_preview
                 gr.update(value=True),
                 # openpose editor

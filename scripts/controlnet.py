@@ -781,12 +781,6 @@ class Script(scripts.Script, metaclass=(
                 thr_b=unit.threshold_b,
             )
 
-            if unit.module == "none" and "style" in unit.model:
-                detected_map_bytes = detected_map[:,:,0].tobytes()
-                detected_map = np.ndarray((round(input_image.shape[0]/4),input_image.shape[1]),dtype="float32",buffer=detected_map_bytes)
-                detected_map = torch.Tensor(detected_map).to(devices.get_device_for("controlnet"))
-                is_image = False
-
             if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -801,8 +795,7 @@ class Script(scripts.Script, metaclass=(
                 detected_maps.append((detected_map, unit.module))
             else:
                 control = detected_map
-                if unit.module == 'clip_vision':
-                    detected_maps.append((processor.clip_vision_visualization(detected_map), unit.module))
+                detected_maps.append((input_image, unit.module))
 
             control_model_type = ControlModelType.ControlNet
             global_average_pooling = False

@@ -60,20 +60,3 @@ def safe_step(x, step=2):
     y = x.astype(np.float32) * float(step + 1)
     y = y.astype(np.int32).astype(np.float32) / float(step)
     return y
-
-
-def img2mask(img, H, W, low=10, high=90):
-    assert img.ndim == 3 or img.ndim == 2
-    assert img.dtype == np.uint8
-
-    if img.ndim == 3:
-        y = img[:, :, random.randrange(0, img.shape[2])]
-    else:
-        y = img
-
-    y = cv2.resize(y, (W, H), interpolation=cv2.INTER_CUBIC)
-
-    if random.uniform(0, 1) < 0.5:
-        y = 255 - y
-
-    return y < np.percentile(y, random.randrange(low, high))
