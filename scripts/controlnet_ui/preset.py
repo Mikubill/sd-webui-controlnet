@@ -106,21 +106,72 @@ class ControlNetPresetUI(object):
         control_type: gr.Radio,
         *ui_states,
     ):
-        def prevent_update():
-            uigroup.prevent_next_n_module_update = 1
-            uigroup.prevent_next_n_slider_value_update = 2
+        def apply_preset(name: str, control_type: str, *ui_states):
+            if name == NEW_PRESET:
+                return (
+                    gr.update(visible=False),
+                    *(
+                        (gr.skip(),)
+                        * (len(vars(external_code.ControlNetUnit()).keys()) + 1)
+                    ),
+                )
+
+            assert name in ControlNetPresetUI.presets
+
+            infotext = ControlNetPresetUI.presets[name]
+            preset_unit = parse_unit(infotext)
+            current_unit = external_code.ControlNetUnit(*ui_states)
+            preset_unit.image = None
+            current_unit.image = None
+
+            # Do not compare module param that are not used in preset.
+            for module_param in ("processor_res", "threshold_a", "threshold_b"):
+                if getattr(preset_unit, module_param) == -1:
+                    setattr(current_unit, module_param, -1)
+
+            # No update necessary.
+            if vars(current_unit) == vars(preset_unit):
+                return (
+                    gr.update(visible=False),
+                    *(
+                        (gr.skip(),)
+                        * (len(vars(external_code.ControlNetUnit()).keys()) + 1)
+                    ),
+                )
+
+            unit = preset_unit
+
+            try:
+                new_control_type = infer_control_type(unit.module, unit.model)
+            except ValueError as e:
+                logger.error(e)
+                new_control_type = control_type
+
+            if new_control_type != control_type:
+                uigroup.prevent_next_n_module_update += 1
+
+            if preset_unit.module != current_unit.module:
+                uigroup.prevent_next_n_slider_value_update += 1
+
+            if preset_unit.pixel_perfect != current_unit.pixel_perfect:
+                uigroup.prevent_next_n_slider_value_update += 1
+
+            return (
+                gr.update(visible=True),
+                gr.update(value=new_control_type),
+                *[
+                    gr.update(value=value) if value is not None else gr.update()
+                    for value in vars(unit).values()
+                ],
+            )
 
         for element, action in (
             (self.dropdown, "change"),
             (self.reset_button, "click"),
         ):
             getattr(element, action)(
-                fn=prevent_update,
-                inputs=None,
-                outputs=None,
-            ).then(
-                fn=ControlNetPresetUI.apply_preset,
-                inputs=[self.dropdown],
+                fn=apply_preset,
+                inputs=[self.dropdown, control_type, *ui_states],
                 outputs=[self.delete_button, control_type, *ui_states],
                 show_progress="hidden",
             ).then(
@@ -255,38 +306,6 @@ class ControlNetPresetUI(object):
         file = os.path.join(ControlNetPresetUI.preset_directory, f"{name}.txt")
         if os.path.exists(file):
             os.unlink(file)
-
-    @staticmethod
-    def apply_preset(name: str):
-        if name == NEW_PRESET:
-            return (
-                gr.update(visible=False),
-                *(
-                    (gr.update(),)
-                    * (len(vars(external_code.ControlNetUnit()).keys()) + 1)
-                ),
-            )
-
-        assert name in ControlNetPresetUI.presets
-        infotext = ControlNetPresetUI.presets[name]
-        unit = parse_unit(infotext)
-
-        try:
-            control_type_update = gr.update(
-                value=infer_control_type(unit.module, unit.model)
-            )
-        except ValueError as e:
-            logger.error(e)
-            control_type_update = gr.update()
-
-        return (
-            gr.update(visible=True),
-            control_type_update,
-            *[
-                gr.update(value=value) if value is not None else gr.update()
-                for value in vars(unit).values()
-            ],
-        )
 
     @staticmethod
     def refresh_preset():

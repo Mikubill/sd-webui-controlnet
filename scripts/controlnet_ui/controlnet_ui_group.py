@@ -492,7 +492,12 @@ class ControlNetUiGroup(object):
         if not self.gradio_compat:
             return
 
-        def build_sliders(module: str, pp: bool, prevent_next_n_update: int):
+        def build_sliders(module: str, pp: bool):
+            logger.debug(
+                f"Prevent update slider value: {self.prevent_next_n_slider_value_update}"
+            )
+            logger.debug(f"Build slider for module: {module} - {pp}")
+
             # Clear old slider values so that they do not cause confusion in
             # infotext.
             clear_slider_update = gr.update(
@@ -563,7 +568,6 @@ class ControlNetUiGroup(object):
                 0, self.prevent_next_n_slider_value_update - 1
             )
 
-            print(self.prevent_next_n_slider_value_update)
             return grs
 
         inputs = [
@@ -584,24 +588,30 @@ class ControlNetUiGroup(object):
         if self.type_filter is not None:
 
             def filter_selected(k: str):
-                if self.prevent_next_n_module_update > 0:
-                    self.prevent_next_n_module_update -= 1
-                    return gr.skip(), gr.skip()
-
+                logger.debug(f"Prevent update {self.prevent_next_n_module_update}")
+                logger.debug(f"Switch to control type {k}")
                 (
                     filtered_preprocessor_list,
                     filtered_model_list,
                     default_option,
                     default_model,
                 ) = global_state.select_control_type(k)
-                return (
-                    gr.Dropdown.update(
-                        value=default_option, choices=filtered_preprocessor_list
-                    ),
-                    gr.Dropdown.update(
-                        value=default_model, choices=filtered_model_list
-                    ),
-                )
+
+                if self.prevent_next_n_module_update > 0:
+                    self.prevent_next_n_module_update -= 1
+                    return [
+                        gr.Dropdown.update(choices=filtered_preprocessor_list),
+                        gr.Dropdown.update(choices=filtered_model_list),
+                    ]
+                else:
+                    return [
+                        gr.Dropdown.update(
+                            value=default_option, choices=filtered_preprocessor_list
+                        ),
+                        gr.Dropdown.update(
+                            value=default_model, choices=filtered_model_list
+                        ),
+                    ]
 
             self.type_filter.change(
                 filter_selected,
@@ -816,8 +826,7 @@ class ControlNetUiGroup(object):
             self.generated_image, self.use_preview_as_input
         )
         self.preset_panel.register_callbacks(
-            self.prevent_next_n_module_update,
-            self.prevent_next_n_slider_value_update,
+            self,
             self.type_filter,
             *[
                 getattr(self, key)
