@@ -17,7 +17,7 @@ from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
-from scripts.hook import ControlParams, UnetHook, ControlModelType
+from scripts.hook import ControlParams, UnetHook, ControlModelType, HackedImageRNG
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
@@ -230,6 +230,7 @@ class Script(scripts.Script, metaclass=(
         self.enabled_units = []
         self.detected_map = []
         self.post_processors = []
+        self.noise_modifier = None
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -634,8 +635,8 @@ class Script(scripts.Script, metaclass=(
         """
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
+        self.noise_modifier = None
 
-        setattr(p, 'controlnet_initial_noise_modifier', None)
         setattr(p, 'controlnet_control_loras', [])
 
         if self.latest_network is not None:
@@ -919,7 +920,8 @@ class Script(scripts.Script, metaclass=(
 
             if '+lama' in unit.module:
                 forward_param.used_hint_cond_latent = hook.UnetHook.call_vae_using_process(p, control)
-                setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)
+                self.noise_modifier = forward_param.used_hint_cond_latent
+
             del model_net
 
         is_low_vram = any(unit.low_vram for unit in self.enabled_units)
@@ -949,6 +951,14 @@ class Script(scripts.Script, metaclass=(
         self.detected_map = detected_maps
         self.post_processors = post_processors
 
+    def before_process_batch(self, p, *args, **kwargs):
+        if self.noise_modifier is not None:
+            p.rng = HackedImageRNG(rng=p.rng,
+                                   noise_modifier=self.noise_modifier,
+                                   sd_model=p.sd_model)
+        self.noise_modifier = None
+        return
+
     def postprocess_batch(self, p, *args, **kwargs):
         images = kwargs.get('images', [])
         for post_processor in self.post_processors:
@@ -959,12 +969,13 @@ class Script(scripts.Script, metaclass=(
     def postprocess(self, p, processed, *args):
         clear_all_ip_adapter()
 
+        self.noise_modifier = None
+
         for control_lora in getattr(p, 'controlnet_control_loras', []):
             unbind_control_lora(control_lora)
         p.controlnet_control_loras = []
 
         self.post_processors = []
-        setattr(p, 'controlnet_initial_noise_modifier', None)
         setattr(p, 'controlnet_vae_cache', None)
 
         processor_params_flag = (', '.join(getattr(processed, 'extra_generation_params', []))).lower()

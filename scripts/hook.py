@@ -20,6 +20,7 @@ from ldm.models.diffusion.ddpm import extract_into_tensor
 
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 from modules.processing import StableDiffusionProcessing
+from modules.rng import ImageRNG
 
 
 try:
@@ -107,27 +108,22 @@ def unmark_prompt_context(x):
     return mark_batch, uc_indices, context
 
 
-def create_random_tensors_hacked(*args, **kwargs):
-    result = modules.processing.create_random_tensors_original(*args, **kwargs)
-    p = kwargs.get('p', None)
-    if p is None:
-        return result
-    controlnet_initial_noise_modifier = getattr(p, 'controlnet_initial_noise_modifier', None)
-    if controlnet_initial_noise_modifier is not None:
-        x0 = controlnet_initial_noise_modifier
+class HackedImageRNG:
+    def __init__(self, rng, noise_modifier, sd_model):
+        self.rng = rng
+        self.noise_modifier = noise_modifier
+        self.sd_model = sd_model
+
+    def next(self):
+        result = self.rng.next()
+        x0 = self.noise_modifier
         if result.shape[2] != x0.shape[2] or result.shape[3] != x0.shape[3]:
             return result
         x0 = x0.to(result.dtype).to(result.device)
-        ts = torch.tensor([p.sd_model.num_timesteps - 1] * result.shape[0]).long().to(result.device)
-        result = predict_q_sample(p.sd_model, x0, ts, result)
+        ts = torch.tensor([999] * result.shape[0]).long().to(result.device)
+        result = predict_q_sample(self.sd_model, x0, ts, result)
         logger.info(f'[ControlNet] Initial noise hack applied to {result.shape}.')
-    return result
-
-
-if getattr(modules.processing, 'create_random_tensors_original', None) is None:
-    modules.processing.create_random_tensors_original = modules.processing.create_random_tensors
-
-modules.processing.create_random_tensors = create_random_tensors_hacked
+        return result
 
 
 class ControlModelType(Enum):
