@@ -20,7 +20,6 @@ from ldm.models.diffusion.ddpm import extract_into_tensor
 
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
 from modules.processing import StableDiffusionProcessing
-from modules.rng import ImageRNG
 
 
 try:
