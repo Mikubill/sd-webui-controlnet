@@ -826,7 +826,7 @@ class UnetHook(nn.Module):
 
         def hacked_group_norm_forward(self, *args, **kwargs):
             eps = 1e-6
-            x = self.original_forward(*args, **kwargs)
+            x = self.original_forward_cn_hijack(*args, **kwargs)
             y = None
             if outer.gn_auto_machine == AutoMachine.Write:
                 if outer.gn_auto_machine_weight > self.gn_weight:
