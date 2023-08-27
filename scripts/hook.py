@@ -428,10 +428,8 @@ class UnetHook(nn.Module):
 
             # Revision
             if is_sdxl and outer.global_revision is not None:
-                y1280 = y[:, :1280]
-                cond_mark1280 = cond_mark[:, :, 0, 0]
-                y1280 = y1280 * (1 - cond_mark1280) + outer.global_revision * cond_mark1280
-                y[:, :1280] = y1280
+                y[:, :1280] = outer.global_revision * cond_mark[:, :, 0, 0]
+                context = torch.zeros_like(context)
 
             # High-res fix
             for param in outer.control_params:
