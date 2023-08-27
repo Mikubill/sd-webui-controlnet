@@ -1,6 +1,8 @@
 import torch
 import os
 
+from modules import devices
+
 
 # attention_channels of input, output, middle
 SD_V12_CHANNELS = [320] * 4 + [640] * 4 + [1280] * 4 + [1280] * 6 + [640] * 6 + [320] * 6 + [1280] * 2
@@ -84,12 +86,24 @@ class PlugableIPAdapter(torch.nn.Module):
         self.sdxl = clip_embeddings_dim == 1280
         self.ipadapter = IPAdapterModel(state_dict, clip_embeddings_dim=clip_embeddings_dim)
         self.control_model = self.ipadapter
+        self.dtype = None
         return
 
     def reset(self):
         return
 
-    def hook(self, model, clip_vision_output, weight, dtype):
+    def hook(self, model, clip_vision_output, weight, dtype, lowvram=False):
+        device = torch.device('cpu') if lowvram else devices.get_device_for("controlnet")
+        self.dtype = dtype
+
+        self.ipadapter.to(device, dtype=self.dtype)
+        clip_vision_emb = clip_vision_output['image_embeds'].to(device, dtype=self.dtype)
+        self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_emb)
+
+        self.image_emb = self.image_emb.to(device, dtype=self.dtype)
+        self.uncond_image_emb = self.uncond_image_emb.to(device, dtype=self.dtype)
+        self.cond_uncond_image_emb = None
+
         return
 
 

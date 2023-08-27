@@ -922,7 +922,9 @@ class Script(scripts.Script, metaclass=(
                 setattr(p, 'controlnet_initial_noise_modifier', forward_param.used_hint_cond_latent)
             del model_net
 
-        self.latest_network = UnetHook(lowvram=any(unit.low_vram for unit in self.enabled_units))
+        is_low_vram = any(unit.low_vram for unit in self.enabled_units)
+
+        self.latest_network = UnetHook(lowvram=is_low_vram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
 
         revision_conds = 0
@@ -940,7 +942,8 @@ class Script(scripts.Script, metaclass=(
                     model=unet,
                     clip_vision_output=param.hint_cond,
                     weight=param.weight,
-                    dtype=torch.float32
+                    dtype=torch.float32,
+                    lowvram=is_low_vram
                 )
 
         self.detected_map = detected_maps
