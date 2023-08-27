@@ -625,6 +625,7 @@ preprocessor_sliders_config = {
     "none": [],
     "inpaint": [],
     "inpaint_only": [],
+    "revision_clipvision": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
