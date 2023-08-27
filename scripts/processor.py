@@ -617,7 +617,8 @@ model_free_preprocessors = [
     "reference_only",
     "reference_adain",
     "reference_adain+attn",
-    "revision_clipvision"
+    "revision_clipvision",
+    "revision_ignore_prompt"
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
@@ -626,6 +627,7 @@ preprocessor_sliders_config = {
     "inpaint": [],
     "inpaint_only": [],
     "revision_clipvision": [],
+    "revision_ignore_prompt": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,

@@ -429,7 +429,8 @@ class UnetHook(nn.Module):
             # Revision
             if is_sdxl and outer.global_revision is not None:
                 y[:, :1280] = outer.global_revision * cond_mark[:, :, 0, 0]
-                context = torch.zeros_like(context)
+                if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params):
+                    context = torch.zeros_like(context)
 
             # High-res fix
             for param in outer.control_params:
