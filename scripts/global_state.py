@@ -240,7 +240,7 @@ def update_cn_models():
 def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, str]:
     alias = {
         'scribble': ['sketch'],
-        'ipadapter': ['ip_adapter', 'ip-adapter']
+        'ip-adapter': ['ip_adapter', 'ipadapter']
     }
     default_option = preprocessor_filters[control_type]
     pattern = control_type.lower()
