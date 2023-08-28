@@ -961,5 +961,5 @@ preprocessor_filters = {
     "T2IA": "none",
     "Recolor": "recolor_luminance",
     "Revision": "revision_clipvision",
-    "IPAdapter": "ipadapter_clip_sd15",
+    "IP-Adapter": "ipadapter_clip_sd15",
 }

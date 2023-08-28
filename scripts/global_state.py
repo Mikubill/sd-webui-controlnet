@@ -66,8 +66,8 @@ cn_preprocessor_modules = {
     "clip_vision": functools.partial(clip, config='clip_vitl'),
     "revision_clipvision": functools.partial(clip, config='clip_g'),
     "revision_ignore_prompt": functools.partial(clip, config='clip_g'),
-    "ipadapter_clip_sd15": functools.partial(clip, config='clip_h'),
-    "ipadapter_clip_sdxl": functools.partial(clip, config='clip_g'),
+    "ip-adapter_clip_sd15": functools.partial(clip, config='clip_h'),
+    "ip-adapter_clip_sdxl": functools.partial(clip, config='clip_g'),
     "color": color,
     "pidinet": pidinet,
     "pidinet_safe": pidinet_safe,
@@ -108,8 +108,8 @@ cn_preprocessor_unloadable = {
     "clip_vision": functools.partial(unload_clip, config='clip_vitl'),
     "revision_clipvision": functools.partial(unload_clip, config='clip_g'),
     "revision_ignore_prompt": functools.partial(unload_clip, config='clip_g'),
-    "ipadapter_clip_sd15": functools.partial(unload_clip, config='clip_h'),
-    "ipadapter_clip_sdxl": functools.partial(unload_clip, config='clip_g'),
+    "ip-adapter_clip_sd15": functools.partial(unload_clip, config='clip_h'),
+    "ip-adapter_clip_sdxl": functools.partial(unload_clip, config='clip_g'),
     "depth": unload_midas,
     "depth_leres": unload_leres,
     "normal_map": unload_midas,
@@ -238,7 +238,10 @@ def update_cn_models():
 
 
 def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, str]:
-    alias = {'scribble': ['sketch']}
+    alias = {
+        'scribble': ['sketch'],
+        'ipadapter': ['ip_adapter', 'ip-adapter']
+    }
     default_option = preprocessor_filters[control_type]
     pattern = control_type.lower()
     preprocessor_list = ui_preprocessor_keys
