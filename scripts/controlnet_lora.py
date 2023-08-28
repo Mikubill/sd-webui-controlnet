@@ -41,7 +41,7 @@ class LinearWithLoRA(torch.nn.Module):
         if self.up is not None and self.down is not None:
             weight += torch.mm(self.up, self.down).to(x)
 
-        return torch.nn.functional.linear(x, weight, self.bias)
+        return torch.nn.functional.linear(x, weight, self.bias.to(x) if self.bias is not None else None)
 
 
 class Conv2dWithLoRA(torch.nn.Module):
@@ -91,7 +91,8 @@ class Conv2dWithLoRA(torch.nn.Module):
         if self.up is not None and self.down is not None:
             weight += torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(x)
 
-        return torch.nn.functional.conv2d(x, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+        return torch.nn.functional.conv2d(x, weight, self.bias.to(x) if self.bias is not None else None,
+                                          self.stride, self.padding, self.dilation, self.groups)
 
 
 @contextmanager
