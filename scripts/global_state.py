@@ -238,6 +238,7 @@ def update_cn_models():
 
 
 def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, str]:
+    alias = {'scribble': ['sketch']}
     default_option = preprocessor_filters[control_type]
     pattern = control_type.lower()
     preprocessor_list = ui_preprocessor_keys
@@ -252,14 +253,14 @@ def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, s
     filtered_preprocessor_list = [
         x
         for x in preprocessor_list
-        if pattern in x.lower() or x.lower() == "none"
+        if pattern in x.lower() or any(a in x.lower() for a in alias.get(pattern, [])) or x.lower() == "none"
     ]
     if pattern in ["canny", "lineart", "scribble", "mlsd"]:
         filtered_preprocessor_list += [
             x for x in preprocessor_list if "invert" in x.lower()
         ]
     filtered_model_list = [
-        x for x in model_list if pattern in x.lower() or x.lower() == "none"
+        x for x in model_list if pattern in x.lower() or any(a in x.lower() for a in alias.get(pattern, [])) or x.lower() == "none"
     ]
     if default_option not in filtered_preprocessor_list:
         default_option = filtered_preprocessor_list[0]
