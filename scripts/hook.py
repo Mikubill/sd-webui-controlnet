@@ -695,7 +695,7 @@ class UnetHook(nn.Module):
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
 
-                    t2i_injection = [2, 6, 8, 11] if is_sdxl else [2, 5, 8, 11]
+                    t2i_injection = [3, 5, 8] if is_sdxl else [2, 5, 8, 11]
 
                     if i in t2i_injection:
                         h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
@@ -705,6 +705,9 @@ class UnetHook(nn.Module):
 
             # U-Net Middle Block
             h = aligned_adding(h, total_controlnet_embedding.pop(), require_inpaint_hijack)
+
+            if len(total_t2i_adapter_embedding) > 0 and is_sdxl:
+                h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
             # U-Net Decoder
             for i, module in enumerate(self.output_blocks):
