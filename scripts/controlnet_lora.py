@@ -32,16 +32,16 @@ class LinearWithLoRA(torch.nn.Module):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
             self.weight = None
 
-    def forward(self, input):
+    def forward(self, x):
         if self.weight is None:
             return None  # A1111 needs first_time_calculation
 
-        weight = self.weight.to(input.device)
+        weight = self.weight.to(x)
 
         if self.up is not None and self.down is not None:
-            weight += torch.mm(self.up, self.down).to(input.device)
+            weight += torch.mm(self.up, self.down).to(x)
 
-        return torch.nn.functional.linear(input, weight, self.bias)
+        return torch.nn.functional.linear(x, weight, self.bias)
 
 
 class Conv2dWithLoRA(torch.nn.Module):
@@ -82,16 +82,16 @@ class Conv2dWithLoRA(torch.nn.Module):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
             self.weight = None
 
-    def forward(self, input):
+    def forward(self, x):
         if self.weight is None:
             return None  # A1111 needs first_time_calculation
 
-        weight = self.weight.to(input.device)
+        weight = self.weight.to(x)
 
         if self.up is not None and self.down is not None:
-            weight += torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(input.device)
+            weight += torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(x)
 
-        return torch.nn.functional.conv2d(input, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+        return torch.nn.functional.conv2d(x, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
 
 @contextmanager
