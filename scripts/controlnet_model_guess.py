@@ -166,7 +166,7 @@ def build_model_by_guess(state_dict, unet, model_path):
         ksize = 1
         down_opts = tuple(filter(lambda item: item.endswith("down_opt.op.weight"), state_dict))
         use_conv = len(down_opts) > 0
-        is_sdxl = cin == 256
+        is_sdxl = (cin % 256) == 0
         adapter = Adapter(
             cin=cin,
             channels=[channel, channel*2, channel*4, channel*4],

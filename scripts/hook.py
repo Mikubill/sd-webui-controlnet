@@ -410,12 +410,11 @@ class UnetHook(nn.Module):
 
         def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
             is_sdxl = y is not None and model_is_sdxl
+            total_t2i_adapter_embedding = [0.0] * 4
             if is_sdxl:
                 total_controlnet_embedding = [0.0] * 10
-                total_t2i_adapter_embedding = [0.0] * 3
             else:
                 total_controlnet_embedding = [0.0] * 13
-                total_t2i_adapter_embedding = [0.0] * 4
             require_inpaint_hijack = False
             is_in_high_res_fix = False
             batch_size = int(x.shape[0])
@@ -561,11 +560,8 @@ class UnetHook(nn.Module):
                     elif param.control_model_type == ControlModelType.ControlNet:
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
 
-                if is_sdxl:
-                    if param.control_model_type == ControlModelType.T2I_Adapter:
-                        control_scales = control_scales[:3]
-                    elif param.control_model_type == ControlModelType.ControlNet:
-                        control_scales = control_scales[:10]
+                if is_sdxl and param.control_model_type == ControlModelType.ControlNet:
+                    control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
                     control_scales = param.advanced_weighting
@@ -699,7 +695,9 @@ class UnetHook(nn.Module):
                 for i, module in enumerate(self.input_blocks):
                     h = module(h, emb, context)
 
-                    if (i + 1) % 3 == 0:
+                    t2i_injection = [2, 6, 8, 11] if is_sdxl else [2, 5, 8, 11]
+
+                    if i in t2i_injection:
                         h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)

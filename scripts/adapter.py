@@ -63,7 +63,8 @@ class PlugableAdapter(nn.Module):
         self.hint_cond = cond_cast_unet(hint)
         hint_in = cond_cast_unet(hint)
         
-        if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
+        if hasattr(self.control_model, 'conv_in') and \
+                (self.control_model.conv_in.in_channels == 64 or self.control_model.conv_in.in_channels == 256):
             hint_in = hint_in[:, 0:1, :, :]
 
         self.control = self.control_model(hint_in)
@@ -217,10 +218,10 @@ class Adapter(nn.Module):
             downsample_avoided = [1]
             downsample_layers = [2]
         else:
+            self.pixel_shuffle = 8
             downsample_avoided = []
             downsample_layers = [3, 2, 1]
 
-        self.pixel_shuffle = 8
         self.input_channels = cin // (self.pixel_shuffle * self.pixel_shuffle)
         self.channels = channels
         self.nums_rb = nums_rb
