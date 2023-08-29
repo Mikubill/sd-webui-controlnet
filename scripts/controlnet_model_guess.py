@@ -198,8 +198,12 @@ def build_model_by_guess(state_dict, unet, model_path):
         return network
 
     if 'ip_adapter' in state_dict:
-        channel = int(state_dict['image_proj']['proj.weight'].shape[1])
-        network = PlugableIPAdapter(state_dict, channel)
+        plus = "latents" in state_dict["image_proj"]
+        if plus:
+            channel = int(state_dict['image_proj']['proj_in.weight'].shape[1])
+        else:
+            channel = int(state_dict['image_proj']['proj.weight'].shape[1])
+        network = PlugableIPAdapter(state_dict, channel, plus)
         network.to('cpu')
         return network
 

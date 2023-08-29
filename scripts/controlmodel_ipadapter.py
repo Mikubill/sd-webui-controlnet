@@ -1,7 +1,6 @@
+import math
 import torch
-import einops
-
-from modules import devices
+import torch.nn as nn
 
 
 # attention_channels of input, output, middle
@@ -43,22 +42,151 @@ class To_KV(torch.nn.Module):
             self.to_kvs[i].weight.data = state_dict[key]
 
 
+def FeedForward(dim, mult=4):
+    inner_dim = int(dim * mult)
+    return nn.Sequential(
+        nn.LayerNorm(dim),
+        nn.Linear(dim, inner_dim, bias=False),
+        nn.GELU(),
+        nn.Linear(inner_dim, dim, bias=False),
+    )
+
+
+def reshape_tensor(x, heads):
+    bs, length, width = x.shape
+    #(bs, length, width) --> (bs, length, n_heads, dim_per_head)
+    x = x.view(bs, length, heads, -1)
+    # (bs, length, n_heads, dim_per_head) --> (bs, n_heads, length, dim_per_head)
+    x = x.transpose(1, 2)
+    # (bs, n_heads, length, dim_per_head) --> (bs*n_heads, length, dim_per_head)
+    x = x.reshape(bs, heads, length, -1)
+    return x
+
+
+class PerceiverAttention(nn.Module):
+    def __init__(self, *, dim, dim_head=64, heads=8):
+        super().__init__()
+        self.scale = dim_head**-0.5
+        self.dim_head = dim_head
+        self.heads = heads
+        inner_dim = dim_head * heads
+
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+
+        self.to_q = nn.Linear(dim, inner_dim, bias=False)
+        self.to_kv = nn.Linear(dim, inner_dim * 2, bias=False)
+        self.to_out = nn.Linear(inner_dim, dim, bias=False)
+
+
+    def forward(self, x, latents):
+        """
+        Args:
+            x (torch.Tensor): image features
+                shape (b, n1, D)
+            latent (torch.Tensor): latent features
+                shape (b, n2, D)
+        """
+        x = self.norm1(x)
+        latents = self.norm2(latents)
+
+        b, l, _ = latents.shape
+
+        q = self.to_q(latents)
+        kv_input = torch.cat((x, latents), dim=-2)
+        k, v = self.to_kv(kv_input).chunk(2, dim=-1)
+
+        q = reshape_tensor(q, self.heads)
+        k = reshape_tensor(k, self.heads)
+        v = reshape_tensor(v, self.heads)
+
+        # attention
+        scale = 1 / math.sqrt(math.sqrt(self.dim_head))
+        weight = (q * scale) @ (k * scale).transpose(-2, -1) # More stable with f16 than dividing afterwards
+        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
+        out = weight @ v
+
+        out = out.permute(0, 2, 1, 3).reshape(b, l, -1)
+
+        return self.to_out(out)
+
+
+class Resampler(nn.Module):
+    def __init__(
+        self,
+        dim=1024,
+        depth=8,
+        dim_head=64,
+        heads=16,
+        num_queries=8,
+        embedding_dim=768,
+        output_dim=1024,
+        ff_mult=4,
+    ):
+        super().__init__()
+
+        self.latents = nn.Parameter(torch.randn(1, num_queries, dim) / dim**0.5)
+
+        self.proj_in = nn.Linear(embedding_dim, dim)
+
+        self.proj_out = nn.Linear(dim, output_dim)
+        self.norm_out = nn.LayerNorm(output_dim)
+
+        self.layers = nn.ModuleList([])
+        for _ in range(depth):
+            self.layers.append(
+                nn.ModuleList(
+                    [
+                        PerceiverAttention(dim=dim, dim_head=dim_head, heads=heads),
+                        FeedForward(dim=dim, mult=ff_mult),
+                    ]
+                )
+            )
+
+    def forward(self, x):
+
+        latents = self.latents.repeat(x.size(0), 1, 1)
+
+        x = self.proj_in(x)
+
+        for attn, ff in self.layers:
+            latents = attn(x, latents) + latents
+            latents = ff(latents) + latents
+
+        latents = self.proj_out(latents)
+        return self.norm_out(latents)
+
+
 class IPAdapterModel(torch.nn.Module):
-    def __init__(self, state_dict, clip_embeddings_dim):
+    def __init__(self, state_dict, clip_embeddings_dim, is_plus):
         super().__init__()
         self.device = "cpu"
 
         # cross_attention_dim is equal to text_encoder output
         self.cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
+        self.is_plus = is_plus
 
-        # number of tokens of ip_adapter embedding
-        self.clip_extra_context_tokens = state_dict["image_proj"]["proj.weight"].shape[0] // self.cross_attention_dim
+        if self.is_plus:
+            self.clip_extra_context_tokens = 16
 
-        self.image_proj_model = ImageProjModel(
-            cross_attention_dim=self.cross_attention_dim,
-            clip_embeddings_dim=clip_embeddings_dim,
-            clip_extra_context_tokens=self.clip_extra_context_tokens
-        )
+            self.image_proj_model = Resampler(
+                dim=self.cross_attention_dim,
+                depth=4,
+                dim_head=64,
+                heads=12,
+                num_queries=self.clip_extra_context_tokens,
+                embedding_dim=clip_embeddings_dim,
+                output_dim=self.cross_attention_dim,
+                ff_mult=4
+            )
+        else:
+            self.clip_extra_context_tokens = state_dict["image_proj"]["proj.weight"].shape[0] // self.cross_attention_dim
+
+            self.image_proj_model = ImageProjModel(
+                cross_attention_dim=self.cross_attention_dim,
+                clip_embeddings_dim=clip_embeddings_dim,
+                clip_extra_context_tokens=self.clip_extra_context_tokens
+            )
 
         self.load_ip_adapter(state_dict)
 
@@ -68,9 +196,15 @@ class IPAdapterModel(torch.nn.Module):
         self.ip_layers.load_state_dict(state_dict["ip_adapter"])
 
     @torch.inference_mode()
-    def get_image_embeds(self, clip_image_embeds):
-        clip_image_embeds = clip_image_embeds.cpu()
+    def get_image_embeds(self, clip_vision_output):
         self.image_proj_model.cpu()
+
+        if self.is_plus:
+            cond = self.image_proj_model(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32))
+            uncond = self.image_proj_model(torch.zeros_like(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32)))
+            return cond, uncond
+
+        clip_image_embeds = clip_vision_output['image_embeds'].to(device='cpu', dtype=torch.float32)
         image_prompt_embeds = self.image_proj_model(clip_image_embeds)
         # input zero vector for unconditional.
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
@@ -114,10 +248,11 @@ def clear_all_ip_adapter():
 
 
 class PlugableIPAdapter(torch.nn.Module):
-    def __init__(self, state_dict, clip_embeddings_dim):
+    def __init__(self, state_dict, clip_embeddings_dim, is_plus):
         super().__init__()
-        self.sdxl = clip_embeddings_dim == 1280
-        self.ipadapter = IPAdapterModel(state_dict, clip_embeddings_dim=clip_embeddings_dim)
+        self.sdxl = clip_embeddings_dim == 1280 and not is_plus
+        self.is_plus = is_plus
+        self.ipadapter = IPAdapterModel(state_dict, clip_embeddings_dim=clip_embeddings_dim, is_plus=is_plus)
         self.control_model = self.ipadapter
         self.dtype = None
         self.weight = 1.0
@@ -140,8 +275,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.dtype = dtype
 
         self.ipadapter.to(device, dtype=self.dtype)
-        clip_vision_emb = clip_vision_output['image_embeds'].to(device, dtype=self.dtype)
-        self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_emb)
+        self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_output)
 
         self.image_emb = self.image_emb.to(device, dtype=self.dtype)
         self.uncond_image_emb = self.uncond_image_emb.to(device, dtype=self.dtype)

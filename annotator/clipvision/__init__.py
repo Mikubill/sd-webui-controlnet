@@ -117,6 +117,7 @@ class ClipVisionDetector:
             clip_vision_model = self.model.cpu()
             feat = self.processor(images=input_image, return_tensors="pt")
             feat['pixel_values'] = feat['pixel_values'].cpu()
-            result = clip_vision_model(**feat)
-            result = {k: v.to(devices.get_device_for("controlnet")) for k, v in result.items()}
+            result = clip_vision_model(**feat, output_hidden_states=True)
+            result['hidden_states'] = [v.to(devices.get_device_for("controlnet")) for v in result['hidden_states']]
+            result = {k: v.to(devices.get_device_for("controlnet")) if isinstance(v, torch.Tensor) else v for k, v in result.items()}
         return result
