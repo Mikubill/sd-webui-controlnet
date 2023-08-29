@@ -425,7 +425,7 @@ class UnetHook(nn.Module):
             # logger.info(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
 
             # Revision
-            if is_sdxl and outer.global_revision is not None:
+            if is_sdxl and isinstance(outer.global_revision, torch.Tensor):
                 y[:, :1280] = outer.global_revision * cond_mark[:, :, 0, 0]
                 if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params):
                     context = torch.zeros_like(context)
