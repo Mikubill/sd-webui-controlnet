@@ -1,8 +1,17 @@
 import torch
 import torch.nn as nn
 
-from scripts.controlnet_openai import conv_nd, linear, zero_module, timestep_embedding, TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
 from modules import devices
+
+
+try:
+    from sgm.modules.diffusionmodules.openaimodel import conv_nd, linear, zero_module, timestep_embedding, \
+        TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
+    using_sgm = True
+except:
+    from ldm.modules.diffusionmodules.openaimodel import conv_nd, linear, zero_module, timestep_embedding, \
+        TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
+    using_sgm = False
 
 
 class PlugableControlModel(nn.Module):
