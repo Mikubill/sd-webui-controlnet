@@ -18,7 +18,7 @@ from ldm.modules.attention import BasicTransformerBlock
 from ldm.models.diffusion.ddpm import extract_into_tensor
 
 from modules.prompt_parser import MulticondLearnedConditioning, ComposableScheduledPromptConditioning, ScheduledPromptConditioning
-from modules.processing import StableDiffusionProcessing
+from modules.processing import StableDiffusionProcessing, StableDiffusionProcessingTxt2Img
 
 
 POSITIVE_MARK_TOKEN = 1024
@@ -392,7 +392,9 @@ class UnetHook(nn.Module):
                             param.used_hint_cond_latent = None
                             param.used_hint_inpaint_hijack = None
 
-            no_high_res_control = is_in_high_res_fix and shared.opts.data.get("control_net_no_high_res_fix", False)
+            txt2img_pass = shared.opts.data.get("control_net_txt2img_pass", "Both")
+            no_high_res_control =     isinstance(process, StableDiffusionProcessingTxt2Img) and     is_in_high_res_fix and txt2img_pass == "Pre-hires"
+            no_pre_high_res_control = isinstance(process, StableDiffusionProcessingTxt2Img) and not is_in_high_res_fix and txt2img_pass == "Hires"
 
             # Convert control image to latent
             for param in outer.control_params:
@@ -406,7 +408,7 @@ class UnetHook(nn.Module):
 
             # handle prompt token control
             for param in outer.control_params:
-                if no_high_res_control:
+                if no_high_res_control or no_pre_high_res_control:
                     continue
 
                 if param.guidance_stopped:
@@ -424,7 +426,7 @@ class UnetHook(nn.Module):
 
             # handle ControlNet / T2I_Adapter
             for param in outer.control_params:
-                if no_high_res_control:
+                if no_high_res_control or no_pre_high_res_control:
                     continue
 
                 if param.guidance_stopped:
@@ -537,7 +539,7 @@ class UnetHook(nn.Module):
 
             # Handle attention and AdaIn control
             for param in outer.control_params:
-                if no_high_res_control:
+                if no_high_res_control or no_pre_high_res_control:
                     continue
 
                 if param.guidance_stopped:

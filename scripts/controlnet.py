@@ -1038,10 +1038,10 @@ def on_ui_settings():
         3, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))
+    shared.opts.add_option("control_net_txt2img_pass", shared.OptionInfo(
+        "Both", "ControlNet txt2img passes to apply", gr.Dropdown, {"choices": ["Both", "Pre-hires", "Hires"]}, section=section))
     shared.opts.add_option("control_net_inpaint_blur_sigma", shared.OptionInfo(
         7, "ControlNet inpainting Gaussian blur sigma", gr.Slider, {"minimum": 0, "maximum": 64, "step": 1}, section=section))
-    shared.opts.add_option("control_net_no_high_res_fix", shared.OptionInfo(
-        False, "Do not apply ControlNet during highres fix", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
@@ -1061,6 +1061,11 @@ def on_ui_settings():
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint", 
         gr.Checkbox, {"interactive": True}, section=section))
+    
+    # Settings migration
+    no_high_res_fix = shared.opts.data.get("control_net_no_high_res_fix", None)
+    if shared.opts.data.get("control_net_txt2img_pass", None) is None and no_high_res_fix is not None:
+        shared.opts.data["control_net_txt2img_pass"] = "Pre-hires" if no_high_res_fix else "Both"
 
 
 batch_hijack.instance.do_hijack()
