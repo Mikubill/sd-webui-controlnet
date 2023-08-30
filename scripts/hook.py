@@ -781,10 +781,10 @@ class UnetHook(nn.Module):
 
                 return forward(*args, **kwargs)
             finally:
-                if self.lowvram:
-                    for param in self.control_params:
-                        if isinstance(param.control_model, torch.nn.Module):
-                            param.control_model.to("cpu")
+                for param in self.control_params:
+                    if isinstance(param.control_model, torch.nn.Module):
+                        param.control_model.to("cpu")
+
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
             x_norm1 = self.norm1(x)
