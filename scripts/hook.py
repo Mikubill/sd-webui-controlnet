@@ -469,6 +469,16 @@ class UnetHook(nn.Module):
                     continue
                 param.used_hint_cond_latent = outer.call_vae_using_process(process, param.used_hint_cond, batch_size=batch_size)
 
+            # vram
+            for param in outer.control_params:
+                if param.control_model is not None:
+                    if outer.lowvram and is_sdxl and hasattr(param.control_model, 'aggressive_lowvram'):
+                        param.control_model.aggressive_lowvram()
+                    elif hasattr(param.control_model, 'fullvram'):
+                        param.control_model.fullvram()
+                    elif hasattr(param.control_model, 'to'):
+                        param.control_model.to(devices.get_device_for("controlnet"))
+
             # handle prompt token control
             for param in outer.control_params:
                 if no_high_res_control:
@@ -480,11 +490,7 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.T2I_StyleAdapter]:
                     continue
 
-                param.control_model.to(devices.get_device_for("controlnet"))
                 control = param.control_model(x=x, hint=param.used_hint_cond, timesteps=timesteps, context=context)
-                if outer.lowvram:
-                    param.control_model.to("cpu")
-
                 control = torch.cat([control.clone() for _ in range(batch_size)], dim=0)
                 control *= param.weight
                 control *= cond_mark[:, :, :, 0]
@@ -500,11 +506,6 @@ class UnetHook(nn.Module):
 
                 if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
                     continue
-
-                if outer.lowvram and is_sdxl:
-                    param.control_model.aggressive_lowvram()
-                else:
-                    param.control_model.fullvram()
 
                 # inpaint model workaround
                 x_in = x
@@ -533,9 +534,6 @@ class UnetHook(nn.Module):
                     control_scales = [param.weight] * 10
                 else:
                     control_scales = [param.weight] * 13
-
-                if outer.lowvram:
-                    param.control_model.to("cpu")
 
                 if param.cfg_injection or param.global_average_pooling:
                     if param.control_model_type == ControlModelType.T2I_Adapter:
@@ -598,6 +596,12 @@ class UnetHook(nn.Module):
                     param.used_hint_inpaint_hijack = torch.cat([mask_latent, masked_latent], dim=1)
                     param.used_hint_inpaint_hijack.to(x.dtype).to(x.device)
                 x = torch.cat([x[:, :4, :, :], param.used_hint_inpaint_hijack], dim=1)
+
+            # vram
+            for param in outer.control_params:
+                if param.control_model is not None:
+                    if outer.lowvram:
+                        param.control_model.to('cpu')
 
             # A1111 fix for medvram.
             if shared.cmd_opts.medvram or (getattr(shared.cmd_opts, 'medvram_sdxl', False) and is_sdxl):

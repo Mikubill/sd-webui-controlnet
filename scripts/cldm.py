@@ -290,7 +290,9 @@ class ControlNet(nn.Module):
         hint = hint.to(self.dtype)
         timesteps = timesteps.to(self.dtype)
         context = context.to(self.dtype)
-        y = y.to(self.dtype)
+
+        if y is not None:
+            y = y.to(self.dtype)
 
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False).to(self.dtype)
         emb = self.time_embed(t_emb)
