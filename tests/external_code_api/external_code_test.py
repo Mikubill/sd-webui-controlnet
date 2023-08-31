@@ -26,13 +26,13 @@ class TestExternalCodeWorking(unittest.TestCase):
         self.scripts.alwayson_scripts = [self.cn_script]
         self.script_args = [None] * self.cn_script.args_from
 
-        self.initial_max_models = shared.opts.data.get("control_net_max_models_num", 1)
-        shared.opts.data.update(control_net_max_models_num=self.max_models)
+        self.initial_max_models = shared.opts.data.get("control_net_unit_count", 3)
+        shared.opts.data.update(control_net_unit_count=self.max_models)
 
         self.extra_models = 0
 
     def tearDown(self):
-        shared.opts.data.update(control_net_max_models_num=self.initial_max_models)
+        shared.opts.data.update(control_net_unit_count=self.initial_max_models)
 
     def get_expected_args_to(self):
         args_len = max(self.max_models, len(self.cn_units))

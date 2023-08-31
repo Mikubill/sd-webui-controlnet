@@ -269,7 +269,7 @@ class Script(scripts.Script, metaclass=(
         infotext = Infotext()
         
         controls = ()
-        max_models = shared.opts.data.get("control_net_max_models_num", 1)
+        max_models = shared.opts.data.get("control_net_unit_count", 3)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
@@ -1058,7 +1058,7 @@ def on_ui_settings():
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_modules_path", shared.OptionInfo(
         "", "Path to directory containing annotator model directories (requires restart, overrides corresponding command line flag)", section=section))
-    shared.opts.add_option("control_net_max_models_num", shared.OptionInfo(
+    shared.opts.add_option("control_net_unit_count", shared.OptionInfo(
         3, "Multi ControlNet: Max models amount (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 5, "step": 1}, section=section))

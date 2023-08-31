@@ -74,7 +74,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     @app.get("/controlnet/settings")
     async def settings():
         max_models_num = external_code.get_max_models_num()
-        return {"control_net_max_models_num":max_models_num}
+        return {"control_net_unit_count":max_models_num}
 
     cached_cn_preprocessors = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
     @app.post("/controlnet/detect")
