@@ -37,11 +37,11 @@ class LinearWithLoRA(torch.nn.Module):
             return None  # A1111 needs first_time_calculation
 
         if self.up is not None and self.down is not None:
-            weight = self.weight.to(x) + torch.mm(self.up, self.down).to(x)
+            weight = self.weight.to(x.device) + torch.mm(self.up, self.down).to(x.device)
         else:
-            weight = self.weight.to(x)
+            weight = self.weight.to(x.device)
 
-        return torch.nn.functional.linear(x, weight, self.bias.to(x) if self.bias is not None else None)
+        return torch.nn.functional.linear(x, weight, self.bias.to(x.device) if self.bias is not None else None)
 
 
 class Conv2dWithLoRA(torch.nn.Module):
@@ -87,11 +87,11 @@ class Conv2dWithLoRA(torch.nn.Module):
             return None  # A1111 needs first_time_calculation
 
         if self.up is not None and self.down is not None:
-            weight = self.weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(x)
+            weight = self.weight.to(x.device) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(x.device)
         else:
-            weight = self.weight.to(x)
+            weight = self.weight.to(x.device)
 
-        return torch.nn.functional.conv2d(x, weight, self.bias.to(x) if self.bias is not None else None,
+        return torch.nn.functional.conv2d(x, weight, self.bias.to(x.device) if self.bias is not None else None,
                                           self.stride, self.padding, self.dilation, self.groups)
 
 
