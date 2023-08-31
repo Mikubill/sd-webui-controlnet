@@ -160,9 +160,7 @@ class ControlNetUiGroup(object):
         with gr.Group(visible=not is_img2img) as self.image_upload_panel:
             with gr.Tabs():
                 with gr.Tab(label="Single Image") as self.upload_tab:
-                    with gr.Row(elem_classes=["cnet-image-row"]).style(
-                        equal_height=True
-                    ):
+                    with gr.Row(elem_classes=["cnet-image-row"], equal_height=True):
                         with gr.Group(elem_classes=["cnet-input-image-group"]):
                             self.image = gr.Image(
                                 source="upload",
@@ -187,7 +185,6 @@ class ControlNetUiGroup(object):
                                 elem_id=f"{elem_id_tabname}_{tabname}_generated_image",
                                 elem_classes=["cnet-image"],
                                 interactive=True,
-                            ).style(
                                 height=242
                             )  # Gradio's magic number. Only 242 works.
 
