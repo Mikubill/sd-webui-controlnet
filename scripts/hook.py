@@ -777,18 +777,23 @@ class UnetHook(nn.Module):
 
             return h
 
+        def move_all_control_model_to_cpu():
+            for param in self.control_params:
+                if isinstance(param.control_model, torch.nn.Module):
+                    param.control_model.to("cpu")
+
         def forward_webui(*args, **kwargs):
             # webui will handle other compoments 
             try:
                 if shared.cmd_opts.lowvram:
                     lowvram.send_everything_to_cpu()
-
                 return forward(*args, **kwargs)
+            except Exception as e:
+                move_all_control_model_to_cpu()
+                raise e
             finally:
-                for param in self.control_params:
-                    if isinstance(param.control_model, torch.nn.Module):
-                        param.control_model.to("cpu")
-
+                if outer.lowvram:
+                    move_all_control_model_to_cpu()
 
         def hacked_basic_transformer_inner_forward(self, x, context=None):
             x_norm1 = self.norm1(x)
