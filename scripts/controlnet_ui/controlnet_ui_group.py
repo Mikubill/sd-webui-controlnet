@@ -13,6 +13,7 @@ from scripts import (
 )
 from scripts.processor import (
     preprocessor_sliders_config,
+    no_control_mode_preprocessors,
     flag_preprocessor_resolution,
     model_free_preprocessors,
     preprocessor_filters,
@@ -565,6 +566,8 @@ class ControlNetUiGroup(object):
                 0, self.prevent_next_n_slider_value_update - 1
             )
 
+            grs += [gr.update(visible=module not in no_control_mode_preprocessors)]
+
             return grs
 
         inputs = [
@@ -578,6 +581,7 @@ class ControlNetUiGroup(object):
             self.advanced,
             self.model,
             self.refresh_models,
+            self.control_mode
         ]
         self.module.change(build_sliders, inputs=inputs, outputs=outputs)
         self.pixel_perfect.change(build_sliders, inputs=inputs, outputs=outputs)

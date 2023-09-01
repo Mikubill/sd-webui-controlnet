@@ -621,6 +621,15 @@ model_free_preprocessors = [
     "revision_ignore_prompt"
 ]
 
+no_control_mode_preprocessors = [
+    "revision_clipvision",
+    "revision_ignore_prompt",
+    "clip_vision",
+    "ip-adapter_clip_sd15",
+    "ip-adapter_clip_sdxl",
+    "t2ia_style_clipvision"
+]
+
 flag_preprocessor_resolution = "Preprocessor Resolution"
 preprocessor_sliders_config = {
     "none": [],
