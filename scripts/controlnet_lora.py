@@ -35,7 +35,8 @@ class LinearWithLoRA(torch.nn.Module):
 
     def forward(self, x):
         if self.weight is not None:
-            return torch.nn.functional.linear(x, self.weight, self.bias)
+            return torch.nn.functional.linear(x, self.weight.to(x), 
+                                              self.bias.to(x) if self.bias is not None else None)
 
         if self.weight_module is None:
             return None  # A1111 needs first_time_calculation
@@ -89,13 +90,11 @@ class Conv2dWithLoRA(torch.nn.Module):
 
     def forward(self, x):
         if self.weight is not None:
-            return torch.nn.functional.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+            return torch.nn.functional.conv2d(x, self.weight.to(x), self.bias.to(x) if self.bias is not None else None,
+                                              self.stride, self.padding, self.dilation, self.groups)
 
         if self.weight_module is None:
             return None  # A1111 needs first_time_calculation
-
-        if x.device != self.weight_module.weight.device or x.dtype != self.weight_module.weight.dtype:
-            print('moved')
 
         if self.up is not None and self.down is not None:
             weight = self.weight_module.weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight_module.weight.shape).to(x)
