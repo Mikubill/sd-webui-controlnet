@@ -426,41 +426,44 @@ class Script(scripts.Script, metaclass=(
                 inpaint_mask = x[:, :, 3]
                 x = x[:, :, 0:3]
 
-            new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
-            new_size_is_bigger = (size[0] * size[1]) > (x.shape[0] * x.shape[1])
-            unique_color_count = len(get_unique_axis0(x.reshape(-1, x.shape[2])))
-            is_one_pixel_edge = False
-            is_binary = False
-            if unique_color_count == 2:
-                is_binary = np.min(x) < 16 and np.max(x) > 240
-                if is_binary:
-                    xc = x
-                    xc = cv2.erode(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
-                    xc = cv2.dilate(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
-                    one_pixel_edge_count = np.where(xc < x)[0].shape[0]
-                    all_edge_count = np.where(x > 127)[0].shape[0]
-                    is_one_pixel_edge = one_pixel_edge_count * 2 > all_edge_count
+            if x.shape[0] != size[1] or x.shape[1] != size[0]:
+                new_size_is_smaller = (size[0] * size[1]) < (x.shape[0] * x.shape[1])
+                new_size_is_bigger = (size[0] * size[1]) > (x.shape[0] * x.shape[1])
+                unique_color_count = len(get_unique_axis0(x.reshape(-1, x.shape[2])))
+                is_one_pixel_edge = False
+                is_binary = False
+                if unique_color_count == 2:
+                    is_binary = np.min(x) < 16 and np.max(x) > 240
+                    if is_binary:
+                        xc = x
+                        xc = cv2.erode(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
+                        xc = cv2.dilate(xc, np.ones(shape=(3, 3), dtype=np.uint8), iterations=1)
+                        one_pixel_edge_count = np.where(xc < x)[0].shape[0]
+                        all_edge_count = np.where(x > 127)[0].shape[0]
+                        is_one_pixel_edge = one_pixel_edge_count * 2 > all_edge_count
 
-            if 2 < unique_color_count < 200:
-                interpolation = cv2.INTER_NEAREST
-            elif new_size_is_smaller:
-                interpolation = cv2.INTER_AREA
-            else:
-                interpolation = cv2.INTER_CUBIC  # Must be CUBIC because we now use nms. NEVER CHANGE THIS
-
-            y = cv2.resize(x, size, interpolation=interpolation)
-            if inpaint_mask is not None:
-                inpaint_mask = cv2.resize(inpaint_mask, size, interpolation=interpolation)
-
-            if is_binary:
-                y = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
-                if is_one_pixel_edge:
-                    y = nake_nms(y)
-                    _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    y = lvmin_thin(y, prunings=new_size_is_bigger)
+                if 2 < unique_color_count < 200:
+                    interpolation = cv2.INTER_NEAREST
+                elif new_size_is_smaller:
+                    interpolation = cv2.INTER_AREA
                 else:
-                    _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                y = np.stack([y] * 3, axis=2)
+                    interpolation = cv2.INTER_CUBIC  # Must be CUBIC because we now use nms. NEVER CHANGE THIS
+
+                y = cv2.resize(x, size, interpolation=interpolation)
+                if inpaint_mask is not None:
+                    inpaint_mask = cv2.resize(inpaint_mask, size, interpolation=interpolation)
+
+                if is_binary:
+                    y = np.mean(y.astype(np.float32), axis=2).clip(0, 255).astype(np.uint8)
+                    if is_one_pixel_edge:
+                        y = nake_nms(y)
+                        _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                        y = lvmin_thin(y, prunings=new_size_is_bigger)
+                    else:
+                        _, y = cv2.threshold(y, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    y = np.stack([y] * 3, axis=2)
+            else:
+                y = x
 
             if inpaint_mask is not None:
                 inpaint_mask = (inpaint_mask > 127).astype(np.float32) * 255.0

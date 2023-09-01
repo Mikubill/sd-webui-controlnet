@@ -265,6 +265,8 @@ class Adapter(nn.Module):
         self.conv_in = nn.Conv2d(cin, channels[0], 3, 1, 1)
 
     def forward(self, x):
+        self.to(x.device)
+
         x = self.unshuffle(x)
         hs = []
 
@@ -275,6 +277,7 @@ class Adapter(nn.Module):
                 x = self.body[idx](x)
             hs.append(x)
 
+        self.to('cpu')
         return hs
 
 
