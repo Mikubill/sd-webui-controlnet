@@ -16,7 +16,7 @@ class LinearWithLoRA(torch.nn.Module):
             device=None,
             dtype=None) -> None:
         super().__init__()
-        self.weight = None
+        self.weight_module = None
         self.up = None
         self.down = None
         self.bias = None
@@ -24,22 +24,26 @@ class LinearWithLoRA(torch.nn.Module):
         self.out_features = out_features
         self.device = device
         self.dtype = dtype
+        self.weight = None
 
-    def bind_lora(self, weight):
-        self.weight = weight
+    def bind_lora(self, weight_module):
+        self.weight_module = weight_module
 
     def unbind_lora(self):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
-            self.weight = None
+            self.weight_module = None
 
     def forward(self, x):
-        if self.weight is None:
+        if self.weight is not None:
+            return torch.nn.functional.linear(x, self.weight, self.bias)
+
+        if self.weight_module is None:
             return None  # A1111 needs first_time_calculation
 
         if self.up is not None and self.down is not None:
-            weight = self.weight.to(x) + torch.mm(self.up, self.down).to(x)
+            weight = self.weight_module.weight.to(x) + torch.mm(self.up, self.down).to(x)
         else:
-            weight = self.weight.to(x)
+            weight = self.weight_module.weight.to(x)
 
         return torch.nn.functional.linear(x, weight, self.bias.to(x) if self.bias is not None else None)
 
@@ -64,7 +68,7 @@ class Conv2dWithLoRA(torch.nn.Module):
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
-        self.weight = None
+        self.weight_module = None
         self.bias = None
         self.up = None
         self.down = None
@@ -74,22 +78,29 @@ class Conv2dWithLoRA(torch.nn.Module):
         self.padding_mode = padding_mode
         self.device = device
         self.dtype = dtype
+        self.weight = None
 
-    def bind_lora(self, weight):
-        self.weight = weight
+    def bind_lora(self, weight_module):
+        self.weight_module = weight_module
 
     def unbind_lora(self):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
-            self.weight = None
+            self.weight_module = None
 
     def forward(self, x):
-        if self.weight is None:
+        if self.weight is not None:
+            return torch.nn.functional.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+
+        if self.weight_module is None:
             return None  # A1111 needs first_time_calculation
 
+        if x.device != self.weight_module.weight.device or x.dtype != self.weight_module.weight.dtype:
+            print('moved')
+
         if self.up is not None and self.down is not None:
-            weight = self.weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight.shape).to(x)
+            weight = self.weight_module.weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight_module.weight.shape).to(x)
         else:
-            weight = self.weight.to(x)
+            weight = self.weight_module.weight.to(x)
 
         return torch.nn.functional.conv2d(x, weight, self.bias.to(x) if self.bias is not None else None,
                                           self.stride, self.padding, self.dilation, self.groups)
@@ -129,15 +140,27 @@ def recursive_bind_lora(obj, key, value):
         k1, k2 = key.split('.', 1)
         recursive_bind_lora(getattr(obj, k1, None), k2, value)
     else:
-        if key == 'weight':
-            if hasattr(obj, 'bind_lora'):
-                # obj.bind_lora(torch.nn.Parameter(value))
-                obj.bind_lora(value)
+        target = getattr(obj, key, None)
+        if target is not None and hasattr(target, 'bind_lora'):
+            target.bind_lora(value)
+
+
+def recursive_get(obj, key):
+    if obj is None:
+        return
+    if '.' in key:
+        k1, k2 = key.split('.', 1)
+        return recursive_get(getattr(obj, k1, None), k2)
+    else:
+        return getattr(obj, key, None)
 
 
 def bind_control_lora(base_model, control_lora_model):
     sd = base_model.state_dict()
-    for k, v in sd.items():
+    keys = list(sd.keys())
+    keys = list(set([k.rsplit('.', 1)[0] for k in keys]))
+    module_dict = {k: recursive_get(base_model, k) for k in keys}
+    for k, v in module_dict.items():
         recursive_bind_lora(control_lora_model, k, v)
 
 
