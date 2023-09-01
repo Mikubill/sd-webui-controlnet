@@ -27,24 +27,31 @@ class LinearWithLoRA(torch.nn.Module):
         self.weight = None
 
     def bind_lora(self, weight_module):
-        self.weight_module = weight_module
+        self.weight_module = [weight_module]
 
     def unbind_lora(self):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
             self.weight_module = None
 
+    def get_original_weight(self):
+        if self.weight_module is None:
+            return None
+        return self.weight_module[0].weight
+
     def forward(self, x):
         if self.weight is not None:
-            return torch.nn.functional.linear(x, self.weight.to(x), 
+            return torch.nn.functional.linear(x, self.weight.to(x),
                                               self.bias.to(x) if self.bias is not None else None)
 
-        if self.weight_module is None:
+        original_weight = self.get_original_weight()
+
+        if original_weight is None:
             return None  # A1111 needs first_time_calculation
 
         if self.up is not None and self.down is not None:
-            weight = self.weight_module.weight.to(x) + torch.mm(self.up, self.down).to(x)
+            weight = original_weight.to(x) + torch.mm(self.up, self.down).to(x)
         else:
-            weight = self.weight_module.weight.to(x)
+            weight = original_weight.to(x)
 
         return torch.nn.functional.linear(x, weight, self.bias.to(x) if self.bias is not None else None)
 
@@ -82,24 +89,31 @@ class Conv2dWithLoRA(torch.nn.Module):
         self.weight = None
 
     def bind_lora(self, weight_module):
-        self.weight_module = weight_module
+        self.weight_module = [weight_module]
 
     def unbind_lora(self):
         if self.up is not None and self.down is not None:  # SAI's model is weird and needs this
             self.weight_module = None
+
+    def get_original_weight(self):
+        if self.weight_module is None:
+            return None
+        return self.weight_module[0].weight
 
     def forward(self, x):
         if self.weight is not None:
             return torch.nn.functional.conv2d(x, self.weight.to(x), self.bias.to(x) if self.bias is not None else None,
                                               self.stride, self.padding, self.dilation, self.groups)
 
-        if self.weight_module is None:
+        original_weight = self.get_original_weight()
+
+        if original_weight is None:
             return None  # A1111 needs first_time_calculation
 
         if self.up is not None and self.down is not None:
-            weight = self.weight_module.weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(self.weight_module.weight.shape).to(x)
+            weight = original_weight.to(x) + torch.mm(self.up.flatten(start_dim=1), self.down.flatten(start_dim=1)).reshape(original_weight.shape).to(x)
         else:
-            weight = self.weight_module.weight.to(x)
+            weight = original_weight.to(x)
 
         return torch.nn.functional.conv2d(x, weight, self.bias.to(x) if self.bias is not None else None,
                                           self.stride, self.padding, self.dilation, self.groups)
