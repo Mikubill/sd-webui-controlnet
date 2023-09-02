@@ -189,6 +189,7 @@ class PlugableControlLLLite(torch.nn.Module):
         @torch.no_grad()
         def forward(x, **kwargs):
             this_flag = flag
+            module.to(x.device)
             x = x + module(x)
             return original_forward(x, **kwargs)
         return forward
