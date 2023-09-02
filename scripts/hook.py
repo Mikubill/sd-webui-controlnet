@@ -142,6 +142,7 @@ class ControlModelType(Enum):
     ControlLoRA = "ControlLoRA, Wu Hecong"
     ReVision = "ReVision, Stability"
     IPAdapter = "IPAdapter, Hu Ye"
+    Controlllite = "Controlllite, Kohya"
 
 
 # Written by Lvmin
@@ -471,8 +472,8 @@ class UnetHook(nn.Module):
 
             # vram
             for param in outer.control_params:
-                if param.control_model_type == ControlModelType.IPAdapter:
-                    continue  # IPAdapter is managed by itself
+                if getattr(param.control_model, 'disable_memory_management', False):
+                    continue
 
                 if param.control_model is not None:
                     if outer.lowvram and is_sdxl and hasattr(param.control_model, 'aggressive_lowvram'):

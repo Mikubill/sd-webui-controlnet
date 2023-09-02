@@ -15,6 +15,7 @@ from scripts import global_state, hook, external_code, processor, batch_hijack, 
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
+from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, ControlModelType, HackedImageRNG
@@ -771,12 +772,14 @@ class Script(scripts.Script, metaclass=(
                 control_model_type = ControlModelType.AttentionInjection
             elif 'revision' in unit.module:
                 control_model_type = ControlModelType.ReVision
-            elif isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light):
+            elif hasattr(model_net, 'control_model') and (isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light)):
                 control_model_type = ControlModelType.T2I_Adapter
-            elif isinstance(model_net.control_model, StyleAdapter):
+            elif hasattr(model_net, 'control_model') and isinstance(model_net.control_model, StyleAdapter):
                 control_model_type = ControlModelType.T2I_StyleAdapter
             elif isinstance(model_net, PlugableIPAdapter):
                 control_model_type = ControlModelType.IPAdapter
+            elif isinstance(model_net, PlugableControlLLLite):
+                control_model_type = ControlModelType.Controlllite
 
             if control_model_type is ControlModelType.ControlNet:
                 global_average_pooling = model_net.control_model.global_average_pooling
@@ -950,6 +953,14 @@ class Script(scripts.Script, metaclass=(
                     dtype=torch.float32,
                     lowvram=is_low_vram
                 )
+            if param.control_model_type == ControlModelType.Controlllite:
+                param.control_model.hook(
+                    model=unet,
+                    cond=param.hint_cond,
+                    weight=param.weight,
+                    start=param.start_guidance_percent,
+                    end=param.stop_guidance_percent
+                )
 
         self.detected_map = detected_maps
         self.post_processors = post_processors
@@ -971,6 +982,7 @@ class Script(scripts.Script, metaclass=(
 
     def postprocess(self, p, processed, *args):
         clear_all_ip_adapter()
+        clear_all_lllite()
 
         self.noise_modifier = None
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from modules import devices
 
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
+from scripts.controlnet_lllite import PlugableControlLLLite
 from scripts.cldm import PlugableControlModel
 from scripts.controlmodel_ipadapter import PlugableIPAdapter
 from scripts.logging import logger
@@ -204,6 +205,11 @@ def build_model_by_guess(state_dict, unet, model_path):
         else:
             channel = int(state_dict['image_proj']['proj.weight'].shape[1])
         network = PlugableIPAdapter(state_dict, channel, plus)
+        network.to('cpu')
+        return network
+
+    if any('lllite' in k for k in state_dict.keys()):
+        network = PlugableControlLLLite(state_dict)
         network.to('cpu')
         return network
 

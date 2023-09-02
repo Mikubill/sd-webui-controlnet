@@ -253,7 +253,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.sdxl = clip_embeddings_dim == 1280 and not is_plus
         self.is_plus = is_plus
         self.ipadapter = IPAdapterModel(state_dict, clip_embeddings_dim=clip_embeddings_dim, is_plus=is_plus)
-        self.control_model = self.ipadapter
+        self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
         self.cache = {}
