@@ -86,10 +86,6 @@
                 this.attachImageStateChangeObserver();
                 this.attachA1111SendInfoObserver();
                 this.attachPresetDropdownObserver();
-
-                // Initial updates:
-                if (this.isImg2Img)
-                    this.updateResizeModeState();
             }
 
             getTabNavButton() {
@@ -189,26 +185,6 @@
                 }
             }
 
-            /**
-             * For img2img, disable resize mode selection when using A1111
-             * input, as the selected resize mode won't take any effect in
-             * the backend when using A1111 input.
-             */
-            updateResizeModeState() {
-                const img = this.inputImageContainer.querySelector('img');
-                for (const radio of this.resizeModeRadios) {
-                    if (img) {
-                        radio.disabled = false;
-                        radio.parentNode.classList.remove('cnet-disabled-radio');
-                        radio.parentNode.removeAttribute('title');
-                    } else {
-                        radio.disabled = true;
-                        radio.parentNode.classList.add('cnet-disabled-radio');
-                        radio.parentNode.title = "Use A1111 resize mode when input is from A1111.";
-                    }
-                }
-            }
-
             attachEnabledButtonListener() {
                 this.enabledCheckbox.addEventListener('change', () => {
                     this.updateActiveState();
@@ -251,12 +227,7 @@
 
             attachImageStateChangeObserver() {
                 new MutationObserver((mutationsList) => {
-                    const changeObserved = imgChangeObserved(mutationsList);
-                    if (changeObserved === ImgChangeType.ADD ||
-                        changeObserved === ImgChangeType.REMOVE) {
-                        if (this.isImg2Img)
-                            this.updateResizeModeState();
-                    }
+                    const changeObserved = imgChangeObserved(mutationsList);                    
 
                     if (changeObserved === ImgChangeType.ADD) {
                         // enabling the run preprocessor button
