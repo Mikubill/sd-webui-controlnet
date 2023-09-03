@@ -1,4 +1,3 @@
-import json
 import unittest
 import numpy as np
 
@@ -15,19 +14,19 @@ class TestEncodePosesAsJson(unittest.TestCase):
         canvas_height = 1080
         canvas_width = 1920
         result = encode_poses_as_json(poses, canvas_height, canvas_width)
-        expected = json.dumps({
+        expected = {
             'people': [],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
-        }, indent=4)
-        self.assertEqual(result, expected)
+        }
+        self.assertDictEqual(result, expected)
 
     def test_single_pose_no_keypoints(self):
         poses = [PoseResult(BodyResult(None, 0, 0), None, None, None)]
         canvas_height = 1080
         canvas_width = 1920
         result = encode_poses_as_json(poses, canvas_height, canvas_width)
-        expected = json.dumps({
+        expected = {
             'people': [
                 {
                     'pose_keypoints_2d': None,
@@ -38,8 +37,8 @@ class TestEncodePosesAsJson(unittest.TestCase):
             ],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
-        }, indent=4)
-        self.assertEqual(result, expected)
+        }
+        self.assertDictEqual(result, expected)
 
     def test_single_pose_with_keypoints(self):
         keypoints = [Keypoint(np.float32(0.5), np.float32(0.5)), None, Keypoint(0.6, 0.6)]
@@ -47,7 +46,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
         canvas_height = 1080
         canvas_width = 1920
         result = encode_poses_as_json(poses, canvas_height, canvas_width)
-        expected = json.dumps({
+        expected = {
             'people': [
                 {
                     'pose_keypoints_2d': [
@@ -74,8 +73,8 @@ class TestEncodePosesAsJson(unittest.TestCase):
             ],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
-        }, indent=4)
-        self.assertEqual(result, expected)
+        }
+        self.assertDictEqual(result, expected)
 
 if __name__ == '__main__':
     unittest.main()
