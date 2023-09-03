@@ -937,14 +937,11 @@ class UnetHook(nn.Module):
 
         scripts.script_callbacks.on_cfg_denoiser(self.guidance_schedule_handler)
 
-    def restore(self, model):
+    def restore(self):
         scripts.script_callbacks.remove_callbacks_for_function(self.guidance_schedule_handler)
-        if hasattr(self, "control_params"):
-            del self.control_params
+        self.control_params = None
 
-        if not hasattr(model, "_original_forward"):
-            # no such handle, ignore
-            return
-
-        model.forward = model._original_forward
-        del model._original_forward
+        if self.model is not None:
+            if hasattr(self.model, "_original_forward"):
+                self.model.forward = self.model._original_forward
+                del self.model._original_forward

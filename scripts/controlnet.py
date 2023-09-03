@@ -645,7 +645,7 @@ class Script(scripts.Script, metaclass=(
 
         if self.latest_network is not None:
             # always restore (~0.05s)
-            self.latest_network.restore(unet)
+            self.latest_network.restore()
 
         if not batch_hijack.instance.is_batch:
             self.enabled_units = Script.get_enabled_units(p)
@@ -1028,7 +1028,7 @@ class Script(scripts.Script, metaclass=(
                             ])
 
         self.input_image = None
-        self.latest_network.restore(p.sd_model.model.diffusion_model)
+        self.latest_network.restore()
         self.latest_network = None
         self.detected_map.clear()
 
@@ -1060,7 +1060,7 @@ class Script(scripts.Script, metaclass=(
         self.input_image = None
         if self.latest_network is None: return
 
-        self.latest_network.restore(shared.sd_model.model.diffusion_model)
+        self.latest_network.restore()
         self.latest_network = None
         self.detected_map.clear()
 
