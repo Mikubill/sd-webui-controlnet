@@ -951,7 +951,8 @@ class Script(scripts.Script, metaclass=(
                     clip_vision_output=param.hint_cond,
                     weight=param.weight,
                     dtype=torch.float32,
-                    lowvram=is_low_vram
+                    start=param.start_guidance_percent,
+                    end=param.stop_guidance_percent
                 )
             if param.control_model_type == ControlModelType.Controlllite:
                 param.control_model.hook(

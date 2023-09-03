@@ -385,6 +385,8 @@ class UnetHook(nn.Module):
         for param in self.control_params:
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
+            if self.model is not None:
+                self.model.current_sampling_percent = current_sampling_percent
 
     def hook(self, model, sd_ldm, control_params, process):
         self.model = model

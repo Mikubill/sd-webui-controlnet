@@ -257,6 +257,8 @@ class PlugableIPAdapter(torch.nn.Module):
         self.dtype = None
         self.weight = 1.0
         self.cache = {}
+        self.p_start = 0.0
+        self.p_end = 1.0
         return
 
     def reset(self):
@@ -264,9 +266,12 @@ class PlugableIPAdapter(torch.nn.Module):
         return
 
     @torch.no_grad()
-    def hook(self, model, clip_vision_output, weight, dtype=torch.float32, lowvram=False):
+    def hook(self, model, clip_vision_output, weight, start, end, dtype=torch.float32):
         global current_model
         current_model = model
+
+        self.p_start = start
+        self.p_end = end
 
         self.cache = {}
 
@@ -342,6 +347,10 @@ class PlugableIPAdapter(torch.nn.Module):
             out = out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
             del k, v
+
+            current_sampling_percent = getattr(current_model, 'current_sampling_percent', 0.5)
+            if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
+                return self_hacked.to_out(h)
 
             cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
             cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)

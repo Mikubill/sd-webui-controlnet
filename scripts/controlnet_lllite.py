@@ -112,6 +112,9 @@ class PlugableControlLLLite(torch.nn.Module):
     def __init__(self, state_dict):
         super().__init__()
         self.cache = {}
+        self.p_weight = 1.0
+        self.p_start = 0.0
+        self.p_end = 1.0
 
         module_weights = {}
         for key, value in state_dict.items():
@@ -157,6 +160,10 @@ class PlugableControlLLLite(torch.nn.Module):
     def hook(self, model, cond, weight, start, end):
         global all_hack
 
+        self.p_weight = weight
+        self.p_start = start
+        self.p_end = end
+
         cond_image = cond * 2.0 - 1.0
 
         for module in self.modules.values():
@@ -182,14 +189,17 @@ class PlugableControlLLLite(torch.nn.Module):
             b = getattr(b, 'to_' + proj_name, None)
             assert b is not None, 'Failed to load ControlLLLite!'
             all_hack[b] = b.forward
-            b.forward = self.get_hacked_forward(original_forward=b.forward, module=v, flag=k)
+            b.forward = self.get_hacked_forward(original_forward=b.forward, module=v, flag=k, model=model)
         return
 
-    def get_hacked_forward(self, original_forward, module, flag):
+    def get_hacked_forward(self, original_forward, module, flag, model):
         @torch.no_grad()
         def forward(x, **kwargs):
+            current_sampling_percent = getattr(model, 'current_sampling_percent', 0.5)
+            if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
+                return original_forward(x, **kwargs)
             this_flag = flag
             module.to(x.device)
-            x = x + module(x)
+            x = x + module(x) * self.p_weight
             return original_forward(x, **kwargs)
         return forward
