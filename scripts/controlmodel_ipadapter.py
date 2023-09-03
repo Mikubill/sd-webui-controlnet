@@ -350,7 +350,7 @@ class PlugableIPAdapter(torch.nn.Module):
 
             current_sampling_percent = getattr(current_model, 'current_sampling_percent', 0.5)
             if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
-                return self_hacked.to_out(h)
+                return self_hacked.to_out(out)
 
             cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
             cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
