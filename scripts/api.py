@@ -108,23 +108,42 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         )
 
         results = []
+        poses = {}
 
         processor_module = cached_cn_preprocessors[controlnet_module]
 
-        for input_image in controlnet_input_images:
+        for i, input_image in enumerate(controlnet_input_images):
             img = external_code.to_base64_nparray(input_image)
+
+            class JsonAcceptor:
+                def __init__(self) -> None:
+                    self.value = None
+
+                def accept(self, json_dict: dict) -> None:
+                    self.value = json_dict
+
+            json_acceptor = JsonAcceptor()
+
             results.append(
                 processor_module(
                     img,
                     res=controlnet_processor_res,
                     thr_a=controlnet_threshold_a,
                     thr_b=controlnet_threshold_b,
+                    json_pose_callback=json_acceptor.accept,
                 )[0]
             )
+            if json_acceptor.value:
+                # Note: For JSON object, dict key must be string.
+                poses[str(i)] = json_acceptor.value
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
         results64 = list(map(encode_to_base64, results))
-        return {"images": results64, "info": "Success"}
+        res = {"images": results64, "info": "Success"}
+        if poses:
+            res["poses"] = poses
+
+        return res
 
 
 try:

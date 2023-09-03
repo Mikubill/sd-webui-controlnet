@@ -1,3 +1,4 @@
+import json
 import gradio as gr
 import functools
 from copy import copy
@@ -652,10 +653,10 @@ class ControlNetUiGroup(object):
 
             class JsonAcceptor:
                 def __init__(self) -> None:
-                    self.value = ""
+                    self.value = None
 
-                def accept(self, json_string: str) -> None:
-                    self.value = json_string
+                def accept(self, json_dict: dict) -> None:
+                    self.value = json.dumps(json_dict)
 
             json_acceptor = JsonAcceptor()
 
