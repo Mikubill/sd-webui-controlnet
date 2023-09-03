@@ -907,7 +907,7 @@ preprocessor_filters = {
     "Canny": "canny",
     "Depth": "depth_midas",
     "Normal": "normal_bae",
-    "OpenPose": "openpose_full",
+    "OpenPose": "dw_openpose_full",
     "MLSD": "mlsd",
     "Lineart": "lineart_standard (from white bg & black line)",
     "SoftEdge": "softedge_pidinet",
