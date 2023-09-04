@@ -653,7 +653,7 @@ class ControlNetUiGroup(object):
 
             class JsonAcceptor:
                 def __init__(self) -> None:
-                    self.value = None
+                    self.value = ""
 
                 def accept(self, json_dict: dict) -> None:
                     self.value = json.dumps(json_dict)
