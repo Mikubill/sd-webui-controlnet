@@ -8,6 +8,7 @@ from typing import Dict, Optional, Tuple
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
+import time
 
 
 from einops import rearrange
@@ -636,12 +637,7 @@ class Script(scripts.Script, metaclass=(
                 setattr(unit, param, default_value)
                 logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
 
-    def process(self, p, *args):
-        """
-        This function is called before processing begins for AlwaysVisible scripts.
-        You can modify the processing object (p) here, inject hooks, etc.
-        args contains all values returned by components from ui()
-        """
+    def controlnet_main_entry(self, p):
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
         self.noise_modifier = None
@@ -980,6 +976,10 @@ class Script(scripts.Script, metaclass=(
                                    noise_modifier=self.noise_modifier,
                                    sd_model=p.sd_model)
         self.noise_modifier = None
+
+        t = time.time()
+        self.controlnet_main_entry(p)
+        logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
         return
 
     def postprocess_batch(self, p, *args, **kwargs):
