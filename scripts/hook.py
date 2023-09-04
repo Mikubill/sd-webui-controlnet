@@ -25,7 +25,7 @@ from modules.processing import StableDiffusionProcessing
 try:
     from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
 except:
-    print('Webui version too old!')
+    print('Warning: ControlNet failed to load SGM - will use LDM instead.')
     BasicTransformerBlockSGM = BasicTransformerBlock
 
 
