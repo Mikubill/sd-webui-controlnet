@@ -4,24 +4,20 @@ import functools
 import time
 import base64
 import numpy as np
-import gradio as gr
+import safetensors.torch
 import logging
 
 from typing import Any, Callable, Dict
-
+from modules.safe import unsafe_torch_load
 from scripts.logging import logger
 
 
 def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
     if extension.lower() == ".safetensors":
-        import safetensors.torch
-
         state_dict = safetensors.torch.load_file(ckpt_path, device=location)
     else:
-        state_dict = get_state_dict(
-            torch.load(ckpt_path, map_location=torch.device(location))
-        )
+        state_dict = unsafe_torch_load(ckpt_path, map_location=torch.device(location))
     state_dict = get_state_dict(state_dict)
     logger.info(f"Loaded state_dict from [{ckpt_path}]")
     return state_dict

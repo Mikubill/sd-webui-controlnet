@@ -1,16 +1,11 @@
-
-
 import torch
 import torch.nn as nn
-import importlib
 from collections import OrderedDict
 
 from omegaconf import OmegaConf
 from copy import deepcopy
 from modules import devices, lowvram, shared, scripts
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
-from ldm.modules.diffusionmodules.util import timestep_embedding
-from ldm.modules.diffusionmodules.openaimodel import UNetModel
 
 
 class TorchHijackForUnet:
@@ -50,42 +45,12 @@ def align(hint, size):
     return hint
 
 
-def get_node_name(name, parent_name):
-    if len(name) <= len(parent_name):
-        return False, ''
-    p = name[:len(parent_name)]
-    if p != parent_name:
-        return False, ''
-    return True, name[len(parent_name):]
-    
-    
-def get_obj_from_str(string, reload=False):
-    module, cls = string.rsplit(".", 1)
-    if reload:
-        module_imp = importlib.import_module(module)
-        importlib.reload(module_imp)
-    return getattr(importlib.import_module(module, package=None), cls)
-
-
 class PlugableAdapter(nn.Module):
-    def __init__(self, state_dict, config_path, lowvram=False, base_model=None) -> None:
+    def __init__(self, control_model) -> None:
         super().__init__()
-        self.config = OmegaConf.load(config_path)
-        model = Adapter
-        try:
-            self.target = self.config.model.target
-            model = get_obj_from_str(self.config.model.target)
-        except ImportError:
-            pass
-        
-        self.control_model = model(**self.config.model.params)       
-        self.control_model.load_state_dict(state_dict)
-        self.lowvram = lowvram 
+        self.control_model = control_model
         self.control = None
         self.hint_cond = None
-        
-        if not self.lowvram:
-            self.control_model.to(devices.get_device_for("controlnet"))
             
     def reset(self):
         self.control = None
@@ -98,11 +63,20 @@ class PlugableAdapter(nn.Module):
         self.hint_cond = cond_cast_unet(hint)
         hint_in = cond_cast_unet(hint)
         
-        if hasattr(self.control_model, 'conv_in') and self.control_model.conv_in.in_channels == 64:
+        if hasattr(self.control_model, 'conv_in') and \
+                (self.control_model.conv_in.in_channels == 64 or self.control_model.conv_in.in_channels == 256):
             hint_in = hint_in[:, 0:1, :, :]
 
         self.control = self.control_model(hint_in)
         return deepcopy(self.control)
+
+    def aggressive_lowvram(self):
+        self.to(devices.get_device_for("controlnet"))
+        return
+
+    def fullvram(self):
+        self.to(devices.get_device_for("controlnet"))
+        return
 
 
 def conv_nd(dims, *args, **kwargs):
@@ -236,34 +210,76 @@ class ResnetBlock(nn.Module):
 
 
 class Adapter(nn.Module):
-    def __init__(self, channels=[320, 640, 1280, 1280], nums_rb=3, cin=64, ksize=3, sk=False, use_conv=True):
+    def __init__(self, channels=[320, 640, 1280, 1280], nums_rb=3, cin=64, ksize=3, sk=False, use_conv=True, is_sdxl=True):
         super(Adapter, self).__init__()
-        self.unshuffle = nn.PixelUnshuffle(8)
+
+        if is_sdxl:
+            self.pixel_shuffle = 16
+            downsample_avoided = [1]
+            downsample_layers = [2]
+        else:
+            self.pixel_shuffle = 8
+            downsample_avoided = []
+            downsample_layers = [3, 2, 1]
+
+        self.input_channels = cin // (self.pixel_shuffle * self.pixel_shuffle)
         self.channels = channels
         self.nums_rb = nums_rb
         self.body = []
+
+        self.unshuffle = nn.PixelUnshuffle(self.pixel_shuffle)
+
         for i in range(len(channels)):
-            for j in range(nums_rb):
-                if (i!=0) and (j==0):
-                    self.body.append(ResnetBlock(channels[i-1], channels[i], down=True, ksize=ksize, sk=sk, use_conv=use_conv))
-                else:
-                    self.body.append(ResnetBlock(channels[i], channels[i], down=False, ksize=ksize, sk=sk, use_conv=use_conv))
+            for r in range(nums_rb):
+
+                if i in downsample_layers and r == 0:
+                    self.body.append(ResnetBlock(
+                        channels[i - 1],
+                        channels[i],
+                        down=True,
+                        ksize=ksize,
+                        sk=sk,
+                        use_conv=use_conv))
+                    continue
+
+                if i in downsample_avoided and r == 0:
+                    self.body.append(ResnetBlock(
+                        channels[i - 1],
+                        channels[i],
+                        down=False,
+                        ksize=ksize,
+                        sk=sk,
+                        use_conv=use_conv))
+                    continue
+
+                self.body.append(ResnetBlock(
+                    channels[i],
+                    channels[i],
+                    down=False,
+                    ksize=ksize,
+                    sk=sk,
+                    use_conv=use_conv
+                ))
+
         self.body = nn.ModuleList(self.body)
         self.conv_in = nn.Conv2d(cin, channels[0], 3, 1, 1)
 
     def forward(self, x):
-        # unshuffle
+        self.to(x.device)
+
         x = self.unshuffle(x)
-        # extract features
-        features = []
+        hs = []
+
         x = self.conv_in(x)
         for i in range(len(self.channels)):
-            for j in range(self.nums_rb):
-                idx = i*self.nums_rb +j
+            for r in range(self.nums_rb):
+                idx = i * self.nums_rb + r
                 x = self.body[idx](x)
-            features.append(x)
+            hs.append(x)
 
-        return features
+        self.to('cpu')
+        return hs
+
 
 class LayerNorm(nn.LayerNorm):
     """Subclass torch's LayerNorm to handle fp16."""

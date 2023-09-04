@@ -63,7 +63,11 @@ cn_preprocessor_modules = {
     "openpose_faceonly": functools.partial(g_openpose_model.run_model, include_body=False, include_hand=False, include_face=True),
     "openpose_full": functools.partial(g_openpose_model.run_model, include_body=True, include_hand=True, include_face=True),
     "dw_openpose_full": functools.partial(g_openpose_model.run_model, include_body=True, include_hand=True, include_face=True, use_dw_pose=True),
-    "clip_vision": clip,
+    "clip_vision": functools.partial(clip, config='clip_vitl'),
+    "revision_clipvision": functools.partial(clip, config='clip_g'),
+    "revision_ignore_prompt": functools.partial(clip, config='clip_g'),
+    "ip-adapter_clip_sd15": functools.partial(clip, config='clip_h'),
+    "ip-adapter_clip_sdxl": functools.partial(clip, config='clip_g'),
     "color": color,
     "pidinet": pidinet,
     "pidinet_safe": pidinet_safe,
@@ -93,13 +97,19 @@ cn_preprocessor_modules = {
     "inpaint_only+lama": lama_inpaint,
     "tile_colorfix": identity,
     "tile_colorfix+sharp": identity,
+    "recolor_luminance": recolor_luminance,
+    "recolor_intensity": recolor_intensity,
 }
 
 cn_preprocessor_unloadable = {
     "hed": unload_hed,
     "fake_scribble": unload_hed,
     "mlsd": unload_mlsd,
-    "clip": unload_clip,
+    "clip_vision": functools.partial(unload_clip, config='clip_vitl'),
+    "revision_clipvision": functools.partial(unload_clip, config='clip_g'),
+    "revision_ignore_prompt": functools.partial(unload_clip, config='clip_g'),
+    "ip-adapter_clip_sd15": functools.partial(unload_clip, config='clip_h'),
+    "ip-adapter_clip_sdxl": functools.partial(unload_clip, config='clip_g'),
     "depth": unload_midas,
     "depth_leres": unload_leres,
     "normal_map": unload_midas,
@@ -148,17 +158,18 @@ ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
 
 reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
 
+
 def get_module_basename(module: Optional[str]) -> str:
     if module is None:
         module = 'none'
     return reverse_preprocessor_aliases.get(module, module)
 
-default_conf = os.path.join("models", "cldm_v15.yaml")
-default_conf_adapter = os.path.join("models", "t2iadapter_sketch_sd14v1.yaml")
+
 default_detectedmap_dir = os.path.join("detected_maps")
 script_dir = scripts.basedir()
 
 os.makedirs(cn_models_dir, exist_ok=True)
+
 
 def traverse_all_files(curr_path, model_list):
     f_list = [
@@ -241,14 +252,14 @@ def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, s
     filtered_preprocessor_list = [
         x
         for x in preprocessor_list
-        if pattern in x.lower() or x.lower() == "none"
+        if pattern in x.lower() or any(a in x.lower() for a in preprocessor_filters_aliases.get(pattern, [])) or x.lower() == "none"
     ]
     if pattern in ["canny", "lineart", "scribble", "mlsd"]:
         filtered_preprocessor_list += [
             x for x in preprocessor_list if "invert" in x.lower()
         ]
     filtered_model_list = [
-        x for x in model_list if pattern in x.lower() or x.lower() == "none"
+        x for x in model_list if pattern in x.lower() or any(a in x.lower() for a in preprocessor_filters_aliases.get(pattern, [])) or x.lower() == "none"
     ]
     if default_option not in filtered_preprocessor_list:
         default_option = filtered_preprocessor_list[0]

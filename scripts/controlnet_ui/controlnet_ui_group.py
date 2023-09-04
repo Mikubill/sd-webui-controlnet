@@ -14,6 +14,7 @@ from scripts import (
 )
 from scripts.processor import (
     preprocessor_sliders_config,
+    no_control_mode_preprocessors,
     flag_preprocessor_resolution,
     model_free_preprocessors,
     preprocessor_filters,
@@ -566,6 +567,8 @@ class ControlNetUiGroup(object):
                 0, self.prevent_next_n_slider_value_update - 1
             )
 
+            grs += [gr.update(visible=module not in no_control_mode_preprocessors)]
+
             return grs
 
         inputs = [
@@ -579,6 +582,7 @@ class ControlNetUiGroup(object):
             self.advanced,
             self.model,
             self.refresh_models,
+            self.control_mode
         ]
         self.module.change(build_sliders, inputs=inputs, outputs=outputs)
         self.pixel_perfect.change(build_sliders, inputs=inputs, outputs=outputs)
@@ -682,24 +686,14 @@ class ControlNetUiGroup(object):
                 else None,
             )
 
-            if "clip" in module:
-                result = processor.clip_vision_visualization(result)
+            if not is_image:
+                result = img
                 is_image = True
 
-            if is_image:
-                result = external_code.visualize_inpaint_mask(result)
-                return (
-                    # Update to `generated_image`
-                    gr.update(value=result, visible=True, interactive=False),
-                    # preprocessor_preview
-                    gr.update(value=True),
-                    # openpose editor
-                    *self.openpose_editor.update(json_acceptor.value),
-                )
-
+            result = external_code.visualize_inpaint_mask(result)
             return (
                 # Update to `generated_image`
-                gr.update(value=None, visible=True),
+                gr.update(value=result, visible=True, interactive=False),
                 # preprocessor_preview
                 gr.update(value=True),
                 # openpose editor

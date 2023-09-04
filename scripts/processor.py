@@ -336,30 +336,28 @@ def unload_pidinet():
         unload_pid_model()
 
 
-clip_encoder = None
+clip_encoder = {
+    'clip_g': None,
+    'clip_h': None,
+    'clip_vitl': None,
+}
 
 
-def clip(img, res=512, **kwargs):
+def clip(img, res=512, config='clip_vitl', **kwargs):
     img = HWC3(img)
     global clip_encoder
-    if clip_encoder is None:
-        from annotator.clip import apply_clip
-        clip_encoder = apply_clip
-    result = clip_encoder(img)
+    if clip_encoder[config] is None:
+        from annotator.clipvision import ClipVisionDetector
+        clip_encoder[config] = ClipVisionDetector(config)
+    result = clip_encoder[config](img)
     return result, False
 
 
-def clip_vision_visualization(x):
-    x = x.detach().cpu().numpy()[0]
-    x = np.ascontiguousarray(x).copy()
-    return np.ndarray((x.shape[0] * 4, x.shape[1]), dtype="uint8", buffer=x.tobytes())
-
-
-def unload_clip():
+def unload_clip(config='clip_vitl'):
     global clip_encoder
-    if clip_encoder is not None:
-        from annotator.clip import unload_clip_model
-        unload_clip_model()
+    if clip_encoder[config] is not None:
+        clip_encoder[config].unload_model()
+        clip_encoder[config] = None
 
 
 model_color = None
@@ -597,10 +595,39 @@ def shuffle(img, res=512, **kwargs):
     return result, True
 
 
+def recolor_luminance(img, res=512, thr_a=1.0, **kwargs):
+    result = cv2.cvtColor(HWC3(img), cv2.COLOR_BGR2LAB)
+    result = result[:, :, 0].astype(np.float32) / 255.0
+    result = result ** thr_a
+    result = (result * 255.0).clip(0, 255).astype(np.uint8)
+    result = cv2.cvtColor(result, cv2.COLOR_GRAY2RGB)
+    return result, True
+
+
+def recolor_intensity(img, res=512, thr_a=1.0, **kwargs):
+    result = cv2.cvtColor(HWC3(img), cv2.COLOR_BGR2HSV)
+    result = result[:, :, 2].astype(np.float32) / 255.0
+    result = result ** thr_a
+    result = (result * 255.0).clip(0, 255).astype(np.uint8)
+    result = cv2.cvtColor(result, cv2.COLOR_GRAY2RGB)
+    return result, True
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
-    "reference_adain+attn"
+    "reference_adain+attn",
+    "revision_clipvision",
+    "revision_ignore_prompt"
+]
+
+no_control_mode_preprocessors = [
+    "revision_clipvision",
+    "revision_ignore_prompt",
+    "clip_vision",
+    "ip-adapter_clip_sd15",
+    "ip-adapter_clip_sdxl",
+    "t2ia_style_clipvision"
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
@@ -608,6 +635,8 @@ preprocessor_sliders_config = {
     "none": [],
     "inpaint": [],
     "inpaint_only": [],
+    "revision_clipvision": [],
+    "revision_ignore_prompt": [],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
@@ -900,23 +929,55 @@ preprocessor_sliders_config = {
             "step": 0.01
         }
     ],
+    "recolor_luminance": [
+        None,
+        {
+            "name": "Gamma Correction",
+            "value": 1.0,
+            "min": 0.1,
+            "max": 2.0,
+            "step": 0.001
+        }
+    ],
+    "recolor_intensity": [
+        None,
+        {
+            "name": "Gamma Correction",
+            "value": 1.0,
+            "min": 0.1,
+            "max": 2.0,
+            "step": 0.001
+        }
+    ],
 }
 
 preprocessor_filters = {
     "All": "none",
     "Canny": "canny",
     "Depth": "depth_midas",
-    "Normal": "normal_bae",
+    "NormalMap": "normal_bae",
     "OpenPose": "openpose_full",
     "MLSD": "mlsd",
     "Lineart": "lineart_standard (from white bg & black line)",
     "SoftEdge": "softedge_pidinet",
-    "Scribble": "scribble_pidinet",
-    "Seg": "seg_ofade20k",
+    "Scribble/Sketch": "scribble_pidinet",
+    "Segmentation": "seg_ofade20k",
     "Shuffle": "shuffle",
     "Tile": "tile_resample",
     "Inpaint": "inpaint_only",
-    "IP2P": "none",
+    "InstructP2P": "none",
     "Reference": "reference_only",
-    "T2IA": "none",
+    "Recolor": "recolor_luminance",
+    "Revision": "revision_clipvision",
+    "T2I-Adapter": "none",
+    "IP-Adapter": "ip-adapter_clip_sd15",
 }
+
+preprocessor_filters_aliases = {
+    'instructp2p': ['ip2p'],
+    'segmentation': ['seg'],
+    'normalmap': ['normal'],
+    't2i-adapter': ['t2i_adapter', 't2iadapter', 't2ia'],
+    'ip-adapter': ['ip_adapter', 'ipadapter'],
+    'scribble/sketch': ['scribble', 'sketch']
+}  # must use all lower texts

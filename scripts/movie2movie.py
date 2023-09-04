@@ -83,7 +83,7 @@ class Script(scripts.Script):
         # The returned values are passed to the run method as parameters.
         
         ctrls_group = ()
-        max_models = opts.data.get("control_net_max_models_num", 1)
+        max_models = opts.data.get("control_net_unit_count", 3)
 
         with gr.Group():
             with gr.Accordion("ControlNet-M2M", open = False):
@@ -109,7 +109,7 @@ class Script(scripts.Script):
         # to be used in processing. The return value should be a Processed object, which is
         # what is returned by the process_images method.
         
-        contents_num = opts.data.get("control_net_max_models_num", 1)
+        contents_num = opts.data.get("control_net_unit_count", 3)
         arg_num = 3
         item_list = []
         video_list = []

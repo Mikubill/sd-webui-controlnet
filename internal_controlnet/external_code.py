@@ -283,7 +283,7 @@ def get_max_models_num():
     Fetch the maximum number of allowed ControlNet models.
     """
 
-    max_models_num = shared.opts.data.get("control_net_max_models_num", 1)
+    max_models_num = shared.opts.data.get("control_net_unit_count", 3)
     return max_models_num
 
 
@@ -362,7 +362,7 @@ def update_cn_script_in_place(
         return
 
     # fill in remaining parameters to satisfy max models, just in case script needs it.
-    max_models = shared.opts.data.get("control_net_max_models_num", 1)
+    max_models = shared.opts.data.get("control_net_unit_count", 3)
     cn_units = cn_units + [ControlNetUnit(enabled=False)] * max(max_models - len(cn_units), 0)
 
     cn_script_args_diff = 0
