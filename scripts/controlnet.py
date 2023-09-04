@@ -52,6 +52,11 @@ gradio_tempfile_path = os.path.join(tempfile.gettempdir(), 'gradio')
 os.makedirs(gradio_tempfile_path, exist_ok=True)
 
 
+def clear_all_secondary_control_models():
+    clear_all_lllite()
+    clear_all_ip_adapter()
+
+
 def find_closest_lora_model_name(search: str):
     if not search:
         return None
@@ -647,6 +652,9 @@ class Script(scripts.Script, metaclass=(
             # always restore (~0.05s)
             self.latest_network.restore()
 
+        # always clear (~0.05s)
+        clear_all_secondary_control_models()
+
         if not batch_hijack.instance.is_batch:
             self.enabled_units = Script.get_enabled_units(p)
 
@@ -982,8 +990,7 @@ class Script(scripts.Script, metaclass=(
         return
 
     def postprocess(self, p, processed, *args):
-        clear_all_ip_adapter()
-        clear_all_lllite()
+        clear_all_secondary_control_models()
 
         self.noise_modifier = None
 
