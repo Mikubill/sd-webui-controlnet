@@ -217,15 +217,58 @@ def get_block(model, flag):
     }[flag]
 
 
+def attn_forward_hacked(self, x, context=None, **kwargs):
+    batch_size, sequence_length, inner_dim = x.shape
+    h = self.heads
+    head_dim = inner_dim // h
+
+    if context is None:
+        context = x
+
+    q = self.to_q(x)
+    k = self.to_k(context)
+    v = self.to_v(context)
+
+    del context
+
+    q, k, v = map(
+        lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
+        (q, k, v),
+    )
+
+    out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
+    out = out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
+
+    del k, v
+
+    for f in self.ipadapter_hacks:
+        out = out + f(self, x, q)
+
+    del q, x
+
+    return self.to_out(out)
+
+
 all_hacks = {}
 current_model = None
+
+
+def hack_blk(block, function, type):
+    if not hasattr(block, 'ipadapter_hacks'):
+        block.ipadapter_hacks = []
+
+    if len(block.ipadapter_hacks) == 0:
+        all_hacks[block] = block.forward
+        block.forward = attn_forward_hacked.__get__(block, type)
+
+    block.ipadapter_hacks.append(function)
+    return
 
 
 def set_model_attn2_replace(model, function, flag, id):
     from ldm.modules.attention import CrossAttention
     block = get_block(model, flag)[id][1].transformer_blocks[0].attn2
-    all_hacks[block] = block.forward
-    block.forward = function.__get__(block, CrossAttention)
+    hack_blk(block, function, CrossAttention)
     return
 
 
@@ -233,8 +276,7 @@ def set_model_patch_replace(model, function, flag, id, trans_id):
     from sgm.modules.attention import CrossAttention
     blk = get_block(model, flag)
     block = blk[id][1].transformer_blocks[trans_id].attn2
-    all_hacks[block] = block.forward
-    block.forward = function.__get__(block, CrossAttention)
+    hack_blk(block, function, CrossAttention)
     return
 
 
@@ -242,6 +284,7 @@ def clear_all_ip_adapter():
     global all_hacks, current_model
     for k, v in all_hacks.items():
         k.forward = v
+        k.ipadapter_hacks = []
     all_hacks = {}
     current_model = None
     return
@@ -324,33 +367,14 @@ class PlugableIPAdapter(torch.nn.Module):
     @torch.no_grad()
     def patch_forward(self, number):
         @torch.no_grad()
-        def forward(self_hacked, x, context=None, **kwargs):
+        def forward(attn_blk, x, q):
             batch_size, sequence_length, inner_dim = x.shape
-            h = self_hacked.heads
+            h = attn_blk.heads
             head_dim = inner_dim // h
-
-            if context is None:
-                context = x
-
-            q = self_hacked.to_q(x)
-            k = self_hacked.to_k(context)
-            v = self_hacked.to_v(context)
-
-            del x, context
-
-            q, k, v = map(
-                lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
-                (q, k, v),
-            )
-
-            out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
-            out = out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
-
-            del k, v
 
             current_sampling_percent = getattr(current_model, 'current_sampling_percent', 0.5)
             if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
-                return self_hacked.to_out(out)
+                return 0
 
             cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
             cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
@@ -365,10 +389,5 @@ class PlugableIPAdapter(torch.nn.Module):
             ip_out = torch.nn.functional.scaled_dot_product_attention(q, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False)
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
-            del q, ip_k, ip_v
-
-            h = out + ip_out * self.weight
-            del out, ip_out
-
-            return self_hacked.to_out(h)
+            return ip_out * self.weight
         return forward
