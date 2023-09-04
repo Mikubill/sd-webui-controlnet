@@ -91,10 +91,14 @@ class LLLiteModule(torch.nn.Module):
                 # print("x.shape[0] != cx.shape[0]", x.shape[0], cx.shape[0])
                 cx = cx.repeat(x.shape[0] // cx.shape[0], 1, 1)
 
-        cx = torch.cat([cx, self.down(x)], dim=1 if self.is_conv2d else 2)
-        cx = self.mid(cx)
-        cx = self.up(cx)
-        return cx
+        try:
+            cx = torch.cat([cx, self.down(x)], dim=1 if self.is_conv2d else 2)
+            cx = self.mid(cx)
+            cx = self.up(cx)
+            return cx
+        except RuntimeError as e:
+            # high-res fix shape mismatch
+            return 0
 
 
 all_hack = {}
