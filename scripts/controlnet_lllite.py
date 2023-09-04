@@ -199,13 +199,16 @@ class PlugableControlLLLite(torch.nn.Module):
             current_sampling_percent = getattr(model, 'current_sampling_percent', 0.5)
             hackers = blk.lllite_list
 
+            hack = 0
+            
             for weight, start, end, module in hackers:
                 module.to(x.device)
                 if current_sampling_percent < start or current_sampling_percent > end:
-                    hack = 0
+                    hack = hack + 0
                 else:
-                    hack = module(x) * weight
-                x = x + hack
+                    hack = hack + module(x) * weight
+
+            x = x + hack
 
             return original_forward(x, **kwargs)
         return forward
