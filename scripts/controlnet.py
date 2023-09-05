@@ -939,15 +939,6 @@ class Script(scripts.Script, metaclass=(
         self.latest_network = UnetHook(lowvram=is_low_vram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
 
-        revision_conds = 0
-        revision_conds_weight = 0
-        for param in forward_params:
-            if param.control_model_type == ControlModelType.ReVision:
-                revision_conds = revision_conds + param.hint_cond * param.weight
-                revision_conds_weight += param.weight
-        revision_conds_weight = max(revision_conds_weight, 1e-3)
-        self.latest_network.global_revision = revision_conds / revision_conds_weight
-
         for param in forward_params:
             if param.control_model_type == ControlModelType.IPAdapter:
                 param.control_model.hook(

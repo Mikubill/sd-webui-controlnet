@@ -341,7 +341,6 @@ class UnetHook(nn.Module):
         self.gn_auto_machine_weight = 1.0
         self.current_style_fidelity = 0.0
         self.current_uc_indices = None
-        self.global_revision = None
 
     @staticmethod
     def call_vae_using_process(p, x, batch_size=None, mask=None):
@@ -428,11 +427,23 @@ class UnetHook(nn.Module):
             # logger.info(str(cond_mark[:, 0, 0, 0].detach().cpu().numpy().tolist()) + ' - ' + str(outer.current_uc_indices))
 
             # Revision
-            if is_sdxl and isinstance(outer.global_revision, torch.Tensor):
-                y[:, :1280] = outer.global_revision * cond_mark[:, :, 0, 0]
-                if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params) \
-                        or (getattr(process, 'prompt', '') == '' and getattr(process, 'negative_prompt', '') == ''):
-                    context = torch.zeros_like(context)
+            if is_sdxl:
+                revision_y1280 = 0
+
+                for param in outer.control_params:
+                    if param.guidance_stopped:
+                        continue
+                    if param.control_model_type == ControlModelType.ReVision:
+                        revision_emb = param.hint_cond
+                        if isinstance(revision_emb, torch.Tensor):
+                            revision_y1280 += revision_emb * param.weight
+
+                if isinstance(revision_y1280, torch.Tensor):
+                    y[:, :1280] = revision_y1280 * cond_mark[:, :, 0, 0]
+                    if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params) \
+                            or (getattr(process, 'prompt', '') == '' and getattr(process, 'negative_prompt', '') == ''):
+                        logger.info('Enter empty/ignored prompt mode.')
+                        context = torch.zeros_like(context)
 
             # High-res fix
             for param in outer.control_params:
