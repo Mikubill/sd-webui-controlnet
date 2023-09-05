@@ -13,7 +13,7 @@ from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
-from ldm.modules.diffusionmodules.util import timestep_embedding
+from ldm.modules.diffusionmodules.util import timestep_embedding, make_beta_schedule
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
 from ldm.modules.attention import BasicTransformerBlock
 from ldm.models.diffusion.ddpm import extract_into_tensor
@@ -267,6 +267,45 @@ def torch_dfs(model: torch.nn.Module):
     return result
 
 
+class AbstractLowScaleModel(nn.Module):
+    def __init__(self):
+        super(AbstractLowScaleModel, self).__init__()
+        self.register_schedule()
+
+    def register_schedule(self, beta_schedule="linear", timesteps=1000,
+                          linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
+        betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end,
+                                   cosine_s=cosine_s)
+        alphas = 1. - betas
+        alphas_cumprod = np.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
+
+        timesteps, = betas.shape
+        self.num_timesteps = int(timesteps)
+        self.linear_start = linear_start
+        self.linear_end = linear_end
+        assert alphas_cumprod.shape[0] == self.num_timesteps, 'alphas have to be defined for each timestep'
+
+        to_torch = partial(torch.tensor, dtype=torch.float32)
+
+        self.register_buffer('betas', to_torch(betas))
+        self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
+        self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
+
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+        self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
+        self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
+        self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
+        self.register_buffer('sqrt_recipm1_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod - 1)))
+
+    def q_sample(self, x_start, t, noise=None):
+        if noise is None:
+            noise = torch.randn_like(x_start)
+        return (extract_into_tensor(self.sqrt_alphas_cumprod.to(x_start), t, x_start.shape) * x_start +
+                extract_into_tensor(self.sqrt_one_minus_alphas_cumprod.to(x_start), t, x_start.shape) * noise)
+
+
 def register_schedule(self):
     linear_start = 0.00085
     linear_end = 0.0120
@@ -436,9 +475,8 @@ class UnetHook(nn.Module):
                         continue
                     if param.control_model_type == ControlModelType.ReVision:
                         if param.vision_hint_count is None:
-                            param.vision_hint_count = \
-                                0.9999794 * param.hint_cond + \
-                                0.00642528 * torch.randn_like(param.hint_cond)  # consistent to SAI' comfy impl
+                            k = torch.Tensor([int(param.preprocessor['threshold_a'] * 1000)]).to(param.hint_cond).long().clip(0, 999)
+                            param.vision_hint_count = outer.revision_q_sampler.q_sample(param.hint_cond, k)
                         revision_emb = param.vision_hint_count
                         if isinstance(revision_emb, torch.Tensor):
                             revision_y1280 += revision_emb * param.weight
@@ -890,6 +928,7 @@ class UnetHook(nn.Module):
 
         if model_is_sdxl:
             register_schedule(sd_ldm)
+            outer.revision_q_sampler = AbstractLowScaleModel()
 
         need_attention_hijack = False
 

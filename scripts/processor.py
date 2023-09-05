@@ -635,8 +635,24 @@ preprocessor_sliders_config = {
     "none": [],
     "inpaint": [],
     "inpaint_only": [],
-    "revision_clipvision": [],
-    "revision_ignore_prompt": [],
+    "revision_clipvision": [
+        None,
+        {
+            "name": "Noise Augmentation",
+            "value": 0.0,
+            "min": 0.0,
+            "max": 1.0
+        },
+    ],
+    "revision_ignore_prompt": [
+        None,
+        {
+            "name": "Noise Augmentation",
+            "value": 0.0,
+            "min": 0.0,
+            "max": 1.0
+        },
+    ],
     "canny": [
         {
             "name": flag_preprocessor_resolution,
