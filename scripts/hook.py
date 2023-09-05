@@ -430,7 +430,9 @@ class UnetHook(nn.Module):
             # Revision
             if is_sdxl and isinstance(outer.global_revision, torch.Tensor):
                 y[:, :1280] = outer.global_revision * cond_mark[:, :, 0, 0]
-                if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params):
+                if any('ignore_prompt' in param.preprocessor['name'] for param in outer.control_params) \
+                        or (getattr(process, 'prompt', '') == '' and getattr(process, 'negative_prompt', '') == ''):
+                    logger.info('Enter empty/ignored prompt mode.')
                     context = torch.zeros_like(context)
 
             # High-res fix
