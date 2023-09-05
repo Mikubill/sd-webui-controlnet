@@ -218,6 +218,7 @@ class ControlParams:
         self.used_hint_inpaint_hijack = None
         self.soft_injection = soft_injection
         self.cfg_injection = cfg_injection
+        self.vision_hint_count = None
 
     @property
     def hint_cond(self):
@@ -434,7 +435,11 @@ class UnetHook(nn.Module):
                     if param.guidance_stopped:
                         continue
                     if param.control_model_type == ControlModelType.ReVision:
-                        revision_emb = param.hint_cond
+                        if param.vision_hint_count is None:
+                            param.vision_hint_count = \
+                                0.9999794 * param.hint_cond + \
+                                0.00642528 * torch.randn_like(param.hint_cond)  # consistent to SAI' comfy impl
+                        revision_emb = param.vision_hint_count
                         if isinstance(revision_emb, torch.Tensor):
                             revision_y1280 += revision_emb * param.weight
 
