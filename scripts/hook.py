@@ -496,7 +496,7 @@ class UnetHook(nn.Module):
                     param.used_hint_inpaint_hijack = None
 
                 # has high-res fix
-                if param.hr_hint_cond is not None and x.ndim == 4 and param.hint_cond.ndim == 4 and param.hr_hint_cond.ndim == 4:
+                if isinstance(param.hr_hint_cond, torch.Tensor) and x.ndim == 4 and param.hint_cond.ndim == 4 and param.hr_hint_cond.ndim == 4:
                     _, _, h_lr, w_lr = param.hint_cond.shape
                     _, _, h_hr, w_hr = param.hr_hint_cond.shape
                     _, _, h, w = x.shape
