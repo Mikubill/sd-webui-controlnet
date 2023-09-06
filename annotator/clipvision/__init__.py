@@ -2,7 +2,7 @@ import os
 import torch
 
 from modules import devices
-from modules.modelloader import load_file_from_url
+from basicsr.utils.download_util import load_file_from_url
 from annotator.annotator_path import models_path
 from transformers import CLIPVisionModelWithProjection, CLIPVisionConfig, CLIPImageProcessor
 
