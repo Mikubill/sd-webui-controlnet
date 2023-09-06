@@ -970,7 +970,10 @@ class Script(scripts.Script, metaclass=(
 
         t = time.time()
         self.controlnet_main_entry(p)
-        logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
+
+        if len(self.enabled_units) > 0:
+            logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
+
         return
 
     def postprocess_batch(self, p, *args, **kwargs):
