@@ -4,7 +4,7 @@ import torch
 from modules import devices
 from modules.modelloader import load_file_from_url
 from annotator.annotator_path import models_path
-from transformers import CLIPVisionModelWithProjection, CLIPVisionConfig, CLIPImageProcessor, modeling_utils
+from transformers import CLIPVisionModelWithProjection, CLIPVisionConfig, CLIPImageProcessor
 
 
 config_clip_g = {
@@ -75,6 +75,10 @@ downloads = {
     'clip_g': 'https://huggingface.co/lllyasviel/Annotators/resolve/main/clip_g.pth',
     'clip_h': 'https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/pytorch_model.bin'
 }
+
+
+clip_vision_h_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_h_uc.data')
+clip_vision_h_uc = torch.load(clip_vision_h_uc)['uc']
 
 
 class ClipVisionDetector:

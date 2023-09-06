@@ -200,8 +200,9 @@ class IPAdapterModel(torch.nn.Module):
         self.image_proj_model.cpu()
 
         if self.is_plus:
+            from annotator.clipvision import clip_vision_h_uc
             cond = self.image_proj_model(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32))
-            uncond = self.image_proj_model(torch.zeros_like(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32)))
+            uncond = self.image_proj_model(clip_vision_h_uc.to(cond))
             return cond, uncond
 
         clip_image_embeds = clip_vision_output['image_embeds'].to(device='cpu', dtype=torch.float32)
