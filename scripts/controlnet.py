@@ -968,8 +968,12 @@ class Script(scripts.Script, metaclass=(
             logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
         return
 
+    @staticmethod
+    def process_has_sdxl_refiner(p):
+        return getattr(p, 'refiner_checkpoint', None) is not None
+
     def process(self, p, *args, **kwargs):
-        if p.refiner_checkpoint is None:
+        if not self.process_has_sdxl_refiner(p):
             self.controlnet_hack(p)
         return
 
@@ -979,7 +983,7 @@ class Script(scripts.Script, metaclass=(
                                    noise_modifier=self.noise_modifier,
                                    sd_model=p.sd_model)
         self.noise_modifier = None
-        if p.refiner_checkpoint is not None:
+        if self.process_has_sdxl_refiner(p):
             self.controlnet_hack(p)
         return
 
