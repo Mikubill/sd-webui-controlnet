@@ -254,7 +254,7 @@ def select_control_type(control_type: str) -> Tuple[List[str], List[str], str, s
         for x in preprocessor_list
         if pattern in x.lower() or any(a in x.lower() for a in preprocessor_filters_aliases.get(pattern, [])) or x.lower() == "none"
     ]
-    if pattern in ["canny", "lineart", "scribble", "mlsd"]:
+    if pattern in ["canny", "lineart", "scribble/sketch", "mlsd"]:
         filtered_preprocessor_list += [
             x for x in preprocessor_list if "invert" in x.lower()
         ]
