@@ -91,6 +91,23 @@ t2i_adapter_style_config = {
 }
 
 
+# Stolen from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/utils.py
+def state_dict_key_replace(state_dict, keys_to_replace):
+    for x in keys_to_replace:
+        if x in state_dict:
+            state_dict[keys_to_replace[x]] = state_dict.pop(x)
+    return state_dict
+
+
+# # Stolen from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy/utils.py
+def state_dict_prefix_replace(state_dict, replace_prefix):
+    for rp in replace_prefix:
+        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp):])), filter(lambda a: a.startswith(rp), state_dict.keys())))
+        for x in replace:
+            state_dict[x[1]] = state_dict.pop(x[0])
+    return state_dict
+
+
 def build_model_by_guess(state_dict, unet, model_path):
     if "lora_controlnet" in state_dict:
         del state_dict['lora_controlnet']
@@ -106,8 +123,17 @@ def build_model_by_guess(state_dict, unet, model_path):
         network.to(devices.dtype_unet)
         return network
 
-    if "controlnet_cond_embedding.conv_in.weight" in state_dict:
+    if "controlnet_cond_embedding.conv_in.weight" in state_dict:  # diffusers
         state_dict = convert_from_diffuser_state_dict(state_dict)
+
+    if 'adapter.body.0.resnets.0.block1.weight' in state_dict:  # diffusers
+        prefix_replace = {}
+        for i in range(4):
+            for j in range(2):
+                prefix_replace["adapter.body.{}.resnets.{}.".format(i, j)] = "body.{}.".format(i * 2 + j)
+            prefix_replace["adapter.body.{}.".format(i)] = "body.{}.".format(i * 2)
+        prefix_replace["adapter."] = ""
+        state_dict = state_dict_prefix_replace(state_dict, prefix_replace)
 
     model_has_shuffle_in_filename = 'shuffle' in Path(os.path.abspath(model_path)).stem.lower()
     state_dict = {k.replace("control_model.", ""): v for k, v in state_dict.items()}
@@ -164,10 +190,10 @@ def build_model_by_guess(state_dict, unet, model_path):
         logger.info('t2i_adapter_config')
         cin = int(state_dict['conv_in.weight'].shape[1])
         channel = int(state_dict['conv_in.weight'].shape[0])
-        ksize = 1
+        ksize = int(state_dict['body.0.block2.weight'].shape[2])
         down_opts = tuple(filter(lambda item: item.endswith("down_opt.op.weight"), state_dict))
         use_conv = len(down_opts) > 0
-        is_sdxl = (cin % 256) == 0
+        is_sdxl = cin == 256 or cin == 768
         adapter = Adapter(
             cin=cin,
             channels=[channel, channel*2, channel*4, channel*4],
