@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 from fastapi import FastAPI, Body
 from fastapi.exceptions import HTTPException
