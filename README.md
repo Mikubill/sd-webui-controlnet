@@ -28,7 +28,7 @@ You need to download model files ending with ".pth" .
 
 Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". You only need to download "pth" files.
 
-Do not right-click the filenames in HuggingFace website to download. Some users right-clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.
+Do not right-click the filenames in Hugging Face website to download. Some users right-clicked those Hugging Face HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct files. Instead, please click the small download arrow “↓” icon in Hugging Face to download.
 
 # Download Models for SDXL
 
