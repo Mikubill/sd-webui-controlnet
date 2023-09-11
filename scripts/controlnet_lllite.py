@@ -75,8 +75,10 @@ class LLLiteModule(torch.nn.Module):
         if self.cond_emb is None:
             # print(f"cond_emb is None, {self.name}")
             cx = self.conditioning1(self.cond_image.to(x.device, dtype=x.dtype))
-            b, c, h, w = blk_shape
-            cx = torch.nn.functional.interpolate(cx, (h, w), mode="nearest-exact")
+
+            if blk_shape is not None:
+                b, c, h, w = blk_shape
+                cx = torch.nn.functional.interpolate(cx, (h, w), mode="nearest-exact")
 
             if not self.is_conv2d:
                 # reshape / b,c,h,w -> b,h*w,c
