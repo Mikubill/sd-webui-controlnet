@@ -514,6 +514,7 @@ class UnetHook(nn.Module):
                             param.used_hint_cond_latent = None
                             param.used_hint_inpaint_hijack = None
 
+            self.is_in_high_res_fix = is_in_high_res_fix
             no_high_res_control = is_in_high_res_fix and shared.opts.data.get("control_net_no_high_res_fix", False)
 
             # Convert control image to latent
@@ -757,6 +758,7 @@ class UnetHook(nn.Module):
 
                 h = x
                 for i, module in enumerate(self.input_blocks):
+                    self.current_h_shape = (h.shape[0], h.shape[1], h.shape[2], h.shape[3])
                     h = module(h, emb, context)
 
                     t2i_injection = [3, 5, 8] if is_sdxl else [2, 5, 8, 11]
@@ -765,6 +767,8 @@ class UnetHook(nn.Module):
                         h = aligned_adding(h, total_t2i_adapter_embedding.pop(0), require_inpaint_hijack)
 
                     hs.append(h)
+
+                self.current_h_shape = (h.shape[0], h.shape[1], h.shape[2], h.shape[3])
                 h = self.middle_block(h, emb, context)
 
             # U-Net Middle Block
@@ -775,6 +779,7 @@ class UnetHook(nn.Module):
 
             # U-Net Decoder
             for i, module in enumerate(self.output_blocks):
+                self.current_h_shape = (h.shape[0], h.shape[1], h.shape[2], h.shape[3])
                 h = th.cat([h, aligned_adding(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
