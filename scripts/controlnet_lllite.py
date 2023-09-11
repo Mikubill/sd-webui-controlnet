@@ -71,10 +71,13 @@ class LLLiteModule(torch.nn.Module):
         self.cond_image = cond_image
         self.cond_emb = None
 
-    def forward(self, x):
+    def forward(self, x, blk_shape):
         if self.cond_emb is None:
             # print(f"cond_emb is None, {self.name}")
             cx = self.conditioning1(self.cond_image.to(x.device, dtype=x.dtype))
+            b, c, h, w = blk_shape
+            cx = torch.nn.functional.interpolate(cx, (h, w), mode="nearest-exact")
+
             if not self.is_conv2d:
                 # reshape / b,c,h,w -> b,h*w,c
                 n, c, h, w = cx.shape
@@ -91,14 +94,10 @@ class LLLiteModule(torch.nn.Module):
                 # print("x.shape[0] != cx.shape[0]", x.shape[0], cx.shape[0])
                 cx = cx.repeat(x.shape[0] // cx.shape[0], 1, 1)
 
-        try:
-            cx = torch.cat([cx, self.down(x)], dim=1 if self.is_conv2d else 2)
-            cx = self.mid(cx)
-            cx = self.up(cx)
-            return cx
-        except RuntimeError as e:
-            # high-res fix shape mismatch
-            return 0
+        cx = torch.cat([cx, self.down(x)], dim=1 if self.is_conv2d else 2)
+        cx = self.mid(cx)
+        cx = self.up(cx)
+        return cx
 
 
 all_hack = {}
@@ -201,18 +200,19 @@ class PlugableControlLLLite(torch.nn.Module):
         @torch.no_grad()
         def forward(x, **kwargs):
             current_sampling_percent = getattr(model, 'current_sampling_percent', 0.5)
-            hackers = blk.lllite_list
+            current_h_shape = getattr(model, 'current_h_shape', None)
+            is_in_high_res_fix = getattr(model, 'is_in_high_res_fix', False)
 
-            hack = 0
-            
-            for weight, start, end, module in hackers:
-                module.to(x.device)
-                if current_sampling_percent < start or current_sampling_percent > end:
-                    hack = hack + 0
-                else:
-                    hack = hack + module(x) * weight
+            if not is_in_high_res_fix:
+                hack = 0
+                for weight, start, end, module in blk.lllite_list:
+                    module.to(x.device)
+                    if current_sampling_percent < start or current_sampling_percent > end:
+                        hack = hack + 0
+                    else:
+                        hack = hack + module(x, current_h_shape) * weight
 
-            x = x + hack
+                x = x + hack
 
             return original_forward(x, **kwargs)
         return forward
