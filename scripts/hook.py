@@ -779,7 +779,7 @@ class UnetHook(nn.Module):
 
             # U-Net Decoder
             for i, module in enumerate(self.output_blocks):
-                self.current_h_shape = (h.shape[0], h.shape[1], h.shape[2] * 2, h.shape[3] * 2)
+                self.current_h_shape = (h.shape[0], h.shape[1], h.shape[2], h.shape[3])
                 h = th.cat([h, aligned_adding(hs.pop(), total_controlnet_embedding.pop(), require_inpaint_hijack)], dim=1)
                 h = module(h, emb, context)
 
