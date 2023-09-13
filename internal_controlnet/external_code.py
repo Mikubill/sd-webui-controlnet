@@ -12,6 +12,9 @@ from modules.api import api
 def get_api_version() -> int:
     return 2
 
+class InputMode(Enum):
+    SIMPLE = "simple"
+    BATCH = "batch"
 
 class ControlMode(Enum):
     """
@@ -162,6 +165,9 @@ class ControlNetUnit:
             guidance_end: float = 1.0,
             pixel_perfect: bool = False,
             control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
+            input_mode = InputMode.SIMPLE,
+            batch_images = '',
+            output_dir = '',
             **_kwargs,
     ):
         self.enabled = enabled
@@ -178,6 +184,9 @@ class ControlNetUnit:
         self.guidance_end = guidance_end
         self.pixel_perfect = pixel_perfect
         self.control_mode = control_mode
+        self.input_mode = input_mode
+        self.batch_images = batch_images
+        self.output_dir = output_dir
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
@@ -302,6 +311,12 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
     if isinstance(unit, dict):
         unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
+
+        if 'input_mode' in unit:
+            if unit['input_mode'] == 'simple':
+                unit['input_mode'] = InputMode.SIMPLE
+            elif unit['input_mode'] == 'batch':
+                unit['input_mode'] = InputMode.BATCH
 
         mask = None
         if 'mask' in unit:
