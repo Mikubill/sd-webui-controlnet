@@ -822,7 +822,7 @@ class ControlNetUiGroup(object):
             self.type_filter,
             *[
                 getattr(self, key)
-                for key in vars(external_code.ControlNetUnit()).keys()
+                for key in vars(external_code.ControlNetUnit()).keys() if hasattr(self, key) 
             ],
         )
         if is_img2img:
