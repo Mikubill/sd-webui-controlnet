@@ -123,7 +123,7 @@ class Script(scripts.Script):
         save_pre = list(args[2:contents_num * arg_num:3])
         item_num = len(item_list)
         video_num = len(video_list)
-        duration, = args[contents_num * arg_num:]
+        duration = args[contents_num * arg_num:]
 
         frame_num = get_min_frame_num(video_list)
         if frame_num > 0:
