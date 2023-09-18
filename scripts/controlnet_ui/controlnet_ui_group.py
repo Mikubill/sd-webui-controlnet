@@ -134,6 +134,7 @@ class ControlNetUiGroup(object):
         self.processor_res = None
         self.threshold_a = None
         self.threshold_b = None
+        self.threshold_c = None
         self.control_mode = None
         self.resize_mode = None
         self.loopback = None
@@ -393,6 +394,15 @@ class ControlNetUiGroup(object):
                 interactive=True,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_threshold_B_slider",
             )
+            self.threshold_c = gr.Slider(
+                label="Threshold C",
+                value=self.default_unit.threshold_c,
+                minimum=64,
+                maximum=1024,
+                visible=False,
+                interactive=False,
+                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_threshold_C_slider",
+            )
 
         self.control_mode = gr.Radio(
             choices=[e.value for e in external_code.ControlMode],
@@ -527,6 +537,7 @@ class ControlNetUiGroup(object):
                     ),
                     copy(clear_slider_update),
                     copy(clear_slider_update),
+                    copy(clear_slider_update),
                     gr.update(visible=True),
                 ]
             else:
@@ -552,7 +563,7 @@ class ControlNetUiGroup(object):
 
                     else:
                         grs.append(copy(clear_slider_update))
-                while len(grs) < 3:
+                while len(grs) < 4:
                     grs.append(copy(clear_slider_update))
                 grs.append(gr.update(visible=True))
             if module in model_free_preprocessors:
@@ -579,6 +590,7 @@ class ControlNetUiGroup(object):
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
+            self.threshold_c,
             self.advanced,
             self.model,
             self.refresh_models,
@@ -622,7 +634,7 @@ class ControlNetUiGroup(object):
             )
 
     def register_run_annotator(self, is_img2img: bool):
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
+        def run_annotator(image, module, pres, pthr_a, pthr_b, pthr_c, t2i_w, t2i_h, pp, rm):
             if image is None:
                 return (
                     gr.update(value=None, visible=True),
@@ -681,6 +693,7 @@ class ControlNetUiGroup(object):
                 res=pres,
                 thr_a=pthr_a,
                 thr_b=pthr_b,
+                thr_c=pthr_c,
                 json_pose_callback=json_acceptor.accept
                 if is_openpose(module)
                 else None,
@@ -708,6 +721,7 @@ class ControlNetUiGroup(object):
                 self.processor_res,
                 self.threshold_a,
                 self.threshold_b,
+                self.threshold_c,
                 ControlNetUiGroup.img2img_w_slider
                 if is_img2img
                 else ControlNetUiGroup.txt2img_w_slider,
@@ -864,6 +878,7 @@ class ControlNetUiGroup(object):
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
+            self.threshold_c,
             self.guidance_start,
             self.guidance_end,
             self.pixel_perfect,
@@ -906,6 +921,7 @@ class ControlNetUiGroup(object):
             self.processor_res,
             self.threshold_a,
             self.threshold_b,
+            self.threshold_c,
             self.upload_independent_img_in_img2img,
         ):
             event_subscribers = []

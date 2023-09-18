@@ -158,6 +158,7 @@ class ControlNetUnit:
             processor_res: int = -1,
             threshold_a: float = -1,
             threshold_b: float = -1,
+            threshold_c: float = -1,
             guidance_start: float = 0.0,
             guidance_end: float = 1.0,
             pixel_perfect: bool = False,
@@ -174,6 +175,7 @@ class ControlNetUnit:
         self.processor_res = processor_res
         self.threshold_a = threshold_a
         self.threshold_b = threshold_b
+        self.threshold_c = threshold_c
         self.guidance_start = guidance_start
         self.guidance_end = guidance_end
         self.pixel_perfect = pixel_perfect

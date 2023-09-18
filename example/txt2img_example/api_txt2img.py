@@ -42,6 +42,7 @@ class ControlnetRequest:
                             "processor_res": 64,
                             "threshold_a": 64,
                             "threshold_b": 64,
+                            "threshold_c": 64,
                             "guidance_start": 0.0,
                             "guidance_end": 1.0,
                             "control_mode": 0,

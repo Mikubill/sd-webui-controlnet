@@ -14,6 +14,7 @@ class TestDetectEndpointWorking(unittest.TestCase):
             "controlnet_processor_res": 512,
             "controlnet_threshold_a": 0,
             "controlnet_threshold_b": 0,
+            "controlnet_threshold_c": 0,
         }
 
     def test_detect_with_invalid_module_performed(self):

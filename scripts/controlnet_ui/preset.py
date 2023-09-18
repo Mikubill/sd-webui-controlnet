@@ -125,7 +125,7 @@ class ControlNetPresetUI(object):
             current_unit.image = None
 
             # Do not compare module param that are not used in preset.
-            for module_param in ("processor_res", "threshold_a", "threshold_b"):
+            for module_param in ("processor_res", "threshold_a", "threshold_b", "threshold_c"):
                 if getattr(preset_unit, module_param) == -1:
                     setattr(current_unit, module_param, -1)
 
@@ -261,7 +261,7 @@ class ControlNetPresetUI(object):
             current_unit.image = None
 
             # Do not compare module param that are not used in preset.
-            for module_param in ("processor_res", "threshold_a", "threshold_b"):
+            for module_param in ("processor_res", "threshold_a", "threshold_b", "threshold_c"):
                 if getattr(preset_unit, module_param) == -1:
                     setattr(current_unit, module_param, -1)
 

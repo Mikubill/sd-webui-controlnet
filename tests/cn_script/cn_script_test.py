@@ -124,11 +124,11 @@ class TestScript(unittest.TestCase):
     def test_bound_check_params(self):
         def param_required(module: str, param: str) -> bool:
             configs = processor.preprocessor_sliders_config[module]
-            config_index = ("processor_res", "threshold_a", "threshold_b").index(param)
+            config_index = ("processor_res", "threshold_a", "threshold_b", "threshold_c").index(param)
             return config_index < len(configs) and configs[config_index] is not None
 
         for module in processor.preprocessor_sliders_config.keys():
-            for param in ("processor_res", "threshold_a", "threshold_b"):
+            for param in ("processor_res", "threshold_a", "threshold_b", "threshold_c"):
                 with self.subTest(param=param, module=module):
                     unit = external_code.ControlNetUnit(
                         module=module,

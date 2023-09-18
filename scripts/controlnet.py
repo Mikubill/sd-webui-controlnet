@@ -383,6 +383,7 @@ class Script(scripts.Script, metaclass=(
         unit.processor_res = selector(p, "control_net_pres", unit.processor_res, idx)
         unit.threshold_a = selector(p, "control_net_pthr_a", unit.threshold_a, idx)
         unit.threshold_b = selector(p, "control_net_pthr_b", unit.threshold_b, idx)
+        unit.threshold_c = selector(p, "control_net_pthr_c", unit.threshold_c, idx)
         unit.guidance_start = selector(p, "control_net_guidance_start", unit.guidance_start, idx)
         unit.guidance_end = selector(p, "control_net_guidance_end", unit.guidance_end, idx)
         # Backward compatibility. See https://github.com/Mikubill/sd-webui-controlnet/issues/1740
@@ -617,8 +618,8 @@ class Script(scripts.Script, metaclass=(
     def bound_check_params(unit: external_code.ControlNetUnit) -> None:
         """
         Checks and corrects negative parameters in ControlNetUnit 'unit'.
-        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to 
-        their default values if negative.
+        Parameters 'processor_res', 'threshold_a', 'threshold_b', 'threshold_c'
+        are reset to their default values if negative.
         
         Args:
             unit (external_code.ControlNetUnit): The ControlNetUnit instance to check.
@@ -628,7 +629,7 @@ class Script(scripts.Script, metaclass=(
         defaults = {
             param: cfg_default['value']
             for param, cfg_default in zip(
-                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
+                ("processor_res", 'threshold_a', 'threshold_b', 'threshold_c'), cfg)
             if cfg_default is not None
         }
         for param, default_value in defaults.items():
@@ -810,6 +811,7 @@ class Script(scripts.Script, metaclass=(
                 res=preprocessor_resolution, 
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
+                thr_c=unit.threshold_c,
             )
 
             if high_res_fix:
@@ -838,7 +840,8 @@ class Script(scripts.Script, metaclass=(
                 name=unit.module,
                 preprocessor_resolution=preprocessor_resolution,
                 threshold_a=unit.threshold_a,
-                threshold_b=unit.threshold_b
+                threshold_b=unit.threshold_b,
+                threshold_c=unit.threshold_c,
             )
 
             forward_param = ControlParams(
