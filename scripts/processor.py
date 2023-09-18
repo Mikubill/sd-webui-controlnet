@@ -617,6 +617,24 @@ def blur_gaussian(img, res=512, thr_a=1.0, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     img = remove_pad(img)
     result = cv2.GaussianBlur(img, (0, 0), float(thr_a))
+
+
+model_pixelnet = None
+
+
+def pixelnet(img, res=512, thr_a=512, thr_b=64, thr_c=64, pp=False, t2i_w=512, t2i_h=512, **kwargs):
+    width = res
+    height = thr_a
+    rows = thr_b
+    columns = thr_c
+    if pp:
+        width = t2i_w
+        height = t2i_h
+    global model_pixelnet
+    if model_pixelnet is None:
+        from annotator.pixelnet import generate_checkerboard_cv2
+        model_pixelnet = generate_checkerboard_cv2
+    result = model_pixelnet(rows, columns, width, height)
     return result, True
 
 
@@ -986,6 +1004,34 @@ preprocessor_sliders_config = {
             "step": 0.001
         }
     ],
+    "pixelnet": [
+        {
+            "name": "Image Width",
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+            "step": 8
+        },
+        {
+            "name": "Image Height",
+            "value": 512,
+            "min": 64,
+            "max": 2048,
+            "step": 8
+        },
+        {
+            "name": "Checker Rows",
+            "value": 64,
+            "min": 1,
+            "max": 256
+        },
+        {
+            "name": "Checker Columns",
+            "value": 64,
+            "min": 1,
+            "max": 256
+        }
+    ],
 }
 
 preprocessor_filters = {
@@ -1008,6 +1054,7 @@ preprocessor_filters = {
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
+    "PixelNet": "pixelnet",
 }
 
 preprocessor_filters_aliases = {

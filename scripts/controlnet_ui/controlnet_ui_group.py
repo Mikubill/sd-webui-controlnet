@@ -635,31 +635,38 @@ class ControlNetUiGroup(object):
 
     def register_run_annotator(self, is_img2img: bool):
         def run_annotator(image, module, pres, pthr_a, pthr_b, pthr_c, t2i_w, t2i_h, pp, rm):
-            if image is None:
-                return (
-                    gr.update(value=None, visible=True),
-                    gr.update(),
-                    *self.openpose_editor.update(""),
-                )
-
-            img = HWC3(image["image"])
-            has_mask = not (
-                (image["mask"][:, :, 0] <= 5).all()
-                or (image["mask"][:, :, 0] >= 250).all()
+            fail = lambda: (
+                gr.update(value=None, visible=True),
+                gr.update(),
+                *self.openpose_editor.update(''),
             )
-            if "inpaint" in module:
-                color = HWC3(image["image"])
-                alpha = image["mask"][:, :, 0:1]
-                img = np.concatenate([color, alpha], axis=2)
-            elif has_mask and not shared.opts.data.get(
-                "controlnet_ignore_noninpaint_mask", False
-            ):
-                img = HWC3(image["mask"][:, :, 0])
+            img = None
+            if image is None:
+                # Pixelnet only requires an input image if pixel perfect is enabled.
+                if "pixelnet" in module:
+                    if pp:
+                        return fail()
+                else:
+                    return fail()
+            else:
+                img = HWC3(image["image"])
+                has_mask = not (
+                    (image["mask"][:, :, 0] <= 5).all()
+                    or (image["mask"][:, :, 0] >= 250).all()
+                )
+                if "inpaint" in module:
+                    color = HWC3(image["image"])
+                    alpha = image["mask"][:, :, 0:1]
+                    img = np.concatenate([color, alpha], axis=2)
+                elif has_mask and not shared.opts.data.get(
+                    "controlnet_ignore_noninpaint_mask", False
+                ):
+                    img = HWC3(image["mask"][:, :, 0])
 
             module = global_state.get_module_basename(module)
             preprocessor = self.preprocessors[module]
 
-            if pp:
+            if img is not None and pp:
                 pres = external_code.pixel_perfect_resolution(
                     img,
                     target_H=t2i_h,

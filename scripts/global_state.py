@@ -100,6 +100,7 @@ cn_preprocessor_modules = {
     "recolor_luminance": recolor_luminance,
     "recolor_intensity": recolor_intensity,
     "blur_gaussian": blur_gaussian,
+    "pixelnet": pixelnet,
 }
 
 cn_preprocessor_unloadable = {

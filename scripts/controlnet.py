@@ -603,6 +603,8 @@ class Script(scripts.Script, metaclass=(
         else:
             # use img2img init_image as default
             input_image = getattr(p, "init_images", [None])[0]
+            if input_image is None and unit.module == 'pixelnet':
+                return HWC3(np.zeros((1, 1, 3), dtype=np.uint8)), False
             if input_image is None:
                 if batch_hijack.instance.is_batch:
                     shared.state.interrupted = True
