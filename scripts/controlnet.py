@@ -812,6 +812,9 @@ class Script(scripts.Script, metaclass=(
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
                 thr_c=unit.threshold_c,
+                t2i_w=p.width,
+                t2i_h=p.height,
+                pp=unit.pixel_perfect,
             )
 
             if high_res_fix:

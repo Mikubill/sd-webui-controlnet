@@ -694,6 +694,9 @@ class ControlNetUiGroup(object):
                 thr_a=pthr_a,
                 thr_b=pthr_b,
                 thr_c=pthr_c,
+                t2i_w=t2i_w,
+                t2i_h=t2i_h,
+                pp=pp,
                 json_pose_callback=json_acceptor.accept
                 if is_openpose(module)
                 else None,
