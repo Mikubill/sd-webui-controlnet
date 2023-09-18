@@ -1,6 +1,8 @@
 import os
 import torch
 
+from scripts.logging import logger
+
 from modules import devices
 from modules.modelloader import load_file_from_url
 from annotator.annotator_path import models_path
@@ -78,7 +80,10 @@ downloads = {
 
 
 clip_vision_h_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_h_uc.data')
-clip_vision_h_uc = torch.load(clip_vision_h_uc)['uc']
+
+device = devices.get_optimal_device_name()
+logger.info(f"ClipVision using {device}!")
+clip_vision_h_uc = torch.load(clip_vision_h_uc, map_location=torch.device(device))['uc']
 
 
 class ClipVisionDetector:
