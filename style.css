@@ -84,7 +84,7 @@
 /* Gradio button style */
 .cnet-download-pose a,
 .cnet-close-preview,
-.cnet-edit-pose > * {
+.cnet-edit-pose {
     font-size: x-small !important;
     font-weight: bold !important;
     padding: 2px !important;
@@ -101,7 +101,7 @@
 
 .cnet-download-pose:hover a,
 .cnet-close-preview:hover a,
-.cnet-edit-pose:hover > * {
+.cnet-edit-pose:hover {
     color: var(--block-label-text-color) !important;
 }
 
