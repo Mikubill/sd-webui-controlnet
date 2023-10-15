@@ -1,12 +1,22 @@
 (function () {
     async function checkEditorAvailable() {
-        const EDITOR_PATH = '/openpose_editor_index';
-        const res = await fetch(EDITOR_PATH);
-        return res.status === 200;
+        const LOCAL_EDITOR_PATH = '/openpose_editor_index';
+        const REMOTE_EDITOR_PATH = 'https://huchenlei.github.io/sd-webui-openpose-editor/';
+
+        async function testEditorPath(path) {
+            const res = await fetch(path);
+            return res.status === 200 ? path : undefined;
+        }
+
+        // Use local editor if the user has the extension installed. Fallback 
+        // onto remote editor if the local editor is not ready yet.
+        // See https://github.com/huchenlei/sd-webui-openpose-editor/issues/53
+        // for more details.
+        return await testEditorPath(LOCAL_EDITOR_PATH) || await testEditorPath(REMOTE_EDITOR_PATH);
     }
 
     const cnetOpenposeEditorRegisteredElements = new Set();
-    function loadOpenposeEditor() {
+    function loadOpenposeEditor(editorURL) {
         // Simulate an `input` DOM event for Gradio Textbox component. Needed after you edit its contents in javascript, otherwise your edits
         // will only visible on web page and not sent to python.
         function updateInput(target) {
@@ -25,7 +35,6 @@
             }
 
             return new Promise((resolve) => {
-                const EDITOR_PATH = '/openpose_editor_index';
                 const darkThemeParam = document.body.classList.contains('dark') ?
                     new URLSearchParams({ theme: 'dark' }).toString() :
                     '';
@@ -35,8 +44,8 @@
                     if (message['ready']) resolve();
                 }, { once: true });
 
-                if (getPathname(iframe.src) !== EDITOR_PATH) {
-                    iframe.src = `${EDITOR_PATH}?${darkThemeParam}`;
+                if (getPathname(iframe.src) !== editorURL) {
+                    iframe.src = `${editorURL}?${darkThemeParam}`;
                     // By default assume 5 second is enough for the openpose editor
                     // to load.
                     setTimeout(resolve, 5000);
@@ -128,10 +137,10 @@
         });
     }
 
-    checkEditorAvailable().then(editorAvailable => {
+    checkEditorAvailable().then(editorURL => {
         onUiUpdate(() => {
-            if (editorAvailable)
-                loadOpenposeEditor();
+            if (editorURL)
+                loadOpenposeEditor(editorURL);
             else
                 loadPlaceHolder();
         });
