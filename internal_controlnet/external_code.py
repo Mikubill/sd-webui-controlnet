@@ -337,7 +337,7 @@ def update_cn_script_in_processing(
     """
 
     cn_units_type = type(cn_units) if type(cn_units) in (list, tuple) else list
-    script_args = p.script_args_value
+    script_args = list(p.script_args)
     update_cn_script_in_place(p.scripts, script_args, cn_units)
     p.script_args = cn_units_type(script_args)
 
