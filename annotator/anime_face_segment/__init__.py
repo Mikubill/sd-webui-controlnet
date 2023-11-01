@@ -2,10 +2,10 @@ import os
 import torch
 import torch.nn as nn
 from PIL import Image
-#import fnmatch
+import fnmatch
 import cv2
 
-#import sys
+import sys
 
 import numpy as np
 from modules import devices
@@ -148,8 +148,12 @@ class AnimeFaceSegment:
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
+        transform = transforms.Compose([  
+            transforms.Resize(512),  
+            transforms.ToTensor(),]) 
         with torch.no_grad():
-            seg = self.model(input_image)
+            src =  transform(input_image).unsqueeze(dim=0).cuda() 
+            seg = self.model(src).squeeze(dim=0) 
             seg = seg.cpu().detach().numpy()
             img = np.moveaxis(seg,0,2)
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in seg]
