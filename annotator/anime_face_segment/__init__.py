@@ -153,7 +153,8 @@ class AnimeFaceSegment:
             transforms.Resize(512),  
             transforms.ToTensor(),]) 
         with torch.no_grad():
-            src =  transform(input_image).unsqueeze(dim=0).cuda() 
+            openimg = Image.open(input_image)
+            src =  transform(openimg).unsqueeze(dim=0).cuda() 
             seg = self.model(src).squeeze(dim=0) 
             seg = seg.cpu().detach().numpy()
             img = np.moveaxis(seg,0,2)
