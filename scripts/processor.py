@@ -620,6 +620,26 @@ def blur_gaussian(img, res=512, thr_a=1.0, **kwargs):
     return result, True
 
 
+model_anime_face_segment = None
+
+
+def anime_face_segment(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_anime_face_segment
+    if model_anime_face_segment is None:
+        from annotator.anime_face_segment import AnimeFaceSegment
+        model_anime_face_segment = AnimeFaceSegment()
+
+    result = model_anime_face_segment(img)
+    return remove_pad(result), True
+
+
+def unload_anime_face_segment():
+    global model_anime_face_segment
+    if model_anime_face_segment is not None:
+        model_anime_face_segment.unload_model()
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -984,6 +1004,14 @@ preprocessor_sliders_config = {
             "min": 0.1,
             "max": 2.0,
             "step": 0.001
+        }
+    ],
+    "anime_face_segment": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
         }
     ],
 }
