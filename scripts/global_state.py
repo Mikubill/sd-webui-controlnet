@@ -101,7 +101,7 @@ cn_preprocessor_modules = {
     "recolor_luminance": recolor_luminance,
     "recolor_intensity": recolor_intensity,
     "blur_gaussian": blur_gaussian,
-    "anime_face_segment": anime_face_segment
+    "anime_face_segment": anime_face_segment,
 }
 
 cn_preprocessor_unloadable = {
@@ -132,8 +132,8 @@ cn_preprocessor_unloadable = {
     "lineart_coarse": unload_lineart_coarse,
     "lineart_anime": unload_lineart_anime,
     "lineart_anime_denoise": unload_lineart_anime_denoise,
-    "inpaint_only+lama": unload_lama_inpaint
-    "anime_face_segment": unload_anime_face_segment
+    "inpaint_only+lama": unload_lama_inpaint,
+    "anime_face_segment": unload_anime_face_segment,
 }
 
 preprocessor_aliases = {
