@@ -300,7 +300,10 @@ class PlugableIPAdapter(torch.nn.Module):
         self.sdxl_plus = self.sdxl and self.is_plus
 
         if self.is_plus:
-            clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
+            if self.sdxl_plus:
+                clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
+            else:
+                clip_embeddings_dim = int(state_dict['image_proj']['proj_in.weight'].shape[1])
         else:
             clip_embeddings_dim = int(state_dict['image_proj']['proj.weight'].shape[1])
 
