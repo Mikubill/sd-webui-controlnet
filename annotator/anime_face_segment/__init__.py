@@ -152,10 +152,11 @@ class AnimeFaceSegment:
             self.load_model()
         self.model.to(self.device)
         with torch.no_grad():
-            image_feed = torch.from_numpy(input_image).unsqueeze(dim=0).cuda()
+            image_feed = torch.from_numpy(input_image).float().to(self.device)
+            image = rearrange(image, 'h w c -> 1 c h w')
             seg = self.model(image_feed).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
-            img = np.moveaxis(seg,0,2)
+            #img = np.moveaxis(seg,0,2)
             print(img)
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in seg]
             return np.array(img).astype(np.uint8)
