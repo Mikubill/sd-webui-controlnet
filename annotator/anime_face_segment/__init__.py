@@ -13,6 +13,7 @@ from annotator.annotator_path import models_path
 
 import torchvision
 from torchvision.models import MobileNet_V2_Weights
+from torchvision import transforms
 
 
 class UNet(nn.Module):
