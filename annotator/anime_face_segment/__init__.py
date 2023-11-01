@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 from modules import devices
+from einops import rearrange
 from annotator.annotator_path import models_path
 
 import torchvision
@@ -149,13 +150,11 @@ class AnimeFaceSegment:
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
-        transform = transforms.Compose([  
-            transforms.Resize(512),  
-            transforms.ToTensor(),]) 
+        img = np.ascontiguousarray(input_image.copy()).copy()
         with torch.no_grad():
-            openimg = Image.open(input_image)
-            src =  transform(openimg).unsqueeze(dim=0).cuda() 
-            seg = self.model(src).squeeze(dim=0) 
+            image_feed = torch.from_numpy(img).float().to(self.device)
+            image_feed = rearrange(image_feed, 'h w c -> 1 c h w')
+            seg = self.model(image_feed).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
             img = np.moveaxis(seg,0,2)
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in seg]
