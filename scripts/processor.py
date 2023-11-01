@@ -1006,6 +1006,14 @@ preprocessor_sliders_config = {
             "step": 0.001
         }
     ],
+    "anime_face_segement": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        }
+    ],
 }
 
 preprocessor_filters = {

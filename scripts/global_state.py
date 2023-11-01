@@ -154,6 +154,7 @@ preprocessor_aliases = {
     "oneformer_ade20k": "seg_ofade20k",
     "pidinet_scribble": "scribble_pidinet",
     "inpaint": "inpaint_global_harmonious",
+    "anime_face_segment": "seg_anime_face",
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
