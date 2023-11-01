@@ -1,4 +1,5 @@
 import os
+import cv2
 import torch
 
 from modules import devices
@@ -121,6 +122,7 @@ class ClipVisionDetector:
 
     def __call__(self, input_image):
         with torch.no_grad():
+            input_image = cv2.resize(input_image, (224, 224), interpolation=cv2.INTER_AREA)
             clip_vision_model = self.model.cpu()
             feat = self.processor(images=input_image, return_tensors="pt")
             feat['pixel_values'] = feat['pixel_values'].cpu()
