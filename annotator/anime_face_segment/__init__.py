@@ -158,6 +158,7 @@ class AnimeFaceSegment:
             seg = self.model(image_feed).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
             img = np.moveaxis(seg,0,2)
+            print(img)
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in seg]
             return np.array(img).astype(np.uint8)
 
