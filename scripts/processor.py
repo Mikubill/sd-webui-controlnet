@@ -620,6 +620,26 @@ def blur_gaussian(img, res=512, thr_a=1.0, **kwargs):
     return result, True
 
 
+model_anime_face_segement = None
+
+
+def anime_face_segement(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_anime_face_segement
+    if model_anime_face_segement is None:
+        from annotator.model_anime_face_segement import AnimeFaceSegment
+        model_anime_face_segement = AnimeFaceSegment()
+
+    result = model_manga_line(img)
+    return remove_pad(result), True
+
+
+def unload_anime_face_segement():
+    global model_anime_face_segement
+    if model_anime_face_segement is not None:
+        model_anime_face_segement.unload_model()
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
