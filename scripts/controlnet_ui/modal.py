@@ -30,9 +30,9 @@ class ModalInterface(gr.Interface):
                 {self.html_content}
             </div>
         </div>
-        <button id="cnet-modal-open-{self.modal_id}" 
+        <div id="cnet-modal-open-{self.modal_id}" 
                 class="cnet-modal-open {' '.join(self.open_button_classes)}"
                 {self.open_button_extra_attrs}
-        >{self.open_button_text}</button>
+        >{self.open_button_text}</div>
         """
         return gr.HTML(value=html_code, visible=visible)

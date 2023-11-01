@@ -35,11 +35,17 @@ def load_presets(preset_dir: str) -> Dict[str, str]:
 
 
 def infer_control_type(module: str, model: str) -> str:
+    def matches_control_type(input_string: str, control_type: str) -> bool:
+        return any(t.lower() in input_string for t in control_type.split("/"))
+
     control_types = preprocessor_filters.keys()
     control_type_candidates = [
         control_type
         for control_type in control_types
-        if control_type.lower() in module or control_type.lower() in model
+        if (
+            matches_control_type(module, control_type)
+            or matches_control_type(model, control_type)
+        )
     ]
     if len(control_type_candidates) != 1:
         raise ValueError(

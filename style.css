@@ -41,25 +41,22 @@
     border: none;
 }
 
-.cnet-modal-content.alert * {
-    position: absolute;
-    top: var(--size-5);
-    left: var(--size-5);
-    width: 100%;
+.cnet-modal-content.alert {
+    padding: var(--size-5);
+}
+
+.cnet-modal-content.alert ul {
+    list-style-type: none;
 }
 
 .cnet-modal-close {
-    color: white;
-    float: right;
+    color: white !important;
+    right: 0.25em;
+    top: 0;
+    cursor: pointer;
+    position: absolute;
     font-size: 56px;
     font-weight: bold;
-}
-
-.cnet-modal-close:hover,
-.cnet-modal-close:focus {
-    color: #000;
-    text-decoration: none;
-    cursor: pointer;
 }
 
 @keyframes animatetop {
@@ -96,6 +93,15 @@
     border-radius: var(--radius-sm);
     background: var(--background-fill-primary);
     height: var(--size-5);
+    color: var(--block-label-text-color) !important;
+    display: flex;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.cnet-download-pose:hover a,
+.cnet-close-preview:hover a,
+.cnet-edit-pose:hover {
     color: var(--block-label-text-color) !important;
 }
 
