@@ -16,12 +16,12 @@ import torchvision
 from torchvision.models import MobileNet_V2_Weights
 from torchvision import transforms
 
-COLOR_BACKGROUND = (0,255,255)
-COLOR_HAIR = (255,0,0)
-COLOR_EYE = (0,0,255)
+COLOR_BACKGROUND = (255,255,0)
+COLOR_HAIR = (0,0,255)
+COLOR_EYE = (255,0,0)
 COLOR_MOUTH = (255,255,255)
 COLOR_FACE = (0,255,0)
-COLOR_SKIN = (255,255,0)
+COLOR_SKIN = (0,255,255)
 COLOR_CLOTHES = (255,0,255)
 PALETTE = [COLOR_BACKGROUND,COLOR_HAIR,COLOR_EYE,COLOR_MOUTH,COLOR_FACE,COLOR_SKIN,COLOR_CLOTHES]
 
@@ -151,14 +151,16 @@ class AnimeFaceSegment:
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
+        transform = transforms.Compose([  
+            transforms.Resize(512),  
+            transforms.ToTensor(),])
+        img = Image.fromarray(input_image)
         with torch.no_grad():
-            image_feed = torch.from_numpy(input_image).float().to(self.device)
-            image = rearrange(image, 'h w c -> 1 c h w')
-            seg = self.model(image_feed).squeeze(dim=0)
+            img = transform(img).unsqueeze(dim=0).cuda()
+            seg = self.model(img).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
-            #img = np.moveaxis(seg,0,2)
-            print(img)
-            img = [[PALETTE[np.argmax(val)] for val in buf]for buf in seg]
+            img = np.moveaxis(seg,0,2)
+            img = [[PALETTE[np.argmax(val)] for val in buf]for buf in img]
             return np.array(img).astype(np.uint8)
 
     
