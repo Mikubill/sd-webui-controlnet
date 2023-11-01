@@ -158,22 +158,22 @@ class Resampler(nn.Module):
 
 
 class IPAdapterModel(torch.nn.Module):
-    def __init__(self, state_dict, clip_embeddings_dim, is_plus):
+    def __init__(self, state_dict, clip_embeddings_dim, cross_attention_dim, is_plus, sdxl_plus):
         super().__init__()
         self.device = "cpu"
 
-        # cross_attention_dim is equal to text_encoder output
-        self.cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
+        self.cross_attention_dim = cross_attention_dim
         self.is_plus = is_plus
+        self.sdxl_plus = sdxl_plus
 
         if self.is_plus:
             self.clip_extra_context_tokens = 16
 
             self.image_proj_model = Resampler(
-                dim=self.cross_attention_dim,
+                dim=1280 if sdxl_plus else cross_attention_dim,
                 depth=4,
                 dim_head=64,
-                heads=12,
+                heads=20 if sdxl_plus else 12,
                 num_queries=self.clip_extra_context_tokens,
                 embedding_dim=clip_embeddings_dim,
                 output_dim=self.cross_attention_dim,
@@ -200,9 +200,9 @@ class IPAdapterModel(torch.nn.Module):
         self.image_proj_model.cpu()
 
         if self.is_plus:
-            from annotator.clipvision import clip_vision_h_uc
+            from annotator.clipvision import clip_vision_h_uc, clip_vision_vith_uc
             cond = self.image_proj_model(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32))
-            uncond = self.image_proj_model(clip_vision_h_uc.to(cond))
+            uncond = clip_vision_vith_uc.to(cond) if self.sdxl_plus else self.image_proj_model(clip_vision_h_uc.to(cond))
             return cond, uncond
 
         clip_image_embeds = clip_vision_output['image_embeds'].to(device='cpu', dtype=torch.float32)
@@ -292,11 +292,26 @@ def clear_all_ip_adapter():
 
 
 class PlugableIPAdapter(torch.nn.Module):
-    def __init__(self, state_dict, clip_embeddings_dim, is_plus):
+    def __init__(self, state_dict):
         super().__init__()
-        self.sdxl = clip_embeddings_dim == 1280 and not is_plus
-        self.is_plus = is_plus
-        self.ipadapter = IPAdapterModel(state_dict, clip_embeddings_dim=clip_embeddings_dim, is_plus=is_plus)
+        self.is_plus = "latents" in state_dict["image_proj"]
+        cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
+        self.sdxl = cross_attention_dim == 2048
+        self.sdxl_plus = self.sdxl and self.is_plus
+
+        if self.is_plus:
+            if self.sdxl_plus:
+                clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
+            else:
+                clip_embeddings_dim = int(state_dict['image_proj']['proj_in.weight'].shape[1])
+        else:
+            clip_embeddings_dim = int(state_dict['image_proj']['proj.weight'].shape[1])
+
+        self.ipadapter = IPAdapterModel(state_dict,
+                                        clip_embeddings_dim=clip_embeddings_dim,
+                                        cross_attention_dim=cross_attention_dim,
+                                        is_plus=self.is_plus,
+                                        sdxl_plus=self.sdxl_plus)
         self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
