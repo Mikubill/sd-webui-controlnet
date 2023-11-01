@@ -16,6 +16,14 @@ import torchvision
 from torchvision.models import MobileNet_V2_Weights
 from torchvision import transforms
 
+COLOR_BACKGROUND = (0,255,255)
+COLOR_HAIR = (255,0,0)
+COLOR_EYE = (0,0,255)
+COLOR_MOUTH = (255,255,255)
+COLOR_FACE = (0,255,0)
+COLOR_SKIN = (255,255,0)
+COLOR_CLOTHES = (255,0,255)
+PALETTE = [COLOR_BACKGROUND,COLOR_HAIR,COLOR_EYE,COLOR_MOUTH,COLOR_FACE,COLOR_SKIN,COLOR_CLOTHES]
 
 class UNet(nn.Module):
     def __init__(self):
@@ -111,14 +119,6 @@ class UNet(nn.Module):
 
 
 class AnimeFaceSegment:
-    COLOR_BACKGROUND = (0,255,255)
-    COLOR_HAIR = (255,0,0)
-    COLOR_EYE = (0,0,255)
-    COLOR_MOUTH = (255,255,255)
-    COLOR_FACE = (0,255,0)
-    COLOR_SKIN = (255,255,0)
-    COLOR_CLOTHES = (255,0,255)
-    PALETTE = [COLOR_BACKGROUND,COLOR_HAIR,COLOR_EYE,COLOR_MOUTH,COLOR_FACE,COLOR_SKIN,COLOR_CLOTHES]
 
     model_dir = os.path.join(models_path, "anime_face_segment")
 
@@ -147,6 +147,7 @@ class AnimeFaceSegment:
             self.model.cpu()
 
     def __call__(self, input_image):
+
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
