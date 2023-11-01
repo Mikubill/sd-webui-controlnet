@@ -125,7 +125,7 @@ class AnimeFaceSegment:
         self.device = devices.get_device_for("controlnet")
 
     def load_model(self):
-        remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/erika.pth"
+        remote_model_path = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/resolve/main/Annotators/UNet.pth"
         modelpath = os.path.join(self.model_dir, "Unet.pth")
         if not os.path.exists(modelpath):
             from basicsr.utils.download_util import load_file_from_url
