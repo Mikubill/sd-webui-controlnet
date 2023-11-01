@@ -627,10 +627,10 @@ def anime_face_segment(img, res=512, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     global model_anime_face_segment
     if model_anime_face_segment is None:
-        from annotator.model_anime_face_segment import AnimeFaceSegment
+        from annotator.anime_face_segment import AnimeFaceSegment
         model_anime_face_segment = AnimeFaceSegment()
 
-    result = model_manga_line(img)
+    result = model_anime_face_segment(img)
     return remove_pad(result), True
 
 
