@@ -28,7 +28,9 @@ jobs:
             **/requirements*txt
             launch.py
       - name: Install test dependencies
-        run: pip install wait-for-it -r requirements-test.txt
+        run: |
+          pip install wait-for-it
+          pip install -r stable-diffusion-webui/requirements-test.txt
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: "1"
           PIP_PROGRESS_BAR: "off"
