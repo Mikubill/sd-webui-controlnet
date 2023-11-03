@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 import fnmatch
 import cv2
@@ -106,12 +107,19 @@ class UNet(nn.Module):
         e4 = self.en_block4(e3)
         
         d4 = self.de_block4(e4)
+        d4 = F.interpolate(d4, size=e3.size()[2:], mode='bilinear', align_corners=True)
         c4 = torch.cat((d4,e3),1)
+
         d3 = self.de_block3(c4)
+        d3 = F.interpolate(d3, size=e2.size()[2:], mode='bilinear', align_corners=True)
         c3 = torch.cat((d3,e2),1)
+
         d2 = self.de_block2(c3)
+        d2 = F.interpolate(d2, size=e1.size()[2:], mode='bilinear', align_corners=True)
         c2 =torch.cat((d2,e1),1)
+
         d1 = self.de_block1(c2)
+        d1 = F.interpolate(d1, size=e0.size()[2:], mode='bilinear', align_corners=True)
         c1 = torch.cat((d1,e0),1)
         y = self.de_block0(c1)
         
@@ -152,14 +160,14 @@ class AnimeFaceSegment:
             self.load_model()
         self.model.to(self.device)
         transform = transforms.Compose([  
-            transforms.Resize(512),  
+            transforms.Resize(512,interpolation=transforms.InterpolationMode.BICUBIC),  
             transforms.ToTensor(),])
         img = Image.fromarray(input_image)
         with torch.no_grad():
             img = transform(img).unsqueeze(dim=0).to(self.device)
             seg = self.model(img).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
-            img = np.moveaxis(seg,0,2)
+            img = rearrange(seg,'h w c -> w c h')
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in img]
             return np.array(img).astype(np.uint8)
 
