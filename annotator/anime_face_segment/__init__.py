@@ -156,7 +156,7 @@ class AnimeFaceSegment:
             transforms.ToTensor(),])
         img = Image.fromarray(input_image)
         with torch.no_grad():
-            img = transform(img).unsqueeze(dim=0).cuda()
+            img = transform(img).unsqueeze(dim=0).to(self.device)
             seg = self.model(img).squeeze(dim=0)
             seg = seg.cpu().detach().numpy()
             img = np.moveaxis(seg,0,2)
