@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 from base64 import b64encode
+from pathlib import Path
 
 import requests
 
@@ -9,9 +10,18 @@ BASE_URL = "http://localhost:7860"
 
 
 def setup_test_env():
-    ext_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    if ext_root not in sys.path:
-        sys.path.append(ext_root)
+    os.environ['IGNORE_CMD_ARGS_ERRORS'] = 'True'
+
+    file_path = Path(__file__).resolve()
+    ext_root = file_path.parent.parent
+    a1111_root = ext_root.parent.parent
+
+    for p in (ext_root, a1111_root):
+        if p not in sys.path:
+            sys.path.append(str(p))
+
+    # Initialize shared opts.
+    import webui
 
 
 def readImage(path):
