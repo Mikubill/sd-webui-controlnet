@@ -21,7 +21,9 @@ def setup_test_env():
             sys.path.append(str(p))
 
     # Initialize shared opts.
-    import webui
+    from modules import initialize
+    initialize.imports()
+    initialize.initialize()
 
 
 def readImage(path):
