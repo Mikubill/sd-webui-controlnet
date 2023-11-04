@@ -9,6 +9,18 @@ import requests
 BASE_URL = "http://localhost:7860"
 
 
+webui_initialized = False
+def _initialize_webui():
+    global webui_initialized
+    if webui_initialized:
+        return
+
+    from modules import initialize
+    initialize.imports()
+    initialize.initialize()
+    webui_initialized = True
+
+
 def setup_test_env():
     os.environ['IGNORE_CMD_ARGS_ERRORS'] = 'True'
 
@@ -20,10 +32,7 @@ def setup_test_env():
         if p not in sys.path:
             sys.path.append(str(p))
 
-    # Initialize shared opts.
-    from modules import initialize
-    initialize.imports()
-    initialize.initialize()
+    _initialize_webui()
 
 
 def readImage(path):
