@@ -19,8 +19,6 @@ jobs:
         with:
           repository: 'Mikubill/sd-webui-controlnet'
           path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
-      - name: Step to A1111 directory
-        run: cd stable-diffusion-webui
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
@@ -33,11 +31,13 @@ jobs:
         run: |
           pip install wait-for-it
           pip install -r requirements-test.txt
+        working-directory: stable-diffusion-webui
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: "1"
           PIP_PROGRESS_BAR: "off"
       - name: Setup environment
         run: python launch.py --skip-torch-cuda-test --exit
+        working-directory: stable-diffusion-webui
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: "1"
           PIP_PROGRESS_BAR: "off"
@@ -47,6 +47,7 @@ jobs:
       - name: Download controlnet model for testing
         run: |
           curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+        working-directory: stable-diffusion-webui
       - name: Start test server
         run: >
           python -m coverage run
@@ -61,10 +62,12 @@ jobs:
           --use-cpu all
           --api-server-stop
           2>&1 | tee output.txt &
+        working-directory: stable-diffusion-webui
       - name: Run tests
         run: |
           wait-for-it --service 127.0.0.1:7860 -t 600
           python -m pytest -vv --junitxml=test/results.xml --cov . --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
+        working-directory: stable-diffusion-webui
       - name: Kill test server
         if: always()
         run: curl -vv -XPOST http://127.0.0.1:7860/sdapi/v1/server-stop && sleep 10
@@ -73,6 +76,7 @@ jobs:
           python -m coverage combine .coverage*
           python -m coverage report -i
           python -m coverage html -i
+        working-directory: stable-diffusion-webui
       - name: Upload main app output
         uses: actions/upload-artifact@v3
         if: always()
