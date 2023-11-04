@@ -66,7 +66,7 @@ jobs:
       - name: Run tests
         run: |
           wait-for-it --service 127.0.0.1:7860 -t 600
-          python -m pytest -vv --junitxml=test/results.xml --cov . --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
+          python -m pytest -vv --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
         working-directory: stable-diffusion-webui
       - name: Kill test server
         if: always()
