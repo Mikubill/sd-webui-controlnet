@@ -31,16 +31,23 @@ def readImage(path):
     return b64img
 
 
-def get_model():
+def get_model(use_sd15: bool = True) -> str:
     r = requests.get(BASE_URL+"/controlnet/model_list")
     result = r.json()
-    if "model_list" in result:
-        result = result["model_list"]
-        for item in result:
-            print("Using model: ", item)
-            return item
-    return "None"
+    if "model_list" not in result:
+        return "None"
 
+    def is_sd15(model_name: str) -> bool:
+        return 'sd15' in model_name
+        
+    candidates = [
+        model
+        for model in result["model_list"]
+        if (use_sd15 and is_sd15(model)) or (not use_sd15 and not is_sd15(model))
+    ]
+
+    return candidates[0] if candidates else "None"
+    
 
 def get_modules():
     return requests.get(f"{BASE_URL}/controlnet/module_list").json()
