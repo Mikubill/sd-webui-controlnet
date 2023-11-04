@@ -843,7 +843,7 @@ class UnetHook(nn.Module):
             return h
 
         def move_all_control_model_to_cpu():
-            for param in getattr(outer, 'control_params', []):
+            for param in getattr(outer, 'control_params', []) or []:
                 if isinstance(param.control_model, torch.nn.Module):
                     param.control_model.to("cpu")
 
