@@ -18,7 +18,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'Mikubill/sd-webui-controlnet'
-          path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'          
+          path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
+      - name: Step to A1111 directory
+        run: cd stable-diffusion-webui
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
@@ -30,7 +32,7 @@ jobs:
       - name: Install test dependencies
         run: |
           pip install wait-for-it
-          pip install -r stable-diffusion-webui/requirements-test.txt
+          pip install -r requirements-test.txt
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: "1"
           PIP_PROGRESS_BAR: "off"
@@ -44,7 +46,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
       - name: Download controlnet model for testing
         run: |
-          curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+          curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
       - name: Start test server
         run: >
           python -m coverage run
