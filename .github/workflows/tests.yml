@@ -10,17 +10,15 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-        with: 
+        with:
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
           path: 'stable-diffusion-webui'
-          ref: '5ab7f213bec2f816f9c5644becb32eb72c8ffb89'
-
+          ref: '4afaaf8a020c1df457bcf7250cb1c7f609699fa7'
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
           repository: 'Mikubill/sd-webui-controlnet'
           path: 'stable-diffusion-webui/extensions/sd-webui-controlnet'
-          
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
@@ -28,10 +26,66 @@ jobs:
           cache: pip
           cache-dependency-path: |
             **/requirements*txt
-            stable-diffusion-webui/requirements*txt
-            
-      - run: |
-          pip install torch torchvision
-          curl -Lo stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
-          cd stable-diffusion-webui && python launch.py --no-half --disable-opt-split-attention --use-cpu all --skip-torch-cuda-test --api --tests ./extensions/sd-webui-controlnet/tests
-          rm -fr stable-diffusion-webui/extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors
+            launch.py
+      - name: Install test dependencies
+        run: |
+          pip install wait-for-it
+          pip install -r requirements-test.txt
+        working-directory: stable-diffusion-webui
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+          PIP_PROGRESS_BAR: "off"
+      - name: Setup environment
+        run: python launch.py --skip-torch-cuda-test --exit
+        working-directory: stable-diffusion-webui
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+          PIP_PROGRESS_BAR: "off"
+          TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+          WEBUI_LAUNCH_LIVE_OUTPUT: "1"
+          PYTHONUNBUFFERED: "1"
+      - name: Download controlnet model for testing
+        run: |
+          curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+        working-directory: stable-diffusion-webui
+      - name: Start test server
+        run: >
+          python -m coverage run
+          --data-file=.coverage.server
+          launch.py
+          --skip-prepare-environment
+          --skip-torch-cuda-test
+          --test-server
+          --do-not-download-clip
+          --no-half
+          --disable-opt-split-attention
+          --use-cpu all
+          --api-server-stop
+          2>&1 | tee output.txt &
+        working-directory: stable-diffusion-webui
+      - name: Run tests
+        run: |
+          wait-for-it --service 127.0.0.1:7860 -t 600
+          python -m pytest -vv --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
+        working-directory: stable-diffusion-webui
+      - name: Kill test server
+        if: always()
+        run: curl -vv -XPOST http://127.0.0.1:7860/sdapi/v1/server-stop && sleep 10
+      - name: Show coverage
+        run: |
+          python -m coverage combine .coverage*
+          python -m coverage report -i
+          python -m coverage html -i
+        working-directory: stable-diffusion-webui
+      - name: Upload main app output
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: output
+          path: output.txt
+      - name: Upload coverage HTML
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: htmlcov
+          path: htmlcov

@@ -42,6 +42,7 @@ class TestBatchHijack(unittest.TestCase):
 class TestGetControlNetBatchesWorks(unittest.TestCase):
     def setUp(self):
         self.p = unittest.mock.MagicMock()
+        assert scripts.scripts_txt2img is not None
         self.p.scripts = scripts.scripts_txt2img
         self.cn_script = controlnet.Script()
         self.p.scripts.alwayson_scripts = [self.cn_script]
@@ -193,6 +194,7 @@ class TestProcessImagesPatchWorks(unittest.TestCase):
     def setUp(self, on_script_unloaded_mock):
         self.on_script_unloaded_mock = on_script_unloaded_mock
         self.p = unittest.mock.MagicMock()
+        assert scripts.scripts_txt2img is not None
         self.p.scripts = scripts.scripts_txt2img
         self.cn_script = controlnet.Script()
         self.p.scripts.alwayson_scripts = [self.cn_script]

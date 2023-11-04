@@ -1,6 +1,7 @@
 import unittest
 import cv2
 import numpy as np
+from pathlib import Path
 from typing import Dict
 
 
@@ -11,7 +12,7 @@ utils.setup_test_env()
 from annotator.openpose import OpenposeDetector
 
 class TestOpenposeDetector(unittest.TestCase):
-    image_path = './tests/images'
+    image_path = str(Path(__file__).parent.parent.parent / 'images')
     def setUp(self) -> None:
         self.detector = OpenposeDetector()
         self.detector.load_model()

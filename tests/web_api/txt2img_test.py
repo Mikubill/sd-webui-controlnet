@@ -68,13 +68,6 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
 
     def assert_status_ok(self, msg=None):
         self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200, msg)
-        stderr = ""
-        with open('test/stderr.txt') as f:
-            stderr = f.read().lower()
-        with open('test/stderr.txt', 'w') as f:
-            # clear stderr file so that we can easily parse the next test
-            f.write("")
-        self.assertFalse('error' in stderr, "Errors in stderr: \n" + stderr)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
