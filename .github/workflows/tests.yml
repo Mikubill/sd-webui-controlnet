@@ -56,7 +56,7 @@ jobs:
           key: preprocessor-models-v1
       - name: Download controlnet model for testing
         run: |
-          if [ ! -f "extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth"]
+          if [ ! -f "extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth"]; then
             curl -Lo extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth
           fi
         working-directory: stable-diffusion-webui
