@@ -62,7 +62,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
 
 
 class ControlNetUiGroup(object):
-    # Note: Change symbol hints mapping in `javascript/hints.js` when you change the symbol values.
     refresh_symbol = "\U0001f504"  # 🔄
     switch_values_symbol = "\U000021C5"  # ⇅
     camera_symbol = "\U0001F4F7"  # 📷
@@ -70,6 +69,15 @@ class ControlNetUiGroup(object):
     tossup_symbol = "\u2934"
     trigger_symbol = "\U0001F4A5"  # 💥
     open_symbol = "\U0001F4DD"  # 📝
+
+    tooltips = {
+        '🔄': 'Refresh',
+        '\u2934': 'Send dimensions to stable diffusion',
+        '💥': 'Run preprocessor',
+        '📝': 'Open new canvas',
+        '📷': 'Enable webcam',
+        '⇄': 'Mirror webcam',
+    }
 
     global_batch_input_dir = gr.Textbox(
         label="Controlnet input directory",
@@ -246,18 +254,22 @@ class ControlNetUiGroup(object):
                 self.open_new_canvas_button = ToolButton(
                     value=ControlNetUiGroup.open_symbol,
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_open_new_canvas_button",
+                    tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.open_symbol],
                 )
                 self.webcam_enable = ToolButton(
                     value=ControlNetUiGroup.camera_symbol,
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_enable",
+                    tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.camera_symbol],
                 )
                 self.webcam_mirror = ToolButton(
                     value=ControlNetUiGroup.reverse_symbol,
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_webcam_mirror",
+                    tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.reverse_symbol],
                 )
                 self.send_dimen_button = ToolButton(
                     value=ControlNetUiGroup.tossup_symbol,
                     elem_id=f"{elem_id_tabname}_{tabname}_controlnet_send_dimen_button",
+                    tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.tossup_symbol],
                 )
 
         with FormRow(elem_classes=["controlnet_main_options"]):
@@ -323,6 +335,7 @@ class ControlNetUiGroup(object):
                 visible=not is_img2img,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor",
                 elem_classes=["cnet-run-preprocessor"],
+                tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.trigger_symbol],
             )
             self.model = gr.Dropdown(
                 list(global_state.cn_models.keys()),
@@ -333,6 +346,7 @@ class ControlNetUiGroup(object):
             self.refresh_models = ToolButton(
                 value=ControlNetUiGroup.refresh_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
+                tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.refresh_symbol],
             )
 
         with gr.Row(elem_classes=["controlnet_weight_steps", "controlnet_row"]):
