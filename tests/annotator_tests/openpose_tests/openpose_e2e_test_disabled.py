@@ -1,3 +1,9 @@
+"""
+Disabled because unloading openpose detection models is flaky.
+See https://github.com/Mikubill/sd-webui-controlnet/actions/runs/6758718106/job/18370634881
+for CI report of an example flaky run.
+"""
+
 import unittest
 import cv2
 import numpy as np
