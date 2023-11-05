@@ -46,7 +46,7 @@ def get_model(use_sd15: bool = True) -> str:
     r = requests.get(BASE_URL+"/controlnet/model_list")
     result = r.json()
     if "model_list" not in result:
-        return "None"
+        raise ValueError("No model available")
 
     def is_sd15(model_name: str) -> bool:
         return 'sd15' in model_name
@@ -57,7 +57,10 @@ def get_model(use_sd15: bool = True) -> str:
         if (use_sd15 and is_sd15(model)) or (not use_sd15 and not is_sd15(model))
     ]
 
-    return candidates[0] if candidates else "None"
+    if not candidates:
+        raise ValueError("No suitable model available")
+    
+    return candidates[0]
     
 
 def get_modules():

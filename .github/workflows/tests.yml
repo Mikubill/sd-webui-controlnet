@@ -44,9 +44,21 @@ jobs:
           TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
           WEBUI_LAUNCH_LIVE_OUTPUT: "1"
           PYTHONUNBUFFERED: "1"
+      - name: Cache ControlNet models
+        uses: actions/cache@v3
+        with:
+          path: stable-diffusion-webui/extensions/sd-webui-controlnet/models/
+          key: controlnet-models-v1
+      - name: Cache Preprocessor models
+        uses: actions/cache@v3
+        with:
+          path: stable-diffusion-webui/extensions/sd-webui-controlnet/annotator/downloads/
+          key: preprocessor-models-v1
       - name: Download controlnet model for testing
         run: |
-          curl -Lo extensions/sd-webui-controlnet/models/control_canny-fp16.safetensors https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+          if [ ! -f "extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth" ]; then
+            curl -Lo extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth
+          fi
         working-directory: stable-diffusion-webui
       - name: Start test server
         run: >
