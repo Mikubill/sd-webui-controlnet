@@ -811,11 +811,15 @@ class Script(scripts.Script, metaclass=(
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
             )
-
+            
+            def store_detected_map(detected_map, module: str) -> None:
+                if unit.save_detected_map:
+                    detected_maps.append((detected_map, module))
+            
             if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
-                    detected_maps.append((hr_detected_map, unit.module))
+                    store_detected_map(hr_detected_map, unit.module)
                 else:
                     hr_control = detected_map
             else:
@@ -823,10 +827,10 @@ class Script(scripts.Script, metaclass=(
 
             if is_image:
                 control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
-                detected_maps.append((detected_map, unit.module))
+                store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
-                detected_maps.append((input_image, unit.module))
+                store_detected_map(input_image, unit.module)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:
                 control = control['last_hidden_state']
