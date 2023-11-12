@@ -1,7 +1,7 @@
 import unittest
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
+
 
 from scripts import external_code
 
@@ -10,7 +10,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
     def setUp(self):
         self.control_unit = {
             "module": "none",
-            "model": utils.get_model(),
+            "model": utils.get_model("canny"),
             "image": utils.readImage("test/test_files/img2img_basic.png"),
             "resize_mode": 1,
             "low_vram": False,

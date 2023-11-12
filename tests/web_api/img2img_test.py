@@ -1,16 +1,20 @@
+import os
 import unittest
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
 import requests
-
+from scripts.enums import StableDiffusionVersion
 
 
 class TestImg2ImgWorkingBase(unittest.TestCase):
     def setUp(self):
+        sd_version = StableDiffusionVersion(int(
+            os.environ.get("CONTROLNET_TEST_SD_VERSION", StableDiffusionVersion.SD1x.value)))
+        self.model = utils.get_model("canny", sd_version)
+
         controlnet_unit = {
             "module": "none",
-            "model": utils.get_model(),
+            "model": self.model,
             "weight": 1.0,
             "input_image": utils.readImage("test/test_files/img2img_basic.png"),
             "mask": utils.readImage("test/test_files/img2img_basic.png"),
@@ -87,7 +91,7 @@ class TestImg2ImgWorkingBase(unittest.TestCase):
     def test_img2img_default_params(self):
         self.simple_img2img["alwayson_scripts"]["ControlNet"]["args"] = [{
             "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-            "model": utils.get_model(),
+            "model": self.model,
         }]
         self.assert_status_ok()
 

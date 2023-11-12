@@ -6,7 +6,7 @@ import numpy as np
 import importlib
 
 utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "utils")
-utils.setup_test_env()
+
 
 from scripts import external_code, processor
 from scripts.controlnet import prepare_mask, Script, set_numpy_seed

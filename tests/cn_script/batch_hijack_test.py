@@ -3,7 +3,7 @@ import importlib
 from typing import Any
 
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
+
 
 from modules import processing, scripts, shared
 from scripts import controlnet, external_code, batch_hijack

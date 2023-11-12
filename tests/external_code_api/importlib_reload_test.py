@@ -1,7 +1,7 @@
 import unittest
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
+
 
 from scripts import external_code
 

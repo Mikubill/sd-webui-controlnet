@@ -9,31 +9,23 @@ import requests
 BASE_URL = "http://localhost:7860"
 
 
-webui_initialized = False
-def _initialize_webui():
-    global webui_initialized
-    if webui_initialized:
-        return
+# setup_test_env
+os.environ['IGNORE_CMD_ARGS_ERRORS'] = 'True'
 
-    from modules import initialize
-    initialize.imports()
-    initialize.initialize()
-    webui_initialized = True
+file_path = Path(__file__).resolve()
+ext_root = file_path.parent.parent
+a1111_root = ext_root.parent.parent
 
+for p in (ext_root, a1111_root):
+    if p not in sys.path:
+        sys.path.append(str(p))
 
-def setup_test_env():
-    os.environ['IGNORE_CMD_ARGS_ERRORS'] = 'True'
+# Initialize A1111
+from modules import initialize
+initialize.imports()
+initialize.initialize()
 
-    file_path = Path(__file__).resolve()
-    ext_root = file_path.parent.parent
-    a1111_root = ext_root.parent.parent
-
-    for p in (ext_root, a1111_root):
-        if p not in sys.path:
-            sys.path.append(str(p))
-
-    _initialize_webui()
-
+from scripts.enums import StableDiffusionVersion
 
 def readImage(path):
     img = cv2.imread(path)
@@ -42,19 +34,21 @@ def readImage(path):
     return b64img
 
 
-def get_model(use_sd15: bool = True) -> str:
+def get_model(model_name: str, sd_version: StableDiffusionVersion = StableDiffusionVersion.SD1x) -> str:
+    """ Find an available model with specified model name and sd_version. """
+    
     r = requests.get(BASE_URL+"/controlnet/model_list")
     result = r.json()
     if "model_list" not in result:
         raise ValueError("No model available")
 
-    def is_sd15(model_name: str) -> bool:
-        return 'sd15' in model_name
-        
     candidates = [
         model
         for model in result["model_list"]
-        if (use_sd15 and is_sd15(model)) or (not use_sd15 and not is_sd15(model))
+        if (
+            model_name.lower() in model.lower() and 
+            StableDiffusionVersion.detect_from_model_name(model) == sd_version
+        )
     ]
 
     if not candidates:

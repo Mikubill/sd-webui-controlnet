@@ -3,7 +3,7 @@ import numpy as np
 
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
+
 
 from annotator.openpose.body import Body, Keypoint, BodyResult
 
