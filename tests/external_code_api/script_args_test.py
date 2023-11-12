@@ -10,7 +10,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
     def setUp(self):
         self.control_unit = {
             "module": "none",
-            "model": utils.get_model(),
+            "model": utils.get_model("canny"),
             "image": utils.readImage("test/test_files/img2img_basic.png"),
             "resize_mode": 1,
             "low_vram": False,
