@@ -150,6 +150,7 @@ class ControlNetUiGroup(object):
         self.preset_panel = None
         self.upload_independent_img_in_img2img = None
         self.image_upload_panel = None
+        self.save_detected_map = None
 
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
@@ -168,6 +169,7 @@ class ControlNetUiGroup(object):
             None
         """
         with gr.Group(visible=not is_img2img) as self.image_upload_panel:
+            self.save_detected_map = gr.Checkbox(value=True, visible=False)
             with gr.Tabs():
                 with gr.Tab(label="Single Image") as self.upload_tab:
                     with gr.Row(elem_classes=["cnet-image-row"], equal_height=True):

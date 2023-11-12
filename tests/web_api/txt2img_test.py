@@ -133,6 +133,22 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                     }
                 ]
                 self.assert_status_ok(f'Run with {param} = -1.')
+                
+    def test_save_detected_map(self):
+        for save_map in (True, False):
+            with self.subTest(save_map=save_map):
+                self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+                    {
+                        "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                        "model": utils.get_model(),
+                        "module": "depth",
+                        "save_detected_map": save_map,
+                    }
+                ]
+            
+                resp = requests.post(self.url_txt2img, json=self.simple_txt2img).json()
+                self.assertEqual(2 if save_map else 1, len(resp["images"]))
+                
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from copy import copy
 from typing import List, Any, Optional, Union, Tuple, Dict
@@ -142,43 +143,30 @@ InputImage = Union[np.ndarray, str]
 InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
 
 
+@dataclass
 class ControlNetUnit:
     """
     Represents an entire ControlNet processing unit.
     """
-
-    def __init__(
-            self,
-            enabled: bool = True,
-            module: Optional[str] = None,
-            model: Optional[str] = None,
-            weight: float = 1.0,
-            image: Optional[InputImage] = None,
-            resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT,
-            low_vram: bool = False,
-            processor_res: int = -1,
-            threshold_a: float = -1,
-            threshold_b: float = -1,
-            guidance_start: float = 0.0,
-            guidance_end: float = 1.0,
-            pixel_perfect: bool = False,
-            control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED,
-            **_kwargs,
-    ):
-        self.enabled = enabled
-        self.module = module
-        self.model = model
-        self.weight = weight
-        self.image = image
-        self.resize_mode = resize_mode
-        self.low_vram = low_vram
-        self.processor_res = processor_res
-        self.threshold_a = threshold_a
-        self.threshold_b = threshold_b
-        self.guidance_start = guidance_start
-        self.guidance_end = guidance_end
-        self.pixel_perfect = pixel_perfect
-        self.control_mode = control_mode
+    enabled: bool = True
+    module: Optional[str] = None
+    model: Optional[str] = None
+    weight: float = 1.0
+    image: Optional[InputImage] = None
+    resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT
+    low_vram: bool = False
+    processor_res: int = -1
+    threshold_a: float = -1
+    threshold_b: float = -1
+    guidance_start: float = 0.0
+    guidance_end: float = 1.0
+    pixel_perfect: bool = False
+    control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED
+    
+    # Whether save the detected map of this unit. Setting this option to False prevents saving the
+    # detected map or sending detected map along with generated images via API.
+    # Currently the option is only accessible in API calls.
+    save_detected_map: bool = True
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
