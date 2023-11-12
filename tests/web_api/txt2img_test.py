@@ -1,17 +1,21 @@
+import os
 import unittest
+import requests
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
-import requests
-
+from scripts.enums import StableDiffusionVersion
 
 
 class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
     def setUp(self):
+        sd_version = StableDiffusionVersion(int(
+            os.environ.get("CONTROLNET_TEST_SD_VERSION", StableDiffusionVersion.SD1x.value)))
+        self.model = utils.get_model("canny", sd_version)
+        
         controlnet_unit = {
             "enabled": True,
             "module": "none",
-            "model": utils.get_model(),
+            "model": self.model,
             "weight": 1.0,
             "image": utils.readImage("test/test_files/img2img_basic.png"),
             "mask": utils.readImage("test/test_files/img2img_basic.png"),
@@ -99,7 +103,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
             {
                 "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-                "model": utils.get_model(),
+                "model": self.model,
             }
         ]
 
@@ -116,8 +120,8 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                 self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
                     {
                         "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-                        "model": utils.get_model(),
-                        "module": module
+                        "model": self.model,
+                        "module": module,                    
                     }
                 ]
                 self.assert_status_ok(f'Running preprocessor module: {module}')
@@ -128,7 +132,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                 self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
                     {
                         "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-                        "model": utils.get_model(),
+                        "model": self.model,
                         param: -1,
                     }
                 ]
@@ -140,7 +144,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                 self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
                     {
                         "input_image": utils.readImage("test/test_files/img2img_basic.png"),
-                        "model": utils.get_model(),
+                        "model": self.model,
                         "module": "depth",
                         "save_detected_map": save_map,
                     }

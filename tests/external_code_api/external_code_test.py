@@ -4,7 +4,7 @@ import importlib
 import numpy as np
 
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
-utils.setup_test_env()
+
 
 from copy import copy
 from scripts import external_code
