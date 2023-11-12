@@ -24,6 +24,12 @@ python -m coverage run
           --api-server-stop
 ```
 
+## Setting environment variables
+Setting `CONTROLNET_TEST_SD_VERSION` for stable diffusion model family used during testing.
+- 1 for SD1.x
+- 2 for SD2.x
+- 3 for SDXL
+
 ## Run test
 ```shell
 python -m pytest -vv --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests

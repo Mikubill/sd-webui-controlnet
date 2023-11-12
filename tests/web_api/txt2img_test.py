@@ -121,7 +121,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
                     {
                         "input_image": utils.readImage("test/test_files/img2img_basic.png"),
                         "model": self.model,
-                        "module": module,                    
+                        "module": module,
                     }
                 ]
                 self.assert_status_ok(f'Running preprocessor module: {module}')
