@@ -4,7 +4,7 @@ import requests
 import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
 from scripts.enums import StableDiffusionVersion
-
+from modules import shared
 
 class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
     def setUp(self):
@@ -71,7 +71,22 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         }
 
     def assert_status_ok(self, msg=None):
-        self.assertEqual(requests.post(self.url_txt2img, json=self.simple_txt2img).status_code, 200, msg)
+        msg = ("" if msg is None else msg) + f"\nPayload:\n{self.simple_txt2img}"
+
+        resp = requests.post(self.url_txt2img, json=self.simple_txt2img)
+        self.assertEqual(resp.status_code, 200, msg)
+        # Note: Exception/error in ControlNet code likely will cause hook failure, which further leads
+        # to detected map not being appended at the end of response image array.
+        data = resp.json()
+        expected_image_num = (
+            self.simple_txt2img["n_iter"] * self.simple_txt2img["batch_size"] + 
+            min(sum([
+                unit.get("save_detected_map", True)
+                for unit in 
+                self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"]
+            ]), shared.opts.data.get("control_net_unit_count", 3))
+        )
+        self.assertEqual(len(data["images"]), expected_image_num, msg)
 
     def test_txt2img_simple_performed(self):
         self.assert_status_ok()
