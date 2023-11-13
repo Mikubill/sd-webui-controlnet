@@ -48,7 +48,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: stable-diffusion-webui/extensions/sd-webui-controlnet/models/
-          key: controlnet-models-v1
+          key: controlnet-models-v2
       - name: Cache Preprocessor models
         uses: actions/cache@v3
         with:
@@ -56,9 +56,18 @@ jobs:
           key: preprocessor-models-v1
       - name: Download controlnet model for testing
         run: |
-          if [ ! -f "extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth" ]; then
-            curl -Lo extensions/sd-webui-controlnet/models/control_v11p_sd15_canny.pth https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth
-          fi
+          declare -a urls=(
+            "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth"
+            "https://huggingface.co/h94/IP-Adapter/resolve/main/models/ip-adapter-full-face_sd15.safetensors"
+            "https://huggingface.co/h94/IP-Adapter/resolve/main/models/ip-adapter-plus-face_sd15.safetensors"
+          )
+
+          for url in "${urls[@]}"; do
+            filename="extensions/sd-webui-controlnet/models/${url##*/}"  # Extracts the last part of the URL
+            if [ ! -f "$filename" ]; then
+              curl -Lo "$filename" "$url"
+            fi
+          done
         working-directory: stable-diffusion-webui
       - name: Start test server
         run: >
@@ -94,10 +103,10 @@ jobs:
         if: always()
         with:
           name: output
-          path: output.txt
+          path: stable-diffusion-webui/output.txt
       - name: Upload coverage HTML
         uses: actions/upload-artifact@v3
         if: always()
         with:
           name: htmlcov
-          path: htmlcov
+          path: stable-diffusion-webui/htmlcov

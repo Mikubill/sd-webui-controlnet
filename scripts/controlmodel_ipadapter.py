@@ -7,6 +7,20 @@ import torch.nn as nn
 SD_V12_CHANNELS = [320] * 4 + [640] * 4 + [1280] * 4 + [1280] * 6 + [640] * 6 + [320] * 6 + [1280] * 2
 SD_XL_CHANNELS = [640] * 8 + [1280] * 40 + [1280] * 60 + [640] * 12 + [1280] * 20
 
+class MLPProjModel(torch.nn.Module):
+    def __init__(self, cross_attention_dim=1024, clip_embeddings_dim=1024):
+        super().__init__()
+
+        self.proj = torch.nn.Sequential(
+            torch.nn.Linear(clip_embeddings_dim, clip_embeddings_dim),
+            torch.nn.GELU(),
+            torch.nn.Linear(clip_embeddings_dim, cross_attention_dim),
+            torch.nn.LayerNorm(cross_attention_dim)
+        )
+
+    def forward(self, image_embeds):
+        clip_extra_context_tokens = self.proj(image_embeds)
+        return clip_extra_context_tokens
 
 class ImageProjModel(torch.nn.Module):
     """Projection Model"""
@@ -158,27 +172,34 @@ class Resampler(nn.Module):
 
 
 class IPAdapterModel(torch.nn.Module):
-    def __init__(self, state_dict, clip_embeddings_dim, cross_attention_dim, is_plus, sdxl_plus):
+    def __init__(self, state_dict, clip_embeddings_dim, cross_attention_dim, is_plus, sdxl_plus, is_full):
         super().__init__()
         self.device = "cpu"
 
         self.cross_attention_dim = cross_attention_dim
         self.is_plus = is_plus
         self.sdxl_plus = sdxl_plus
+        self.is_full = is_full
 
         if self.is_plus:
-            self.clip_extra_context_tokens = 16
+            if self.is_full:
+                self.image_proj_model = MLPProjModel(
+                    cross_attention_dim=cross_attention_dim,
+                    clip_embeddings_dim=clip_embeddings_dim
+                )
+            else:
+                self.clip_extra_context_tokens = 16
 
-            self.image_proj_model = Resampler(
-                dim=1280 if sdxl_plus else cross_attention_dim,
-                depth=4,
-                dim_head=64,
-                heads=20 if sdxl_plus else 12,
-                num_queries=self.clip_extra_context_tokens,
-                embedding_dim=clip_embeddings_dim,
-                output_dim=self.cross_attention_dim,
-                ff_mult=4
-            )
+                self.image_proj_model = Resampler(
+                    dim=1280 if sdxl_plus else cross_attention_dim,
+                    depth=4,
+                    dim_head=64,
+                    heads=20 if sdxl_plus else 12,
+                    num_queries=self.clip_extra_context_tokens,
+                    embedding_dim=clip_embeddings_dim,
+                    output_dim=self.cross_attention_dim,
+                    ff_mult=4
+                )
         else:
             self.clip_extra_context_tokens = state_dict["image_proj"]["proj.weight"].shape[0] // self.cross_attention_dim
 
@@ -294,7 +315,8 @@ def clear_all_ip_adapter():
 class PlugableIPAdapter(torch.nn.Module):
     def __init__(self, state_dict):
         super().__init__()
-        self.is_plus = "latents" in state_dict["image_proj"]
+        self.is_full = "proj.0.weight" in state_dict['image_proj']
+        self.is_plus = self.is_full or "latents" in state_dict["image_proj"]
         cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
         self.sdxl = cross_attention_dim == 2048
         self.sdxl_plus = self.sdxl and self.is_plus
@@ -302,6 +324,8 @@ class PlugableIPAdapter(torch.nn.Module):
         if self.is_plus:
             if self.sdxl_plus:
                 clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
+            elif self.is_full:
+                clip_embeddings_dim = int(state_dict["image_proj"]["proj.0.weight"].shape[1])
             else:
                 clip_embeddings_dim = int(state_dict['image_proj']['proj_in.weight'].shape[1])
         else:
@@ -311,7 +335,8 @@ class PlugableIPAdapter(torch.nn.Module):
                                         clip_embeddings_dim=clip_embeddings_dim,
                                         cross_attention_dim=cross_attention_dim,
                                         is_plus=self.is_plus,
-                                        sdxl_plus=self.sdxl_plus)
+                                        sdxl_plus=self.sdxl_plus,
+                                        is_full=self.is_full)
         self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
