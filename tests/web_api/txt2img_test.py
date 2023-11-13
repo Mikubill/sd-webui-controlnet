@@ -8,9 +8,9 @@ from modules import shared
 
 class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
     def setUp(self):
-        sd_version = StableDiffusionVersion(int(
+        self.sd_version = StableDiffusionVersion(int(
             os.environ.get("CONTROLNET_TEST_SD_VERSION", StableDiffusionVersion.SD1x.value)))
-        self.model = utils.get_model("canny", sd_version)
+        self.model = utils.get_model("canny", self.sd_version)
         
         controlnet_unit = {
             "enabled": True,
@@ -167,7 +167,48 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             
                 resp = requests.post(self.url_txt2img, json=self.simple_txt2img).json()
                 self.assertEqual(2 if save_map else 1, len(resp["images"]))
-                
+
+    def test_ip_adapter_face(self):
+        match self.sd_version:
+            case StableDiffusionVersion.SDXL:
+                model = "ip-adapter-plus-face_sdxl_vit-h"
+                module = "ip-adapter_clip_sdxl_plus_vith"
+            case StableDiffusionVersion.SD1x:
+                model = "ip-adapter-plus-face_sd15"
+                module = "ip-adapter_clip_sd15"
+            case _:
+                # Skip the test for all other versions
+                return
+        
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+            {
+                "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                "model": utils.get_model(model, self.sd_version),
+                "module": module,
+            }
+        ]
+        
+        self.assert_status_ok()
+
+    def test_ip_adapter_fullface(self):
+        match self.sd_version:
+            case StableDiffusionVersion.SD1x:
+                model = "ip-adapter-full-face_sd15"
+                module = "ip-adapter_clip_sd15"
+            case _:
+                # Skip the test for all other versions
+                return
+        
+        self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"] = [
+            {
+                "input_image": utils.readImage("test/test_files/img2img_basic.png"),
+                "model": utils.get_model(model, self.sd_version),
+                "module": module,
+            }
+        ]
+        
+        self.assert_status_ok()
+
 
 if __name__ == "__main__":
     unittest.main()
