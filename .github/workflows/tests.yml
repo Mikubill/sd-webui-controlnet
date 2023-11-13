@@ -103,10 +103,10 @@ jobs:
         if: always()
         with:
           name: output
-          path: output.txt
+          path: stable-diffusion-webui/output.txt
       - name: Upload coverage HTML
         uses: actions/upload-artifact@v3
         if: always()
         with:
           name: htmlcov
-          path: htmlcov
+          path: stable-diffusion-webui/htmlcov
