@@ -79,10 +79,10 @@ downloads = {
 
 
 clip_vision_h_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_h_uc.data')
-clip_vision_h_uc = torch.load(clip_vision_h_uc)['uc']
+clip_vision_h_uc = torch.load(clip_vision_h_uc,  map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))['uc']
 
 clip_vision_vith_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_vith_uc.data')
-clip_vision_vith_uc = torch.load(clip_vision_vith_uc)['uc']
+clip_vision_vith_uc = torch.load(clip_vision_vith_uc, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))['uc']
 
 
 class ClipVisionDetector:
