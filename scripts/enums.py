@@ -14,10 +14,10 @@ class StableDiffusionVersion(Enum):
         """Based on the model name provided, guess what stable diffusion version it is.
         This might not be accurate without actually inspect the file content.
         """
-        if "15" in model_name or "1.5" in model_name:
+        if any(f"sd{v}" in model_name.lower() for v in ("14", "15", "16")):
             return StableDiffusionVersion.SD1x
 
-        if "21" in model_name or "2.1" in model_name:
+        if "sd21" in model_name or "2.1" in model_name:
             return StableDiffusionVersion.SD2x
 
         if "xl" in model_name.lower():
