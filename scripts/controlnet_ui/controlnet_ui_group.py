@@ -837,6 +837,7 @@ class ControlNetUiGroup(object):
         self.openpose_editor.register_callbacks(
             self.generated_image, self.use_preview_as_input
         )
+        assert self.type_filter is not None
         self.preset_panel.register_callbacks(
             self,
             self.type_filter,
