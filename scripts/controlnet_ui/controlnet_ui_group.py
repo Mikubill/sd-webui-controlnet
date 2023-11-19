@@ -315,15 +315,14 @@ class ControlNetUiGroup(object):
             else:
                 self.upload_independent_img_in_img2img = None
 
-        if not shared.opts.data.get("controlnet_disable_control_type", False):
-            with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
-                self.type_filter = gr.Radio(
-                    list(preprocessor_filters.keys()),
-                    label=f"Control Type",
-                    value="All",
-                    elem_id=f"{elem_id_tabname}_{tabname}_controlnet_type_filter_radio",
-                    elem_classes="controlnet_control_type_filter_group",
-                )
+        with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
+            self.type_filter = gr.Radio(
+                list(preprocessor_filters.keys()),
+                label=f"Control Type",
+                value="All",
+                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_type_filter_radio",
+                elem_classes="controlnet_control_type_filter_group",
+            )
 
         with gr.Row(elem_classes=["controlnet_preprocessor_model", "controlnet_row"]):
             self.module = gr.Dropdown(
