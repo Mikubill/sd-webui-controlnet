@@ -1,14 +1,13 @@
 import torch
-import einops
 import hashlib
 import numpy as np
 import torch.nn as nn
 from functools import partial
-import modules.processing
 
 
 from enum import Enum
 from scripts.logging import logger
+from scripts.enums import ControlModelType, AutoMachine
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -123,36 +122,6 @@ class HackedImageRNG:
         result = predict_q_sample(self.sd_model, x0, ts, result)
         logger.info(f'[ControlNet] Initial noise hack applied to {result.shape}.')
         return result
-
-
-class ControlModelType(Enum):
-    """
-    The type of Control Models (supported or not).
-    """
-
-    ControlNet = "ControlNet, Lvmin Zhang"
-    T2I_Adapter = "T2I_Adapter, Chong Mou"
-    T2I_StyleAdapter = "T2I_StyleAdapter, Chong Mou"
-    T2I_CoAdapter = "T2I_CoAdapter, Chong Mou"
-    MasaCtrl = "MasaCtrl, Mingdeng Cao"
-    GLIGEN = "GLIGEN, Yuheng Li"
-    AttentionInjection = "AttentionInjection, Lvmin Zhang"  # A simple attention injection written by Lvmin
-    StableSR = "StableSR, Jianyi Wang"
-    PromptDiffusion = "PromptDiffusion, Zhendong Wang"
-    ControlLoRA = "ControlLoRA, Wu Hecong"
-    ReVision = "ReVision, Stability"
-    IPAdapter = "IPAdapter, Hu Ye"
-    Controlllite = "Controlllite, Kohya"
-
-
-# Written by Lvmin
-class AutoMachine(Enum):
-    """
-    Lvmin's algorithm for Attention/AdaIn AutoMachine States.
-    """
-
-    Read = "Read"
-    Write = "Write"
 
 
 class TorchHijackForUnet:
