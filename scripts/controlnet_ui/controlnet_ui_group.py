@@ -611,7 +611,7 @@ class ControlNetUiGroup(object):
                 filtered_model_list,
                 default_option,
                 default_model,
-            ) = global_state.select_control_type(k)
+            ) = global_state.select_control_type(k, global_state.get_sd_version())
 
             if self.prevent_next_n_module_update > 0:
                 self.prevent_next_n_module_update -= 1
