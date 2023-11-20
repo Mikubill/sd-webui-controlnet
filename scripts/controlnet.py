@@ -20,7 +20,7 @@ from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
-from scripts.enums import ControlModelType
+from scripts.enums import ControlModelType, StableDiffusionVersion
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
@@ -638,6 +638,23 @@ class Script(scripts.Script, metaclass=(
                 setattr(unit, param, default_value)
                 logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
 
+    def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
+        """
+        Checks whether the given ControlNet unit has model compatible with the currently 
+        active sd model. An exception is thrown if ControlNet unit is detected to be
+        incompatible.
+        """
+        sd_version = global_state.get_sd_version()
+        assert sd_version != StableDiffusionVersion.UNKNOWN
+        cnet_sd_version = StableDiffusionVersion.detect_from_model_name(unit.model)
+        
+        if cnet_sd_version == StableDiffusionVersion.UNKNOWN:
+            logger.warn(f"Unable to determine version for ControlNet model '{unit.model}'.")
+            return
+
+        if sd_version != cnet_sd_version:
+            raise Exception(f"ControlNet model {unit.model}({cnet_sd_version}) is not compatible with sd model({sd_version})")
+
     def controlnet_main_entry(self, p):
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
@@ -679,6 +696,7 @@ class Script(scripts.Script, metaclass=(
         self.latest_model_hash = p.sd_model.sd_model_hash
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
+            Script.check_sd_version_compatible(unit)
 
             resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
             control_mode = external_code.control_mode_from_value(unit.control_mode)
