@@ -100,11 +100,9 @@ class ControlNetUiGroup(object):
 
     def __init__(
         self,
-        gradio_compat: bool,
         default_unit: external_code.ControlNetUnit,
         preprocessors: List[Callable],
     ):
-        self.gradio_compat = gradio_compat
         self.default_unit = default_unit
         self.preprocessors = preprocessors
         self.webcam_enabled = False
@@ -504,9 +502,6 @@ class ControlNetUiGroup(object):
         self.refresh_models.click(refresh_all_models, self.model, self.model, show_progress=False)
 
     def register_build_sliders(self):
-        if not self.gradio_compat:
-            return
-
         def build_sliders(module: str, pp: bool):
             logger.debug(
                 f"Prevent update slider value: {self.prevent_next_n_slider_value_update}"
