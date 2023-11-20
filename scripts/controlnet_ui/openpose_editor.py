@@ -1,6 +1,5 @@
 import base64
 import gradio as gr
-import requests
 from typing import List, Dict, Any, Tuple
 
 from annotator.openpose import decode_json_as_poses, draw_poses
@@ -33,11 +32,12 @@ class OpenposeEditor(object):
 
     def __init__(self) -> None:
         self.render_button = None
+        self.pose_input = None
         self.download_link = None
+        self.upload_link = None
         self.modal = None
-        self.render()
 
-    def render(self):
+    def render_edit(self):
         # The hidden button to trigger a re-render of generated image.
         self.render_button = gr.Button(visible=False, elem_classes=["cnet-render-pose"])
         # The hidden element that stores the pose json for backend retrieval.
@@ -46,7 +46,7 @@ class OpenposeEditor(object):
 
         self.modal = ModalInterface(
             # Use about:blank here as placeholder so that the iframe does not
-            # immediately navigate. Most of controlnet units do not need 
+            # immediately navigate. Most of controlnet units do not need
             # openpose editor active. Only navigate when the user first click
             # 'Edit'. The navigation logic is in `openpose_editor.js`.
             f'<iframe src="about:blank"></iframe>',
@@ -58,13 +58,26 @@ class OpenposeEditor(object):
             value="", visible=False, elem_classes=["cnet-download-pose"]
         )
 
+    def render_upload(self):
+        self.upload_link = gr.HTML(
+            value="""
+            <label>Upload JSON</label>
+            <input type="file" accept=".json"/>
+            """,
+            visible=False,
+            elem_classes=["cnet-upload-pose"],
+        )
+
     def register_callbacks(
-        self, generated_image: gr.Image, use_preview_as_input: gr.Checkbox
+        self,
+        generated_image: gr.Image,
+        use_preview_as_input: gr.Checkbox,
+        model: gr.Dropdown,
     ):
         def render_pose(pose_url: str) -> Tuple[Dict, Dict]:
             json_string = parse_data_url(pose_url)
             poses, height, weight = decode_json_as_poses(json_string)
-            logger.info('Preview as input is enabled.')
+            logger.info("Preview as input is enabled.")
             return (
                 # Generated image.
                 gr.update(
@@ -87,6 +100,10 @@ class OpenposeEditor(object):
             inputs=[self.pose_input],
             outputs=[generated_image, use_preview_as_input],
         )
+        
+        def update_upload_link(model: str) -> Dict:
+            return gr.update(visible="openpose" in model.lower())
+        model.change(fn=update_upload_link, inputs=[model], outputs=[self.upload_link])
 
     def outputs(self) -> List[Any]:
         return [

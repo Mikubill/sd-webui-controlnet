@@ -166,6 +166,8 @@ class ControlNetUiGroup(object):
         Returns:
             None
         """
+        self.openpose_editor = OpenposeEditor()
+        
         with gr.Group(visible=not is_img2img) as self.image_upload_panel:
             self.save_detected_map = gr.Checkbox(value=True, visible=False)
             with gr.Tabs():
@@ -186,6 +188,8 @@ class ControlNetUiGroup(object):
                                 )
                                 else None,
                             )
+                            self.openpose_editor.render_upload()
+                            
                         with gr.Group(
                             visible=False, elem_classes=["cnet-generated-image-group"]
                         ) as self.generated_image_group:
@@ -201,7 +205,7 @@ class ControlNetUiGroup(object):
                             with gr.Group(
                                 elem_classes=["cnet-generated-image-control-group"]
                             ):
-                                self.openpose_editor = OpenposeEditor()
+                                self.openpose_editor.render_edit()
                                 preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
                                 preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
                                 gr.HTML(
@@ -830,7 +834,8 @@ class ControlNetUiGroup(object):
         self.register_shift_preview()
         self.register_create_canvas()
         self.openpose_editor.register_callbacks(
-            self.generated_image, self.use_preview_as_input
+            self.generated_image, self.use_preview_as_input,
+            self.model,
         )
         assert self.type_filter is not None
         self.preset_panel.register_callbacks(
