@@ -633,6 +633,10 @@ class Script(scripts.Script, metaclass=(
         active sd model. An exception is thrown if ControlNet unit is detected to be
         incompatible.
         """
+        # No need to check if the ControlModelType does not require model to be present.
+        if unit.model.lower() == "none":
+            return
+
         sd_version = global_state.get_sd_version()
         assert sd_version != StableDiffusionVersion.UNKNOWN
         cnet_sd_version = StableDiffusionVersion.detect_from_model_name(unit.model)
