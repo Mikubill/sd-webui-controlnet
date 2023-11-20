@@ -38,16 +38,6 @@ from scripts.processor import model_free_preprocessors
 from scripts.controlnet_model_guess import build_model_by_guess
 
 
-gradio_compat = True
-try:
-    from distutils.version import LooseVersion
-    from importlib_metadata import version
-    if LooseVersion(version("gradio")) < LooseVersion("3.10"):
-        gradio_compat = False
-except ImportError:
-    pass
-
-
 # Gradio 3.32 bug fix
 import tempfile
 gradio_tempfile_path = os.path.join(tempfile.gettempdir(), 'gradio')
@@ -261,7 +251,6 @@ class Script(scripts.Script, metaclass=(
 
     def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
-            gradio_compat,
             Script.get_default_ui_unit(),
             self.preprocessor,
         )
