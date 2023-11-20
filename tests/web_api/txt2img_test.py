@@ -240,6 +240,9 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         )
         self.run_test_unit("canny", "t2i-adapter_xl_canny", StableDiffusionVersion.SDXL)
 
+    def test_reference(self):
+        self.run_test_unit("reference_only", "None", StableDiffusionVersion.SD1x)
+
 
 if __name__ == "__main__":
     unittest.main()

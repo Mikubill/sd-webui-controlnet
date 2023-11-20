@@ -36,7 +36,9 @@ def readImage(path):
 
 def get_model(model_name: str, sd_version: StableDiffusionVersion = StableDiffusionVersion.SD1x) -> str:
     """ Find an available model with specified model name and sd_version. """
-    
+    if model_name.lower() == "none":
+        return "None"
+
     r = requests.get(BASE_URL+"/controlnet/model_list")
     result = r.json()
     if "model_list" not in result:
