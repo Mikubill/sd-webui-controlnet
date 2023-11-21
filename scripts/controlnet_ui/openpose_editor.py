@@ -38,6 +38,7 @@ class OpenposeEditor(object):
         self.modal = None
 
     def render_edit(self):
+        """Renders the buttons in preview image control button group."""
         # The hidden button to trigger a re-render of generated image.
         self.render_button = gr.Button(visible=False, elem_classes=["cnet-render-pose"])
         # The hidden element that stores the pose json for backend retrieval.
@@ -55,10 +56,13 @@ class OpenposeEditor(object):
             open_button_extra_attrs=f'title="Send pose to {OpenposeEditor.editor_url} for edit."',
         ).create_modal(visible=False)
         self.download_link = gr.HTML(
-            value="", visible=False, elem_classes=["cnet-download-pose"]
+            value=f"""<a href='' download='{OpenposeEditor.download_file}'>JSON</a>""",
+            visible=False,
+            elem_classes=["cnet-download-pose"],
         )
 
     def render_upload(self):
+        """Renders the button in input image control button group."""
         self.upload_link = gr.HTML(
             value="""
             <label>Upload JSON</label>
@@ -100,9 +104,10 @@ class OpenposeEditor(object):
             inputs=[self.pose_input],
             outputs=[generated_image, use_preview_as_input],
         )
-        
+
         def update_upload_link(model: str) -> Dict:
             return gr.update(visible="openpose" in model.lower())
+
         model.change(fn=update_upload_link, inputs=[model], outputs=[self.upload_link])
 
     def outputs(self) -> List[Any]:

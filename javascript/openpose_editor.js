@@ -82,28 +82,50 @@
                 // the click again to resend the frame message.
                 modalIframe.contentWindow.focus();
             });
-
-            window.addEventListener('message', (event) => {
-                const message = event.data;
+            /* 
+            * Writes the pose data URL to an link element on input image group.
+            * Click a hidden button to trigger a backend rendering of the pose JSON.
+            * 
+            * The backend should:
+            * - Set the rendered pose image as preprocessor generated image.
+            */
+            function updatePreviewPose(poseURL) {
                 const downloadLink = generatedImageGroup.querySelector('.cnet-download-pose a');
                 const renderButton = generatedImageGroup.querySelector('.cnet-render-pose');
                 const poseTextbox = generatedImageGroup.querySelector('.cnet-pose-json textarea');
-                const modalId = editButton.id.replace('cnet-modal-open-', '');
-                const closeModalButton = generatedImageGroup.querySelector('.cnet-modal .cnet-modal-close');
 
-                if (message.modalId !== modalId) return;
-                /* 
-                * Writes the pose data URL to an link element on input image group.
-                * Click a hidden button to trigger a backend rendering of the pose JSON.
-                * 
-                * The backend should:
-                * - Set the rendered pose image as preprocessor generated image.
-                */
-                downloadLink.href = message.poseURL;
-                poseTextbox.value = message.poseURL;
+                downloadLink.href = poseURL;
+                poseTextbox.value = poseURL;
                 updateInput(poseTextbox);
                 renderButton.click();
+            }
+            
+            // Updates preview image when edit is done.
+            window.addEventListener('message', (event) => {
+                const message = event.data;
+                const modalId = editButton.id.replace('cnet-modal-open-', '');
+                if (message.modalId !== modalId) return;
+                updatePreviewPose(message.poseURL);                
+
+                const closeModalButton = generatedImageGroup.querySelector('.cnet-modal .cnet-modal-close');
                 closeModalButton.click();
+            });
+
+            const inputImageGroup = imageRow.querySelector('.cnet-input-image-group');
+            const uploadButton = inputImageGroup.querySelector('.cnet-upload-pose input');
+            // Updates preview image when JSON file is uploaded.
+            uploadButton.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file)
+                    return;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const contents = e.target.result;
+                    const poseURL = `data:application/json;base64,${btoa(contents)}`;
+                    updatePreviewPose(poseURL);
+                };
+                reader.readAsText(file);
             });
         });
     }
