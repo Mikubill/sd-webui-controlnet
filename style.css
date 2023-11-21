@@ -71,7 +71,8 @@
     }
 }
 
-.cnet-generated-image-control-group {
+.cnet-generated-image-control-group,
+.cnet-upload-pose {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -147,12 +148,6 @@
 }
 
 /* JSON pose upload button styling */
-.cnet-upload-pose {
-    position: relative;
-    overflow: hidden;
-    display: inline-block;
-}
-
 .cnet-upload-pose input[type=file] {
     font-size: 100px;
     position: absolute;

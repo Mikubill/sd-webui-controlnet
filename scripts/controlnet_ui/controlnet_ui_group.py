@@ -296,6 +296,7 @@ class ControlNetUiGroup(object):
             self.preprocessor_preview = gr.Checkbox(
                 label="Allow Preview",
                 value=False,
+                elem_classes=["cnet-allow-preview"],
                 elem_id=preview_check_elem_id,
                 visible=not is_img2img,
             )

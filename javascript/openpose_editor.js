@@ -55,17 +55,16 @@
                 }
             });
         }
+        const tabs = gradioApp().querySelectorAll('.cnet-unit-tab');
+        tabs.forEach(tab => {
+            if (cnetOpenposeEditorRegisteredElements.has(tab)) return;
+            cnetOpenposeEditorRegisteredElements.add(tab);
 
-        const imageRows = gradioApp().querySelectorAll('.cnet-image-row');
-        imageRows.forEach(imageRow => {
-            if (cnetOpenposeEditorRegisteredElements.has(imageRow)) return;
-            cnetOpenposeEditorRegisteredElements.add(imageRow);
-
-            const generatedImageGroup = imageRow.querySelector('.cnet-generated-image-group');
+            const generatedImageGroup = tab.querySelector('.cnet-generated-image-group');
             const editButton = generatedImageGroup.querySelector('.cnet-edit-pose');
 
             editButton.addEventListener('click', async () => {
-                const inputImageGroup = imageRow.querySelector('.cnet-input-image-group');
+                const inputImageGroup = tab.querySelector('.cnet-input-image-group');
                 const inputImage = inputImageGroup.querySelector('.cnet-image img');
                 const downloadLink = generatedImageGroup.querySelector('.cnet-download-pose a');
                 const modalId = editButton.id.replace('cnet-modal-open-', '');
@@ -74,7 +73,7 @@
                 await navigateIframe(modalIframe);
                 modalIframe.contentWindow.postMessage({
                     modalId,
-                    imageURL: inputImage.src,
+                    imageURL: inputImage ? inputImage.src : undefined,
                     poseURL: downloadLink.href,
                 }, '*');
                 // Focus the iframe so that the focus is no longer on the `Edit` button.
@@ -93,25 +92,29 @@
                 const downloadLink = generatedImageGroup.querySelector('.cnet-download-pose a');
                 const renderButton = generatedImageGroup.querySelector('.cnet-render-pose');
                 const poseTextbox = generatedImageGroup.querySelector('.cnet-pose-json textarea');
+                const allowPreviewCheckbox = tab.querySelector('.cnet-allow-preview input');
+
+                if (!allowPreviewCheckbox.checked)
+                    allowPreviewCheckbox.click();
 
                 downloadLink.href = poseURL;
                 poseTextbox.value = poseURL;
                 updateInput(poseTextbox);
                 renderButton.click();
             }
-            
+
             // Updates preview image when edit is done.
             window.addEventListener('message', (event) => {
                 const message = event.data;
                 const modalId = editButton.id.replace('cnet-modal-open-', '');
                 if (message.modalId !== modalId) return;
-                updatePreviewPose(message.poseURL);                
+                updatePreviewPose(message.poseURL);
 
                 const closeModalButton = generatedImageGroup.querySelector('.cnet-modal .cnet-modal-close');
                 closeModalButton.click();
             });
 
-            const inputImageGroup = imageRow.querySelector('.cnet-input-image-group');
+            const inputImageGroup = tab.querySelector('.cnet-input-image-group');
             const uploadButton = inputImageGroup.querySelector('.cnet-upload-pose input');
             // Updates preview image when JSON file is uploaded.
             uploadButton.addEventListener('change', (event) => {
@@ -131,12 +134,12 @@
     }
 
     function loadPlaceHolder() {
-        const imageRows = gradioApp().querySelectorAll('.cnet-image-row');
-        imageRows.forEach(imageRow => {
-            if (cnetOpenposeEditorRegisteredElements.has(imageRow)) return;
-            cnetOpenposeEditorRegisteredElements.add(imageRow);
+        const tabs = gradioApp().querySelectorAll('.cnet-image-row');
+        tabs.forEach(tab => {
+            if (cnetOpenposeEditorRegisteredElements.has(tab)) return;
+            cnetOpenposeEditorRegisteredElements.add(tab);
 
-            const generatedImageGroup = imageRow.querySelector('.cnet-generated-image-group');
+            const generatedImageGroup = tab.querySelector('.cnet-generated-image-group');
             const editButton = generatedImageGroup.querySelector('.cnet-edit-pose');
             const modalContent = generatedImageGroup.querySelector('.cnet-modal-content');
 

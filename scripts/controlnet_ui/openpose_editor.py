@@ -79,7 +79,7 @@ class OpenposeEditor(object):
         model: gr.Dropdown,
     ):
         def render_pose(pose_url: str) -> Tuple[Dict, Dict]:
-            json_string = parse_data_url(pose_url)
+            json_string = parse_data_url(pose_url).decode('utf-8')
             poses, height, weight = decode_json_as_poses(json_string)
             logger.info("Preview as input is enabled.")
             return (
@@ -97,12 +97,14 @@ class OpenposeEditor(object):
                 ),
                 # Use preview as input.
                 gr.update(value=True),
+                # Self content.
+                *self.update(json_string),
             )
 
         self.render_button.click(
             fn=render_pose,
             inputs=[self.pose_input],
-            outputs=[generated_image, use_preview_as_input],
+            outputs=[generated_image, use_preview_as_input, *self.outputs()],
         )
 
         def update_upload_link(model: str) -> Dict:
