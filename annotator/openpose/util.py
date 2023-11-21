@@ -409,3 +409,16 @@ def npmax(array):
     i = arrayvalue.argmax()
     j = arrayindex[i]
     return i, j
+    
+def guess_onnx_input_shape_dtype(filename):
+    dtype = np.float32
+    if "fp16" in filename:
+        dtype = np.float16
+    elif "int8" in filename:
+        dtype = np.uint8
+    input_size = (640, 640) if "yolo" in filename else (192, 256)
+    if "384" in filename:
+        input_size = (288, 384)
+    elif "256" in filename:
+        input_size = (256, 256)
+    return input_size, dtype
