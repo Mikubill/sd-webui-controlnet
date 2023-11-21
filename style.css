@@ -71,7 +71,8 @@
     }
 }
 
-.cnet-generated-image-control-group {
+.cnet-generated-image-control-group,
+.cnet-upload-pose {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -84,7 +85,8 @@
 /* Gradio button style */
 .cnet-download-pose a,
 .cnet-close-preview,
-.cnet-edit-pose {
+.cnet-edit-pose,
+.cnet-upload-pose {
     font-size: x-small !important;
     font-weight: bold !important;
     padding: 2px !important;
@@ -101,7 +103,8 @@
 
 .cnet-download-pose:hover a,
 .cnet-close-preview:hover a,
-.cnet-edit-pose:hover {
+.cnet-edit-pose:hover,
+.cnet-upload-pose:hover {
     color: var(--block-label-text-color) !important;
 }
 
@@ -140,6 +143,15 @@
     opacity: 50%;
 }
 
-.controlnet_row{
+.controlnet_row {
     margin-top: 10px !important;
+}
+
+/* JSON pose upload button styling */
+.cnet-upload-pose input[type=file] {
+    font-size: 100px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
 }
