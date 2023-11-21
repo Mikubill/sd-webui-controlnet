@@ -356,7 +356,7 @@ def decode(simcc_x: np.ndarray, simcc_y: np.ndarray,
     return keypoints, scores
 
 
-def inference_pose(session, out_bbox, oriImg, model_input_size=(288, 384), dtype=np.float32)):
+def inference_pose(session, out_bbox, oriImg, model_input_size=(288, 384), dtype=np.float32):
     resized_img, center, scale = preprocess(oriImg, out_bbox, model_input_size)
     outputs = inference(session, resized_img, dtype)
     keypoints, scores = postprocess(outputs, model_input_size, center, scale)
