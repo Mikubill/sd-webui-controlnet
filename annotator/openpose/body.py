@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import math
 import time
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
 import matplotlib
 import torch
@@ -16,9 +16,6 @@ from .types import Keypoint, BodyResult
 class Body(object):
     def __init__(self, model_path):
         self.model = bodypose_model()
-        # if torch.cuda.is_available():
-        #     self.model = self.model.cuda()
-            # print('cuda')
         model_dict = util.transfer(self.model, torch.load(model_path))
         self.model.load_state_dict(model_dict)
         self.model.eval()
