@@ -1,4 +1,74 @@
 (function () {
+  /*
+  MIT LICENSE
+  Copyright 2011 Jon Leighton
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute, 
+  sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all copies or substantial
+  portions of the Software. 
+  
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+  PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  */
+  // From: https://gist.github.com/jonleighton/958841
+  function base64ArrayBuffer(arrayBuffer) {
+    var base64 = ''
+    var encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+    var bytes = new Uint8Array(arrayBuffer)
+    var byteLength = bytes.byteLength
+    var byteRemainder = byteLength % 3
+    var mainLength = byteLength - byteRemainder
+
+    var a, b, c, d
+    var chunk
+
+    // Main loop deals with bytes in chunks of 3
+    for (var i = 0; i < mainLength; i = i + 3) {
+      // Combine the three bytes into a single integer
+      chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]
+
+      // Use bitmasks to extract 6-bit segments from the triplet
+      a = (chunk & 16515072) >> 18 // 16515072 = (2^6 - 1) << 18
+      b = (chunk & 258048) >> 12 // 258048   = (2^6 - 1) << 12
+      c = (chunk & 4032) >> 6 // 4032     = (2^6 - 1) << 6
+      d = chunk & 63               // 63       = 2^6 - 1
+
+      // Convert the raw binary segments to the appropriate ASCII encoding
+      base64 += encodings[a] + encodings[b] + encodings[c] + encodings[d]
+    }
+
+    // Deal with the remaining bytes and padding
+    if (byteRemainder == 1) {
+      chunk = bytes[mainLength]
+
+      a = (chunk & 252) >> 2 // 252 = (2^6 - 1) << 2
+
+      // Set the 4 least significant bits to zero
+      b = (chunk & 3) << 4 // 3   = 2^2 - 1
+
+      base64 += encodings[a] + encodings[b] + '=='
+    } else if (byteRemainder == 2) {
+      chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1]
+
+      a = (chunk & 64512) >> 10 // 64512 = (2^6 - 1) << 10
+      b = (chunk & 1008) >> 4 // 1008  = (2^6 - 1) << 4
+
+      // Set the 2 least significant bits to zero
+      c = (chunk & 15) << 2 // 15    = 2^4 - 1
+
+      base64 += encodings[a] + encodings[b] + encodings[c] + '='
+    }
+
+    return base64
+  }
+
   const MESSAGE_END_ACK = "done";
   const MESSAGE_ERROR = "error";
 
@@ -55,7 +125,7 @@
   // Start of photopea functions
   function pasteImage(base64image) {
     app.open(base64image, null, /* asSmart */ true);
-    app.echoToOE('success');
+    app.echoToOE("success");
   }
 
   function setLayerNames(names) {
@@ -69,6 +139,86 @@
     for (let i = 0; i < names.length; i++) {
       const layer = layers[i];
       layer.name = names[i];
+    }
+    app.echoToOE("success");
+  }
+
+  function removeLayersWithNames(names) {
+    const layers = app.activeDocument.layers;
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (names.includes(layer.name)) {
+        layer.remove();
+      }
+    }
+    app.echoToOE("success");
+  }
+
+  function getAllLayerNames() {
+    const layers = app.activeDocument.layers;
+    const names = [];
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      names.push(layer.name);
+    }
+    app.echoToOE(JSON.stringify(names));
+  }
+
+  // Hides all layers except the current one, outputs the whole image, then restores the previous
+  // layers state.
+  function exportSelectedLayerOnly(format, layerName) {
+    // Gets all layers recursively, including the ones inside folders.
+    function getAllArtLayers(document) {
+      let allArtLayers = [];
+
+      for (let i = 0; i < document.layers.length; i++) {
+        const currentLayer = document.layers[i];
+        allArtLayers.push(currentLayer);
+        if (currentLayer.typename === "LayerSet") {
+          allArtLayers = allArtLayers.concat(getAllArtLayers(currentLayer));
+        }
+      }
+      return allArtLayers;
+    }
+
+    function makeLayerVisible(layer) {
+      let currentLayer = layer;
+      while (currentLayer != app.activeDocument) {
+        currentLayer.visible = true;
+        if (currentLayer.parent.typename != 'Document') {
+          currentLayer = currentLayer.parent;
+        } else {
+          break;
+        }
+      }
+    }
+
+
+    const allLayers = getAllArtLayers(app.activeDocument);
+    // Make all layers except the currently selected one invisible, and store
+    // their initial state.
+    const layerStates = [];
+    for (let i = 0; i < allLayers.length; i++) {
+      const layer = allLayers[i];
+      layerStates.push(layer.visible);
+    }
+    // Hide all layers to begin with
+    for (let i = 0; i < allLayers.length; i++) {
+      const layer = allLayers[i];
+      layer.visible = false;
+    }
+    for (let i = 0; i < allLayers.length; i++) {
+      const layer = allLayers[i];
+      const selected = layer.name === layerName;
+      if (selected) {
+        makeLayerVisible(layer);
+      }
+    }
+    app.activeDocument.saveToOE(format);
+
+    for (let i = 0; i < allLayers.length; i++) {
+      const layer = allLayers[i];
+      layer.visible = layerStates[i];
     }
   }
   // End of photopea functions
@@ -89,14 +239,34 @@
       await new Promise(r => setTimeout(r, 200));
       layerNames.push(`unit-${i}`);
     }
+    await invoke(photopeaWindow, removeLayersWithNames, layerNames);
     await invoke(photopeaWindow, setLayerNames, layerNames.reverse());
   }
 
   /**
    * Send the images in the active photopea document back to each ControlNet units.
    */
-  async function sendToControlNet() {
+  async function sendToControlNet(tabs, photopeaWindow) {
+    function sendToControlNetUnit(imageURL, index) {
+      const tab = tabs[index];
+      const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
+      generatedImage.src = imageURL;
+      const checkbox = tab.querySelector('.cnet-preview-as-input input[type="checkbox"]');
+      if (!checkbox.checked) {
+        checkbox.click();
+      }
+    }
 
+    const layerNames =
+      JSON.parse(await invoke(photopeaWindow, getAllLayerNames))
+        .filter(name => /unit-\d+/.test(name));
+
+    for (const layerName of layerNames) {
+      const arrayBuffer = await invoke(photopeaWindow, exportSelectedLayerOnly, 'PNG', layerName);
+      const imageURL = 'data:image/png;base64,' + base64ArrayBuffer(arrayBuffer);
+      const layerIndex = Number.parseInt(layerName.split('-')[1]);
+      sendToControlNetUnit(imageURL, layerIndex);
+    }
   }
 
   const cnetRegisteredAccordions = new Set();
@@ -122,7 +292,7 @@
 
       const photopeaWindow = accordion.querySelector('.photopea-iframe').contentWindow;
       accordion.querySelector('.photopea-fetch').addEventListener('click', () => fetchFromControlNet(tabs, photopeaWindow));
-      accordion.querySelector('.photopea-send').addEventListener('click', sendToControlNet);
+      accordion.querySelector('.photopea-send').addEventListener('click', () => sendToControlNet(tabs, photopeaWindow));
     }
 
     const accordions = gradioApp().querySelectorAll('#controlnet');
