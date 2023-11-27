@@ -57,6 +57,20 @@
     app.open(base64image, null, /* asSmart */ true);
     app.echoToOE('success');
   }
+
+  function setLayerNames(names) {
+    const layers = app.activeDocument.layers;
+    if (layers.length !== names.length) {
+      console.error("layer length does not match names length");
+      echoToOE("error");
+      return;
+    }
+
+    for (let i = 0; i < names.length; i++) {
+      const layer = layers[i];
+      layer.name = names[i];
+    }
+  }
   // End of photopea functions
 
   /**
@@ -65,14 +79,17 @@
    * Add those detected maps to the created document.
    */
   async function fetchFromControlNet(tabs, photopeaWindow) {
-    for (const tab of tabs) {
+    const layerNames = [];
+    for (const [i, tab] of tabs.entries()) {
       const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
       if (!generatedImage) continue;
       await invoke(photopeaWindow, pasteImage, generatedImage.src);
       // Wait 200ms for pasting to fully complete so that we do not ended up with 2 separate
       // documents.
       await new Promise(r => setTimeout(r, 200));
+      layerNames.push(`unit-${i}`);
     }
+    await invoke(photopeaWindow, setLayerNames, layerNames.reverse());
   }
 
   /**
