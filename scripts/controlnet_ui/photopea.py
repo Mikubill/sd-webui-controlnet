@@ -20,12 +20,12 @@ class Photopea(object):
             open_button_text="Edit",
             open_button_classes=["cnet-photopea-main-trigger"],
             open_button_extra_attrs="hidden",
-        ).create_modal(visible=False)
+        ).create_modal(visible=True)
 
     def render_child_trigger(self):
         self.triggers.append(
             gr.HTML(
-                f"""<div class="cnet-photopea-child-trigger">
+            f"""<div class="cnet-photopea-child-trigger">
                 Edit
                 <img src="{PHOTOPEA_LOGO}" style="width: 0.75rem; height 0.75rem; margin-left: 2px;"/>
             </div>"""
