@@ -86,7 +86,8 @@
 .cnet-download-pose a,
 .cnet-close-preview,
 .cnet-edit-pose,
-.cnet-upload-pose {
+.cnet-upload-pose,
+.cnet-photopea-child-trigger {
     font-size: x-small !important;
     font-weight: bold !important;
     padding: 2px !important;
@@ -104,7 +105,8 @@
 .cnet-download-pose:hover a,
 .cnet-close-preview:hover a,
 .cnet-edit-pose:hover,
-.cnet-upload-pose:hover {
+.cnet-upload-pose:hover,
+.cnet-photopea-child-trigger:hover {
     color: var(--block-label-text-color) !important;
 }
 

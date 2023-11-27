@@ -9,7 +9,6 @@ from scripts.utils import svg_preprocess
 from scripts import (
     global_state,
     external_code,
-    processor,
     batch_hijack,
 )
 from scripts.processor import (
@@ -24,6 +23,7 @@ from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.tool_button import ToolButton
+from scripts.controlnet_ui.photopea import Photopea
 from modules import shared
 from modules.ui_components import FormRow
 
@@ -102,9 +102,11 @@ class ControlNetUiGroup(object):
         self,
         default_unit: external_code.ControlNetUnit,
         preprocessors: List[Callable],
+        photopea: Photopea,
     ):
         self.default_unit = default_unit
         self.preprocessors = preprocessors
+        self.photopea = photopea
         self.webcam_enabled = False
         self.webcam_mirrored = False
 
@@ -209,6 +211,7 @@ class ControlNetUiGroup(object):
                             with gr.Group(
                                 elem_classes=["cnet-generated-image-control-group"]
                             ):
+                                self.photopea.render_child_trigger()
                                 self.openpose_editor.render_edit()
                                 preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
                                 preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
