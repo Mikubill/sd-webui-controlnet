@@ -356,7 +356,6 @@ class OpenposeDetector:
         Returns:
             pose_img, openpose_dict(Optional[np.ndarray]): A list of PoseResult objects containing the detected poses.
         """
-        from .animalpose import AnimalPose # Animalpose
         
         self.load_animalpose_model()
 
