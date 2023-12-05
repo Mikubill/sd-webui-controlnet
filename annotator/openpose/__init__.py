@@ -30,6 +30,7 @@ face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/fac
 remote_onnx_det = "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
 remote_onnx_pose = "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
 
+animal_onnx_pose = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/resolve/main/Annotators/rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.onnx"
 
 def draw_poses(poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True):
     """
@@ -163,6 +164,7 @@ class OpenposeDetector:
         self.face_estimation = None
 
         self.dw_pose_estimation = None
+        self.animal_pose_estimation = None
 
     def load_model(self):
         """
@@ -201,6 +203,27 @@ class OpenposeDetector:
         onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
         onnx_pose  = load_model("dw-ll_ucoco_384.onnx", remote_onnx_pose)
         self.dw_pose_estimation = Wholebody(onnx_det, onnx_pose)
+        
+    def load_animalpose_model(self):
+        from .animalpose import AnimalPose # Animalpose
+
+        def load_model(filename: str, remote_url: str):
+            """
+            Load the model from the specified filename and remote URL if it doesn't exist locally.
+
+            Args:
+                filename (str): The filename of the model.
+                remote_url (str): The remote URL of the model.
+            """
+            local_path = os.path.join(self.model_dir, filename)
+            if not os.path.exists(local_path):
+                from basicsr.utils.download_util import load_file_from_url
+                load_file_from_url(remote_url, model_dir=self.model_dir)
+            return local_path
+
+        onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
+        onnx_pose  = load_model("rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.onnx", animal_onnx)
+        self.animal_pose_estimation = AnimalPose(onnx_det, onnx_pose)
 
     def unload_model(self):
         """
@@ -321,10 +344,29 @@ class OpenposeDetector:
         with torch.no_grad():
             keypoints_info = self.dw_pose_estimation(oriImg.copy())
             return Wholebody.format_result(keypoints_info)
+        
+    def detect_poses_animal(self, oriImg) -> Optional[np.ndarray]:
+        """
+        Detect poses in the given image using RTMPose AP10k model:
+        https://github.com/abehonest/ControlNet_AnimalPose
+
+        Args:
+            oriImg (numpy.ndarray): The input image for pose detection.
+
+        Returns:
+            pose_img, openpose_dict(Optional[np.ndarray]): A list of PoseResult objects containing the detected poses.
+        """
+        from .animalpose import AnimalPose # Animalpose
+        
+        self.load_animalpose_model()
+
+        with torch.no_grad():
+            pose_img, json_pose = self.animal_pose_estimation(oriImg.copy())
+            return pose_img, json_pose
 
     def __call__(
             self, oriImg, include_body=True, include_hand=False, include_face=False, 
-            use_dw_pose=False, json_pose_callback: Callable[[str], None] = None,
+            use_dw_pose=False,use_animal_pose=False, json_pose_callback: Callable[[str], None] = None,
         ):
         """
         Detect and draw poses in the given image.
@@ -344,6 +386,11 @@ class OpenposeDetector:
 
         if use_dw_pose:
             poses = self.detect_poses_dw(oriImg)
+        elif use_animal_pose:
+            pose_img, json_pose = self.detect_poses_animal(oriImg)
+            if json_pose_callback:
+                json_pose_callback(json_pose)
+            return pose_img
         else:
             poses = self.detect_poses(oriImg, include_hand, include_face)
 
