@@ -229,6 +229,7 @@ class Script(scripts.Script, metaclass=(
         self.detected_map = []
         self.post_processors = []
         self.noise_modifier = None
+        self.ui_batch_option_state = [external_code.BatchOption.DEFAULT.value, False]
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -258,6 +259,45 @@ class Script(scripts.Script, metaclass=(
         group.register_callbacks(is_img2img)
         return group, group.render_and_register_unit(tabname, is_img2img)
 
+    def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
+        batch_option = gr.Radio(
+            choices=[e.value for e in external_code.BatchOption],
+            value=external_code.BatchOption.DEFAULT.value,
+            label="Batch Option",
+            elem_id=f"{elem_id_tabname}_controlnet_batch_option_radio",
+            elem_classes="controlnet_batch_option_radio",
+        )
+        use_batch_style_align = gr.Checkbox(
+            label='[StyleAlign] Align image style in the batch.'
+        )
+
+        unit_args = [batch_option, use_batch_style_align]
+
+        def update_ui_batch_options(*args):
+            self.ui_batch_option_state = args
+            return
+
+        for comp in unit_args:
+            event_subscribers = []
+            if hasattr(comp, "edit"):
+                event_subscribers.append(comp.edit)
+            elif hasattr(comp, "click"):
+                event_subscribers.append(comp.click)
+            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
+                event_subscribers.append(comp.release)
+            elif hasattr(comp, "change"):
+                event_subscribers.append(comp.change)
+
+            if hasattr(comp, "clear"):
+                event_subscribers.append(comp.clear)
+
+            for event_subscriber in event_subscribers:
+                event_subscriber(
+                    fn=update_ui_batch_options, inputs=unit_args
+                )
+
+        return
+
     def ui(self, is_img2img):
         """this function should create gradio UI elements. See https://gradio.app/docs/#components
         The return value should be an array of all components that are used in processing.
@@ -283,6 +323,8 @@ class Script(scripts.Script, metaclass=(
                         group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname)
                         infotext.register_unit(0, group)
                         controls += (state,)
+                with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
+                    self.ui_batch_options(is_img2img, elem_id_tabname)
 
         if shared.opts.data.get("control_net_sync_field_args", True):
             self.infotext_fields = infotext.infotext_fields
@@ -669,6 +711,11 @@ class Script(scripts.Script, metaclass=(
            self.latest_network = None
            return
 
+        batch_option_uint_separate = self.ui_batch_option_state[0] == external_code.BatchOption.SEPARATE.value
+        batch_option_style_align = self.ui_batch_option_state[1]
+
+        logger.info(f"unit_separate = {batch_option_uint_separate}, style_align = {batch_option_style_align}")
+
         detected_maps = []
         forward_params = []
         post_processors = []
@@ -953,7 +1000,9 @@ class Script(scripts.Script, metaclass=(
         is_low_vram = any(unit.low_vram for unit in self.enabled_units)
 
         self.latest_network = UnetHook(lowvram=is_low_vram)
-        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,
+                                 batch_option_uint_separate=batch_option_uint_separate,
+                                 batch_option_style_align=batch_option_style_align)
 
         for param in forward_params:
             if param.control_model_type == ControlModelType.IPAdapter:
