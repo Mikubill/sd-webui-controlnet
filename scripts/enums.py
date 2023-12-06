@@ -54,3 +54,4 @@ class AutoMachine(Enum):
 
     Read = "Read"
     Write = "Write"
+    StyleAlign = "StyleAlign"

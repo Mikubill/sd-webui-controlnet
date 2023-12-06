@@ -25,6 +25,11 @@ class ControlMode(Enum):
     CONTROL = "ControlNet is more important"
 
 
+class BatchOption(Enum):
+    DEFAULT = "All ControlNet unit for all images in a batch"
+    SEPARATE = "Each ControlNet unit for each image in a batch"
+
+
 class ResizeMode(Enum):
     """
     Resize modes for ControlNet input images.
