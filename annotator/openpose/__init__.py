@@ -222,7 +222,7 @@ class OpenposeDetector:
             return local_path
 
         onnx_det = load_model("yolox_l.onnx", remote_onnx_det)
-        onnx_pose  = load_model("rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.onnx", animal_onnx)
+        onnx_pose  = load_model("rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.onnx", animal_onnx_pose)
         self.animal_pose_estimation = AnimalPose(onnx_det, onnx_pose)
 
     def unload_model(self):
