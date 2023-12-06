@@ -26,7 +26,7 @@ class ControlMode(Enum):
 
 
 class BatchOption(Enum):
-    DEFAULT = "All ControlNet unit for all images in a batch"
+    DEFAULT = "All ControlNet units for all images in a batch"
     SEPARATE = "Each ControlNet unit for each image in a batch"
 
 
