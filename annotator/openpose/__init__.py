@@ -382,14 +382,14 @@ class OpenposeDetector:
             numpy.ndarray: The image with detected and drawn poses.
         """
         H, W, _ = oriImg.shape
-
-        if use_dw_pose:
-            poses = self.detect_poses_dw(oriImg)
-        elif use_animal_pose:
+        if use_animal_pose:
             pose_img, json_pose = self.detect_poses_animal(oriImg)
             if json_pose_callback:
                 json_pose_callback(json_pose)
             return pose_img
+        
+        if use_dw_pose:
+            poses = self.detect_poses_dw(oriImg)
         else:
             poses = self.detect_poses(oriImg, include_hand, include_face)
 

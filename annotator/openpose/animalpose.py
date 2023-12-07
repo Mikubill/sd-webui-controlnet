@@ -269,7 +269,14 @@ class AnimalPose:
 
         openpose_dict = {
             "version": "ap10k",
-            "animals": [keypoints.tolist() for keypoints in animal_kps_scores],
+            "animals": [
+                [
+                    v
+                    for x, y, c in keypoints.tolist()
+                    for v in (x, y, c)
+                ]
+                for keypoints in animal_kps_scores
+            ],
             "canvas_height": oriImg.shape[0],
             "canvas_width": oriImg.shape[1],
         }
