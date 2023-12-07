@@ -707,12 +707,12 @@ class Script(scripts.Script, metaclass=(
         if not batch_hijack.instance.is_batch:
             self.enabled_units = Script.get_enabled_units(p)
 
-        if len(self.enabled_units) == 0:
-           self.latest_network = None
-           return
-
         batch_option_uint_separate = self.ui_batch_option_state[0] == external_code.BatchOption.SEPARATE.value
         batch_option_style_align = self.ui_batch_option_state[1]
+
+        if len(self.enabled_units) == 0 and not batch_option_style_align:
+           self.latest_network = None
+           return
 
         logger.info(f"unit_separate = {batch_option_uint_separate}, style_align = {batch_option_style_align}")
 
