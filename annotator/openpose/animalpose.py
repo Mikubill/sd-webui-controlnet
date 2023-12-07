@@ -4,7 +4,7 @@ import numpy as np
 from .cv_ox_det import inference_detector
 from .cv_ox_pose import inference_pose
 
-from typing import List, Optional
+from typing import Optional
 
 
 def drawBetweenKeypoints(pose_img, keypoints, indexes, color, scaleFactor):
@@ -32,115 +32,6 @@ def drawBetweenKeypointsList(
         drawBetweenKeypoints(
             pose_img, keypoints, keypointPair, colorsList[ind], scaleFactor
         )
-
-
-def drawBetweenSetofKeypointLists(
-    pose_img, keypoints_set, keypointPairsList, colorsList, scaleFactor
-):
-    for keypoints in keypoints_set:
-        drawBetweenKeypointsList(
-            pose_img, keypoints, keypointPairsList, colorsList, scaleFactor
-        )
-
-
-def padImg(img, size, blackBorder=True):
-    left, right, top, bottom = 0, 0, 0, 0
-
-    # pad x
-    if img.shape[1] < size[1]:
-        sidePadding = int((size[1] - img.shape[1]) // 2)
-        left = sidePadding
-        right = sidePadding
-
-        # pad extra on right if padding needed is an odd number
-        if img.shape[1] % 2 == 1:
-            right += 1
-
-    # pad y
-    if img.shape[0] < size[0]:
-        topBottomPadding = int((size[0] - img.shape[0]) // 2)
-        top = topBottomPadding
-        bottom = topBottomPadding
-
-        # pad extra on bottom if padding needed is an odd number
-        if img.shape[0] % 2 == 1:
-            bottom += 1
-
-    if blackBorder:
-        paddedImg = cv2.copyMakeBorder(
-            src=img,
-            top=top,
-            bottom=bottom,
-            left=left,
-            right=right,
-            borderType=cv2.BORDER_CONSTANT,
-            value=(0, 0, 0),
-        )
-    else:
-        paddedImg = cv2.copyMakeBorder(
-            src=img,
-            top=top,
-            bottom=bottom,
-            left=left,
-            right=right,
-            borderType=cv2.BORDER_REPLICATE,
-        )
-
-    return paddedImg
-
-
-def smartCrop(img, size, center):
-    width = img.shape[1]
-    height = img.shape[0]
-    xSize = size[1]
-    ySize = size[0]
-    xCenter = center[0]
-    yCenter = center[1]
-
-    if img.shape[0] > size[0] or img.shape[1] > size[1]:
-        leftMargin = xCenter - xSize // 2
-        rightMargin = xCenter + xSize // 2
-        upMargin = yCenter - ySize // 2
-        downMargin = yCenter + ySize // 2
-
-        if leftMargin < 0:
-            xCenter += -leftMargin
-        if rightMargin > width:
-            xCenter -= rightMargin - width
-
-        if upMargin < 0:
-            yCenter -= -upMargin
-        if downMargin > height:
-            yCenter -= downMargin - height
-
-        img = cv2.getRectSubPix(img, size, (xCenter, yCenter))
-
-    return img
-
-
-def calculateScaleFactor(img, size, poseSpanX, poseSpanY):
-    poseSpanX = max(poseSpanX, size[0])
-
-    scaleFactorX = 1
-
-    if poseSpanX > size[0]:
-        scaleFactorX = size[0] / poseSpanX
-
-    scaleFactorY = 1
-    if poseSpanY > size[1]:
-        scaleFactorY = size[1] / poseSpanY
-
-    scaleFactor = min(scaleFactorX, scaleFactorY)
-
-    return scaleFactor
-
-
-def scaleImg(img, size, poseSpanX, poseSpanY, scaleFactor):
-    scaledImg = img
-
-    scaledImg = cv2.resize(img, (0, 0), fx=scaleFactor, fy=scaleFactor)
-
-    return scaledImg, scaleFactor
 
 
 class AnimalPose:
