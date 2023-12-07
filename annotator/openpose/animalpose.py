@@ -158,9 +158,9 @@ class AnimalPose:
         providers = ["CPUExecutionProvider"]
 
         import onnxruntime as ort
-        
+
         self.session_det = ort.InferenceSession(onnx_det, providers=providers)
-        
+
         self.session_pose = ort.InferenceSession(onnx_pose, providers=providers)
 
     def __call__(self, oriImg) -> Optional[np.ndarray]:
@@ -270,11 +270,7 @@ class AnimalPose:
         openpose_dict = {
             "version": "ap10k",
             "animals": [
-                [
-                    v
-                    for x, y, c in keypoints.tolist()
-                    for v in (x, y, c)
-                ]
+                [v for x, y, c in keypoints.tolist() for v in (x, y, c)]
                 for keypoints in animal_kps_scores
             ],
             "canvas_height": oriImg.shape[0],
