@@ -97,7 +97,12 @@
                 if (!allowPreviewCheckbox.checked)
                     allowPreviewCheckbox.click();
 
-                downloadLink.href = poseURL;
+                // Only set href when download link exists and needs an update. `downloadLink`
+                // can be null when user closes preview and click `Upload JSON` button again.
+                // https://github.com/Mikubill/sd-webui-controlnet/issues/2308
+                if (downloadLink !== null)
+                    downloadLink.href = poseURL;
+
                 poseTextbox.value = poseURL;
                 updateInput(poseTextbox);
                 renderButton.click();
@@ -129,6 +134,8 @@
                     updatePreviewPose(poseURL);
                 };
                 reader.readAsText(file);
+                // Reset the file input value so that uploading the same file still triggers callback.
+                event.target.value = '';
             });
         });
     }
