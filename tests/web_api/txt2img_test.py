@@ -242,6 +242,12 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
 
     def test_reference(self):
         self.run_test_unit("reference_only", "None", StableDiffusionVersion.SD1x)
+        
+    def test_unrecognized_param(self):
+        unit = self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"][0]
+        unit["foo"] = True
+        unit["is_ui"] = False
+        self.assert_status_ok()
 
 
 if __name__ == "__main__":

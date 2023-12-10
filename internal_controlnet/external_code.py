@@ -309,7 +309,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
         if 'guess_mode' in unit:
             logger.warning('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
 
-        unit = ControlNetUnit(**unit)
+        unit = ControlNetUnit(**{k: v for k, v in unit.items() if k in vars(ControlNetUnit).keys()})
 
     # temporary, check #602
     # assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
