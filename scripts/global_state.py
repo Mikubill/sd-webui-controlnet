@@ -162,7 +162,7 @@ preprocessor_aliases = {
     "inpaint": "inpaint_global_harmonious",
     "anime_face_segment": "seg_anime_face",
     "densepose": "densepose (pruple bg & purple torso)",
-    "densepose_parula": "densepose (black bg & blue torso)"
+    "densepose_parula": "densepose_parula (black bg & blue torso)"
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
