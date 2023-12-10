@@ -138,8 +138,8 @@ cn_preprocessor_unloadable = {
     "lineart_anime_denoise": unload_lineart_anime_denoise,
     "inpaint_only+lama": unload_lama_inpaint,
     "anime_face_segment": unload_anime_face_segment,
-    "densepose": densepose,
-    "densepose_parula": densepose_parula
+    "densepose": unload_densepose_model,
+    "densepose_parula": unload_densepose_model
 }
 
 preprocessor_aliases = {

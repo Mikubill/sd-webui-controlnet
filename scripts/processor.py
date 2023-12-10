@@ -643,7 +643,7 @@ def unload_anime_face_segment():
 model_densepose = None
 
 
-def densepose(img, res=512):
+def densepose(img, res=512, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     global model_densepose
     if model_hed is None:
@@ -652,7 +652,7 @@ def densepose(img, res=512):
     result = model_densepose(img)
     return remove_pad(result), True
 
-def densepose_parula(img, res=512):
+def densepose_parula(img, res=512, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     global model_densepose
     if model_hed is None:
@@ -660,6 +660,11 @@ def densepose_parula(img, res=512):
         model_densepose = apply_densepose
     result = model_densepose(img, cmap="parula")
     return remove_pad(result), True
+
+def unload_densepose_model():
+    global model_densepose
+    if model_densepose is not None:
+        model_densepose.unload_model()
 
 
 model_free_preprocessors = [
@@ -1083,5 +1088,6 @@ preprocessor_filters_aliases = {
     't2i-adapter': ['t2i_adapter', 't2iadapter', 't2ia'],
     'ip-adapter': ['ip_adapter', 'ipadapter'],
     'scribble/sketch': ['scribble', 'sketch'],
-    'tile/blur': ['tile', 'blur']
+    'tile/blur': ['tile', 'blur'],
+    'openpose':['openpose', 'densepose'],
 }  # must use all lower texts

@@ -51,7 +51,7 @@ def apply_densepose(input_image, cmap="viridis"):
 
     return hint_image
 
-def unload_densepose_model():
+def unload_model():
     global torchscript_model
     if torchscript_model is not None:
         torchscript_model.cpu()
