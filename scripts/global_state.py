@@ -104,6 +104,8 @@ cn_preprocessor_modules = {
     "recolor_intensity": recolor_intensity,
     "blur_gaussian": blur_gaussian,
     "anime_face_segment": anime_face_segment,
+    "densepose": densepose,
+    "densepose_parula": densepose_parula
 }
 
 cn_preprocessor_unloadable = {
@@ -136,6 +138,8 @@ cn_preprocessor_unloadable = {
     "lineart_anime_denoise": unload_lineart_anime_denoise,
     "inpaint_only+lama": unload_lama_inpaint,
     "anime_face_segment": unload_anime_face_segment,
+    "densepose": densepose,
+    "densepose_parula": densepose_parula
 }
 
 preprocessor_aliases = {
@@ -157,6 +161,8 @@ preprocessor_aliases = {
     "pidinet_scribble": "scribble_pidinet",
     "inpaint": "inpaint_global_harmonious",
     "anime_face_segment": "seg_anime_face",
+    "densepose": "densepose (pruple bg & purple torso)",
+    "densepose_parula": "densepose (black bg & blue torso)"
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]

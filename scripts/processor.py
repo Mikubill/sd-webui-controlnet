@@ -640,6 +640,28 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+model_densepose = None
+
+
+def densepose(img, res=512):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img)
+    return remove_pad(result), True
+
+def densepose_parula(img, res=512):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img, cmap="parula")
+    return remove_pad(result), True
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -1014,6 +1036,22 @@ preprocessor_sliders_config = {
             "max": 2048
         }
     ],
+    "densepose": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "densepose_parula": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ]
 }
 
 preprocessor_filters = {
