@@ -22,20 +22,21 @@ class TestDetectEndpointWorking(unittest.TestCase):
         res = render([pose])
         self.assertEqual(res["info"], "Success")
         self.assertEqual(len(res["images"]), 1)
-        
+
     def test_render_multiple(self):
         res = render([pose, pose])
         self.assertEqual(res["info"], "Success")
         self.assertEqual(len(res["images"]), 2)
-        
+
     def test_render_no_pose(self):
         res = render([])
         self.assertNotEqual(res["info"], "Success")
-    
+
     def test_render_invalid_pose(self):
         res = render([{"foo": 10, "bar": 100}])
         self.assertNotIn("info", res)
         self.assertNotIn("images", res)
+
 
 if __name__ == "__main__":
     unittest.main()
