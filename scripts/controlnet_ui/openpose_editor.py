@@ -1,5 +1,6 @@
 import base64
 import gradio as gr
+import json
 from typing import List, Dict, Any, Tuple
 
 from annotator.openpose import decode_json_as_poses, draw_poses
@@ -80,7 +81,7 @@ class OpenposeEditor(object):
     ):
         def render_pose(pose_url: str) -> Tuple[Dict, Dict]:
             json_string = parse_data_url(pose_url).decode('utf-8')
-            poses, height, weight = decode_json_as_poses(json_string)
+            poses, height, weight = decode_json_as_poses(json.loads(json_string))
             logger.info("Preview as input is enabled.")
             return (
                 # Generated image.
