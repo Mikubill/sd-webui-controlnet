@@ -687,7 +687,7 @@ class Script(scripts.Script, metaclass=(
         incompatible.
         """
         # No need to check if the ControlModelType does not require model to be present.
-        if unit.model.lower() == "none":
+        if unit.model is None or unit.model.lower() == "none":
             return
 
         sd_version = global_state.get_sd_version()
