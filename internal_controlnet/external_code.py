@@ -154,8 +154,8 @@ class ControlNetUnit:
     Represents an entire ControlNet processing unit.
     """
     enabled: bool = True
-    module: Optional[str] = None
-    model: Optional[str] = None
+    module: str = "none"
+    model: str = "None"
     weight: float = 1.0
     image: Optional[InputImage] = None
     resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT
