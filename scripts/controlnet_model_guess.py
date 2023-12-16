@@ -110,9 +110,10 @@ def state_dict_prefix_replace(state_dict, replace_prefix):
 
 def build_model_by_guess(state_dict, unet, model_path):
     if "lora_controlnet" in state_dict:
+        is_sdxl = "input_blocks.11.0.in_layers.0.weight" not in state_dict
+        logger.info(f"Using ControlNet lora ({'SDXL' if is_sdxl else 'SD15'})")
         del state_dict['lora_controlnet']
-        config = copy.deepcopy(controlnet_sdxl_config)
-        logger.info('controlnet_sdxl_config (using lora)')
+        config = copy.deepcopy(controlnet_sdxl_config if is_sdxl else controlnet_default_config)
         config['global_average_pooling'] = False
         config['hint_channels'] = int(state_dict['input_hint_block.0.weight'].shape[1])
         config['use_fp16'] = devices.dtype_unet == torch.float16

@@ -223,6 +223,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
 
     def test_control_lora(self):
         self.run_test_unit("canny", "sai_xl_canny_128lora", StableDiffusionVersion.SDXL)
+        self.run_test_unit("canny", "control_lora_rank128_v11p_sd15_canny", StableDiffusionVersion.SD1x)
 
     def test_control_lllite(self):
         self.run_test_unit(
