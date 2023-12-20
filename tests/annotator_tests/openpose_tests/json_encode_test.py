@@ -13,9 +13,10 @@ class TestEncodePosesAsJson(unittest.TestCase):
         poses = []
         canvas_height = 1080
         canvas_width = 1920
-        result = encode_poses_as_json(poses, canvas_height, canvas_width)
+        result = encode_poses_as_json(poses, [], canvas_height, canvas_width)
         expected = {
             'people': [],
+            'animals': [],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
         }
@@ -25,7 +26,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
         poses = [HumanPoseResult(BodyResult(None, 0, 0), None, None, None)]
         canvas_height = 1080
         canvas_width = 1920
-        result = encode_poses_as_json(poses, canvas_height, canvas_width)
+        result = encode_poses_as_json(poses, [],canvas_height, canvas_width)
         expected = {
             'people': [
                 {
@@ -35,6 +36,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
                     'hand_right_keypoints_2d': None,
                 },
             ],
+            'animals': [],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
         }
@@ -45,7 +47,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
         poses = [HumanPoseResult(BodyResult(keypoints, 0, 0), keypoints, keypoints, keypoints)]
         canvas_height = 1080
         canvas_width = 1920
-        result = encode_poses_as_json(poses, canvas_height, canvas_width)
+        result = encode_poses_as_json(poses, [], canvas_height, canvas_width)
         expected = {
             'people': [
                 {
@@ -71,6 +73,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
                     ],
                 },
             ],
+            'animals': [],
             'canvas_height': canvas_height,
             'canvas_width': canvas_width,
         }
