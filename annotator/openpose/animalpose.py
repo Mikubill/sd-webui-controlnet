@@ -1,37 +1,74 @@
 import cv2
 import numpy as np
+from typing import List
 
 from .cv_ox_det import inference_detector
 from .cv_ox_pose import inference_pose
 
-from typing import Optional
+from .types import AnimalPoseResult, Keypoint
 
 
-def drawBetweenKeypoints(pose_img, keypoints, indexes, color, scaleFactor):
-    ind0 = indexes[0] - 1
-    ind1 = indexes[1] - 1
-
-    point1 = (keypoints[ind0][0], keypoints[ind0][1])
-    point2 = (keypoints[ind1][0], keypoints[ind1][1])
-
-    thickness = int(5 // scaleFactor)
-
-    cv2.line(
-        pose_img,
-        (int(point1[0]), int(point1[1])),
-        (int(point2[0]), int(point2[1])),
-        color,
-        thickness,
-    )
+def draw_animalposes(animals: List[List[Keypoint]], H: int, W: int) -> np.ndarray:
+    canvas = np.zeros(shape=(H, W, 3), dtype=np.uint8)
+    for animal_pose in animals:
+        canvas = draw_animalpose(canvas, animal_pose)
+    return canvas
 
 
-def drawBetweenKeypointsList(
-    pose_img, keypoints, keypointPairsList, colorsList, scaleFactor
-):
-    for ind, keypointPair in enumerate(keypointPairsList):
-        drawBetweenKeypoints(
-            pose_img, keypoints, keypointPair, colorsList[ind], scaleFactor
-        )
+def draw_animalpose(canvas: np.ndarray, keypoints: List[Keypoint]) -> np.ndarray:
+    # order of the keypoints for AP10k and a standardized list of colors for limbs
+    keypointPairsList = [
+        (1, 2),
+        (2, 3),
+        (1, 3),
+        (3, 4),
+        (4, 9),
+        (9, 10),
+        (10, 11),
+        (4, 6),
+        (6, 7),
+        (7, 8),
+        (4, 5),
+        (5, 15),
+        (15, 16),
+        (16, 17),
+        (5, 12),
+        (12, 13),
+        (13, 14),
+    ]
+    colorsList = [
+        (255, 255, 255),
+        (100, 255, 100),
+        (150, 255, 255),
+        (100, 50, 255),
+        (50, 150, 200),
+        (0, 255, 255),
+        (0, 150, 0),
+        (0, 0, 255),
+        (0, 0, 150),
+        (255, 50, 255),
+        (255, 0, 255),
+        (255, 0, 0),
+        (150, 0, 0),
+        (255, 255, 100),
+        (0, 150, 0),
+        (255, 255, 0),
+        (150, 150, 150),
+    ]  # 16 colors needed
+
+    for ind, (i, j) in enumerate(keypointPairsList):
+        p1 = keypoints[i - 1]
+        p2 = keypoints[j - 1]
+
+        if p1 is not None and p2 is not None:
+            cv2.line(
+                canvas,
+                (int(p1.x), int(p1.y)),
+                (int(p2.x), int(p2.y)),
+                colorsList[ind],
+                5,
+            )
+    return canvas
 
 
 class AnimalPose:
@@ -54,7 +91,7 @@ class AnimalPose:
 
         self.session_pose = ort.InferenceSession(onnx_pose, providers=providers)
 
-    def __call__(self, oriImg) -> Optional[np.ndarray]:
+    def __call__(self, oriImg) -> List[AnimalPoseResult]:
         detect_classes = list(
             range(14, 23 + 1)
         )  # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco.yaml
@@ -66,13 +103,7 @@ class AnimalPose:
         )
 
         if (det_result is None) or (det_result.shape[0] == 0):
-            openpose_dict = {
-                "version": "ap10k",
-                "animals": [],
-                "canvas_height": oriImg.shape[0],
-                "canvas_width": oriImg.shape[1],
-            }
-            return np.zeros_like(oriImg), openpose_dict
+            return []
 
         keypoint_sets, scores = inference_pose(
             self.session_pose,
@@ -81,90 +112,16 @@ class AnimalPose:
             self.model_input_size,
         )
 
-        animal_kps_scores = []
-        pose_img = np.zeros((oriImg.shape[0], oriImg.shape[1], 3), dtype=np.uint8)
+        animals = []
         for idx, keypoints in enumerate(keypoint_sets):
-            # don't use keypoints that go outside the frame in calculations for the center
-            interorKeypoints = keypoints[
-                ((keypoints[:, 0] > 0) & (keypoints[:, 0] < oriImg.shape[1]))
-                & ((keypoints[:, 1] > 0) & (keypoints[:, 1] < oriImg.shape[0]))
-            ]
-
-            xVals = interorKeypoints[:, 0]
-            yVals = interorKeypoints[:, 1]
-
-            minX = np.amin(xVals)
-            minY = np.amin(yVals)
-            maxX = np.amax(xVals)
-            maxY = np.amax(yVals)
-
-            poseSpanX = maxX - minX
-            poseSpanY = maxY - minY
-
-            # find mean center
-
-            xSum = np.sum(xVals)
-            ySum = np.sum(yVals)
-
-            xCenter = xSum // xVals.shape[0]
-            yCenter = ySum // yVals.shape[0]
-            center_of_keypoints = (xCenter, yCenter)
-
-            # order of the keypoints for AP10k and a standardized list of colors for limbs
-            keypointPairsList = [
-                (1, 2),
-                (2, 3),
-                (1, 3),
-                (3, 4),
-                (4, 9),
-                (9, 10),
-                (10, 11),
-                (4, 6),
-                (6, 7),
-                (7, 8),
-                (4, 5),
-                (5, 15),
-                (15, 16),
-                (16, 17),
-                (5, 12),
-                (12, 13),
-                (13, 14),
-            ]
-            colorsList = [
-                (255, 255, 255),
-                (100, 255, 100),
-                (150, 255, 255),
-                (100, 50, 255),
-                (50, 150, 200),
-                (0, 255, 255),
-                (0, 150, 0),
-                (0, 0, 255),
-                (0, 0, 150),
-                (255, 50, 255),
-                (255, 0, 255),
-                (255, 0, 0),
-                (150, 0, 0),
-                (255, 255, 100),
-                (0, 150, 0),
-                (255, 255, 0),
-                (150, 150, 150),
-            ]  # 16 colors needed
-
-            drawBetweenKeypointsList(
-                pose_img, keypoints, keypointPairsList, colorsList, scaleFactor=1.0
-            )
             score = scores[idx, ..., None]
             score[score > 1.0] = 1.0
             score[score < 0.0] = 0.0
-            animal_kps_scores.append(np.concatenate((keypoints, score), axis=-1))
+            animals.append(
+                [
+                    Keypoint(x, y, c)
+                    for x, y, c in np.concatenate((keypoints, score), axis=-1).tolist()
+                ]
+            )
 
-        openpose_dict = {
-            "version": "ap10k",
-            "animals": [
-                [v for x, y, c in keypoints.tolist() for v in (x, y, c)]
-                for keypoints in animal_kps_scores
-            ],
-            "canvas_height": oriImg.shape[0],
-            "canvas_width": oriImg.shape[1],
-        }
-        return pose_img, openpose_dict
+        return animals

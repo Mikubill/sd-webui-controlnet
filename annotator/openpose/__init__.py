@@ -11,16 +11,16 @@ import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-import json
 import torch
 import numpy as np
 from . import util
 from .body import Body, BodyResult, Keypoint
 from .hand import Hand
 from .face import Face
-from .types import PoseResult, HandResult, FaceResult
+from .types import HandResult, FaceResult, HumanPoseResult, AnimalPoseResult
 from modules import devices
 from annotator.annotator_path import models_path
+from .animalpose import draw_animalposes
 
 from typing import Tuple, List, Callable, Union, Optional
 
@@ -43,13 +43,13 @@ animal_onnx_pose = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/re
 
 
 def draw_poses(
-    poses: List[PoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True
+    poses: List[HumanPoseResult], H, W, draw_body=True, draw_hand=True, draw_face=True
 ):
     """
     Draw the detected poses on an empty canvas.
 
     Args:
-        poses (List[PoseResult]): A list of PoseResult objects containing the detected poses.
+        poses (List[HumanPoseResult]): A list of HumanPoseResult objects containing the detected poses.
         H (int): The height of the canvas.
         W (int): The width of the canvas.
         draw_body (bool, optional): Whether to draw body keypoints. Defaults to True.
@@ -75,8 +75,10 @@ def draw_poses(
     return canvas
 
 
-def decode_json_as_poses(pose_json: dict) -> Tuple[List[PoseResult], int, int]:
-    """ Decode the json_string complying with the openpose JSON output format
+def decode_json_as_poses(
+    pose_json: dict,
+) -> Tuple[List[HumanPoseResult], List[AnimalPoseResult], int, int]:
+    """Decode the json_string complying with the openpose JSON output format
     to poses that controlnet recognizes.
     https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md
 
@@ -84,12 +86,13 @@ def decode_json_as_poses(pose_json: dict) -> Tuple[List[PoseResult], int, int]:
         json_string: The json string to decode.
 
     Returns:
-        poses
+        human_poses
+        animal_poses
         canvas_height
         canvas_width
     """
-    height = pose_json['canvas_height']
-    width = pose_json['canvas_width']
+    height = pose_json["canvas_height"]
+    width = pose_json["canvas_width"]
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
@@ -114,7 +117,7 @@ def decode_json_as_poses(pose_json: dict) -> Tuple[List[PoseResult], int, int]:
 
     return (
         [
-            PoseResult(
+            HumanPoseResult(
                 body=BodyResult(
                     keypoints=decompress_keypoints(pose.get("pose_keypoints_2d"))
                 ),
@@ -122,15 +125,19 @@ def decode_json_as_poses(pose_json: dict) -> Tuple[List[PoseResult], int, int]:
                 right_hand=decompress_keypoints(pose.get("hand_right_keypoints_2d")),
                 face=decompress_keypoints(pose.get("face_keypoints_2d")),
             )
-            for pose in pose_json["people"]
+            for pose in pose_json.get("people", [])
         ],
+        [decompress_keypoints(pose) for pose in pose_json.get("animals", [])],
         height,
         width,
     )
 
 
 def encode_poses_as_json(
-    poses: List[PoseResult], canvas_height: int, canvas_width: int
+    poses: List[HumanPoseResult],
+    animals: List[AnimalPoseResult],
+    canvas_height: int,
+    canvas_width: int,
 ) -> dict:
     """Encode the pose as a JSON compatible dict following openpose JSON output format:
     https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md
@@ -162,6 +169,7 @@ def encode_poses_as_json(
             }
             for pose in poses
         ],
+        "animals": [compress_keypoints(animal) for animal in animals],
         "canvas_height": canvas_height,
         "canvas_width": canvas_width,
     }
@@ -310,7 +318,7 @@ class OpenposeDetector:
 
     def detect_poses(
         self, oriImg, include_hand=False, include_face=False
-    ) -> List[PoseResult]:
+    ) -> List[HumanPoseResult]:
         """
         Detect poses in the given image.
             Args:
@@ -347,7 +355,7 @@ class OpenposeDetector:
                     face = self.detect_face(body, oriImg)
 
                 results.append(
-                    PoseResult(
+                    HumanPoseResult(
                         BodyResult(
                             keypoints=[
                                 Keypoint(
@@ -368,7 +376,7 @@ class OpenposeDetector:
 
             return results
 
-    def detect_poses_dw(self, oriImg) -> List[PoseResult]:
+    def detect_poses_dw(self, oriImg) -> List[HumanPoseResult]:
         """
         Detect poses in the given image using DW Pose:
         https://github.com/IDEA-Research/DWPose
@@ -387,7 +395,7 @@ class OpenposeDetector:
             keypoints_info = self.dw_pose_estimation(oriImg.copy())
             return Wholebody.format_result(keypoints_info)
 
-    def detect_poses_animal(self, oriImg) -> Optional[np.ndarray]:
+    def detect_poses_animal(self, oriImg) -> List[AnimalPoseResult]:
         """
         Detect poses in the given image using RTMPose AP10k model:
         https://github.com/abehonest/ControlNet_AnimalPose
@@ -396,14 +404,13 @@ class OpenposeDetector:
             oriImg (numpy.ndarray): The input image for pose detection.
 
         Returns:
-            pose_img, openpose_dict(Optional[np.ndarray]): A list of PoseResult objects containing the detected poses.
+            A list of PoseResult objects containing the detected animal poses.
         """
 
         self.load_animalpose_model()
 
         with torch.no_grad():
-            pose_img, json_pose = self.animal_pose_estimation(oriImg.copy())
-            return pose_img, json_pose
+            return self.animal_pose_estimation(oriImg.copy())
 
     def __call__(
         self,
@@ -430,24 +437,27 @@ class OpenposeDetector:
             numpy.ndarray: The image with detected and drawn poses.
         """
         H, W, _ = oriImg.shape
+        animals = []
+        poses = []
         if use_animal_pose:
-            pose_img, json_pose = self.detect_poses_animal(oriImg)
-            if json_pose_callback:
-                json_pose_callback(json_pose)
-            return pose_img
-
-        if use_dw_pose:
+            animals = self.detect_poses_animal(oriImg)
+        elif use_dw_pose:
             poses = self.detect_poses_dw(oriImg)
         else:
             poses = self.detect_poses(oriImg, include_hand, include_face)
 
         if json_pose_callback:
-            json_pose_callback(encode_poses_as_json(poses, H, W))
-        return draw_poses(
-            poses,
-            H,
-            W,
-            draw_body=include_body,
-            draw_hand=include_hand,
-            draw_face=include_face,
-        )
+            json_pose_callback(encode_poses_as_json(poses, animals, H, W))
+
+        if poses:
+            assert len(animals) == 0
+            return draw_poses(
+                poses,
+                H,
+                W,
+                draw_body=include_body,
+                draw_hand=include_hand,
+                draw_face=include_face,
+            )
+        else:
+            return draw_animalposes(animals, H, W)
