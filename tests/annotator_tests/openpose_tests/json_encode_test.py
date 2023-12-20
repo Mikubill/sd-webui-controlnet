@@ -5,7 +5,7 @@ import importlib
 utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'utils')
 
 
-from annotator.openpose import encode_poses_as_json, PoseResult, Keypoint
+from annotator.openpose import encode_poses_as_json, HumanPoseResult, Keypoint
 from annotator.openpose.body import BodyResult
 
 class TestEncodePosesAsJson(unittest.TestCase):
@@ -22,7 +22,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
         self.assertDictEqual(result, expected)
 
     def test_single_pose_no_keypoints(self):
-        poses = [PoseResult(BodyResult(None, 0, 0), None, None, None)]
+        poses = [HumanPoseResult(BodyResult(None, 0, 0), None, None, None)]
         canvas_height = 1080
         canvas_width = 1920
         result = encode_poses_as_json(poses, canvas_height, canvas_width)
@@ -42,7 +42,7 @@ class TestEncodePosesAsJson(unittest.TestCase):
 
     def test_single_pose_with_keypoints(self):
         keypoints = [Keypoint(np.float32(0.5), np.float32(0.5)), None, Keypoint(0.6, 0.6)]
-        poses = [PoseResult(BodyResult(keypoints, 0, 0), keypoints, keypoints, keypoints)]
+        poses = [HumanPoseResult(BodyResult(keypoints, 0, 0), keypoints, keypoints, keypoints)]
         canvas_height = 1080
         canvas_width = 1920
         result = encode_poses_as_json(poses, canvas_height, canvas_width)

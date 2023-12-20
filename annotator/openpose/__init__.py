@@ -327,7 +327,7 @@ class OpenposeDetector:
                 include_face (bool, optional): Whether to include face detection. Defaults to False.
 
         Returns:
-            List[PoseResult]: A list of PoseResult objects containing the detected poses.
+            List[HumanPoseResult]: A list of HumanPoseResult objects containing the detected poses.
         """
         if self.body_estimation is None:
             self.load_model()
@@ -385,7 +385,7 @@ class OpenposeDetector:
             oriImg (numpy.ndarray): The input image for pose detection.
 
         Returns:
-            List[PoseResult]: A list of PoseResult objects containing the detected poses.
+            List[HumanPoseResult]: A list of HumanPoseResult objects containing the detected poses.
         """
         from .wholebody import Wholebody  # DW Pose
 
@@ -404,7 +404,7 @@ class OpenposeDetector:
             oriImg (numpy.ndarray): The input image for pose detection.
 
         Returns:
-            A list of PoseResult objects containing the detected animal poses.
+            A list of AnimalPoseResult objects containing the detected animal poses.
         """
 
         self.load_animalpose_model()
