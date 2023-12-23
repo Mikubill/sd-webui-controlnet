@@ -1,4 +1,5 @@
-from typing import NamedTuple, List, Optional
+from typing import NamedTuple, List, Optional, Union
+
 
 class Keypoint(NamedTuple):
     x: float
@@ -20,9 +21,10 @@ class BodyResult(NamedTuple):
 
 HandResult = List[Keypoint]
 FaceResult = List[Keypoint]
+AnimalPoseResult = List[Keypoint]
 
 
-class PoseResult(NamedTuple):
+class HumanPoseResult(NamedTuple):
     body: BodyResult
     left_hand: Optional[HandResult]
     right_hand: Optional[HandResult]
