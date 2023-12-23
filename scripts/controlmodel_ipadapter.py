@@ -426,7 +426,14 @@ class PlugableIPAdapter(torch.nn.Module):
                 lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
                 (ip_k, ip_v),
             )
+            assert ip_k.dtype == ip_v.dtype
 
+            # On MacOS, q can be float16 instead of float32.
+            # https://github.com/Mikubill/sd-webui-controlnet/issues/2208
+            if q.dtype != ip_k.dtype:
+                ip_k = ip_k.to(dtype=q.dtype)
+                ip_v = ip_v.to(dtype=q.dtype)
+            
             ip_out = torch.nn.functional.scaled_dot_product_attention(q, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False)
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
