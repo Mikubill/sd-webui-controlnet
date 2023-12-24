@@ -17,6 +17,10 @@ with open(Path(__file__).parent / "pose.json", "r") as f:
     pose = json.load(f)
 
 
+with open(Path(__file__).parent / "animal_pose.json", "r") as f:
+    animal_pose = json.load(f)
+
+
 class TestDetectEndpointWorking(unittest.TestCase):
     def test_render_single(self):
         res = render([pose])
@@ -36,6 +40,11 @@ class TestDetectEndpointWorking(unittest.TestCase):
         res = render([{"foo": 10, "bar": 100}])
         self.assertNotIn("info", res)
         self.assertNotIn("images", res)
+
+    def test_render_animals(self):
+        res = render([animal_pose])
+        self.assertEqual(res["info"], "Success")
+        self.assertEqual(len(res["images"]), 1)
 
 
 if __name__ == "__main__":

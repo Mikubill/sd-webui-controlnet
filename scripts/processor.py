@@ -230,6 +230,7 @@ class OpenposeModel(object):
             include_hand: bool,
             include_face: bool,
             use_dw_pose: bool = False,
+            use_animal_pose: bool = False,
             json_pose_callback: Callable[[str], None] = None,
             res: int = 512,
             **kwargs  # Ignore rest of kwargs
@@ -255,6 +256,7 @@ class OpenposeModel(object):
             include_hand=include_hand,
             include_face=include_face,
             use_dw_pose=use_dw_pose,
+            use_animal_pose=use_animal_pose,
             json_pose_callback=json_pose_callback
         )), True
 
@@ -763,6 +765,14 @@ preprocessor_sliders_config = {
         }
     ],
     "dw_openpose_full": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "animal_openpose": [
         {
             "name": flag_preprocessor_resolution,
             "min": 64,
