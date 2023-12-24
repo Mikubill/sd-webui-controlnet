@@ -489,3 +489,17 @@ def is_cn_script(script: scripts.Script) -> bool:
     """
 
     return script.title().lower() == 'controlnet'
+
+
+def get_animatediff_arg(p: processing.StableDiffusionProcessing):
+    """
+    Get AnimateDiff argument from `p`.
+    """
+    if not p.scripts:
+        return None
+
+    for script in p.scripts.alwayson_scripts:
+        if script.title().lower() == "animatediff":
+            return p.script_args[script.args_from]
+
+    return None
