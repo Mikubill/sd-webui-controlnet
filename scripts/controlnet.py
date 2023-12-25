@@ -5,6 +5,8 @@ import re
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
+
+import tqdm
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
@@ -757,63 +759,82 @@ class Script(scripts.Script, metaclass=(
             else:
                 model_net = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
+                if model_net is not None and getattr(devices, "fp8", False) and not isinstance(model_net, PlugableIPAdapter):
+                    for _module in model_net.modules():
+                        if isinstance(_module, (torch.nn.Conv2d, torch.nn.Linear)):
+                            _module.to(torch.float8_e4m3fn)
 
                 if getattr(model_net, 'is_control_lora', False):
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
-            input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
-            if image_from_a1111:
-                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                if a1111_i2i_resize_mode is not None:
-                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
-            
-            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
-                a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
-                if a1111_mask.ndim == 2:
-                    if a1111_mask.shape[0] == input_image.shape[0]:
-                        if a1111_mask.shape[1] == input_image.shape[1]:
-                            input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
-                            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                            if a1111_i2i_resize_mode is not None:
-                                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+            # animatediff
+            unit_is_ad_batch = getattr(unit, 'input_mode', batch_hijack.InputMode.SIMPLE) == batch_hijack.InputMode.BATCH and not batch_hijack.instance.is_batch
+            if unit_is_ad_batch:
+                input_images = []
+                for img in unit.batch_images:
+                    unit.image = img
+                    input_image, _ = Script.choose_input_image(p, unit, idx)
+                    input_images.append(input_image)
+            else:
+                input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
+                input_images = [input_image]
+                if image_from_a1111:
+                    a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                    if a1111_i2i_resize_mode is not None:
+                        resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
-            if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
-                    and p.inpaint_full_res and a1111_mask_image is not None:
-                logger.debug("A1111 inpaint mask START")
-                input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
-                input_image = [Image.fromarray(x) for x in input_image]
+            for idx, input_image in enumerate(input_images):
+                a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
+                if a1111_mask_image and isinstance(a1111_mask_image, list):
+                    a1111_mask_image = a1111_mask_image[idx]
+                if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
+                    a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
+                    if a1111_mask.ndim == 2:
+                        if a1111_mask.shape[0] == input_image.shape[0]:
+                            if a1111_mask.shape[1] == input_image.shape[1]:
+                                input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
+                                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                                if a1111_i2i_resize_mode is not None:
+                                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
-                mask = prepare_mask(a1111_mask_image, p)
+                if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
+                        and p.inpaint_full_res and a1111_mask_image is not None:
+                    logger.debug("A1111 inpaint mask START")
+                    input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
+                    input_image = [Image.fromarray(x) for x in input_image]
 
-                crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
-                crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
+                    mask = prepare_mask(a1111_mask_image, p)
 
-                input_image = [
-                    images.resize_image(resize_mode.int_value(), i, mask.width, mask.height) 
-                    for i in input_image
-                ]
+                    crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
+                    crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
 
-                input_image = [x.crop(crop_region) for x in input_image]
-                input_image = [
-                    images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height) 
-                    for x in input_image
-                ]
+                    input_image = [
+                        images.resize_image(resize_mode.int_value(), i, mask.width, mask.height) 
+                        for i in input_image
+                    ]
 
-                input_image = [np.asarray(x)[:, :, 0] for x in input_image]
-                input_image = np.stack(input_image, axis=2)
-                logger.debug("A1111 inpaint mask END")
+                    input_image = [x.crop(crop_region) for x in input_image]
+                    input_image = [
+                        images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height) 
+                        for x in input_image
+                    ]
+
+                    input_image = [np.asarray(x)[:, :, 0] for x in input_image]
+                    input_image = np.stack(input_image, axis=2)
+                    logger.debug("A1111 inpaint mask END")
+
+                # safe numpy
+                logger.debug("Safe numpy convertion START")
+                input_image = np.ascontiguousarray(input_image.copy()).copy()
+                logger.debug("Safe numpy convertion END")
+
+                input_images[idx] = input_image
 
             if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
                 unit.module = 'inpaint'
-
-            # safe numpy
-            logger.debug("Safe numpy convertion START")
-            input_image = np.ascontiguousarray(input_image.copy()).copy()
-            logger.debug("Safe numpy convertion END")
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
@@ -837,7 +858,9 @@ class Script(scripts.Script, metaclass=(
 
             if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
                 # inpaint_only+lama is special and required outpaint fix
-                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
+                for idx, input_image in enumerate(input_images):
+                    _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
+                    input_images[idx] = input_image
 
             control_model_type = ControlModelType.ControlNet
             global_average_pooling = False
@@ -875,38 +898,66 @@ class Script(scripts.Script, metaclass=(
             # - shuffle
             seed = set_numpy_seed(p)
             logger.debug(f"Use numpy seed {seed}.")
-            detected_map, is_image = preprocessor(
-                input_image, 
-                res=preprocessor_resolution, 
-                thr_a=unit.threshold_a,
-                thr_b=unit.threshold_b,
-            )
-            
-            def store_detected_map(detected_map, module: str) -> None:
-                if unit.save_detected_map:
-                    detected_maps.append((detected_map, module))
-            
-            if high_res_fix:
-                if is_image:
-                    hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
-                    store_detected_map(hr_detected_map, unit.module)
+
+            def tqdm_wrapper(x: list):
+                if len(x) <= 1:
+                    return enumerate(x)
+                return tqdm(enumerate(x), desc=f"AnimateDiff+ControlNet preprocessor: {unit.module}")
+
+            controls, hr_controls = [], []
+            for idx, input_image in tqdm_wrapper(input_images):
+                detected_map, is_image = preprocessor(
+                    input_image, 
+                    res=preprocessor_resolution, 
+                    thr_a=unit.threshold_a,
+                    thr_b=unit.threshold_b,
+                )
+
+                def store_detected_map(detected_map, module: str) -> None:
+                    if unit.save_detected_map:
+                        detected_maps.append((detected_map, module))
+
+                if high_res_fix:
+                    if is_image:
+                        hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                        store_detected_map(hr_detected_map, unit.module)
+                    else:
+                        hr_control = detected_map
                 else:
-                    hr_control = detected_map
+                    hr_control = None
+
+                if is_image:
+                    control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
+                    store_detected_map(detected_map, unit.module)
+                else:
+                    control = detected_map
+                    store_detected_map(input_image, unit.module)
+
+                if control_model_type == ControlModelType.T2I_StyleAdapter:
+                    control = control['last_hidden_state']
+
+                if control_model_type == ControlModelType.ReVision:
+                    control = control['image_embeds']
+
+                if control_model_type == ControlModelType.IPAdapter:
+                    if model_net.is_plus:
+                        control = control['hidden_states'].cpu()
+                        if hr_control is not None:
+                            hr_control = hr_control['hidden_states'].cpu()
+                    else:
+                        control = control['image_embeds'].cpu()
+                        if hr_control is not None:
+                            hr_control = hr_control['image_embeds'].cpu()
+
+                controls.append(control)
+                if hr_control is not None:
+                    hr_controls.append(hr_control)
+
+            controls = torch.cat(controls, dim=0)
+            if len(hr_controls) > 0:
+                hr_controls = torch.cat(hr_controls, dim=0)
             else:
-                hr_control = None
-
-            if is_image:
-                control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
-                store_detected_map(detected_map, unit.module)
-            else:
-                control = detected_map
-                store_detected_map(input_image, unit.module)
-
-            if control_model_type == ControlModelType.T2I_StyleAdapter:
-                control = control['last_hidden_state']
-
-            if control_model_type == ControlModelType.ReVision:
-                control = control['image_embeds']
+                hr_controls = None
 
             preprocessor_dict = dict(
                 name=unit.module,
@@ -918,7 +969,7 @@ class Script(scripts.Script, metaclass=(
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
-                hint_cond=control,
+                hint_cond=controls,
                 weight=unit.weight,
                 guidance_stopped=False,
                 start_guidance_percent=unit.guidance_start,
@@ -926,32 +977,38 @@ class Script(scripts.Script, metaclass=(
                 advanced_weighting=None,
                 control_model_type=control_model_type,
                 global_average_pooling=global_average_pooling,
-                hr_hint_cond=hr_control,
+                hr_hint_cond=hr_controls,
                 soft_injection=control_mode != external_code.ControlMode.BALANCED,
                 cfg_injection=control_mode == external_code.ControlMode.CONTROL,
             )
             forward_params.append(forward_param)
 
             if 'inpaint_only' in unit.module:
-                final_inpaint_feed = hr_control if hr_control is not None else control
-                final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
-                final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
-                final_inpaint_mask = final_inpaint_feed[0, 3, :, :].astype(np.float32)
-                final_inpaint_raw = final_inpaint_feed[0, :3].astype(np.float32)
-                sigma = shared.opts.data.get("control_net_inpaint_blur_sigma", 7)
-                final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
-                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[None]
-                _, Hmask, Wmask = final_inpaint_mask.shape
-                final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
-                final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())
+                final_inpaint_raws = []
+                final_inpaint_masks = []
+                for i in range(len(controls)):
+                    final_inpaint_feed = hr_controls[i] if hr_controls is not None else controls[i]
+                    final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
+                    final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
+                    final_inpaint_mask = final_inpaint_feed[3, :, :].astype(np.float32)
+                    final_inpaint_raw = final_inpaint_feed[:3].astype(np.float32)
+                    sigma = shared.opts.data.get("control_net_inpaint_blur_sigma", 7)
+                    final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
+                    final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[None]
+                    _, Hmask, Wmask = final_inpaint_mask.shape
+                    final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
+                    final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())
+                    final_inpaint_raws.append(final_inpaint_raw)
+                    final_inpaint_masks.append(final_inpaint_mask)
 
-                def inpaint_only_post_processing(x):
+                def inpaint_only_post_processing(x, i):
                     _, H, W = x.shape
                     if Hmask != H or Wmask != W:
                         logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
                         return x
-                    r = final_inpaint_raw.to(x.dtype).to(x.device)
-                    m = final_inpaint_mask.to(x.dtype).to(x.device)
+                    idx = i if unit_is_ad_batch else 0
+                    r = final_inpaint_raw[idx].to(x.dtype).to(x.device)
+                    m = final_inpaint_mask[idx].to(x.dtype).to(x.device)
                     y = m * x.clip(0, 1) + (1 - m) * r
                     y = y.clip(0, 1)
                     return y
@@ -959,16 +1016,19 @@ class Script(scripts.Script, metaclass=(
                 post_processors.append(inpaint_only_post_processing)
 
             if 'recolor' in unit.module:
-                final_feed = hr_control if hr_control is not None else control
-                final_feed = final_feed.detach().cpu().numpy()
-                final_feed = np.ascontiguousarray(final_feed).copy()
-                final_feed = final_feed[0, 0, :, :].astype(np.float32)
-                final_feed = (final_feed * 255).clip(0, 255).astype(np.uint8)
-                Hfeed, Wfeed = final_feed.shape
+                final_feeds = []
+                for i in range(len(controls)):
+                    final_feed = hr_controls[i] if hr_controls is not None else controls[i]
+                    final_feed = final_feed.detach().cpu().numpy()
+                    final_feed = np.ascontiguousarray(final_feed).copy()
+                    final_feed = final_feed.astype(np.float32)
+                    final_feed = (final_feed * 255).clip(0, 255).astype(np.uint8)
+                    Hfeed, Wfeed = final_feed.shape
+                    final_feeds.append(final_feed)
 
                 if 'luminance' in unit.module:
 
-                    def recolor_luminance_post_processing(x):
+                    def recolor_luminance_post_processing(x, i):
                         C, H, W = x.shape
                         if Hfeed != H or Wfeed != W or C != 3:
                             logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
@@ -976,7 +1036,7 @@ class Script(scripts.Script, metaclass=(
                         h = x.detach().cpu().numpy().transpose((1, 2, 0))
                         h = (h * 255).clip(0, 255).astype(np.uint8)
                         h = cv2.cvtColor(h, cv2.COLOR_RGB2LAB)
-                        h[:, :, 0] = final_feed
+                        h[:, :, 0] = final_feeds[i if unit_is_ad_batch else 0]
                         h = cv2.cvtColor(h, cv2.COLOR_LAB2RGB)
                         h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
                         y = torch.from_numpy(h).clip(0, 1).to(x)
@@ -986,7 +1046,7 @@ class Script(scripts.Script, metaclass=(
 
                 if 'intensity' in unit.module:
 
-                    def recolor_intensity_post_processing(x):
+                    def recolor_intensity_post_processing(x, i):
                         C, H, W = x.shape
                         if Hfeed != H or Wfeed != W or C != 3:
                             logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
@@ -994,7 +1054,7 @@ class Script(scripts.Script, metaclass=(
                         h = x.detach().cpu().numpy().transpose((1, 2, 0))
                         h = (h * 255).clip(0, 255).astype(np.uint8)
                         h = cv2.cvtColor(h, cv2.COLOR_RGB2HSV)
-                        h[:, :, 2] = final_feed
+                        h[:, :, 2] = final_feeds[i if unit_is_ad_batch else 0]
                         h = cv2.cvtColor(h, cv2.COLOR_HSV2RGB)
                         h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
                         y = torch.from_numpy(h).clip(0, 1).to(x)
@@ -1067,7 +1127,7 @@ class Script(scripts.Script, metaclass=(
         images = kwargs.get('images', [])
         for post_processor in self.post_processors:
             for i in range(len(images)):
-                images[i] = post_processor(images[i])
+                images[i] = post_processor(images[i], i)
         return
 
     def postprocess(self, p, processed, *args):

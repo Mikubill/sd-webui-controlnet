@@ -4,7 +4,8 @@ from enum import Enum
 from typing import Tuple, List
 
 from modules import img2img, processing, shared, script_callbacks
-from scripts import external_code
+from scripts.external_code import get_all_units_in_processing
+from scripts.utils_animatediff_cn import get_animatediff_arg, extract_frames_from_video
 
 
 class BatchHijack:
@@ -20,6 +21,12 @@ class BatchHijack:
         self.postprocess_batch_callbacks = [self.on_postprocess_batch]
 
     def img2img_process_batch_hijack(self, p, *args, **kwargs):
+        animatediff_arg = get_animatediff_arg(p)
+        if animatediff_arg and animatediff_arg.enable:
+            animatediff_arg.is_i2i_batch = True
+            from scripts.animatediff_i2ibatch import hacked_img2img_process_batch_hijack
+            return hacked_img2img_process_batch_hijack(p, *args, **kwargs)
+
         cn_is_batch, batches, output_dir, _ = get_cn_batches(p)
         if not cn_is_batch:
             return getattr(img2img, '__controlnet_original_process_batch')(p, *args, **kwargs)
@@ -32,6 +39,11 @@ class BatchHijack:
             self.dispatch_callbacks(self.postprocess_batch_callbacks, p)
 
     def processing_process_images_hijack(self, p, *args, **kwargs):
+        animatediff_arg = get_animatediff_arg(p)
+        if animatediff_arg and animatediff_arg.enable:
+            setup_cn_batches_animatediff(p, animatediff_arg)
+            return getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
+
         if self.is_batch:
             # we are in img2img batch tab, do a single batch iteration
             return self.process_images_cn_batch(p, *args, **kwargs)
@@ -181,7 +193,7 @@ class InputMode(Enum):
 
 
 def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
-    units = external_code.get_all_units_in_processing(p)
+    units = get_all_units_in_processing(p)
     units = [copy(unit) for unit in units if getattr(unit, 'enabled', False)]
     any_unit_is_batch = False
     output_dir = ''
@@ -210,6 +222,55 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
                 batches[i].append(unit.batch_images[i])
 
     return any_unit_is_batch, batches, output_dir, input_file_names
+
+
+def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params):
+    from scripts.controlnet import Script # TODO: remove this dependency, this only for test
+    units = get_all_units_in_processing(p)
+    units = [unit for unit in units if getattr(unit, 'enabled', False)]
+
+    if len(units) > 0:
+        extract_frames_from_video(params)
+        for idx, unit in enumerate(units):
+            # i2i-batch mode
+            if params.is_i2i_batch and not unit.image:
+                unit.input_mode = InputMode.BATCH
+            # if no input given for this unit, use global input
+            if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH:
+                if not unit.batch_images:
+                    assert params.video_path, 'No input images found for ControlNet module'
+                    unit.batch_images = params.video_path
+            elif not unit.image:
+                try:
+                    from scripts.controlnet import Script
+                    Script.choose_input_image(p, unit, idx)
+                except:
+                    assert params.video_path, 'No input images found for ControlNet module'
+                    unit.batch_images = params.video_path
+                    unit.input_mode = InputMode.BATCH
+
+            if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH:
+                if 'inpaint' in unit.module: # TODO: what will happen when I'm in i2i batch mode?
+                    images = shared.listfiles(f'{unit.batch_images}/image')
+                    masks = shared.listfiles(f'{unit.batch_images}/mask')
+                    assert len(images) == len(masks), 'Inpainting image mask count mismatch'
+                    unit.batch_images = [{'image': images[i], 'mask': masks[i]} for i in range(len(images))]
+                else:
+                    unit.batch_images = shared.listfiles(unit.batch_images)
+
+        unit_batch_list = [len(unit.batch_images) for unit in units
+                           if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH]
+
+        if params.is_i2i_batch:
+            unit_batch_list.append(len(p.init_images))
+
+        if len(unit_batch_list) > 0:
+            video_length = params.fix_video_length(p, min(unit_batch_list))
+            for unit in units:
+                if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH and len(unit.batch_images) > video_length:
+                    unit.batch_images = unit.batch_images[:video_length]
+
+    params.post_setup_cn_batches(p)
 
 
 instance = BatchHijack()

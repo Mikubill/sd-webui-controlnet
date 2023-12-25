@@ -222,11 +222,11 @@ class IPAdapterModel(torch.nn.Module):
 
         if self.is_plus:
             from annotator.clipvision import clip_vision_h_uc, clip_vision_vith_uc
-            cond = self.image_proj_model(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32))
+            cond = self.image_proj_model(clip_vision_output.to(device='cpu', dtype=torch.float32))
             uncond = clip_vision_vith_uc.to(cond) if self.sdxl_plus else self.image_proj_model(clip_vision_h_uc.to(cond))
             return cond, uncond
 
-        clip_image_embeds = clip_vision_output['image_embeds'].to(device='cpu', dtype=torch.float32)
+        clip_image_embeds = clip_vision_output.to(device='cpu', dtype=torch.float32)
         image_prompt_embeds = self.image_proj_model(clip_image_embeds)
         # input zero vector for unconditional.
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
