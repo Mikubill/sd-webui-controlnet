@@ -88,6 +88,25 @@
     return new Blob(byteArrays, { type: contentType });
   }
 
+  function createBlackImageBase64(width, height) {
+    // Create a canvas element
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    // Get the context of the canvas
+    var ctx = canvas.getContext('2d');
+
+    // Fill the canvas with black color
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, width, height);
+
+    // Get the base64 encoded string
+    var base64Image = canvas.toDataURL('image/png');
+
+    return base64Image;
+  }
+
   // Functions to be called within photopea context.
   // Start of photopea functions
   function pasteImage(base64image) {
@@ -256,7 +275,15 @@
      * Add those detected maps to the created document.
      */
     async fetchFromControlNet(tabs) {
-      const layerNames = [];
+      if (tabs.length === 0) return;
+      const isImg2Img = tabs[0].querySelector('.cnet-unit-enabled').id.includes('img2img');
+      const generationType = isImg2Img ? 'img2img' : 'txt2img';
+      const width = gradioApp().querySelector(`#${generationType}_width input[type=number]`).value;
+      const height = gradioApp().querySelector(`#${generationType}_height input[type=number]`).value;
+
+      const layerNames = ["background"];
+      await this.invoke(pasteImage, createBlackImageBase64(width, height));
+      await new Promise(r => setTimeout(r, 200));
       for (const [i, tab] of tabs.entries()) {
         const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
         if (!generatedImage) continue;
