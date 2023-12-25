@@ -941,9 +941,9 @@ class Script(scripts.Script, metaclass=(
 
                 if control_model_type == ControlModelType.IPAdapter:
                     if model_net.is_plus:
-                        control = control['hidden_states'].cpu()
+                        control = control['hidden_states'][-2].cpu()
                         if hr_control is not None:
-                            hr_control = hr_control['hidden_states'].cpu()
+                            hr_control = hr_control['hidden_states'][-2].cpu()
                     else:
                         control = control['image_embeds'].cpu()
                         if hr_control is not None:
