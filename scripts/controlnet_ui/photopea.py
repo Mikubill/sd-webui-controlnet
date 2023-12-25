@@ -31,9 +31,39 @@ class Photopea(object):
     def render_child_trigger(self):
         self.triggers.append(
             gr.HTML(
-            f"""<div class="cnet-photopea-child-trigger">
+                f"""<div class="cnet-photopea-child-trigger">
                 Edit
                 <img src="{PHOTOPEA_LOGO}" style="width: 0.75rem; height 0.75rem; margin-left: 2px;"/>
             </div>"""
             )
+        )
+
+    def attach_photopea_output(tabname: str, generated_image: gr.Image):
+        """Called in ControlNetUiGroup to attach preprocessor preview image Gradio element
+        as the photopea output. If the front-end directly change the img HTML element's src
+        to reflect the edited image result from photopea, the backend won't be notified.
+
+        In this method we let the front-end upload the result image an invisible gr.Image
+        instance and mirrors the value to preprocessor preview gr.Image. This is because
+        the generated image gr.Image instance is inferred to be an output image by Gradio
+        and has no ability to accept image upload directly.
+        
+        Arguments:
+            tabname: "ControlNet" or "ControlNet-{i}".
+            generated_image: preprocessor result Gradio Image output element.
+        
+        Returns:
+            None
+        """
+        output = gr.Image(
+            visible=True,
+            source="upload",
+            type="numpy",
+            elem_classes=[f"cnet-photopea-output-{tabname}"],
+        )
+
+        output.upload(
+            fn=lambda img: img,
+            inputs=[output],
+            outputs=[generated_image],
         )

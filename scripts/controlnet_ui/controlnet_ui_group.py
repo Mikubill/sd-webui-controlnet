@@ -220,6 +220,7 @@ class ControlNetUiGroup(object):
                                     visible=True,
                                     elem_classes=["cnet-close-preview"],
                                 )
+                        self.photopea.attach_photopea_output(tabname, self.generated_image)
 
                 with gr.Tab(label="Batch") as self.batch_tab:
                     self.batch_image_dir = gr.Textbox(
