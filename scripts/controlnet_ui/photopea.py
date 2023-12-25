@@ -15,18 +15,19 @@ class Photopea(object):
 
     def render_editor(self):
         """Render the editor modal."""
-        self.modal = ModalInterface(
-            f"""
-            <div class="photopea-button-group">
-                <button class="photopea-button photopea-fetch">Fetch from ControlNet</button>
-                <button class="photopea-button photopea-send">Send to ControlNet</button>
-            </div>
-            <iframe class="photopea-iframe" src="{PHOTOPEA_URL}"></iframe>
-            """,
-            open_button_text="Edit",
-            open_button_classes=["cnet-photopea-main-trigger"],
-            open_button_extra_attrs="hidden",
-        ).create_modal(visible=True)
+        with gr.Group(elem_classes=["cnet-photopea-edit"]):
+            self.modal = ModalInterface(
+                f"""
+                <div class="photopea-button-group">
+                    <button class="photopea-button photopea-fetch">Fetch from ControlNet</button>
+                    <button class="photopea-button photopea-send">Send to ControlNet</button>
+                </div>
+                <iframe class="photopea-iframe" src="{PHOTOPEA_URL}"></iframe>
+                """,
+                open_button_text="Edit",
+                open_button_classes=["cnet-photopea-main-trigger"],
+                open_button_extra_attrs="hidden",
+            ).create_modal(visible=True)
 
     def render_child_trigger(self):
         self.triggers.append(
