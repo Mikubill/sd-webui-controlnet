@@ -69,6 +69,25 @@
     return base64
   }
 
+  // Turn a base64 string into a blob. 
+  // From https://gist.github.com/gauravmehla/7a7dfd87dd7d1b13697b6e894426615f
+  function b64toBlob(b64Data, contentType, sliceSize) {
+    var contentType = contentType || '';
+    var sliceSize = sliceSize || 512;
+    var byteCharacters = atob(b64Data);
+    var byteArrays = [];
+    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      var slice = byteCharacters.slice(offset, offset + sliceSize);
+      var byteNumbers = new Array(slice.length);
+      for (var i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      var byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: contentType });
+  }
+
   // Functions to be called within photopea context.
   // Start of photopea functions
   function pasteImage(base64image) {
@@ -251,10 +270,33 @@
      * Send the images in the active photopea document back to each ControlNet units.
      */
     async sendToControlNet(tabs) {
-      function sendToControlNetUnit(imageURL, index) {
+      // Gradio's image widgets are inputs. To set the image in one, we set the image on the input and
+      // force it to refresh.
+      function setImageOnInput(imageInput, file) {
+        // Createa a data transfer element to set as the data in the input.
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const list = dt.files;
+
+        // Actually set the image in the image widget.
+        imageInput.files = list;
+
+        // Foce the image widget to update with the new image, after setting its source files.
+        const event = new Event('change', {
+          'bubbles': true,
+          "composed": true
+        });
+        imageInput.dispatchEvent(event);
+      }
+
+      function sendToControlNetUnit(b64Image, index) {
         const tab = tabs[index];
-        const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
-        generatedImage.src = imageURL;
+        // Upload image to output image element.
+        const outputImage = tab.querySelector('.cnet-photopea-output');
+        const outputImageUpload = outputImage.querySelector('input[type="file"]');
+        setImageOnInput(outputImageUpload, new File([b64toBlob(b64Image, "image/png")], "photopea_output.png"));
+
+        // Make sure `UsePreviewAsInput` checkbox is checked.
         const checkbox = tab.querySelector('.cnet-preview-as-input input[type="checkbox"]');
         if (!checkbox.checked) {
           checkbox.click();
@@ -267,9 +309,9 @@
 
       for (const layerName of layerNames) {
         const arrayBuffer = await this.invoke(exportSelectedLayerOnly, 'PNG', layerName);
-        const imageURL = 'data:image/png;base64,' + base64ArrayBuffer(arrayBuffer);
+        const b64Image = base64ArrayBuffer(arrayBuffer);
         const layerIndex = Number.parseInt(layerName.split('-')[1]);
-        sendToControlNetUnit(imageURL, layerIndex);
+        sendToControlNetUnit(b64Image, layerIndex);
       }
     }
   }

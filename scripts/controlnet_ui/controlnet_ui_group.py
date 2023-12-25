@@ -220,7 +220,6 @@ class ControlNetUiGroup(object):
                                     visible=True,
                                     elem_classes=["cnet-close-preview"],
                                 )
-                        self.photopea.attach_photopea_output(tabname, self.generated_image)
 
                 with gr.Tab(label="Batch") as self.batch_tab:
                     self.batch_image_dir = gr.Textbox(
@@ -228,6 +227,8 @@ class ControlNetUiGroup(object):
                         placeholder="Leave empty to use img2img batch controlnet input directory",
                         elem_id=f"{elem_id_tabname}_{tabname}_batch_image_dir",
                     )
+
+            self.photopea.attach_photopea_output(self.generated_image)
 
             with gr.Accordion(
                 label="Open New Canvas", visible=False

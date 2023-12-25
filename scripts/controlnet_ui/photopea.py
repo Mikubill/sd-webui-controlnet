@@ -38,7 +38,7 @@ class Photopea(object):
             )
         )
 
-    def attach_photopea_output(tabname: str, generated_image: gr.Image):
+    def attach_photopea_output(self, generated_image: gr.Image):
         """Called in ControlNetUiGroup to attach preprocessor preview image Gradio element
         as the photopea output. If the front-end directly change the img HTML element's src
         to reflect the edited image result from photopea, the backend won't be notified.
@@ -49,17 +49,16 @@ class Photopea(object):
         and has no ability to accept image upload directly.
         
         Arguments:
-            tabname: "ControlNet" or "ControlNet-{i}".
             generated_image: preprocessor result Gradio Image output element.
         
         Returns:
             None
         """
         output = gr.Image(
-            visible=True,
+            visible=False,
             source="upload",
             type="numpy",
-            elem_classes=[f"cnet-photopea-output-{tabname}"],
+            elem_classes=[f"cnet-photopea-output"],
         )
 
         output.upload(
