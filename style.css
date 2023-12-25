@@ -159,7 +159,20 @@
     height: 100%;
 }
 
+/* Photopea integration styles */
 .photopea-button-group {
     position: absolute;
-    top: -22px; /* 20px modal padding + 2px margin */
+    top: -30px; /* 20px modal padding + 10px margin */
+}
+
+.photopea-button {
+    font-size: 3rem;
+    font-weight: bold;
+    padding: 2px !important;
+    margin: 2px !important;
+    box-shadow: var(--shadow-drop);
+    border: 1px solid var(--button-secondary-border-color);
+    border-radius: var(--radius-sm);
+    background: var(--background-fill-primary);
+    color: var(--block-label-text-color);
 }
