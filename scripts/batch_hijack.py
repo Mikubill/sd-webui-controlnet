@@ -250,11 +250,18 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                     unit.input_mode = InputMode.BATCH
 
             if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH:
-                if 'inpaint' in unit.module: # TODO: what will happen when I'm in i2i batch mode?
-                    images = shared.listfiles(f'{unit.batch_images}/image')
-                    masks = shared.listfiles(f'{unit.batch_images}/mask')
-                    assert len(images) == len(masks), 'Inpainting image mask count mismatch'
-                    unit.batch_images = [{'image': images[i], 'mask': masks[i]} for i in range(len(images))]
+                if 'inpaint' in unit.module:
+                    images_dir = f'{unit.batch_images}/image'
+                    masks_dir = f'{unit.batch_images}/mask'
+                    if params.is_i2i_batch and not (os.path.isdir(images_dir) and os.path.isdir(masks_dir)):
+                        from scripts.logging import logger
+                        logger.info(f'Inpainting batch mode, but no image/mask subdirs found in {unit.batch_images}, using masks from A1111 instead')
+                        unit.batch_images = shared.listfiles(unit.batch_images)
+                    else:
+                        images = shared.listfiles(f'{unit.batch_images}/image')
+                        masks = shared.listfiles(f'{unit.batch_images}/mask')
+                        assert len(images) == len(masks) or len(masks) == 1, 'Inpainting image mask count mismatch'
+                        unit.batch_images = [{'image': images[i], 'mask': (masks[i] if len(masks) > 1 else masks[0])} for i in range(len(images))]
                 else:
                     unit.batch_images = shared.listfiles(unit.batch_images)
 
