@@ -1007,8 +1007,8 @@ class Script(scripts.Script, metaclass=(
                         logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
                         return x
                     idx = i if unit_is_ad_batch else 0
-                    r = final_inpaint_raw[idx].to(x.dtype).to(x.device)
-                    m = final_inpaint_mask[idx].to(x.dtype).to(x.device)
+                    r = final_inpaint_raws[idx].to(x.dtype).to(x.device)
+                    m = final_inpaint_masks[idx].to(x.dtype).to(x.device)
                     y = m * x.clip(0, 1) + (1 - m) * r
                     y = y.clip(0, 1)
                     return y
@@ -1021,7 +1021,7 @@ class Script(scripts.Script, metaclass=(
                     final_feed = hr_controls[i] if hr_controls is not None else controls[i]
                     final_feed = final_feed.detach().cpu().numpy()
                     final_feed = np.ascontiguousarray(final_feed).copy()
-                    final_feed = final_feed.astype(np.float32)
+                    final_feed = final_feed[0, :, :].astype(np.float32)
                     final_feed = (final_feed * 255).clip(0, 255).astype(np.uint8)
                     Hfeed, Wfeed = final_feed.shape
                     final_feeds.append(final_feed)
