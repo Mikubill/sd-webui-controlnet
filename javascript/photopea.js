@@ -69,58 +69,6 @@
     return base64
   }
 
-  const MESSAGE_END_ACK = "done";
-  const MESSAGE_ERROR = "error";
-
-  // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
-  function postMessageToPhotopea(message, photopeaWindow) {
-    return new Promise((resolve, reject) => {
-      const responseDataPieces = [];
-      let hasError = false;
-      const photopeaMessageHandle = (event) => {
-        if (event.source !== photopeaWindow) {
-          return;
-        }
-        // Filter out the ping messages
-        if (typeof event.data === 'string' && event.data.includes('MSFAPI#')) {
-          return;
-        }
-        // Ignore "done" when no data has been received. The "done" can come from
-        // MSFAPI ping.
-        if (event.data === MESSAGE_END_ACK && responseDataPieces.length === 0) {
-          return;
-        }
-        if (event.data === MESSAGE_END_ACK) {
-          window.removeEventListener("message", photopeaMessageHandle);
-          if (hasError) {
-            reject('Photopea Error.');
-          } else {
-            resolve(responseDataPieces.length === 1 ? responseDataPieces[0] : responseDataPieces);
-          }
-        } else if (event.data === MESSAGE_ERROR) {
-          responseDataPieces.push(event.data);
-          hasError = true;
-        } else {
-          responseDataPieces.push(event.data);
-        }
-      };
-
-      window.addEventListener("message", photopeaMessageHandle);
-      setTimeout(() => reject("Photopea message timeout"), 5000);
-      photopeaWindow.postMessage(message, "*");
-    });
-  }
-
-  // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
-  async function invoke(photopeaWindow, func, ...args) {
-    const message = `${func.toString()} ${func.name}(${args.map(arg => JSON.stringify(arg)).join(',')});`;
-    try {
-      return await postMessageToPhotopea(message, photopeaWindow);
-    } catch (e) {
-      throw `Failed to invoke ${func.name}. ${e}.`;
-    }
-  }
-
   // Functions to be called within photopea context.
   // Start of photopea functions
   function pasteImage(base64image) {
@@ -223,49 +171,106 @@
   }
   // End of photopea functions
 
-  /**
-   * Fetch detected maps from each ControlNet units. 
-   * Create a new photopea document.
-   * Add those detected maps to the created document.
-   */
-  async function fetchFromControlNet(tabs, photopeaWindow) {
-    const layerNames = [];
-    for (const [i, tab] of tabs.entries()) {
-      const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
-      if (!generatedImage) continue;
-      await invoke(photopeaWindow, pasteImage, generatedImage.src);
-      // Wait 200ms for pasting to fully complete so that we do not ended up with 2 separate
-      // documents.
-      await new Promise(r => setTimeout(r, 200));
-      layerNames.push(`unit-${i}`);
+  const MESSAGE_END_ACK = "done";
+  const MESSAGE_ERROR = "error";
+  class PhotopeaContext {
+    constructor(photopeaWindow) {
+      this.photopeaWindow = photopeaWindow;
     }
-    await invoke(photopeaWindow, removeLayersWithNames, layerNames);
-    await invoke(photopeaWindow, setLayerNames, layerNames.reverse());
-  }
 
-  /**
-   * Send the images in the active photopea document back to each ControlNet units.
-   */
-  async function sendToControlNet(tabs, photopeaWindow) {
-    function sendToControlNetUnit(imageURL, index) {
-      const tab = tabs[index];
-      const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
-      generatedImage.src = imageURL;
-      const checkbox = tab.querySelector('.cnet-preview-as-input input[type="checkbox"]');
-      if (!checkbox.checked) {
-        checkbox.click();
+    // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
+    postMessageToPhotopea(message) {
+      return new Promise((resolve, reject) => {
+        const responseDataPieces = [];
+        let hasError = false;
+        const photopeaMessageHandle = (event) => {
+          if (event.source !== this.photopeaWindow) {
+            return;
+          }
+          // Filter out the ping messages
+          if (typeof event.data === 'string' && event.data.includes('MSFAPI#')) {
+            return;
+          }
+          // Ignore "done" when no data has been received. The "done" can come from
+          // MSFAPI ping.
+          if (event.data === MESSAGE_END_ACK && responseDataPieces.length === 0) {
+            return;
+          }
+          if (event.data === MESSAGE_END_ACK) {
+            window.removeEventListener("message", photopeaMessageHandle);
+            if (hasError) {
+              reject('Photopea Error.');
+            } else {
+              resolve(responseDataPieces.length === 1 ? responseDataPieces[0] : responseDataPieces);
+            }
+          } else if (event.data === MESSAGE_ERROR) {
+            responseDataPieces.push(event.data);
+            hasError = true;
+          } else {
+            responseDataPieces.push(event.data);
+          }
+        };
+
+        window.addEventListener("message", photopeaMessageHandle);
+        setTimeout(() => reject("Photopea message timeout"), 5000);
+        this.photopeaWindow.postMessage(message, "*");
+      });
+    }
+
+    // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
+    async invoke(func, ...args) {
+      const message = `${func.toString()} ${func.name}(${args.map(arg => JSON.stringify(arg)).join(',')});`;
+      try {
+        return await this.postMessageToPhotopea(message);
+      } catch (e) {
+        throw `Failed to invoke ${func.name}. ${e}.`;
       }
     }
 
-    const layerNames =
-      JSON.parse(await invoke(photopeaWindow, getAllLayerNames))
-        .filter(name => /unit-\d+/.test(name));
+    /**
+     * Fetch detected maps from each ControlNet units. 
+     * Create a new photopea document.
+     * Add those detected maps to the created document.
+     */
+    async fetchFromControlNet(tabs) {
+      const layerNames = [];
+      for (const [i, tab] of tabs.entries()) {
+        const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
+        if (!generatedImage) continue;
+        await this.invoke(pasteImage, generatedImage.src);
+        // Wait 200ms for pasting to fully complete so that we do not ended up with 2 separate
+        // documents.
+        await new Promise(r => setTimeout(r, 200));
+        layerNames.push(`unit-${i}`);
+      }
+      await this.invoke(removeLayersWithNames, layerNames);
+      await this.invoke(setLayerNames, layerNames.reverse());
+    }
 
-    for (const layerName of layerNames) {
-      const arrayBuffer = await invoke(photopeaWindow, exportSelectedLayerOnly, 'PNG', layerName);
-      const imageURL = 'data:image/png;base64,' + base64ArrayBuffer(arrayBuffer);
-      const layerIndex = Number.parseInt(layerName.split('-')[1]);
-      sendToControlNetUnit(imageURL, layerIndex);
+    /**
+     * Send the images in the active photopea document back to each ControlNet units.
+     */
+    async sendToControlNet(tabs) {
+      function sendToControlNetUnit(imageURL, index) {
+        const tab = tabs[index];
+        const generatedImage = tab.querySelector('.cnet-generated-image-group .cnet-image img');
+        generatedImage.src = imageURL;
+        const checkbox = tab.querySelector('.cnet-preview-as-input input[type="checkbox"]');
+        if (!checkbox.checked) {
+          checkbox.click();
+        }
+      }
+
+      const layerNames =
+        JSON.parse(await this.invoke(getAllLayerNames))
+          .filter(name => /unit-\d+/.test(name));
+
+      for (const layerName of layerNames) {
+        const arrayBuffer = await this.invoke(exportSelectedLayerOnly, 'PNG', layerName);
+        const imageURL = 'data:image/png;base64,' + base64ArrayBuffer(arrayBuffer);
+        const layerIndex = Number.parseInt(layerName.split('-')[1]);
+        sendToControlNetUnit(imageURL, layerIndex);
+      }
     }
   }
 
@@ -291,8 +296,9 @@
       });
 
       const photopeaWindow = accordion.querySelector('.photopea-iframe').contentWindow;
-      accordion.querySelector('.photopea-fetch').addEventListener('click', () => fetchFromControlNet(tabs, photopeaWindow));
-      accordion.querySelector('.photopea-send').addEventListener('click', () => sendToControlNet(tabs, photopeaWindow));
+      const photopeaContext = new PhotopeaContext(photopeaWindow, tabs);
+      accordion.querySelector('.photopea-fetch').addEventListener('click', () => photopeaContext.fetchFromControlNet(tabs));
+      accordion.querySelector('.photopea-send').addEventListener('click', () => photopeaContext.sendToControlNet(tabs));
     }
 
     const accordions = gradioApp().querySelectorAll('#controlnet');
