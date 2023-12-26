@@ -101,11 +101,11 @@ class ClipVisionDetector:
         config = CLIPVisionConfig(**self.config)
         if shared.cmd_opts.cache_clip:
             if self.file_name not in clip_model_cache:
-                model_cache[self.file_name] = CLIPVisionModelWithProjection(config)
+                clip_model_cache[self.file_name] = CLIPVisionModelWithProjection(config)
                 sd = torch.load(file_path, map_location=torch.device('cpu'))
                 model_cache[self.file_name].load_state_dict(sd, strict=False)
                 del sd
-            self.model = model_cache[self.file_name]
+            self.model = clip_model_cache[self.file_name]
             self.model.eval()
             self.model.cpu()
             self.processor = CLIPImageProcessor(crop_size=224,
