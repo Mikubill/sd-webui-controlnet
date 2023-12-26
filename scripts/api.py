@@ -186,6 +186,10 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 "info": "Success",
             }
 
+    @app.post("/controlnet/refresh/model")
+    async def refreshModel():
+        global_state.update_cn_models()
+        return list(global_state.cn_models.keys())
 
 try:
     import modules.script_callbacks as script_callbacks
