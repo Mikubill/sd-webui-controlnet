@@ -902,7 +902,7 @@ class Script(scripts.Script, metaclass=(
             def tqdm_wrapper(x: list):
                 if len(x) <= 1:
                     return enumerate(x)
-                return tqdm(enumerate(x), desc=f"AnimateDiff+ControlNet preprocessor: {unit.module}")
+                return tqdm.tqdm(enumerate(x), desc=f"AnimateDiff ControlNet preprocessor: {unit.module}", total=len(x))
 
             controls, hr_controls = [], []
             for idx, input_image in tqdm_wrapper(input_images):

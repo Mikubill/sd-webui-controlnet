@@ -24,8 +24,8 @@ class BatchHijack:
         animatediff_arg = get_animatediff_arg(p)
         if animatediff_arg and animatediff_arg.enable:
             animatediff_arg.is_i2i_batch = True
-            from scripts.animatediff_i2ibatch import hacked_img2img_process_batch_hijack
-            return hacked_img2img_process_batch_hijack(p, *args, **kwargs)
+            from scripts.animatediff_i2ibatch import amimatediff_i2i_batch
+            return amimatediff_i2i_batch(p, *args, **kwargs)
 
         cn_is_batch, batches, output_dir, _ = get_cn_batches(p)
         if not cn_is_batch:
@@ -225,7 +225,8 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
 
 
 def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params):
-    from scripts.controlnet import Script # TODO: remove this dependency, this only for test
+    from scripts.logging import logger
+    logger.info("AnimateDiff ControlNet batch loading")
     units = get_all_units_in_processing(p)
     units = [unit for unit in units if getattr(unit, 'enabled', False)]
 
@@ -242,8 +243,9 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                     unit.batch_images = params.video_path
             elif not unit.image:
                 try:
-                    from scripts.controlnet import Script
-                    Script.choose_input_image(p, unit, idx)
+                    from scripts.external_code import find_cn_script
+                    cn_script = find_cn_script(p.scripts)
+                    cn_script.choose_input_image(p, unit, idx)
                 except:
                     assert params.video_path, 'No input images found for ControlNet module'
                     unit.batch_images = params.video_path
@@ -254,7 +256,6 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                     images_dir = f'{unit.batch_images}/image'
                     masks_dir = f'{unit.batch_images}/mask'
                     if params.is_i2i_batch and not (os.path.isdir(images_dir) and os.path.isdir(masks_dir)):
-                        from scripts.logging import logger
                         logger.info(f'Inpainting batch mode, but no image/mask subdirs found in {unit.batch_images}, using masks from A1111 instead')
                         unit.batch_images = shared.listfiles(unit.batch_images)
                     else:
@@ -278,6 +279,8 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                     unit.batch_images = unit.batch_images[:video_length]
 
     params.post_setup_cn_batches(p)
+    assert params.video_length == p.batch_size, f'Video length {params.video_length} does not match batch size {p.batch_size}'
+    logger.info(f"AnimateDiff ControlNet batch loading done. Will generate {p.batch_size} images")
 
 
 instance = BatchHijack()
