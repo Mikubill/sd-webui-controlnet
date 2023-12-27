@@ -941,21 +941,25 @@ class Script(scripts.Script, metaclass=(
 
                 if control_model_type == ControlModelType.IPAdapter:
                     if model_net.is_plus:
-                        control = control['hidden_states'][-2].cpu()
+                        control = control['hidden_states'][-2]
                         if hr_control is not None:
-                            hr_control = hr_control['hidden_states'][-2].cpu()
+                            hr_control = hr_control['hidden_states'][-2]
                     else:
-                        control = control['image_embeds'].cpu()
+                        control = control['image_embeds']
                         if hr_control is not None:
-                            hr_control = hr_control['image_embeds'].cpu()
+                            hr_control = hr_control['image_embeds']
 
-                controls.append(control)
+                controls.append(control.cpu() if len(input_images) > 1 else control)
                 if hr_control is not None:
-                    hr_controls.append(hr_control)
+                    hr_controls.append(hr_control.cpu() if len(input_images) > 1 else hr_control)
 
             controls = torch.cat(controls, dim=0)
+            if controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
+                controls = torch.cat([controls, controls], dim=0)
             if len(hr_controls) > 0:
                 hr_controls = torch.cat(hr_controls, dim=0)
+                if hr_controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
+                    hr_controls = torch.cat([hr_controls, hr_controls], dim=0)
             else:
                 hr_controls = None
 
@@ -983,7 +987,7 @@ class Script(scripts.Script, metaclass=(
             )
             forward_params.append(forward_param)
 
-            if 'inpaint_only' in unit.module:
+            if 'inpaint_only' in unit.module: # TODO: what if only one control?
                 final_inpaint_raws = []
                 final_inpaint_masks = []
                 for i in range(len(controls)):

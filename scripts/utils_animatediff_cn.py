@@ -42,14 +42,16 @@ def get_animatediff_arg(p):
 def ffmpeg_extract_frames(source_video: str, output_dir: str, extract_key: bool = False):
     command = ["ffmpeg"]
     from modules.devices import device
-    if "cuda" in device:
+    if "cuda" in str(device):
         command.extend(["-hwaccel", "cuda"])
     command.extend(["-i", source_video])
     if extract_key:
         command.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "vfr"])
     else:
         command.extend(["-filter:v", "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"])
-    command.extend(["-qscale:v", "1", "-qmin", "1", "-c:a", "copy", str(Path(output_dir) / '%09d.jpg')])
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    command.extend(["-qscale:v", "1", "-qmin", "1", "-c:a", "copy", str(output_dir / '%09d.jpg')])
     logger.info(f"[AnimateDiff] Attempting to extract frames via ffmpeg from {source_video} to {output_dir}")
     import subprocess
     subprocess.run(command, check=True)

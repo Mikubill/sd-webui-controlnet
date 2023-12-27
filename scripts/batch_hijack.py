@@ -226,7 +226,6 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
 
 def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params):
     from scripts.logging import logger
-    logger.info("AnimateDiff ControlNet batch loading")
     units = get_all_units_in_processing(p)
     units = [unit for unit in units if getattr(unit, 'enabled', False)]
 
