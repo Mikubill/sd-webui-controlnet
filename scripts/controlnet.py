@@ -1146,7 +1146,7 @@ class Script(scripts.Script, metaclass=(
         devices.torch_gc()
 
     def batch_tab_process(self, p, batches, *args, **kwargs):
-        self.enabled_units = self.get_enabled_units(p)
+        self.enabled_units = Script.get_enabled_units(p)
         for unit_i, unit in enumerate(self.enabled_units):
             unit.batch_images = iter([batch[unit_i] for batch in batches])
 

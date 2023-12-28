@@ -430,11 +430,11 @@ class ControlNetUiGroup(object):
         )
 
         self.loopback = gr.Checkbox(
-            label="[Loopback] Automatically send generated images to this ControlNet unit",
+            label="[Batch Loopback] Automatically send generated images to this ControlNet unit in batch generation",
             value=self.default_unit.loopback,
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox",
             elem_classes="controlnet_loopback_checkbox",
-            visible=not is_img2img,
+            visible=False,
         )
 
         self.preset_panel = ControlNetPresetUI(
@@ -952,16 +952,21 @@ class ControlNetUiGroup(object):
         def ui_controlnet_unit_for_input_mode(input_mode, *args):
             args = list(args)
             args[0] = input_mode
-            return input_mode, UiControlNetUnit(*args)
+            return (
+                input_mode, 
+                UiControlNetUnit(*args), 
+                gr.update(visible=input_mode == batch_hijack.InputMode.BATCH),
+            )
 
-        for input_tab in (
+        for input_tab, mode_value in (
             (self.upload_tab, batch_hijack.InputMode.SIMPLE),
             (self.batch_tab, batch_hijack.InputMode.BATCH),
         ):
-            input_tab[0].select(
+            input_tab.select(
                 fn=ui_controlnet_unit_for_input_mode,
-                inputs=[gr.State(input_tab[1])] + list(unit_args),
-                outputs=[input_mode, unit],
+                inputs=[gr.State(mode_value)] + list(unit_args),
+                outputs=[input_mode, unit, self.loopback],
+                show_progress=False,
             )
 
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
