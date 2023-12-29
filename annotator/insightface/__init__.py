@@ -1,3 +1,4 @@
+import cv2
 import os
 from typing import List
 
@@ -12,6 +13,7 @@ from modules import devices
 from einops import rearrange
 from annotator.annotator_path import models_path
 from .resampler import PerceiverAttention, FeedForward
+from .face_analysis import FaceAnalysis
 
 class FacePerceiverResampler(torch.nn.Module):
     def __init__(
@@ -408,6 +410,15 @@ class AnimeFaceSegment:
     def unload_model(self):
         if self.model is not None:
             self.model.cpu()
+            
+    def get_faceid_embeds(self, input_image):
+        app = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        app.prepare(ctx_id=0, det_size=(640, 640))
+
+        faces = app.get(input_image)
+
+        faceid_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
+        return faceid_embeds
 
     def __call__(self, input_image):
 
