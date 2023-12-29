@@ -149,6 +149,7 @@ class ControlNetUiGroup(object):
         self.upload_independent_img_in_img2img = None
         self.image_upload_panel = None
         self.save_detected_map = None
+        self.input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
 
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
@@ -430,11 +431,11 @@ class ControlNetUiGroup(object):
         )
 
         self.loopback = gr.Checkbox(
-            label="[Loopback] Automatically send generated images to this ControlNet unit",
+            label="[Batch Loopback] Automatically send generated images to this ControlNet unit in batch generation",
             value=self.default_unit.loopback,
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox",
             elem_classes="controlnet_loopback_checkbox",
-            visible=not is_img2img,
+            visible=False,
         )
 
         self.preset_panel = ControlNetPresetUI(
@@ -815,7 +816,6 @@ class ControlNetUiGroup(object):
             ],
             show_progress=False
         )
-        return
 
     def register_callbacks(self, is_img2img: bool):
         """Register callbacks on the UI elements.
@@ -862,11 +862,10 @@ class ControlNetUiGroup(object):
         Returns:
             The data class "ControlNetUnit" representing this ControlNetUnit.
         """
-        input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         batch_image_dir_state = gr.State("")
         output_dir_state = gr.State("")
         unit_args = (
-            input_mode,
+            self.input_mode,
             batch_image_dir_state,
             output_dir_state,
             self.loopback,
@@ -948,22 +947,6 @@ class ControlNetUiGroup(object):
                     outputs=[self.use_preview_as_input, self.generated_image],
                 )
 
-        # keep input_mode in sync
-        def ui_controlnet_unit_for_input_mode(input_mode, *args):
-            args = list(args)
-            args[0] = input_mode
-            return input_mode, UiControlNetUnit(*args)
-
-        for input_tab in (
-            (self.upload_tab, batch_hijack.InputMode.SIMPLE),
-            (self.batch_tab, batch_hijack.InputMode.BATCH),
-        ):
-            input_tab[0].select(
-                fn=ui_controlnet_unit_for_input_mode,
-                inputs=[gr.State(input_tab[1])] + list(unit_args),
-                outputs=[input_mode, unit],
-            )
-
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
                 return batch_dir
@@ -1028,6 +1011,55 @@ class ControlNetUiGroup(object):
 
         return unit
 
+
+    @staticmethod
+    def register_input_mode_sync(ui_groups: List["ControlNetUiGroup"]):
+        """
+        - ui_group.input_mode should be updated when user switch tabs.
+        - Loopback checkbox should only be visible if at least one ControlNet unit
+        is set to batch mode.
+
+        Argument:
+            ui_groups: All ControlNetUiGroup instances defined in current Script context.
+
+        Returns:
+            None
+        """
+        if not ui_groups:
+            return
+
+        simple_state = gr.State(batch_hijack.InputMode.SIMPLE)
+        batch_state = gr.State(batch_hijack.InputMode.BATCH)
+
+        for ui_group in ui_groups:
+            for input_tab, mode_state in (
+                (ui_group.upload_tab, simple_state),
+                (ui_group.batch_tab, batch_state),
+            ):
+                # Sync input_mode.
+                input_tab.select(
+                    fn=lambda x: x,
+                    inputs=[mode_state],
+                    outputs=[ui_group.input_mode],
+                    show_progress=False,
+                )
+
+                # Update visibility of loopback checkbox.
+                input_tab.select(
+                    fn=lambda new_mode_value, *mode_values: ((
+                        gr.update(
+                            visible=new_mode_value == batch_hijack.InputMode.BATCH
+                            or any(
+                                m == batch_hijack.InputMode.BATCH for m in mode_values
+                            )
+                        ),
+                    ) * len(ui_groups)),
+                    inputs=[mode_state] + [g.input_mode for g in ui_groups],
+                    outputs=[g.loopback for g in ui_groups],
+                    show_progress=False,
+                )
+                
+    
     @staticmethod
     def on_after_component(component, **_kwargs):
         elem_id = getattr(component, "elem_id", None)
