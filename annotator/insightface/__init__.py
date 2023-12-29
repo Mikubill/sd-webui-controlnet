@@ -103,7 +103,7 @@ class ProjPlusModel(torch.nn.Module):
 
 class IPAdapterFaceID:
     def __init__(self, sd_pipe, ip_ckpt, device, lora_rank=128, num_tokens=4):
-        self.device = device
+        self.device = devices.get_device_for("controlnet")
         self.ip_ckpt = ip_ckpt
         self.lora_rank = lora_rank
         self.num_tokens = num_tokens
@@ -234,8 +234,8 @@ class IPAdapterFaceID:
         return images
 
 class IPAdapterFaceIDPlus:
-    def __init__(self, sd_pipe, image_encoder_path, ip_ckpt, device, lora_rank=128, num_tokens=4):
-        self.device = device
+    def __init__(self, sd_pipe, image_encoder_path, ip_ckpt, lora_rank=128, num_tokens=4):
+        self.device = devices.get_device_for("controlnet")
         self.image_encoder_path = image_encoder_path
         self.ip_ckpt = ip_ckpt
         self.lora_rank = lora_rank
