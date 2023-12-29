@@ -268,7 +268,8 @@ class Script(scripts.Script, metaclass=(
         )
         group.render(tabname, elem_id_tabname, is_img2img)
         group.register_callbacks(is_img2img)
-        return group, group.render_and_register_unit(tabname, is_img2img)
+        unit_state = group.render_and_register_unit(tabname, is_img2img)
+        return group, unit_state
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
         batch_option = gr.Radio(
@@ -315,8 +316,8 @@ class Script(scripts.Script, metaclass=(
         Values of those returned components will be passed to run() and process() functions.
         """
         infotext = Infotext()
-        
-        controls = ()
+        ui_groups = []
+        controls = []
         max_models = shared.opts.data.get("control_net_unit_count", 3)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
@@ -327,21 +328,25 @@ class Script(scripts.Script, metaclass=(
                             with gr.Tab(f"ControlNet Unit {i}", 
                                         elem_classes=['cnet-unit-tab']):
                                 group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname)
-                                infotext.register_unit(i, group)
-                                controls += (state,)
+                                ui_groups.append(group)
+                                controls.append(state)
                 else:
                     with gr.Column():
                         group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname)
-                        infotext.register_unit(0, group)
-                        controls += (state,)
+                        ui_groups.append(group)
+                        controls.append(state)
                 with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
 
+        ControlNetUiGroup.register_input_mode_sync(ui_groups)
+
+        for i, ui_group in enumerate(ui_groups):
+            infotext.register_unit(i, ui_group)
         if shared.opts.data.get("control_net_sync_field_args", True):
             self.infotext_fields = infotext.infotext_fields
             self.paste_field_names = infotext.paste_field_names
 
-        return controls
+        return tuple(controls)
     
     @staticmethod
     def clear_control_model_cache():
