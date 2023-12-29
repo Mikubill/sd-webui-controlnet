@@ -383,7 +383,7 @@ class IPAdapterFaceIDPlus:
 
         return images
 
-class AnimeFaceSegment:
+class FaceidEmbedsEstimator:
 
     model_dir = os.path.join(models_path, "anime_face_segment")
 
@@ -392,49 +392,20 @@ class AnimeFaceSegment:
         self.device = devices.get_device_for("controlnet")
 
     def load_model(self):
-        remote_model_path = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/resolve/main/Annotators/UNet.pth"
-        modelpath = os.path.join(self.model_dir, "UNet.pth")
-        if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=self.model_dir)
-        net = UNet()
-        ckpt = torch.load(modelpath)
-        for key in list(ckpt.keys()):
-            if 'module.' in key:
-                ckpt[key.replace('module.', '')] = ckpt[key]
-                del ckpt[key]
-        net.load_state_dict(ckpt)
-        net.eval()
-        self.model = net.to(self.device)
+        self.model = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        self.model.prepare(ctx_id=0, det_size=(640, 640))
 
     def unload_model(self):
         if self.model is not None:
             self.model.cpu()
-            
-    def get_faceid_embeds(self, input_image):
-        app = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-        app.prepare(ctx_id=0, det_size=(640, 640))
-
-        faces = app.get(input_image)
-
-        faceid_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
-        return faceid_embeds
 
     def __call__(self, input_image):
 
         if self.model is None:
             self.load_model()
         self.model.to(self.device)
-        transform = transforms.Compose([  
-            transforms.Resize(512,interpolation=transforms.InterpolationMode.BICUBIC),  
-            transforms.ToTensor(),])
-        img = Image.fromarray(input_image)
-        with torch.no_grad():
-            img = transform(img).unsqueeze(dim=0).to(self.device)
-            seg = self.model(img).squeeze(dim=0)
-            seg = seg.cpu().detach().numpy()
-            img = rearrange(seg,'h w c -> w c h')
-            img = [[PALETTE[np.argmax(val)] for val in buf]for buf in img]
-            return np.array(img).astype(np.uint8)
+        faces = self.model.get(input_image)
+        faceid_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
+        return faceid_embeds
 
     
