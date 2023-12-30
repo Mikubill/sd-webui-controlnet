@@ -260,6 +260,11 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
             }
         ]
         self.assert_status_ok()
+    
+    def test_advanced_weighting(self):
+        unit = self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"][0]
+        unit["advanced_weighting"] = [0.75] * self.sd_version.controlnet_layer_num()
+        self.assert_status_ok()
 
 
 if __name__ == "__main__":

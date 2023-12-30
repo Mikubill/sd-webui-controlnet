@@ -596,6 +596,9 @@ class UnetHook(nn.Module):
                     control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
+                    logger.info(f"Advanced weighting enabled. {param.advanced_weighting}")
+                    if param.soft_injection or high_res_fix_forced_soft_injection:
+                        logger.warn("Advanced weighting overwrites soft_injection effect.")
                     control_scales = param.advanced_weighting
 
                 control = [c * scale for c, scale in zip(control, control_scales)]

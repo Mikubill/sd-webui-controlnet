@@ -173,6 +173,17 @@ class ControlNetUnit:
     # Currently the option is only accessible in API calls.
     save_detected_map: bool = True
 
+    # Weight for each layer of ControlNet params.
+    # For ControlNet:
+    # - SD1.5: 13 weights (4 encoder block * 3 + 1 middle block)
+    # - SDXL: 10 weights (3 encoder block * 3 + 1 middle block)
+    # For T2IAdapter
+    # - SD1.5: 5 weights (4 encoder block + 1 middle block)
+    # - SDXL: 4 weights (3 encoder block + 1 middle block)
+    # Note: Setting advanced weighting will disable `soft_injection`, i.e.
+    # It is recommended to set ControlMode = BALANCED when using `advanced_weighting`.
+    advanced_weighting: Optional[List[float]] = None
+
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):
             return False

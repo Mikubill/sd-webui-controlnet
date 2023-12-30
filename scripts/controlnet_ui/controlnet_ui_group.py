@@ -154,6 +154,9 @@ class ControlNetUiGroup(object):
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
         self.prevent_next_n_slider_value_update = 0
+        
+        # API-only fields
+        self.advanced_weighting = gr.State(None)
 
     def render(self, tabname: str, elem_id_tabname: str, is_img2img: bool) -> None:
         """The pure HTML structure of a single ControlNetUnit. Calling this

@@ -29,10 +29,11 @@ def parse_value(value: str) -> Union[str, float, int, bool]:
 
 
 def serialize_unit(unit: external_code.ControlNetUnit) -> str:
+    # Note: "advanced weighting" is excluded as it is an API-only field.
     log_value = {
         field_to_displaytext(field): getattr(unit, field)
         for field in vars(external_code.ControlNetUnit()).keys()
-        if field not in ("image", "enabled") and getattr(unit, field) != -1
+        if field not in ("image", "enabled", "advanced_weighting") and getattr(unit, field) != -1
         # Note: exclude hidden slider values.
     }
     if not all("," not in str(v) and ":" not in str(v) for v in log_value.values()):

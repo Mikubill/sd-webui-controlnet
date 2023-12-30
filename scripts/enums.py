@@ -25,6 +25,20 @@ class StableDiffusionVersion(Enum):
 
         return StableDiffusionVersion.UNKNOWN
 
+    def encoder_block_num(self) -> int:
+        match self:
+            case StableDiffusionVersion.SD1x:
+                return 4
+            case StableDiffusionVersion.SD2x:
+                return 4
+            case StableDiffusionVersion.SDXL:
+                return 3
+            case StableDiffusionVersion.UNKNOWN:
+                return 4
+
+    def controlnet_layer_num(self) -> int:
+        return self.encoder_block_num() * 3 + 1
+
 
 class ControlModelType(Enum):
     """
