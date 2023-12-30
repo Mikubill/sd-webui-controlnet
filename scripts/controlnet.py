@@ -22,6 +22,7 @@ from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
+from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
@@ -261,10 +262,11 @@ class Script(scripts.Script, metaclass=(
             model="None"
         )
 
-    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str) -> Tuple[ControlNetUiGroup, gr.State]:
+    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Photopea) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
             Script.get_default_ui_unit(),
             self.preprocessor,
+            photopea,
         )
         group.render(tabname, elem_id_tabname, is_img2img)
         group.register_callbacks(is_img2img)
@@ -322,17 +324,18 @@ class Script(scripts.Script, metaclass=(
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
+                photopea = Photopea()
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
                             with gr.Tab(f"ControlNet Unit {i}", 
                                         elem_classes=['cnet-unit-tab']):
-                                group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname)
+                                group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname, photopea)
                                 ui_groups.append(group)
                                 controls.append(state)
                 else:
                     with gr.Column():
-                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname)
+                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname, photopea)
                         ui_groups.append(group)
                         controls.append(state)
                 with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
