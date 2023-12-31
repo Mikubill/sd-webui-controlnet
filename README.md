@@ -219,6 +219,7 @@ This extension adds these command line arguments to the webui:
     --no-half-controlnet                                                                       load controlnet models in full precision
     --controlnet-preprocessor-cache-size                                                       Cache size for controlnet preprocessor results
     --controlnet-loglevel                                                                      Log level for the controlnet extension
+    --controlnet-tracemalloc                                                                   Enable malloc memory tracing
 ```
 
 # MacOS Support
