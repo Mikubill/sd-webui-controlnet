@@ -794,10 +794,7 @@ class Script(scripts.Script, metaclass=(
             # based on `extra_generation_params` these scripts attach on `p`, and subject to change
             # in the future.
             # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
-            is_upscale_script = (
-                any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys()) or
-                not shared.opts.data.get("controlnet_crop_upscale_script_only", True)
-            )
+            is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
             logger.debug(f"is_upscale_script={is_upscale_script}")
             # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
             # option is selected.
@@ -809,7 +806,11 @@ class Script(scripts.Script, metaclass=(
             # Crop ControlNet input image based on A1111 inpaint mask given.
             # This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res 
             # to crop tiles.
-            if 'reference' not in unit.module and is_only_masked_inpaint and is_upscale_script:
+            if (
+                'reference' not in unit.module
+                and is_only_masked_inpaint
+                and (is_upscale_script or unit.inpaint_crop_input_image)
+            ):
                 logger.debug("A1111 inpaint mask START")
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
                 input_image = [Image.fromarray(x) for x in input_image]
@@ -1230,10 +1231,6 @@ def on_ui_settings():
         False, "Disable openpose edit", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint", 
-        gr.Checkbox, {"interactive": True}, section=section))
-    shared.opts.add_option("controlnet_crop_upscale_script_only", shared.OptionInfo(
-        False, "Crop ControlNet input image only when invoking upscale script."
-        "(If not chekced, ControlNet input image will also be cropped when invoking inpaint with inpaint area set to 'Only masked')",
         gr.Checkbox, {"interactive": True}, section=section))
 
 
