@@ -335,8 +335,7 @@ class ControlNetUiGroup(object):
             # Note: The checkbox needs to exist for both img2img and txt2img as infotext
             # needs the checkbox value.
             self.inpaint_crop_input_image = gr.Checkbox(
-                label="Crop Input Image",
-                info="Crop input image based on A1111 mask.",
+                label="Crop input image based on A1111 mask",
                 value=False,
                 elem_classes=["cnet-crop-input-image"],
                 visible=False,
