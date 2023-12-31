@@ -694,12 +694,16 @@ class Script(scripts.Script, metaclass=(
         active sd model. An exception is thrown if ControlNet unit is detected to be
         incompatible.
         """
+        sd_version = global_state.get_sd_version()
+        assert sd_version != StableDiffusionVersion.UNKNOWN
+        
+        if "revision" in unit.module.lower() and sd_version != StableDiffusionVersion.SDXL:
+            raise Exception(f"Preprocessor 'revision' only supports SDXL. Current SD base model is {sd_version}.")
+        
         # No need to check if the ControlModelType does not require model to be present.
         if unit.model is None or unit.model.lower() == "none":
             return
 
-        sd_version = global_state.get_sd_version()
-        assert sd_version != StableDiffusionVersion.UNKNOWN
         cnet_sd_version = StableDiffusionVersion.detect_from_model_name(unit.model)
         
         if cnet_sd_version == StableDiffusionVersion.UNKNOWN:
