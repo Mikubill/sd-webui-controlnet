@@ -44,6 +44,7 @@ class ControlModelType(Enum):
     ReVision = "ReVision, Stability"
     IPAdapter = "IPAdapter, Hu Ye"
     Controlllite = "Controlllite, Kohya"
+    SparseCtrl = "SparseCtrl, Yuwei Guo"
 
 
 # Written by Lvmin

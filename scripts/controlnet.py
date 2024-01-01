@@ -966,6 +966,11 @@ class Script(scripts.Script, metaclass=(
                         if hr_control is not None:
                             hr_control = hr_control['image_embeds']
 
+                if control_model_type == ControlModelType.SparseCtrl:
+                    control = UnetHook.call_vae_using_process(p, control)
+                    if hr_control is not None:
+                        hr_control = UnetHook.call_vae_using_process(p, hr_control)
+
                 controls.append(control.cpu() if len(input_images) > 1 else control)
                 if hr_control is not None:
                     hr_controls.append(hr_control.cpu() if len(input_images) > 1 else hr_control)
@@ -979,6 +984,12 @@ class Script(scripts.Script, metaclass=(
                     hr_controls = torch.cat([hr_controls, hr_controls], dim=0)
             else:
                 hr_controls = None
+
+            if control_model_type == ControlModelType.SparseCtrl:
+                from scripts.controlnet_ad_sparsectrl import SparseCtrl
+                controls = SparseCtrl.create_cond_mask(unit.batch_index, controls, p.batch_size)
+                if hr_controls is not None:
+                    hr_controls = SparseCtrl.create_cond_mask(unit.batch_index, hr_controls, p.batch_size)
 
             preprocessor_dict = dict(
                 name=unit.module,

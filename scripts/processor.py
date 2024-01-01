@@ -1046,6 +1046,7 @@ preprocessor_filters = {
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
+    "SparseCtrl": "none",
 }
 
 preprocessor_filters_aliases = {

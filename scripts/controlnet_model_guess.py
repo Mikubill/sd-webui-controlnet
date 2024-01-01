@@ -7,6 +7,7 @@ from modules import devices
 from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_light
 from scripts.controlnet_lllite import PlugableControlLLLite
 from scripts.cldm import PlugableControlModel
+from scripts.controlnet_ad_sparsectrl import PlugableSparseCtrlModel
 from scripts.controlmodel_ipadapter import PlugableIPAdapter
 from scripts.logging import logger
 from scripts.controlnet_diffusers import convert_from_diffuser_state_dict
@@ -123,6 +124,25 @@ def build_model_by_guess(state_dict, unet, model_path):
         network.is_control_lora = True
         network.to(devices.dtype_unet)
         return network
+
+    if "down_blocks.0.motion_modules.0.temporal_transformer.norm.weight" in state_dict: # sparsectrl
+        config = copy.deepcopy(controlnet_default_config)
+        logger.info('controlnet_sparsectrl_config')
+        if "input_hint_block.weight" in state_dict: # rgb
+            config['use_simplified_condition_embedding'] = True
+            config['conditioning_channels'] = 4
+        else: # scribble
+            config['use_simplified_condition_embedding'] = False
+            config['conditioning_channels'] = 3
+
+        # TODO: Does FP8 modify dtype_unet? remove this after test.
+        logger.info(f"Using dtype_unet {devices.dtype_unet}")
+        config['use_fp16'] = devices.dtype_unet == torch.float16
+
+        network = PlugableSparseCtrlModel(config, state_dict)
+        network.to(devices.dtype_unet)
+        return network
+        
 
     if "controlnet_cond_embedding.conv_in.weight" in state_dict:  # diffusers
         state_dict = convert_from_diffuser_state_dict(state_dict)

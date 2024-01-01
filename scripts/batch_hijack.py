@@ -231,6 +231,7 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
 
     if len(units) > 0:
         extract_frames_from_video(params)
+        unit_batch_list = []
         for idx, unit in enumerate(units):
             # i2i-batch mode
             if params.is_i2i_batch and not unit.image:
@@ -263,10 +264,12 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                         assert len(images) == len(masks) or len(masks) == 1, 'Inpainting image mask count mismatch'
                         unit.batch_images = [{'image': images[i], 'mask': (masks[i] if len(masks) > 1 else masks[0])} for i in range(len(images))]
                 else:
-                    unit.batch_images = shared.listfiles(unit.batch_images)
-
-        unit_batch_list = [len(unit.batch_images) for unit in units
-                           if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.BATCH]
+                    batch_images = unit.batch_images.split('\n')
+                    if len(batch_images) > 1:
+                        unit.batch_images, unit.batch_index = batch_images
+                    else:
+                        unit.batch_images = shared.listfiles(unit.batch_images)
+                        unit_batch_list.append(len(unit.batch_images))
 
         if params.is_i2i_batch:
             unit_batch_list.append(len(p.init_images))
