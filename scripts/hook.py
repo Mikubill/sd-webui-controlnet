@@ -207,15 +207,14 @@ class ControlParams:
         self.used_hint_inpaint_hijack = None
     
     def disabled_by_hr_option(self, is_in_high_res_fix: bool) -> bool:
-        match self.hr_option:
-            case HiResFixOption.BOTH:
-                control_disabled = False
-            case HiResFixOption.LOW_RES_ONLY:
-                control_disabled = is_in_high_res_fix
-            case HiResFixOption.HIGH_RES_ONLY:
-                control_disabled = not is_in_high_res_fix
-            case _:
-                control_disabled = False
+        if self.hr_option == HiResFixOption.BOTH:
+            control_disabled = False
+        elif self.hr_option == HiResFixOption.LOW_RES_ONLY:
+            control_disabled = is_in_high_res_fix
+        elif self.hr_option == HiResFixOption.HIGH_RES_ONLY:
+            control_disabled = not is_in_high_res_fix
+        else:
+            assert False, "NOTREACHED"
         return control_disabled
 
 
