@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 
 class StableDiffusionVersion(Enum):
@@ -69,3 +70,19 @@ class AutoMachine(Enum):
     Read = "Read"
     Write = "Write"
     StyleAlign = "StyleAlign"
+
+
+class HiResFixOption(Enum):
+    BOTH = "Both"
+    LOW_RES_ONLY = "Low res only"
+    HIGH_RES_ONLY = "High res only"
+
+    @staticmethod
+    def from_value(value: Any) -> "HiResFixOption":
+        if isinstance(value, str):
+            return HiResFixOption(value)
+        elif isinstance(value, int):
+            return [x for x in HiResFixOption][value]
+        else:
+            assert isinstance(value, HiResFixOption)
+            return value

@@ -7,6 +7,7 @@ from modules import scripts, processing, shared
 from scripts import global_state
 from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
 from scripts.logging import logger
+from scripts.enums import HiResFixOption
 
 from modules.api import api
 
@@ -170,6 +171,9 @@ class ControlNetUnit:
     # Whether to crop input image based on A1111 img2img mask. This flag is only used when `inpaint area`
     # in A1111 is set to `Only masked`. In API, this correspond to `inpaint_full_res = True`.
     inpaint_crop_input_image: bool = True
+    # If hires fix is enabled in A1111, how should this ControlNet unit be applied.
+    # The value is ignored if the generation is not using hires fix.
+    hr_option: Union[HiResFixOption, int, str] = HiResFixOption.BOTH
     
     # Whether save the detected map of this unit. Setting this option to False prevents saving the
     # detected map or sending detected map along with generated images via API.
