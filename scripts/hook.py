@@ -205,6 +205,18 @@ class ControlParams:
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None
+    
+    def disabled_by_hr_option(self, is_in_high_res_fix: bool) -> bool:
+        match self.hr_option:
+            case HiResFixOption.BOTH:
+                control_disabled = False
+            case HiResFixOption.LOW_RES_ONLY:
+                control_disabled = is_in_high_res_fix
+            case HiResFixOption.HIGH_RES_ONLY:
+                control_disabled = not is_in_high_res_fix
+            case _:
+                control_disabled = False
+        return control_disabled
 
 
 def aligned_adding(base, x, require_channel_alignment):
@@ -489,19 +501,6 @@ class UnetHook(nn.Module):
 
             self.is_in_high_res_fix = is_in_high_res_fix
             outer.is_in_high_res_fix = is_in_high_res_fix
-            match param.hr_option:
-                case HiResFixOption.BOTH:
-                    control_disabled = False
-                case HiResFixOption.LOW_RES_ONLY:
-                    control_disabled = is_in_high_res_fix
-                    if control_disabled:
-                        logger.debug("Control disabled in high res pass")
-                case HiResFixOption.HIGH_RES_ONLY:
-                    control_disabled = not is_in_high_res_fix
-                    if control_disabled:
-                        logger.debug("Control disabled in low res pass")
-                case _:
-                    control_disabled = False
 
             # Convert control image to latent
             for param in outer.control_params:
@@ -528,7 +527,7 @@ class UnetHook(nn.Module):
 
             # handle prompt token control
             for param in outer.control_params:
-                if param.guidance_stopped or control_disabled:
+                if param.guidance_stopped or param.disabled_by_hr_option(self.is_in_high_res_fix):
                     continue
 
                 if param.control_model_type not in [ControlModelType.T2I_StyleAdapter]:
@@ -542,7 +541,7 @@ class UnetHook(nn.Module):
 
             # handle ControlNet / T2I_Adapter
             for param_index, param in enumerate(outer.control_params):
-                if param.guidance_stopped or control_disabled:
+                if param.guidance_stopped or param.disabled_by_hr_option(self.is_in_high_res_fix):
                     continue
 
                 if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
@@ -675,7 +674,7 @@ class UnetHook(nn.Module):
 
             # Handle attention and AdaIn control
             for param in outer.control_params:
-                if param.guidance_stopped or control_disabled:
+                if param.guidance_stopped or param.disabled_by_hr_option(self.is_in_high_res_fix):
                     continue
 
                 if param.used_hint_cond_latent is None:
@@ -784,7 +783,7 @@ class UnetHook(nn.Module):
                     continue
 
                 k = int(param.preprocessor['threshold_a'])
-                if is_in_high_res_fix and not control_disabled:
+                if is_in_high_res_fix and not param.disabled_by_hr_option(self.is_in_high_res_fix):
                     k *= 2
 
                 # Inpaint hijack
