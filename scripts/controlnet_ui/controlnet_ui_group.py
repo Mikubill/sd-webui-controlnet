@@ -157,6 +157,7 @@ class ControlNetUiGroup(object):
         self.save_detected_map = None
         self.input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
         self.inpaint_crop_input_image = None
+        self.hr_option = None
 
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
@@ -449,6 +450,15 @@ class ControlNetUiGroup(object):
             label="Resize Mode",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio",
             elem_classes="controlnet_resize_mode_radio",
+            visible=not is_img2img,
+        )
+        
+        self.hr_option = gr.Radio(
+            choices=[e.value for e in external_code.HiResFixOption],
+            value=self.default_unit.hr_option.value,
+            label="Hires-Fix Option",
+            elem_id=f"{elem_id_tabname}_{tabname}_controlnet_hr_option_radio",
+            elem_classes="controlnet_hr_option_radio",
             visible=not is_img2img,
         )
 
@@ -943,6 +953,7 @@ class ControlNetUiGroup(object):
             self.pixel_perfect,
             self.control_mode,
             self.inpaint_crop_input_image,
+            self.hr_option,
         )
 
         self.image.preprocess = functools.partial(

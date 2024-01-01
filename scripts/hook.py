@@ -5,9 +5,8 @@ import torch.nn as nn
 from functools import partial
 
 
-from enum import Enum
 from scripts.logging import logger
-from scripts.enums import ControlModelType, AutoMachine
+from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -167,6 +166,7 @@ class ControlParams:
             advanced_weighting,
             control_model_type,
             hr_hint_cond,
+            hr_option: HiResFixOption,
             global_average_pooling,
             soft_injection,
             cfg_injection,
@@ -183,6 +183,7 @@ class ControlParams:
         self.control_model_type = control_model_type
         self.global_average_pooling = global_average_pooling
         self.hr_hint_cond = hr_hint_cond
+        self.hr_option = hr_option
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None
@@ -488,7 +489,19 @@ class UnetHook(nn.Module):
 
             self.is_in_high_res_fix = is_in_high_res_fix
             outer.is_in_high_res_fix = is_in_high_res_fix
-            no_high_res_control = is_in_high_res_fix and shared.opts.data.get("control_net_no_high_res_fix", False)
+            match param.hr_option:
+                case HiResFixOption.BOTH:
+                    control_disabled = False
+                case HiResFixOption.LOW_RES_ONLY:
+                    control_disabled = is_in_high_res_fix
+                    if control_disabled:
+                        logger.debug("Control disabled in high res pass")
+                case HiResFixOption.HIGH_RES_ONLY:
+                    control_disabled = not is_in_high_res_fix
+                    if control_disabled:
+                        logger.debug("Control disabled in low res pass")
+                case _:
+                    control_disabled = False
 
             # Convert control image to latent
             for param in outer.control_params:
@@ -515,10 +528,7 @@ class UnetHook(nn.Module):
 
             # handle prompt token control
             for param in outer.control_params:
-                if no_high_res_control:
-                    continue
-
-                if param.guidance_stopped:
+                if param.guidance_stopped or control_disabled:
                     continue
 
                 if param.control_model_type not in [ControlModelType.T2I_StyleAdapter]:
@@ -532,10 +542,7 @@ class UnetHook(nn.Module):
 
             # handle ControlNet / T2I_Adapter
             for param_index, param in enumerate(outer.control_params):
-                if no_high_res_control:
-                    continue
-
-                if param.guidance_stopped:
+                if param.guidance_stopped or control_disabled:
                     continue
 
                 if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
@@ -668,10 +675,7 @@ class UnetHook(nn.Module):
 
             # Handle attention and AdaIn control
             for param in outer.control_params:
-                if no_high_res_control:
-                    continue
-
-                if param.guidance_stopped:
+                if param.guidance_stopped or control_disabled:
                     continue
 
                 if param.used_hint_cond_latent is None:
@@ -780,7 +784,7 @@ class UnetHook(nn.Module):
                     continue
 
                 k = int(param.preprocessor['threshold_a'])
-                if is_in_high_res_fix and not no_high_res_control:
+                if is_in_high_res_fix and not control_disabled:
                     k *= 2
 
                 # Inpaint hijack

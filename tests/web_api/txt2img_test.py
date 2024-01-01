@@ -75,7 +75,7 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
     def setup_controlnet_params(self, setup_args):
         self.simple_txt2img["alwayson_scripts"]["ControlNet"] = {"args": setup_args}
 
-    def assert_status_ok(self, msg=None):
+    def assert_status_ok(self, msg=None, expected_image_num=None):
         msg = ("" if msg is None else msg) + f"\nPayload:\n{self.simple_txt2img}"
 
         resp = requests.post(self.url_txt2img, json=self.simple_txt2img)
@@ -83,19 +83,20 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         # Note: Exception/error in ControlNet code likely will cause hook failure, which further leads
         # to detected map not being appended at the end of response image array.
         data = resp.json()
-        expected_image_num = self.simple_txt2img["n_iter"] * self.simple_txt2img[
-            "batch_size"
-        ] + min(
-            sum(
-                [
-                    unit.get("save_detected_map", True)
-                    for unit in self.simple_txt2img["alwayson_scripts"]["ControlNet"][
-                        "args"
+        if expected_image_num is None:
+            expected_image_num = self.simple_txt2img["n_iter"] * self.simple_txt2img[
+                "batch_size"
+            ] + min(
+                sum(
+                    [
+                        unit.get("save_detected_map", True)
+                        for unit in self.simple_txt2img["alwayson_scripts"]["ControlNet"][
+                            "args"
+                        ]
                     ]
-                ]
-            ),
-            shared.opts.data.get("control_net_unit_count", 3),
-        )
+                ),
+                shared.opts.data.get("control_net_unit_count", 3),
+            )
         self.assertEqual(len(data["images"]), expected_image_num, msg)
 
     def test_txt2img_simple_performed(self):
@@ -266,6 +267,16 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         unit["advanced_weighting"] = [0.75] * self.sd_version.controlnet_layer_num()
         self.assert_status_ok()
 
-
+    def test_hr_option(self):
+        # In non-hr run, hr_option should be ignored.
+        unit = self.simple_txt2img["alwayson_scripts"]["ControlNet"]["args"][0]
+        unit["hr_option"] = "High res only"
+        self.assert_status_ok(expected_image_num=2)
+        
+        # Hr run.
+        self.simple_txt2img["enable_hr"] = True
+        self.assert_status_ok(expected_image_num=3)
+        
+        
 if __name__ == "__main__":
     unittest.main()
