@@ -260,7 +260,7 @@ class Script(scripts.Script, metaclass=(
             model="None"
         )
 
-    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Photopea) -> Tuple[ControlNetUiGroup, gr.State]:
+    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Optional[Photopea]) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
             Script.get_default_ui_unit(),
             self.preprocessor,
@@ -322,7 +322,7 @@ class Script(scripts.Script, metaclass=(
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
-                photopea = Photopea()
+                photopea = Photopea() if not shared.opts.data.get("controlnet_disable_photopea_edit", False) else None
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
@@ -686,6 +686,7 @@ class Script(scripts.Script, metaclass=(
                 setattr(unit, param, default_value)
                 logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
 
+    @staticmethod
     def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
         """
         Checks whether the given ControlNet unit has model compatible with the currently 
@@ -1228,6 +1229,8 @@ def on_ui_settings():
         False, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_disable_openpose_edit", shared.OptionInfo(
         False, "Disable openpose edit", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_disable_photopea_edit", shared.OptionInfo(
+        False, "Disable photopea edit", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint", 
         gr.Checkbox, {"interactive": True}, section=section))
