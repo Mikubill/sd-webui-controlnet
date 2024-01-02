@@ -166,10 +166,10 @@ class ControlParams:
             advanced_weighting,
             control_model_type,
             hr_hint_cond,
-            hr_option: HiResFixOption,
             global_average_pooling,
             soft_injection,
             cfg_injection,
+            hr_option: HiResFixOption = HiResFixOption.BOTH,
             **kwargs  # To avoid errors
     ):
         self.control_model = control_model
