@@ -2,8 +2,6 @@ import gradio as gr
 
 from scripts.controlnet_ui.modal import ModalInterface
 
-
-PHOTOPEA_URL = "https://www.photopea.com/"
 PHOTOPEA_LOGO = "https://www.photopea.com/promo/icon256.png"
 
 
@@ -17,12 +15,15 @@ class Photopea(object):
         """Render the editor modal."""
         with gr.Group(elem_classes=["cnet-photopea-edit"]):
             self.modal = ModalInterface(
+                # Use about:blank here as placeholder so that the iframe does not
+                # immediately navigate. Only navigate when the user first click
+                # 'Edit'. The navigation logic is in `photopea.js`.
                 f"""
                 <div class="photopea-button-group">
                     <button class="photopea-button photopea-fetch">Fetch from ControlNet</button>
                     <button class="photopea-button photopea-send">Send to ControlNet</button>
                 </div>
-                <iframe class="photopea-iframe" src="{PHOTOPEA_URL}"></iframe>
+                <iframe class="photopea-iframe" src="about:blank"></iframe>
                 """,
                 open_button_text="Edit",
                 open_button_classes=["cnet-photopea-main-trigger"],

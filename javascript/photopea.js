@@ -215,9 +215,36 @@
 
   const MESSAGE_END_ACK = "done";
   const MESSAGE_ERROR = "error";
+  const PHOTOPEA_URL = "https://www.photopea.com/";
   class PhotopeaContext {
-    constructor(photopeaWindow) {
-      this.photopeaWindow = photopeaWindow;
+    constructor(photopeaIframe) {
+      this.photopeaIframe = photopeaIframe;
+      this.timeout = 1000;
+    }
+
+    navigateIframe() {
+      const iframe = this.photopeaIframe;
+      const editorURL = PHOTOPEA_URL;
+
+      return new Promise(async (resolve) => {
+        if (iframe.src !== editorURL) {
+          iframe.src = editorURL;
+          // Stop waiting after 10s.
+          setTimeout(resolve, 10000);
+
+          // Testing whether photopea is able to accept message.
+          while (true) {
+            try {
+              await this.invoke(hasActiveDocument);
+              break;
+            } catch (e) {
+              console.log("Keep waiting for photopea to accept message.");
+            }
+          }
+          this.timeout = 5000; // Restore to a longer timeout in normal messaging.
+        }
+        resolve();
+      });
     }
 
     // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
@@ -226,7 +253,7 @@
         const responseDataPieces = [];
         let hasError = false;
         const photopeaMessageHandle = (event) => {
-          if (event.source !== this.photopeaWindow) {
+          if (event.source !== this.photopeaIframe.contentWindow) {
             return;
           }
           // Filter out the ping messages
@@ -254,13 +281,14 @@
         };
 
         window.addEventListener("message", photopeaMessageHandle);
-        setTimeout(() => reject("Photopea message timeout"), 5000);
-        this.photopeaWindow.postMessage(message, "*");
+        setTimeout(() => reject("Photopea message timeout"), this.timeout);
+        this.photopeaIframe.contentWindow.postMessage(message, "*");
       });
     }
 
     // From https://github.com/huchenlei/stable-diffusion-ps-pea/blob/main/src/Photopea.ts
     async invoke(func, ...args) {
+      await this.navigateIframe();
       const message = `${func.toString()} ${func.name}(${args.map(arg => JSON.stringify(arg)).join(',')});`;
       try {
         return await this.postMessageToPhotopea(message);
@@ -359,8 +387,8 @@
 
       const closeModalButton = accordion.querySelector('.cnet-photopea-edit .cnet-modal-close');
       const tabs = accordion.querySelectorAll('.cnet-unit-tab');
-      const photopeaWindow = accordion.querySelector('.photopea-iframe').contentWindow;
-      const photopeaContext = new PhotopeaContext(photopeaWindow, tabs);
+      const photopeaIframe = accordion.querySelector('.photopea-iframe');
+      const photopeaContext = new PhotopeaContext(photopeaIframe, tabs);
 
       tabs.forEach(tab => {
         const photopeaChildTrigger = tab.querySelector('.cnet-photopea-child-trigger');
