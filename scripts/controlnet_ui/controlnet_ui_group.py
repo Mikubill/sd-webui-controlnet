@@ -106,7 +106,7 @@ class ControlNetUiGroup(object):
         self,
         default_unit: external_code.ControlNetUnit,
         preprocessors: List[Callable],
-        photopea: Photopea,
+        photopea: Optional[Photopea],
     ):
         self.default_unit = default_unit
         self.preprocessors = preprocessors
@@ -217,7 +217,8 @@ class ControlNetUiGroup(object):
                             with gr.Group(
                                 elem_classes=["cnet-generated-image-control-group"]
                             ):
-                                self.photopea.render_child_trigger()
+                                if self.photopea:
+                                    self.photopea.render_child_trigger()
                                 self.openpose_editor.render_edit()
                                 preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
                                 preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
@@ -234,7 +235,8 @@ class ControlNetUiGroup(object):
                         elem_id=f"{elem_id_tabname}_{tabname}_batch_image_dir",
                     )
 
-            self.photopea.attach_photopea_output(self.generated_image)
+            if self.photopea:
+                self.photopea.attach_photopea_output(self.generated_image)
 
             with gr.Accordion(
                 label="Open New Canvas", visible=False

@@ -351,6 +351,12 @@
   function loadPhotopea() {
     function registerCallbacks(accordion) {
       const photopeaMainTrigger = accordion.querySelector('.cnet-photopea-main-trigger');
+      // Photopea edit feature disabled.
+      if (!photopeaMainTrigger) {
+        console.log("ControlNet photopea edit disabled.");
+        return;
+      }
+
       const closeModalButton = accordion.querySelector('.cnet-photopea-edit .cnet-modal-close');
       const tabs = accordion.querySelectorAll('.cnet-unit-tab');
       const photopeaWindow = accordion.querySelector('.photopea-iframe').contentWindow;
