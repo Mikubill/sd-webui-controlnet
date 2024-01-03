@@ -1,12 +1,18 @@
 import launch
+import subprocess
 import pkg_resources
 from pathlib import Path
 from typing import Tuple, Optional
+    
 
-main_req_file = Path(__file__).parent / "requirements.txt"
-hand_refiner_req_file = (
-    Path(__file__).parent / "annotator" / "hand_refiner_portable" / "requirements.txt"
-)
+repo_root = Path(__file__).parent
+main_req_file = repo_root / "requirements.txt"
+hand_refiner_req_file = repo_root / "annotator" / "hand_refiner_portable" / "requirements.txt"
+
+
+def sync_submodules():
+    subprocess.run(['git', 'submodule', 'init'], check=True, cwd=repo_root)
+    subprocess.run(['git', 'submodule', 'update'], check=True, cwd=repo_root)
 
 
 def comparable_version(version: str) -> Tuple:
@@ -55,5 +61,6 @@ def install_requirements(req_file):
                 )
 
 
+sync_submodules()
 install_requirements(main_req_file)
 install_requirements(hand_refiner_req_file)
