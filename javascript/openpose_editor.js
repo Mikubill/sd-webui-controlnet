@@ -44,7 +44,7 @@
                     if (message['ready']) resolve();
                 }, { once: true });
 
-                if (getPathname(iframe.src) !== editorURL) {
+                if ((editorURL.startsWith("http") ? iframe.src : getPathname(iframe.src)) !== editorURL) {
                     iframe.src = `${editorURL}?${darkThemeParam}`;
                     // By default assume 5 second is enough for the openpose editor
                     // to load.

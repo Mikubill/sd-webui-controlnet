@@ -81,15 +81,19 @@ class AnimalPose:
         self.onnx_pose = onnx_pose
         self.model_input_size = (256, 256)
 
-        # Always loads to CPU
-        device = "cpu"
-        providers = ["CPUExecutionProvider"]
+        # Always loads to CPU to avoid building OpenCV.
+        device = 'cpu'
+        backend = cv2.dnn.DNN_BACKEND_OPENCV if device == 'cpu' else cv2.dnn.DNN_BACKEND_CUDA
+        # You need to manually build OpenCV through cmake to work with your GPU.
+        providers = cv2.dnn.DNN_TARGET_CPU if device == 'cpu' else cv2.dnn.DNN_TARGET_CUDA
 
-        import onnxruntime as ort
+        self.session_det = cv2.dnn.readNetFromONNX(onnx_det)
+        self.session_det.setPreferableBackend(backend)
+        self.session_det.setPreferableTarget(providers)
 
-        self.session_det = ort.InferenceSession(onnx_det, providers=providers)
-
-        self.session_pose = ort.InferenceSession(onnx_pose, providers=providers)
+        self.session_pose = cv2.dnn.readNetFromONNX(onnx_pose)
+        self.session_pose.setPreferableBackend(backend)
+        self.session_pose.setPreferableTarget(providers)
 
     def __call__(self, oriImg) -> List[AnimalPoseResult]:
         detect_classes = list(
