@@ -639,6 +639,20 @@ def unload_anime_face_segment():
     if model_anime_face_segment is not None:
         model_anime_face_segment.unload_model()
 
+def face_id(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_face_id
+    if model_face_id is None:
+        from annotator.insightface import FaceidEmbedsEstimator
+        model_face_id = FaceidEmbedsEstimator()
+
+    result = model_face_id(img)
+    return remove_pad(result), True
+
+def unload_face_id():
+    global model_face_id
+    if model_face_id is not None:
+        model_face_id.unload_face_id()
 
 model_free_preprocessors = [
     "reference_only",
@@ -655,6 +669,7 @@ no_control_mode_preprocessors = [
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
     "t2ia_style_clipvision"
+    "ip-adapter_clip_face_id"
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"

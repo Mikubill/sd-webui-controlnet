@@ -20,7 +20,15 @@ class INSwapper():
         self.input_std = 255.0
         #print('input mean and std:', model_file, self.input_mean, self.input_std)
         if self.session is None:
-            self.session = onnxruntime.InferenceSession(self.model_file, None)
+            # Always loads to CPU to avoid building OpenCV.
+            device = 'cpu'
+            backend = cv2.dnn.DNN_BACKEND_OPENCV if device == 'cpu' else cv2.dnn.DNN_BACKEND_CUDA
+            # You need to manually build OpenCV through cmake to work with your GPU.
+            providers = cv2.dnn.DNN_TARGET_CPU if device == 'cpu' else cv2.dnn.DNN_TARGET_CUDA
+
+            self.session = cv2.dnn.readNetFromONNX(self.model_file)
+            self.session.setPreferableBackend(backend)
+            self.session.setPreferableTarget(providers)
         inputs = self.session.get_inputs()
         self.input_names = []
         for inp in inputs:
@@ -102,4 +110,3 @@ class INSwapper():
             fake_merged = img_mask * bgr_fake + (1-img_mask) * target_img.astype(np.float32)
             fake_merged = fake_merged.astype(np.uint8)
             return fake_merged
-
