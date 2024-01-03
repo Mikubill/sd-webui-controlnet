@@ -639,20 +639,15 @@ def unload_anime_face_segment():
     if model_anime_face_segment is not None:
         model_anime_face_segment.unload_model()
 
-def face_id(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
+def face_id(img, res=512, plus=False, **kwargs):
+    img = HWC3(img)
     global model_face_id
     if model_face_id is None:
         from annotator.insightface import FaceidEmbedsEstimator
         model_face_id = FaceidEmbedsEstimator()
 
-    result = model_face_id(img)
-    return remove_pad(result), True
-
-def unload_face_id():
-    global model_face_id
-    if model_face_id is not None:
-        model_face_id.unload_face_id()
+    result,face_image = model_face_id(img)
+    return result, True
 
 model_free_preprocessors = [
     "reference_only",
