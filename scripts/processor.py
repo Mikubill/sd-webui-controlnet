@@ -670,7 +670,7 @@ def hand_refiner(img, res=512, **kwargs):
             model_hand_refiner = MeshGraphormerDetector.from_pretrained(
                 "hr16/ControlNet-HandRefiner-pruned", 
                 cache_dir=os.path.join(models_path, "hand_refiner"),
-                device="cuda",
+                device="cpu",
             )
 
         depth_map, mask, info = model_hand_refiner(
