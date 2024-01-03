@@ -1,9 +1,12 @@
+import os
 import cv2
 import numpy as np
 
 from annotator.util import HWC3
+from annotator.annotator_path import models_path
 from typing import Callable, Tuple
 
+from modules.safe import Extra
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -642,6 +645,49 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+model_hand_refiner = None
+
+
+def hand_refiner(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_hand_refiner
+    
+    def torch_handler(module: str, name: str):
+        import torch
+        if module == 'torch':
+            return getattr(torch, name)
+        
+    with Extra(handler=torch_handler):
+        if model_hand_refiner is None:
+            # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
+            import sys
+            from pathlib import Path
+            hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
+            if hand_refiner_path not in sys.path:
+                sys.path.append(hand_refiner_path)
+            
+            from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
+            model_hand_refiner = MeshGraphormerDetector.from_pretrained(
+                "hr16/ControlNet-HandRefiner-pruned", 
+                cache_dir=os.path.join(models_path, "hand_refiner"),
+                device="cuda",
+            )
+
+        depth_map, mask, info = model_hand_refiner(
+            img, output_type="np",
+            detect_resolution=res,
+            mask_bbox_padding=30,
+        )
+    return remove_pad(depth_map), True
+
+
+def unload_hand_refiner():
+    global model_hand_refiner
+    if model_hand_refiner is not None:
+        # TODO unload model.
+        pass
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -1023,6 +1069,14 @@ preprocessor_sliders_config = {
             "min": 64,
             "max": 2048
         }
+    ],
+    "depth_hand_refiner": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        } 
     ],
 }
 
