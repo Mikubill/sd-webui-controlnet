@@ -169,10 +169,10 @@ class IPAdapterFaceID:
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(faceid_embeds))
         return image_prompt_embeds, uncond_image_prompt_embeds
 
-    # def set_scale(self, scale):
-    #     for attn_processor in self.pipe.unet.attn_processors.values():
-    #         if isinstance(attn_processor, LoRAIPAttnProcessor):
-    #             attn_processor.scale = scale
+    def set_scale(self, scale):
+        for attn_processor in self.pipe.unet.attn_processors.values():
+            if isinstance(attn_processor, LoRAIPAttnProcessor):
+                attn_processor.scale = scale
 
     def generate(
         self,
@@ -186,7 +186,7 @@ class IPAdapterFaceID:
         num_inference_steps=30,
         **kwargs,
     ):
-        # self.set_scale(scale)
+        self.set_scale(scale)
 
        
         num_prompts = faceid_embeds.size(0)
@@ -316,10 +316,10 @@ class IPAdapterFaceIDPlus:
         uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(faceid_embeds), uncond_clip_image_embeds)
         return image_prompt_embeds, uncond_image_prompt_embeds
 
-    # def set_scale(self, scale):
-    #     for attn_processor in self.pipe.unet.attn_processors.values():
-    #         if isinstance(attn_processor, LoRAIPAttnProcessor):
-    #             attn_processor.scale = scale
+    def set_scale(self, scale):
+        for attn_processor in self.pipe.unet.attn_processors.values():
+            if isinstance(attn_processor, LoRAIPAttnProcessor):
+                attn_processor.scale = scale
 
     def generate(
         self,
@@ -334,7 +334,7 @@ class IPAdapterFaceIDPlus:
         num_inference_steps=30,
         **kwargs,
     ):
-        # self.set_scale(scale)
+        self.set_scale(scale)
 
        
         num_prompts = faceid_embeds.size(0)
