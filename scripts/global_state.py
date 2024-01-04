@@ -54,6 +54,7 @@ cn_preprocessor_modules = {
     "depth": midas,
     "depth_leres": functools.partial(leres, boost=False),
     "depth_leres++": functools.partial(leres, boost=True),
+    "depth_hand_refiner": g_hand_refiner_model.run_model,
     "hed": hed,
     "hed_safe": hed_safe,
     "mediapipe_face": mediapipe_face,
@@ -138,6 +139,7 @@ cn_preprocessor_unloadable = {
     "lineart_anime_denoise": unload_lineart_anime_denoise,
     "inpaint_only+lama": unload_lama_inpaint,
     "anime_face_segment": unload_anime_face_segment,
+    "depth_hand_refiner": g_hand_refiner_model.unload,
 }
 
 preprocessor_aliases = {

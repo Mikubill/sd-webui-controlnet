@@ -1,0 +1,3 @@
+[submodule "annotator/hand_refiner_portable"]
+	path = annotator/hand_refiner_portable
+	url = https://github.com/huchenlei/HandRefinerPortable
