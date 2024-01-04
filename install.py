@@ -13,8 +13,13 @@ hand_refiner_req_file = (
 
 
 def sync_submodules():
-    subprocess.run(["git", "submodule", "init"], check=True, cwd=repo_root)
-    subprocess.run(["git", "submodule", "update"], check=True, cwd=repo_root)
+    try:
+        subprocess.run(["git", "submodule", "init"], check=True, cwd=repo_root)
+        subprocess.run(["git", "submodule", "update"], check=True, cwd=repo_root)
+    except Exception as e:
+        print(e)
+        print("Warning: ControlNet failed to sync submodules. Please try run "
+              "`git submodule init` and `git submodule update` manually.")
 
 
 def comparable_version(version: str) -> Tuple:
