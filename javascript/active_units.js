@@ -284,8 +284,10 @@
 
             attachA1111HrObserver() {
                 if (this.isImg2Img) return;
-                
+
                 const hr_checkbox = gradioApp().querySelector('#txt2img_hr-visible-checkbox');
+                if (!hr_checkbox) return; // For backward compatibility for A1111 < 1.7.0
+
                 hr_checkbox.addEventListener('change', () => {
                     if (hr_checkbox.checked) {
                         this.hrOptionRadioGroup.removeAttribute('hidden');
@@ -293,7 +295,7 @@
                         this.hrOptionRadioGroup.setAttribute('hidden', '');
                     }
                 });
-                
+
                 // Hide initially as hr is disabled by default.
                 this.hrOptionRadioGroup.setAttribute('hidden', '');
             }
