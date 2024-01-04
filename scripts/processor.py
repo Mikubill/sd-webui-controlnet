@@ -7,6 +7,8 @@ from annotator.annotator_path import models_path
 from typing import Callable, Tuple
 
 from modules.safe import Extra
+from modules import devices
+
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -645,20 +647,18 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
-model_hand_refiner = None
-
-
-def hand_refiner(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    global model_hand_refiner
+class HandRefinerModel:
+    def __init__(self):
+        self.model = None
+        self.device = devices.get_device_for("controlnet")
+        def torch_handler(module: str, name: str):
+            import torch
+            if module == 'torch':
+                return getattr(torch, name)
+        self.torch_handler = torch_handler
     
-    def torch_handler(module: str, name: str):
-        import torch
-        if module == 'torch':
-            return getattr(torch, name)
-        
-    with Extra(handler=torch_handler):
-        if model_hand_refiner is None:
+    def load_model(self):
+        if self.model is None:
             # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
             import sys
             from pathlib import Path
@@ -667,25 +667,32 @@ def hand_refiner(img, res=512, **kwargs):
                 sys.path.append(hand_refiner_path)
             
             from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
-            model_hand_refiner = MeshGraphormerDetector.from_pretrained(
-                "hr16/ControlNet-HandRefiner-pruned", 
-                cache_dir=os.path.join(models_path, "hand_refiner"),
-                device="cpu",
+            with Extra(self.torch_handler):
+                self.model = MeshGraphormerDetector.from_pretrained(
+                    "hr16/ControlNet-HandRefiner-pruned", 
+                    cache_dir=os.path.join(models_path, "hand_refiner"),
+                    device=self.device,
+                )
+        else:
+            self.model.to(self.device)
+
+    def unload(self):
+        if self.model is not None:
+            self.model.to("cpu")
+
+    def run_model(self, img, res=512, **kwargs):
+        img, remove_pad = resize_image_with_pad(img, res)
+        self.load_model()
+        with Extra(self.torch_handler):
+            depth_map, mask, info = self.model(
+                img, output_type="np",
+                detect_resolution=res,
+                mask_bbox_padding=30,
             )
-
-        depth_map, mask, info = model_hand_refiner(
-            img, output_type="np",
-            detect_resolution=res,
-            mask_bbox_padding=30,
-        )
-    return remove_pad(depth_map), True
+        return remove_pad(depth_map), True
 
 
-def unload_hand_refiner():
-    global model_hand_refiner
-    if model_hand_refiner is not None:
-        # TODO unload model.
-        pass
+g_hand_refiner_model = HandRefinerModel()
 
 
 model_free_preprocessors = [
