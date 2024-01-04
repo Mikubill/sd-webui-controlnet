@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 
 from annotator.util import HWC3
-from annotator.annotator_path import models_path
 from typing import Callable, Tuple
 
 from modules.safe import Extra
@@ -662,6 +661,7 @@ class HandRefinerModel:
             # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
             import sys
             from pathlib import Path
+            from annotator.annotator_path import models_path
             hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
             if hand_refiner_path not in sys.path:
                 sys.path.append(hand_refiner_path)
