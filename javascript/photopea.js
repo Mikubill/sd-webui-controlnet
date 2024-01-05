@@ -382,9 +382,25 @@
       localStorage.setItem("ControlNetPhotopeaEditPrompted", "true");
     }
     const promptMsg = "This is the first time you use photopea edit feature. The preprocess results are " +
-    "going to be send to https://photopea.com for edit. You can disable photopea edit in Settings > ControlNet" +
-    " > Disable photopea edit.";
-    return confirm(promptMsg);
+      "going to be send to https://photopea.com for edit.\n" +
+      "- Click OK: proceed.\n" +
+      "- Click Cancel: abort and disable photopea edit feature.";
+    const confirmed = confirm(promptMsg);
+
+    if (!confirmed) {
+      // Hide all edit buttons in current session.
+      gradioApp().querySelectorAll(".cnet-photopea-child-trigger").forEach(button => button.hidden = true);
+      // Check `Disable photopea edit` in Settings.
+      const checkbox = gradioApp().querySelector("#setting_controlnet_disable_photopea_edit input[type=checkbox]");
+      if (checkbox && !checkbox.checked) {
+        checkbox.click();
+        const applyButton = gradioApp().querySelector("#settings_submit");
+        if (applyButton) {
+          applyButton.click();
+        }
+      }
+    }
+    return confirmed;
   }
 
   const cnetRegisteredAccordions = new Set();
