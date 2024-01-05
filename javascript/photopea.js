@@ -381,8 +381,8 @@
     } else {
       localStorage.setItem("ControlNetPhotopeaEditPrompted", "true");
     }
-    const promptMsg = "This is the first time you use photopea edit feature. The preprocess results are "
-    "going to be send to https://photopea.com for edit. You can disable photopea edit in Settings > ControlNet"
+    const promptMsg = "This is the first time you use photopea edit feature. The preprocess results are " +
+    "going to be send to https://photopea.com for edit. You can disable photopea edit in Settings > ControlNet" +
     " > Disable photopea edit.";
     return confirm(promptMsg);
   }
