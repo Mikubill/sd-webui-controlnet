@@ -282,7 +282,7 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
 
     params.post_setup_cn_batches(p)
     assert params.video_length == p.batch_size, f'Video length {params.video_length} does not match batch size {p.batch_size}'
-    logger.info(f"AnimateDiff ControlNet batch loading done. Will generate {p.batch_size} images")
+    logger.info(f"AnimateDiff ControlNet batch loading done. Will generate {p.batch_size} frames")
 
 
 instance = BatchHijack()

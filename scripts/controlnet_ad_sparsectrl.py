@@ -5,10 +5,11 @@ from torch import nn
 from torch.nn import functional as F
 
 from modules.devices import get_device_for
-from scripts.cldm import PlugableControlModel, ControlNet, zero_module, conv_nd
+from scripts.cldm import PlugableControlModel, ControlNet, zero_module, conv_nd, TimestepEmbedSequential
 
 class PlugableSparseCtrlModel(PlugableControlModel):
     def __init__(self, config, state_dict=None):
+        nn.Module.__init__(self)
         self.config = config
         self.control_model = SparseCtrl(**self.config).cpu()
         if state_dict is not None:
@@ -53,26 +54,24 @@ class SparseControlNetConditioningEmbedding(nn.Module):
 
 class SparseCtrl(ControlNet):
     def __init__(self, use_simplified_condition_embedding=True, conditioning_channels=4, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(hint_channels=1, **kwargs) # we don't need hint_channels, but we need to set it to 1 to avoid errors
+        self.use_simplified_condition_embedding = use_simplified_condition_embedding
         if use_simplified_condition_embedding:
-            self.input_hint_block = zero_module(conv_nd(self.dims, conditioning_channels, kwargs.get("model_channels", 320), kernel_size=3, padding=1))
+            self.input_hint_block = TimestepEmbedSequential(
+                zero_module(conv_nd(self.dims, conditioning_channels, kwargs.get("model_channels", 320), kernel_size=3, padding=1)))
         else:
-            self.input_hint_block = SparseControlNetConditioningEmbedding(
-                self.dims,
-                kwargs.get("model_channels", 320),
-                conditioning_channels=conditioning_channels,
-            )
+            self.input_hint_block = TimestepEmbedSequential(
+                SparseControlNetConditioningEmbedding(
+                    self.dims, kwargs.get("model_channels", 320),
+                    conditioning_channels=conditioning_channels,))
 
 
     def load_state_dict(self, state_dict, strict=False):
-        missing_keys_cn = super().load_state_dict(state_dict, strict=strict)
-        from scripts.logging import logger # TODO: remove this
-        logger.warn(f"Missing keys in CN part of SparseCtrl {missing_keys_cn}") # TODO: remove this
+        super().load_state_dict(state_dict, strict=strict)
 
         from scripts.animatediff_mm import MotionWrapper, MotionModuleType
         sparsectrl_mm = MotionWrapper("", "", MotionModuleType.SparseCtrl)
-        missing_keys_ad = sparsectrl_mm.load_state_dict(state_dict, strict=strict)
-        logger.warn(f"Missing keys in MM part of SparseCtrl {missing_keys_ad}") # TODO: remove this
+        sparsectrl_mm.load_state_dict(state_dict, strict=strict)
 
         for mm_idx, unet_idx in enumerate([1, 2, 4, 5, 7, 8, 10, 11]):
             mm_idx0, mm_idx1 = mm_idx // 2, mm_idx % 2
@@ -82,8 +81,12 @@ class SparseCtrl(ControlNet):
 
     @staticmethod
     def create_cond_mask(control_image_index: List[int], control_image_latents: torch.Tensor, video_length: int):
-        hint_cond = torch.zeros((video_length, *control_image_latents.shape[1:]), device=get_device_for("controlnet"))
+        hint_cond = torch.zeros((video_length, *control_image_latents.shape[1:]), device=get_device_for("controlnet"), dtype=control_image_latents.dtype)
         hint_cond[control_image_index] = control_image_latents[:len(control_image_index)]
-        hint_cond_mask = torch.zeros((hint_cond.shape[0], 1, hint_cond.shape[2:]), device=get_device_for("controlnet"))
+        hint_cond_mask = torch.zeros((hint_cond.shape[0], 1, *hint_cond.shape[2:]), device=get_device_for("controlnet"), dtype=control_image_latents.dtype)
         hint_cond_mask[control_image_index] = 1.0
         return torch.cat([hint_cond, hint_cond_mask], dim=1)
+
+
+    def forward(self, x, hint, timesteps, context, y=None, **kwargs):
+        return super().forward(torch.zeros_like(x, device=x.device), hint, timesteps, context, y=y, **kwargs)

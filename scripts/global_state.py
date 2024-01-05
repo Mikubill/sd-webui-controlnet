@@ -288,6 +288,10 @@ def select_control_type(
         filtered_preprocessor_list += [
             x for x in preprocessor_list if "invert" in x.lower()
         ]
+    if pattern in ["sparsectrl"]:
+        filtered_preprocessor_list += [
+            x for x in preprocessor_list if "scribble" in x.lower()
+        ]
     filtered_model_list = [
         model for model in all_models
         if model.lower() == "none" or

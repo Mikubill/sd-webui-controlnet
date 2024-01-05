@@ -18,6 +18,7 @@ from scripts import global_state, hook, external_code, processor, batch_hijack, 
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
+from scripts.controlnet_ad_sparsectrl import PlugableSparseCtrlModel, SparseCtrl
 from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
@@ -898,6 +899,9 @@ class Script(scripts.Script, metaclass=(
             if control_model_type is ControlModelType.ControlNet:
                 global_average_pooling = model_net.control_model.global_average_pooling
 
+            if isinstance(model_net, PlugableSparseCtrlModel):
+                control_model_type = ControlModelType.SparseCtrl
+
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 preprocessor_resolution = external_code.pixel_perfect_resolution(
@@ -966,7 +970,7 @@ class Script(scripts.Script, metaclass=(
                         if hr_control is not None:
                             hr_control = hr_control['image_embeds']
 
-                if control_model_type == ControlModelType.SparseCtrl:
+                if control_model_type == ControlModelType.SparseCtrl and model_net.control_model.use_simplified_condition_embedding:
                     control = UnetHook.call_vae_using_process(p, control)
                     if hr_control is not None:
                         hr_control = UnetHook.call_vae_using_process(p, hr_control)
@@ -986,10 +990,15 @@ class Script(scripts.Script, metaclass=(
                 hr_controls = None
 
             if control_model_type == ControlModelType.SparseCtrl:
-                from scripts.controlnet_ad_sparsectrl import SparseCtrl
-                controls = SparseCtrl.create_cond_mask(unit.batch_index, controls, p.batch_size)
+                sparsectrl_batch_index = [0]
+                if (getattr(unit, 'input_mode', batch_hijack.InputMode.SIMPLE) == batch_hijack.InputMode.BATCH):
+                    if hasattr(unit, 'batch_index'):
+                        sparsectrl_batch_index = unit.batch_index
+                    else:
+                        sparsectrl_batch_index = list(range(p.batch_size))
+                controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, controls, p.batch_size)
                 if hr_controls is not None:
-                    hr_controls = SparseCtrl.create_cond_mask(unit.batch_index, hr_controls, p.batch_size)
+                    hr_controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, hr_controls, p.batch_size)
 
             preprocessor_dict = dict(
                 name=unit.module,
