@@ -23,11 +23,7 @@ def sync_submodules():
 
 
 def comparable_version(version: str) -> Tuple:
-<<<<<<< HEAD
-    return tuple(version.split('.'))
-=======
     return tuple(version.split("."))
->>>>>>> origin/main
 
 
 def get_installed_version(package: str) -> Optional[str]:
