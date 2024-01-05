@@ -93,14 +93,18 @@ def preprocess(img, input_size, swap=(2, 0, 1)):
     padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
     return padded_img, r
 
-def inference_detector(session, oriImg):
+def inference_detector(session, oriImg, detect_classes=[0]):
     input_shape = (640,640)
     img, ratio = preprocess(oriImg, input_shape)
 
     input = img[None, :, :, :]
-    outNames = session.getUnconnectedOutLayersNames()
-    session.setInput(input)
-    output = session.forward(outNames)
+    if "InferenceSession" in type(session).__name__:
+        input_name = session.get_inputs()[0].name
+        output = session.run(None, {input_name: input})
+    else:
+        outNames = session.getUnconnectedOutLayersNames()
+        session.setInput(input)
+        output = session.forward(outNames)
 
     predictions = demo_postprocess(output[0], input_shape)[0]
 
@@ -118,7 +122,7 @@ def inference_detector(session, oriImg):
         return None
     final_boxes, final_scores, final_cls_inds = dets[:, :4], dets[:, 4], dets[:, 5]
     isscore = final_scores>0.3
-    iscat = final_cls_inds == 0
+    iscat = np.isin(final_cls_inds, detect_classes)
     isbbox = [ i and j for (i, j) in zip(isscore, iscat)]
     final_boxes = final_boxes[isbbox]
     return final_boxes

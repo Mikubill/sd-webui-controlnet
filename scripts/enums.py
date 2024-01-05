@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 
 class StableDiffusionVersion(Enum):
@@ -24,6 +25,15 @@ class StableDiffusionVersion(Enum):
             return StableDiffusionVersion.SDXL
 
         return StableDiffusionVersion.UNKNOWN
+
+    def encoder_block_num(self) -> int:
+        if self in (StableDiffusionVersion.SD1x, StableDiffusionVersion.SD2x, StableDiffusionVersion.UNKNOWN):
+            return 12
+        else:
+            return 9 # SDXL
+            
+    def controlnet_layer_num(self) -> int:
+        return self.encoder_block_num() + 1
 
 
 class ControlModelType(Enum):
@@ -55,3 +65,22 @@ class AutoMachine(Enum):
     Read = "Read"
     Write = "Write"
     StyleAlign = "StyleAlign"
+
+
+class HiResFixOption(Enum):
+    BOTH = "Both"
+    LOW_RES_ONLY = "Low res only"
+    HIGH_RES_ONLY = "High res only"
+
+    @staticmethod
+    def from_value(value: Any) -> "HiResFixOption":
+        if isinstance(value, str) and value.startswith("HiResFixOption."):
+            _, field = value.split(".")
+            return getattr(HiResFixOption, field)
+        if isinstance(value, str):
+            return HiResFixOption(value)
+        elif isinstance(value, int):
+            return [x for x in HiResFixOption][value]
+        else:
+            assert isinstance(value, HiResFixOption)
+            return value

@@ -60,6 +60,16 @@ def inference(sess, img):
     """
     all_out = []
     # build input
+    input = np.stack(img, axis=0).transpose(0, 3, 1, 2)
+    input = input.astype(np.float32)
+    if "InferenceSession" in type(sess).__name__:
+        input_name = sess.get_inputs()[0].name
+        all_outputs = sess.run(None, {input_name: input})
+        for batch_idx in range(len(all_outputs[0])):
+            outputs = [all_outputs[i][batch_idx:batch_idx+1,...] for i in range(len(all_outputs))]
+            all_out.append(outputs)
+        return all_out
+    
     for i in range(len(img)):
 
         input = img[i].transpose(2, 0, 1)
@@ -346,8 +356,7 @@ def decode(simcc_x: np.ndarray, simcc_y: np.ndarray,
     return keypoints, scores
 
 
-def inference_pose(session, out_bbox, oriImg):
-    model_input_size = (288, 384)
+def inference_pose(session, out_bbox, oriImg, model_input_size: Tuple[int, int]= (288, 384) ):
     resized_img, center, scale = preprocess(oriImg, out_bbox, model_input_size)
     outputs = inference(session, resized_img)
     keypoints, scores = postprocess(outputs, model_input_size, center, scale)

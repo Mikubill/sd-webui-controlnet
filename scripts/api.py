@@ -16,14 +16,15 @@ from scripts import external_code, global_state
 from scripts.processor import preprocessor_filters
 from scripts.logging import logger
 from annotator.openpose import draw_poses, decode_json_as_poses
+from annotator.openpose.animalpose import draw_animalposes
 
 
 def encode_to_base64(image):
-    if type(image) is str:
+    if isinstance(image, str):
         return image
-    elif type(image) is Image.Image:
+    elif isinstance(image, Image.Image):
         return api.encode_pil_to_base64(image)
-    elif type(image) is np.ndarray:
+    elif isinstance(image, np.ndarray):
         return encode_np_to_base64(image)
     else:
         return ""
@@ -169,9 +170,17 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if not pose_data:
             return {"info": "No pose data detected."}
         else:
+
+            def draw(poses, animals, H, W):
+                if poses:
+                    assert len(animals) == 0
+                    return draw_poses(poses, H, W)
+                else:
+                    return draw_animalposes(animals, H, W)
+
             return {
                 "images": [
-                    encode_to_base64(draw_poses(*decode_json_as_poses(pose.dict())))
+                    encode_to_base64(draw(*decode_json_as_poses(pose.dict())))
                     for pose in pose_data
                 ],
                 "info": "Success",

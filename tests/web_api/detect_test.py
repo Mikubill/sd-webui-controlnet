@@ -34,6 +34,13 @@ class TestDetectEndpointWorking(unittest.TestCase):
         response = utils.detect(detect_args)
 
         self.assertEqual(response.status_code, 200)
+        
+    def test_detect_invert(self):
+        detect_args = self.base_detect_args.copy()
+        detect_args["controlnet_module"] = "invert"
+        response = utils.detect(detect_args)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response.json()['images'], [""])
 
 
 if __name__ == "__main__":

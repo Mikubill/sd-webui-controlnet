@@ -29,10 +29,20 @@ def parse_value(value: str) -> Union[str, float, int, bool]:
 
 
 def serialize_unit(unit: external_code.ControlNetUnit) -> str:
+    excluded_fields = (
+        "image",
+        "enabled",
+        # Note: "advanced_weighting" is excluded as it is an API-only field.
+        "advanced_weighting",
+        # Note: "inpaint_crop_image" is img2img inpaint only flag, which does not
+        # provide much information when restoring the unit.
+        "inpaint_crop_input_image",
+    )
+    
     log_value = {
         field_to_displaytext(field): getattr(unit, field)
         for field in vars(external_code.ControlNetUnit()).keys()
-        if field not in ("image", "enabled") and getattr(unit, field) != -1
+        if field not in excluded_fields and getattr(unit, field) != -1
         # Note: exclude hidden slider values.
     }
     if not all("," not in str(v) and ":" not in str(v) for v in log_value.values()):
@@ -110,14 +120,16 @@ class Infotext(object):
                 for field, value in vars(parse_unit(v)).items():
                     if field == "image":
                         continue
+                    if value is None:
+                        logger.debug(f"InfoText: Skipping {field} because value is None.")
+                        continue
 
-                    assert value is not None, f"{field} == None"
                     component_locator = f"{k} {field}"
                     updates[component_locator] = value
                     logger.debug(f"InfoText: Setting {component_locator} = {value}")
-            except Exception:
+            except Exception as e:
                 logger.warn(
-                    f"Failed to parse infotext, legacy format infotext is no longer supported:\n{v}"
+                    f"Failed to parse infotext, legacy format infotext is no longer supported:\n{v}\n{e}"
                 )
 
         results.update(updates)

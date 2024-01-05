@@ -7,6 +7,7 @@ from modules import scripts, processing, shared
 from scripts import global_state
 from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
 from scripts.logging import logger
+from scripts.enums import HiResFixOption
 
 from modules.api import api
 
@@ -167,11 +168,30 @@ class ControlNetUnit:
     guidance_end: float = 1.0
     pixel_perfect: bool = False
     control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED
+    # Whether to crop input image based on A1111 img2img mask. This flag is only used when `inpaint area`
+    # in A1111 is set to `Only masked`. In API, this correspond to `inpaint_full_res = True`.
+    inpaint_crop_input_image: bool = True
+    # If hires fix is enabled in A1111, how should this ControlNet unit be applied.
+    # The value is ignored if the generation is not using hires fix.
+    hr_option: Union[HiResFixOption, int, str] = HiResFixOption.BOTH
     
     # Whether save the detected map of this unit. Setting this option to False prevents saving the
     # detected map or sending detected map along with generated images via API.
     # Currently the option is only accessible in API calls.
     save_detected_map: bool = True
+
+    # Weight for each layer of ControlNet params.
+    # For ControlNet:
+    # - SD1.5: 13 weights (4 encoder block * 3 + 1 middle block)
+    # - SDXL: 10 weights (3 encoder block * 3 + 1 middle block)
+    # For T2IAdapter
+    # - SD1.5: 5 weights (4 encoder block + 1 middle block)
+    # - SDXL: 4 weights (3 encoder block + 1 middle block)
+    # Note1: Setting advanced weighting will disable `soft_injection`, i.e.
+    # It is recommended to set ControlMode = BALANCED when using `advanced_weighting`.
+    # Note2: The field `weight` is still used in some places, e.g. reference_only,
+    # even advanced_weighting is set.
+    advanced_weighting: Optional[List[float]] = None
 
     def __eq__(self, other):
         if not isinstance(other, ControlNetUnit):

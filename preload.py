@@ -31,3 +31,9 @@ def preload(parser):
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Set the log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
+    parser.add_argument(
+        "--controlnet-tracemalloc",
+        action="store_true",
+        help="Enable memory tracing.",
+        default=None,
+    )

@@ -4,6 +4,7 @@ import json
 from typing import List, Dict, Any, Tuple
 
 from annotator.openpose import decode_json_as_poses, draw_poses
+from annotator.openpose.animalpose import draw_animalposes
 from scripts.controlnet_ui.modal import ModalInterface
 from modules import shared
 from scripts.logging import logger
@@ -80,19 +81,25 @@ class OpenposeEditor(object):
         model: gr.Dropdown,
     ):
         def render_pose(pose_url: str) -> Tuple[Dict, Dict]:
-            json_string = parse_data_url(pose_url).decode('utf-8')
-            poses, height, weight = decode_json_as_poses(json.loads(json_string))
+            json_string = parse_data_url(pose_url).decode("utf-8")
+            poses, animals, height, width = decode_json_as_poses(
+                json.loads(json_string)
+            )
             logger.info("Preview as input is enabled.")
             return (
                 # Generated image.
                 gr.update(
-                    value=draw_poses(
-                        poses,
-                        height,
-                        weight,
-                        draw_body=True,
-                        draw_hand=True,
-                        draw_face=True,
+                    value=(
+                        draw_poses(
+                            poses,
+                            height,
+                            width,
+                            draw_body=True,
+                            draw_hand=True,
+                            draw_face=True,
+                        )
+                        if poses
+                        else draw_animalposes(animals, height, width)
                     ),
                     visible=True,
                 ),

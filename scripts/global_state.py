@@ -54,6 +54,7 @@ cn_preprocessor_modules = {
     "depth": midas,
     "depth_leres": functools.partial(leres, boost=False),
     "depth_leres++": functools.partial(leres, boost=True),
+    "depth_hand_refiner": g_hand_refiner_model.run_model,
     "hed": hed,
     "hed_safe": hed_safe,
     "mediapipe_face": mediapipe_face,
@@ -65,6 +66,7 @@ cn_preprocessor_modules = {
     "openpose_faceonly": functools.partial(g_openpose_model.run_model, include_body=False, include_hand=False, include_face=True),
     "openpose_full": functools.partial(g_openpose_model.run_model, include_body=True, include_hand=True, include_face=True),
     "dw_openpose_full": functools.partial(g_openpose_model.run_model, include_body=True, include_hand=True, include_face=True, use_dw_pose=True),
+    "animal_openpose": functools.partial(g_openpose_model.run_model, include_body=True, include_hand=False, include_face=False, use_animal_pose=True),
     "clip_vision": functools.partial(clip, config='clip_vitl'),
     "revision_clipvision": functools.partial(clip, config='clip_g'),
     "revision_ignore_prompt": functools.partial(clip, config='clip_g'),
@@ -127,6 +129,7 @@ cn_preprocessor_unloadable = {
     "openpose_face": g_openpose_model.unload,
     "openpose_full": g_openpose_model.unload,
     "dw_openpose_full": g_openpose_model.unload,
+    "animal_openpose": g_openpose_model.unload,
     "segmentation": unload_uniformer,
     "depth_zoe": unload_zoe_depth,
     "normal_bae": unload_normal_bae,
@@ -138,6 +141,7 @@ cn_preprocessor_unloadable = {
     "lineart_anime_denoise": unload_lineart_anime_denoise,
     "inpaint_only+lama": unload_lama_inpaint,
     "anime_face_segment": unload_anime_face_segment,
+    "depth_hand_refiner": g_hand_refiner_model.unload,
 }
 
 preprocessor_aliases = {
