@@ -394,6 +394,10 @@
       const checkbox = gradioApp().querySelector("#setting_controlnet_disable_photopea_edit input[type=checkbox]");
       if (checkbox && !checkbox.checked) {
         checkbox.click();
+        const applyButton = gradioApp().querySelector("#settings_submit");
+        if (applyButton) {
+          applyButton.click();
+        }
       }
     }
     return confirmed;
