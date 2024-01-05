@@ -1231,6 +1231,8 @@ def on_ui_settings():
         False, "Disable openpose edit", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_disable_photopea_edit", shared.OptionInfo(
         False, "Disable photopea edit", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_disable_photopea_popup", shared.OptionInfo(
+        True, "Photopea popup warning", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint", 
         gr.Checkbox, {"interactive": True}, section=section))
