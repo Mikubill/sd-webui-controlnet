@@ -33,6 +33,13 @@ def get_installed_version(package: str) -> Optional[str]:
         return None
 
 
+def extract_base_package(package_string: str) -> str:
+    """ trimesh[easy] -> trimesh """
+    # Split the string on '[' and take the first part
+    base_package = package_string.split('[')[0]
+    return base_package
+
+
 def install_requirements(req_file):
     with open(req_file) as file:
         for package in file:
@@ -56,7 +63,7 @@ def install_requirements(req_file):
                             f"install -U {package}",
                             f"sd-webui-controlnet requirement: changing {package_name} version from {installed_version} to {package_version}",
                         )
-                elif not launch.is_installed(package):
+                elif not launch.is_installed(extract_base_package(package)):
                     launch.run_pip(
                         f"install {package}",
                         f"sd-webui-controlnet requirement: {package}",
