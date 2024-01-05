@@ -8,7 +8,7 @@ req_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requiremen
 
 def comparable_version(version: str) -> Tuple:
     return tuple(version.split('.'))
-    
+
 
 def get_installed_version(package: str) -> Optional[str]:
     try:

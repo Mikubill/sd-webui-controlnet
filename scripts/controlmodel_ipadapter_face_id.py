@@ -10,7 +10,7 @@ import sys
 
 import numpy as np
 from modules import devices
-from .controlmodel_ipadapter import PerceiverAttention, FeedForward
+from scripts.controlmodel_ipadapter import PerceiverAttention, FeedForward
 
 class FacePerceiverResampler(torch.nn.Module):
     def __init__(

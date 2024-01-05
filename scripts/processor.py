@@ -639,6 +639,10 @@ def unload_anime_face_segment():
     if model_anime_face_segment is not None:
         model_anime_face_segment.unload_model()
 
+
+model_face_id = None
+
+
 def face_id(img, res=512, plus=False, **kwargs):
     img = HWC3(img)
     global model_face_id
@@ -646,7 +650,7 @@ def face_id(img, res=512, plus=False, **kwargs):
         from annotator.insightface import FaceidEmbedsEstimator
         model_face_id = FaceidEmbedsEstimator()
 
-    result,face_image = model_face_id(img)
+    result, face_image = model_face_id(img)
     return result, True
 
 model_free_preprocessors = [

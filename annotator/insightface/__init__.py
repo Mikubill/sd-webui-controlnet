@@ -9,7 +9,7 @@ import sys
 import numpy as np
 from modules import devices
 from .face_analysis import FaceAnalysis
-import face_align
+from .face_align import norm_crop
 class FaceidEmbedsEstimator:
 
     def __init__(self):
@@ -21,5 +21,5 @@ class FaceidEmbedsEstimator:
     def __call__(self, input_image):
         faces = self.model.get(input_image)
         faceid_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
-        face_image = face_align.norm_crop(input_image, landmark=faces[0].kps, image_size=224)
+        face_image = norm_crop(input_image, landmark=faces[0].kps, image_size=224)
         return faceid_embeds, face_image
