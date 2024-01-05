@@ -870,12 +870,10 @@ class ControlNetUiGroup(object):
         )
 
         for elem in ControlNetUiGroup.img2img_inpaint_tabs:
-            elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab])
-            elem.select(**gradio_kwargs)
+            elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
 
         for elem in ControlNetUiGroup.img2img_non_inpaint_tabs:
-            elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab])
-            elem.select(**gradio_kwargs)
+            elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
 
         ControlNetUiGroup.img2img_inpaint_area.change(**gradio_kwargs)
 
