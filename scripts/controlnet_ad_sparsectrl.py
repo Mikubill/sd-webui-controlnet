@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from modules.devices import get_device_for
+from scripts.logging import logger
 from scripts.cldm import PlugableControlModel, ControlNet, zero_module, conv_nd, TimestepEmbedSequential
 
 class PlugableSparseCtrlModel(PlugableControlModel):
@@ -67,11 +68,18 @@ class SparseCtrl(ControlNet):
 
 
     def load_state_dict(self, state_dict, strict=False):
-        super().load_state_dict(state_dict, strict=strict)
+        mm_dict = {}
+        cn_dict = {}
+        for k, v in state_dict.items():
+            if "motion_modules" in k:
+                mm_dict[k] = v
+            else:
+                cn_dict[k] = v
+        super().load_state_dict(cn_dict, strict=True)
 
         from scripts.animatediff_mm import MotionWrapper, MotionModuleType
         sparsectrl_mm = MotionWrapper("", "", MotionModuleType.SparseCtrl)
-        sparsectrl_mm.load_state_dict(state_dict, strict=strict)
+        sparsectrl_mm.load_state_dict(mm_dict, strict=True)
 
         for mm_idx, unet_idx in enumerate([1, 2, 4, 5, 7, 8, 10, 11]):
             mm_idx0, mm_idx1 = mm_idx // 2, mm_idx % 2
@@ -81,9 +89,10 @@ class SparseCtrl(ControlNet):
 
     @staticmethod
     def create_cond_mask(control_image_index: List[int], control_image_latents: torch.Tensor, video_length: int):
-        hint_cond = torch.zeros((video_length, *control_image_latents.shape[1:]), device=get_device_for("controlnet"), dtype=control_image_latents.dtype)
+        logger.info(f"SparseCtrl: control images will be applied to frames: {control_image_index}")
+        hint_cond = torch.zeros((video_length, *control_image_latents.shape[1:]), device=control_image_latents.device, dtype=control_image_latents.dtype)
         hint_cond[control_image_index] = control_image_latents[:len(control_image_index)]
-        hint_cond_mask = torch.zeros((hint_cond.shape[0], 1, *hint_cond.shape[2:]), device=get_device_for("controlnet"), dtype=control_image_latents.dtype)
+        hint_cond_mask = torch.zeros((hint_cond.shape[0], 1, *hint_cond.shape[2:]), device=control_image_latents.device, dtype=control_image_latents.dtype)
         hint_cond_mask[control_image_index] = 1.0
         return torch.cat([hint_cond, hint_cond_mask], dim=1)
 

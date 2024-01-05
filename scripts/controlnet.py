@@ -899,9 +899,6 @@ class Script(scripts.Script, metaclass=(
             if control_model_type is ControlModelType.ControlNet:
                 global_average_pooling = model_net.control_model.global_average_pooling
 
-            if isinstance(model_net, PlugableSparseCtrlModel):
-                control_model_type = ControlModelType.SparseCtrl
-
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
                 preprocessor_resolution = external_code.pixel_perfect_resolution(
@@ -970,7 +967,7 @@ class Script(scripts.Script, metaclass=(
                         if hr_control is not None:
                             hr_control = hr_control['image_embeds']
 
-                if control_model_type == ControlModelType.SparseCtrl and model_net.control_model.use_simplified_condition_embedding:
+                if isinstance(model_net, PlugableSparseCtrlModel) and model_net.control_model.use_simplified_condition_embedding:
                     control = UnetHook.call_vae_using_process(p, control)
                     if hr_control is not None:
                         hr_control = UnetHook.call_vae_using_process(p, hr_control)
@@ -980,25 +977,26 @@ class Script(scripts.Script, metaclass=(
                     hr_controls.append(hr_control.cpu() if len(input_images) > 1 else hr_control)
 
             controls = torch.cat(controls, dim=0)
-            if controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
-                controls = torch.cat([controls, controls], dim=0)
             if len(hr_controls) > 0:
                 hr_controls = torch.cat(hr_controls, dim=0)
-                if hr_controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
-                    hr_controls = torch.cat([hr_controls, hr_controls], dim=0)
             else:
                 hr_controls = None
 
-            if control_model_type == ControlModelType.SparseCtrl:
+            if isinstance(model_net, PlugableSparseCtrlModel):
                 sparsectrl_batch_index = [0]
                 if (getattr(unit, 'input_mode', batch_hijack.InputMode.SIMPLE) == batch_hijack.InputMode.BATCH):
                     if hasattr(unit, 'batch_index'):
                         sparsectrl_batch_index = unit.batch_index
                     else:
                         sparsectrl_batch_index = list(range(p.batch_size))
-                controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, controls, p.batch_size)
+                controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, controls, p.batch_size).cpu()
                 if hr_controls is not None:
-                    hr_controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, hr_controls, p.batch_size)
+                    hr_controls = SparseCtrl.create_cond_mask(sparsectrl_batch_index, hr_controls, p.batch_size).cpu()
+
+            if controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
+                controls = torch.cat([controls, controls], dim=0)
+            if hr_controls is not None and hr_controls.shape[0] > 1 and shared.opts.batch_cond_uncond:
+                hr_controls = torch.cat([hr_controls, hr_controls], dim=0)
 
             preprocessor_dict = dict(
                 name=unit.module,

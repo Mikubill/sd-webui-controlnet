@@ -127,7 +127,7 @@ def build_model_by_guess(state_dict, unet, model_path):
 
     if "down_blocks.0.motion_modules.0.temporal_transformer.norm.weight" in state_dict: # sparsectrl
         config = copy.deepcopy(controlnet_default_config)
-        if "input_hint_block.weight" in state_dict: # rgb
+        if "input_hint_block.0.weight" in state_dict: # rgb
             config['use_simplified_condition_embedding'] = True
             config['conditioning_channels'] = 5
         else: # scribble

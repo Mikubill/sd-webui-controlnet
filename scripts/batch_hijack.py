@@ -241,7 +241,7 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                 if not unit.batch_images:
                     assert params.video_path, 'No input images found for ControlNet module'
                     unit.batch_images = params.video_path
-            elif not unit.image:
+            elif unit.image is not None:
                 try:
                     from scripts.external_code import find_cn_script
                     cn_script = find_cn_script(p.scripts)
@@ -267,6 +267,8 @@ def setup_cn_batches_animatediff(p: processing.StableDiffusionProcessing, params
                     batch_images = unit.batch_images.split('\n')
                     if len(batch_images) > 1:
                         unit.batch_images, unit.batch_index = batch_images
+                        unit.batch_images = shared.listfiles(unit.batch_images)
+                        unit.batch_index = [int(b_i.strip()) for b_i in unit.batch_index.split(',')]
                     else:
                         unit.batch_images = shared.listfiles(unit.batch_images)
                         unit_batch_list.append(len(unit.batch_images))

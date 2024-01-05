@@ -8,6 +8,7 @@ from functools import partial
 from enum import Enum
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine
+from scripts.controlnet_ad_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -556,7 +557,7 @@ class UnetHook(nn.Module):
                 hint = param.used_hint_cond
 
                 # ControlNet inpaint protocol
-                if hint.shape[1] == 4:
+                if hint.shape[1] == 4 and not isinstance(control_model, SparseCtrl):
                     c = hint[:, 0:3, :, :]
                     m = hint[:, 3:4, :, :]
                     m = (m > 0.5).float()
