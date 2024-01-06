@@ -1,6 +1,7 @@
 import launch
-import subprocess
+import git  # git is part of A1111 dependency.
 import pkg_resources
+import os
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -14,8 +15,8 @@ hand_refiner_req_file = (
 
 def sync_submodules():
     try:
-        subprocess.run(["git", "submodule", "init"], check=True, cwd=repo_root)
-        subprocess.run(["git", "submodule", "update"], check=True, cwd=repo_root)
+        repo = git.Repo(repo_root)
+        repo.submodule_update()
     except Exception as e:
         print(e)
         print("Warning: ControlNet failed to sync submodules. Please try run "
@@ -77,4 +78,5 @@ def install_requirements(req_file):
 
 sync_submodules()
 install_requirements(main_req_file)
-install_requirements(hand_refiner_req_file)
+if os.path.exists(hand_refiner_req_file):
+    install_requirements(hand_refiner_req_file)
