@@ -15,7 +15,7 @@ hand_refiner_req_file = (
 
 def sync_submodules():
     try:
-        repo = git.Repo(Path(__file__).parent)
+        repo = git.Repo(repo_root)
         repo.submodule_update()
     except Exception as e:
         print(e)
