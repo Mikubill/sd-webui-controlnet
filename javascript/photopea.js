@@ -375,16 +375,16 @@
     }
   }
 
-  let photopeaPopupPopupShown = false;
+  let photopeaWarningShown = false;
 
   function firstTimeUserPrompt() {
-    if (opts.controlnet_disable_photopea_popup){
+    if (opts.controlnet_photopea_warning){
       const photopeaPopupMsg = "you are about to connect to https://photopea.com\n" +
         "- Click OK: proceed.\n" +
         "- Click Cancel: abort.\n" +
         "Photopea integration can be disabled in Settings > ControlNet > Disable photopea edit.\n" +
         "This popup can be disabled in Settings > ControlNet > Photopea popup warning.";
-      if (photopeaPopupPopupShown || confirm(photopeaPopupMsg)) photopeaPopupPopupShown = true;
+      if (photopeaWarningShown || confirm(photopeaPopupMsg)) photopeaWarningShown = true;
       else return false;
     }
     return true;
