@@ -669,7 +669,7 @@ class HandRefinerModel:
             from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
             with Extra(self.torch_handler):
                 self.model = MeshGraphormerDetector.from_pretrained(
-                    os.path.join("hr16", "ControlNet-HandRefiner-pruned"),
+                    "hr16/ControlNet-HandRefiner-pruned",
                     cache_dir=os.path.join(models_path, "hand_refiner"),
                     device=self.device,
                 )
