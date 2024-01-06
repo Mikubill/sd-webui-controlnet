@@ -375,32 +375,19 @@
     }
   }
 
-  function firstTimeUserPrompt() {
-    if (localStorage.getItem("ControlNetPhotopeaEditPrompted")) {
-      return true;
-    } else {
-      localStorage.setItem("ControlNetPhotopeaEditPrompted", "true");
-    }
-    const promptMsg = "This is the first time you use photopea edit feature. The preprocess results are " +
-      "going to be send to https://photopea.com for edit.\n" +
-      "- Click OK: proceed.\n" +
-      "- Click Cancel: abort and disable photopea edit feature.";
-    const confirmed = confirm(promptMsg);
+  let photopeaWarningShown = false;
 
-    if (!confirmed) {
-      // Hide all edit buttons in current session.
-      gradioApp().querySelectorAll(".cnet-photopea-child-trigger").forEach(button => button.hidden = true);
-      // Check `Disable photopea edit` in Settings.
-      const checkbox = gradioApp().querySelector("#setting_controlnet_disable_photopea_edit input[type=checkbox]");
-      if (checkbox && !checkbox.checked) {
-        checkbox.click();
-        const applyButton = gradioApp().querySelector("#settings_submit");
-        if (applyButton) {
-          applyButton.click();
-        }
-      }
+  function firstTimeUserPrompt() {
+    if (opts.controlnet_photopea_warning){
+      const photopeaPopupMsg = "you are about to connect to https://photopea.com\n" +
+        "- Click OK: proceed.\n" +
+        "- Click Cancel: abort.\n" +
+        "Photopea integration can be disabled in Settings > ControlNet > Disable photopea edit.\n" +
+        "This popup can be disabled in Settings > ControlNet > Photopea popup warning.";
+      if (photopeaWarningShown || confirm(photopeaPopupMsg)) photopeaWarningShown = true;
+      else return false;
     }
-    return confirmed;
+    return true;
   }
 
   const cnetRegisteredAccordions = new Set();
