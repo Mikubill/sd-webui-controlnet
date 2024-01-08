@@ -73,6 +73,7 @@ cn_preprocessor_modules = {
     "ip-adapter_clip_sd15": functools.partial(clip, config='clip_h'),
     "ip-adapter_clip_sdxl_plus_vith": functools.partial(clip, config='clip_h'),
     "ip-adapter_clip_sdxl": functools.partial(clip, config='clip_g'),
+    "ip-adapter_face_id": g_insight_face_model.run_model,
     "color": color,
     "pidinet": pidinet,
     "pidinet_safe": pidinet_safe,

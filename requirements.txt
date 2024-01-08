@@ -1,4 +1,5 @@
 mediapipe
 svglib
 fvcore
+scikit-image
 opencv-python>=4.8.0
