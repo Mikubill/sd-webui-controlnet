@@ -669,6 +669,14 @@ class InsightFaceModel:
 
 g_insight_face_model = InsightFaceModel()
 
+
+def face_id_plus(img, **kwargs):
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
+    face_embed, _ = g_insight_face_model.run_model(img)
+    clip_embed, _ = clip(img, config='clip_h')
+    return (face_embed, clip_embed), False
+
+
 class HandRefinerModel:
     def __init__(self):
         self.model = None

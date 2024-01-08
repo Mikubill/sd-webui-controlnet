@@ -141,18 +141,15 @@ class ImageProjModel(torch.nn.Module):
 
 
 # Cross Attention to_k, to_v for IPAdapter
-class To_KV(torch.nn.Module):
-    def __init__(self, cross_attention_dim):
+class To_KV(nn.Module):
+    def __init__(self, state_dict):
         super().__init__()
 
-        channels = SD_XL_CHANNELS if cross_attention_dim == 2048 else SD_V12_CHANNELS
-        self.to_kvs = torch.nn.ModuleList(
-            [torch.nn.Linear(cross_attention_dim, channel, bias=False) for channel in channels])
-
-    def load_state_dict(self, state_dict):
-        # input -> output -> middle
-        for i, key in enumerate(state_dict.keys()):
-            self.to_kvs[i].weight.data = state_dict[key]
+        self.to_kvs = nn.ModuleDict()
+        for key, value in state_dict.items():
+            k = key.replace(".weight", "").replace(".", "_")
+            self.to_kvs[k] = nn.Linear(value.shape[1], value.shape[0], bias=False)
+            self.to_kvs[k].weight.data = value
 
 
 def FeedForward(dim, mult=4):
@@ -280,6 +277,7 @@ class IPAdapterModel(torch.nn.Module):
         self.is_plus = is_plus
         self.sdxl_plus = sdxl_plus
         self.is_full = is_full
+        self.clip_extra_context_tokens = 16 if self.is_plus else 4
 
         if is_faceid:
             self.image_proj_model = self.init_proj_faceid()
@@ -290,8 +288,6 @@ class IPAdapterModel(torch.nn.Module):
                     clip_embeddings_dim=clip_embeddings_dim
                 )
             else:
-                self.clip_extra_context_tokens = 16
-
                 self.image_proj_model = Resampler(
                     dim=1280 if sdxl_plus else cross_attention_dim,
                     depth=4,
@@ -331,8 +327,7 @@ class IPAdapterModel(torch.nn.Module):
 
     def load_ip_adapter(self, state_dict):
         self.image_proj_model.load_state_dict(state_dict["image_proj"])
-        self.ip_layers = To_KV(self.cross_attention_dim)
-        self.ip_layers.load_state_dict(state_dict["ip_adapter"])
+        self.ip_layers = To_KV(state_dict["ip_adapter"])
 
     @torch.inference_mode()
     def get_image_embeds(self, clip_vision_output):
@@ -352,6 +347,8 @@ class IPAdapterModel(torch.nn.Module):
 
     @torch.inference_mode()
     def get_image_embeds_faceid_plus(self, face_embed, clip_embed):
+        face_embed = face_embed['image_embeds'].to(self.device)
+        clip_embed = clip_embed['image_embeds'].to(self.device)
         return (
             self.image_proj_model(face_embed, clip_embed),
             self.image_proj_model(torch.zero_like(face_embed), torch.zero_like(clip_embed)),
@@ -440,14 +437,21 @@ def clear_all_ip_adapter():
 class PlugableIPAdapter(torch.nn.Module):
     def __init__(self, state_dict):
         super().__init__()
-        self.is_full = "proj.0.weight" in state_dict['image_proj']
+        self.is_full = "proj.3.weight" in state_dict['image_proj']
         self.is_faceid = "0.to_q_lora.down.weight" in state_dict["ip_adapter"]
-        self.is_plus = self.is_full or "latents" in state_dict["image_proj"]
+        self.is_plus = (
+            self.is_full or
+            "latents" in state_dict["image_proj"] or
+            "perceiver_resampler.proj_in.weight" in state_dict["image_proj"]
+        )
         cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
         self.sdxl = cross_attention_dim == 2048
         self.sdxl_plus = self.sdxl and self.is_plus
 
-        if self.is_plus:
+        if self.is_faceid:
+            # face_id uses hardcoded clip_embeddings_dim.
+            clip_embeddings_dim = None
+        elif self.is_plus:
             if self.sdxl_plus:
                 clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
             elif self.is_full:
@@ -530,16 +534,16 @@ class PlugableIPAdapter(torch.nn.Module):
 
         return
 
-    def call_ip(self, number, feat, device):
-        if number in self.cache:
-            return self.cache[number]
+    def call_ip(self, key: str, feat, device):
+        if key in self.cache:
+            return self.cache[key]
         else:
-            ip = self.ipadapter.ip_layers.to_kvs[number](feat).to(device)
-            self.cache[number] = ip
+            ip = self.ipadapter.ip_layers.to_kvs[key](feat).to(device)
+            self.cache[key] = ip
             return ip
 
     @torch.no_grad()
-    def patch_forward(self, number):
+    def patch_forward(self, number: int):
         @torch.no_grad()
         def forward(attn_blk, x, q):
             batch_size, sequence_length, inner_dim = x.shape
@@ -552,8 +556,10 @@ class PlugableIPAdapter(torch.nn.Module):
 
             cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
             cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
-            ip_k = self.call_ip(number * 2, cond_uncond_image_emb, device=q.device)
-            ip_v = self.call_ip(number * 2 + 1, cond_uncond_image_emb, device=q.device)
+            k_key = f"{number * 2 + 1}_to_k_ip"
+            v_key = f"{number * 2 + 1}_to_v_ip"
+            ip_k = self.call_ip(k_key, cond_uncond_image_emb, device=q.device)
+            ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
 
             ip_k, ip_v = map(
                 lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
