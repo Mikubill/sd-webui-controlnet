@@ -741,7 +741,8 @@ no_control_mode_preprocessors = [
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
     "t2ia_style_clipvision"
-    "ip-adapter_clip_face_id"
+    "ip-adapter_clip_face_id",
+    "ip-adapter_clip_face_id_plus",
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"

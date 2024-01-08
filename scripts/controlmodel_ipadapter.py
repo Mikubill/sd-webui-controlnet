@@ -273,6 +273,7 @@ class IPAdapterModel(torch.nn.Module):
         super().__init__()
         self.device = "cpu"
 
+        self.clip_embeddings_dim = clip_embeddings_dim
         self.cross_attention_dim = cross_attention_dim
         self.is_plus = is_plus
         self.sdxl_plus = sdxl_plus
@@ -314,7 +315,7 @@ class IPAdapterModel(torch.nn.Module):
             image_proj_model = ProjModelFaceIdPlus(
                 cross_attention_dim=self.cross_attention_dim,
                 id_embeddings_dim=512,
-                clip_embeddings_dim=1280,
+                clip_embeddings_dim=self.clip_embeddings_dim,
                 num_tokens=4,
             )
         else:
@@ -346,12 +347,13 @@ class IPAdapterModel(torch.nn.Module):
         return image_prompt_embeds, uncond_image_prompt_embeds
 
     @torch.inference_mode()
-    def get_image_embeds_faceid_plus(self, face_embed, clip_embed):
+    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output):
         face_embed = face_embed['image_embeds'].to(self.device)
-        clip_embed = clip_embed['image_embeds'].to(self.device)
+        from annotator.clipvision import clip_vision_h_uc
+        clip_embed = clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32)
         return (
             self.image_proj_model(face_embed, clip_embed),
-            self.image_proj_model(torch.zero_like(face_embed), torch.zero_like(clip_embed)),
+            self.image_proj_model(torch.zeros_like(face_embed), clip_vision_h_uc.to(clip_embed)),
         )
 
 
@@ -449,8 +451,11 @@ class PlugableIPAdapter(torch.nn.Module):
         self.sdxl_plus = self.sdxl and self.is_plus
 
         if self.is_faceid:
-            # face_id uses hardcoded clip_embeddings_dim.
-            clip_embeddings_dim = None
+            if self.is_plus:
+                clip_embeddings_dim = 1280
+            else:
+                # Plain faceid does not use clip_embeddings_dim.
+                clip_embeddings_dim = None
         elif self.is_plus:
             if self.sdxl_plus:
                 clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
