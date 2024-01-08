@@ -654,7 +654,12 @@ class InsightFaceModel:
     def load_model(self):
         if self.model is None:
             from insightface.app import FaceAnalysis
-            self.model = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+            from annotator.annotator_path import models_path
+            self.model = FaceAnalysis(
+                name="buffalo_l",
+                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                root=os.path.join(models_path, "insightface"),
+            )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
 
     def run_model(self, img, **kwargs):
