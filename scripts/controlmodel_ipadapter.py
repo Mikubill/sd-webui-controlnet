@@ -141,7 +141,7 @@ class ImageProjModel(torch.nn.Module):
 
 
 # Cross Attention to_k, to_v for IPAdapter
-class To_KV(nn.Module):
+class To_KV(torch.nn.Module):
     def __init__(self, state_dict):
         super().__init__()
 
