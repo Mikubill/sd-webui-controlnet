@@ -84,7 +84,9 @@ def install_requirements(req_file):
 
 
 def try_install_insight_face():
-    """Attempt to install insightface library. The library is necessary to use ip-adapter faceid."""
+    """Attempt to install insightface library. The library is necessary to use ip-adapter faceid.
+    Note: Building insightface library from source requires compiling C++ code, which should be avoided
+    in principle. Here the solution is to download a precompiled wheel. """
     if get_installed_version("insightface") is not None:
         return
 
@@ -129,15 +131,12 @@ def try_install_insight_face():
                 print("Installation complete.")
         except Exception as e:
             print(
-                "ControlNet init warning: Unable to install insightface automatically. "
-                "Please build it manually from source: "
-                "https://github.com/deepinsight/insightface/tree/master/python-package\n" + e
+                "ControlNet init warning: Unable to install insightface automatically. " + e
             )
     else:
         print(
             "ControlNet init warning: Unable to install insightface automatically. "
-            "Please build it manually from source: "
-            "https://github.com/deepinsight/insightface/tree/master/python-package"
+            "Please try run `pip install insightface` manually."
         )
 
 
