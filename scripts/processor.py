@@ -8,7 +8,7 @@ from typing import Callable, Tuple
 
 from modules.safe import Extra
 from modules import devices
-
+from scripts.logging import logger
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -666,6 +666,11 @@ class InsightFaceModel:
         self.load_model()
         img = HWC3(img)
         faces = self.model.get(img)
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the first one will be used")
         faceid_embeds = {
             "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
         }
