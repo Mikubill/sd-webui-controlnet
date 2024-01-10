@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import torch
 
 from annotator.util import HWC3
 from typing import Callable, Tuple
@@ -646,6 +647,41 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+class InsightFaceModel:
+    def __init__(self):
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            from insightface.app import FaceAnalysis
+            from annotator.annotator_path import models_path
+            self.model = FaceAnalysis(
+                name="buffalo_l",
+                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                root=os.path.join(models_path, "insightface"),
+            )
+            self.model.prepare(ctx_id=0, det_size=(640, 640))
+
+    def run_model(self, img, **kwargs):
+        self.load_model()
+        img = HWC3(img)
+        faces = self.model.get(img)
+        faceid_embeds = {
+            "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
+        }
+        return faceid_embeds, False
+
+
+g_insight_face_model = InsightFaceModel()
+
+
+def face_id_plus(img, **kwargs):
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
+    face_embed, _ = g_insight_face_model.run_model(img)
+    clip_embed, _ = clip(img, config='clip_h')
+    return (face_embed, clip_embed), False
+
+
 class HandRefinerModel:
     def __init__(self):
         self.model = None
@@ -710,6 +746,8 @@ no_control_mode_preprocessors = [
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
     "t2ia_style_clipvision"
+    "ip-adapter_face_id",
+    "ip-adapter_face_id_plus",
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
