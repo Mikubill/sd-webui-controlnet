@@ -74,7 +74,6 @@
                 this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
                 this.resizeModeRadios = tab.querySelectorAll('.controlnet_resize_mode_radio input[type="radio"]');
                 this.runPreprocessorButton = tab.querySelector('.cnet-run-preprocessor');
-                this.hrOptionRadioGroup = tab.querySelector('.controlnet_hr_option_radio ');
 
                 const tabs = tab.parentNode;
                 this.tabNav = tabs.querySelector('.tab-nav');
@@ -86,7 +85,6 @@
                 this.attachImageUploadListener();
                 this.attachImageStateChangeObserver();
                 this.attachA1111SendInfoObserver();
-                this.attachA1111HrObserver();
                 this.attachPresetDropdownObserver();
             }
 
@@ -280,24 +278,6 @@
                         }, 2000);
                     });
                 }
-            }
-
-            attachA1111HrObserver() {
-                if (this.isImg2Img) return;
-
-                const hr_checkbox = gradioApp().querySelector('#txt2img_hr-visible-checkbox');
-                if (!hr_checkbox) return; // For backward compatibility for A1111 < 1.7.0
-
-                hr_checkbox.addEventListener('change', () => {
-                    if (hr_checkbox.checked) {
-                        this.hrOptionRadioGroup.removeAttribute('hidden');
-                    } else {
-                        this.hrOptionRadioGroup.setAttribute('hidden', '');
-                    }
-                });
-
-                // Hide initially as hr is disabled by default.
-                this.hrOptionRadioGroup.setAttribute('hidden', '');
             }
 
             attachPresetDropdownObserver() {
