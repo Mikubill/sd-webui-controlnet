@@ -108,6 +108,7 @@ class ControlNetUiGroup(object):
     img2img_non_inpaint_tabs = []
     img2img_inpaint_area = None
     txt2img_enable_hr = None
+    setting_sd_model_checkpoint = None
 
     def __init__(
         self,
@@ -690,12 +691,14 @@ class ControlNetUiGroup(object):
                     ),
                 ]
 
-        self.type_filter.change(
-            filter_selected,
+        update_args = dict(
+            fn=filter_selected,
             inputs=[self.type_filter],
             outputs=[self.module, self.model],
             show_progress=False
         )
+        self.type_filter.change(**update_args)
+        ControlNetUiGroup.setting_sd_model_checkpoint.change(**update_args)
 
     def register_run_annotator(self, is_img2img: bool):
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
@@ -1262,3 +1265,9 @@ class ControlNetUiGroup(object):
 
         if elem_id == "txt2img_hr-checkbox":
             ControlNetUiGroup.txt2img_enable_hr = component
+            return
+
+        if elem_id == "setting_sd_model_checkpoint":
+            print("Setting sd_model_checkpoint")
+            ControlNetUiGroup.setting_sd_model_checkpoint = component
+            return
