@@ -1,8 +1,12 @@
+import os
 import cv2
 import numpy as np
 
 from annotator.util import HWC3
 from typing import Callable, Tuple
+
+from modules.safe import Extra
+from modules import devices
 
 
 def pad64(x):
@@ -642,6 +646,55 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+class HandRefinerModel:
+    def __init__(self):
+        self.model = None
+        self.device = devices.get_device_for("controlnet")
+        def torch_handler(module: str, name: str):
+            import torch
+            if module == 'torch':
+                return getattr(torch, name)
+        self.torch_handler = torch_handler
+    
+    def load_model(self):
+        if self.model is None:
+            # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
+            import sys
+            from pathlib import Path
+            from annotator.annotator_path import models_path
+            hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
+            if hand_refiner_path not in sys.path:
+                sys.path.append(hand_refiner_path)
+            
+            from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
+            with Extra(self.torch_handler):
+                self.model = MeshGraphormerDetector.from_pretrained(
+                    "hr16/ControlNet-HandRefiner-pruned", 
+                    cache_dir=os.path.join(models_path, "hand_refiner"),
+                    device=self.device,
+                )
+        else:
+            self.model.to(self.device)
+
+    def unload(self):
+        if self.model is not None:
+            self.model.to("cpu")
+
+    def run_model(self, img, res=512, **kwargs):
+        img, remove_pad = resize_image_with_pad(img, res)
+        self.load_model()
+        with Extra(self.torch_handler):
+            depth_map, mask, info = self.model(
+                img, output_type="np",
+                detect_resolution=res,
+                mask_bbox_padding=30,
+            )
+        return remove_pad(depth_map), True
+
+
+g_hand_refiner_model = HandRefinerModel()
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -1023,6 +1076,14 @@ preprocessor_sliders_config = {
             "min": 64,
             "max": 2048
         }
+    ],
+    "depth_hand_refiner": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        } 
     ],
 }
 

@@ -277,6 +277,10 @@ class TestAlwaysonTxt2ImgWorking(unittest.TestCase):
         self.simple_txt2img["enable_hr"] = True
         self.assert_status_ok(expected_image_num=3)
         
+        self.simple_txt2img["enable_hr"] = True
+        unit["hr_option"] = "HiResFixOption.BOTH"
+        self.assert_status_ok(expected_image_num=3)
+        
         
 if __name__ == "__main__":
     unittest.main()

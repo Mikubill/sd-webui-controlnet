@@ -97,10 +97,11 @@ class ControlNetUiGroup(object):
     txt2img_h_slider = None
     img2img_w_slider = None
     img2img_h_slider = None
-    
+
     img2img_inpaint_tabs = []
     img2img_non_inpaint_tabs = []
     img2img_inpaint_area = None
+    txt2img_enable_hr = None
 
     def __init__(
         self,
@@ -162,7 +163,7 @@ class ControlNetUiGroup(object):
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
         self.prevent_next_n_slider_value_update = 0
-        
+
         # API-only fields
         self.advanced_weighting = gr.State(None)
 
@@ -179,7 +180,7 @@ class ControlNetUiGroup(object):
             None
         """
         self.openpose_editor = OpenposeEditor()
-        
+
         with gr.Group(visible=not is_img2img) as self.image_upload_panel:
             self.save_detected_map = gr.Checkbox(value=True, visible=False)
             with gr.Tabs():
@@ -201,7 +202,7 @@ class ControlNetUiGroup(object):
                                 else None,
                             )
                             self.openpose_editor.render_upload()
-                            
+
                         with gr.Group(
                             visible=False, elem_classes=["cnet-generated-image-group"]
                         ) as self.generated_image_group:
@@ -324,7 +325,7 @@ class ControlNetUiGroup(object):
                 visible=False,
             )
 
-        with gr.Row(elem_classes="controlnet_img2img_options"):            
+        with gr.Row(elem_classes="controlnet_img2img_options"):
             if is_img2img:
                 self.upload_independent_img_in_img2img = gr.Checkbox(
                     label="Upload independent control image",
@@ -454,14 +455,14 @@ class ControlNetUiGroup(object):
             elem_classes="controlnet_resize_mode_radio",
             visible=not is_img2img,
         )
-        
+
         self.hr_option = gr.Radio(
             choices=[e.value for e in external_code.HiResFixOption],
             value=self.default_unit.hr_option.value,
             label="Hires-Fix Option",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_hr_option_radio",
             elem_classes="controlnet_hr_option_radio",
-            visible=not is_img2img,
+            visible=False,
         )
 
         self.loopback = gr.Checkbox(
@@ -850,36 +851,44 @@ class ControlNetUiGroup(object):
             ],
             show_progress=False
         )
-    
+
     def register_shift_crop_input_image(self):
         is_inpaint_tab = gr.State(False)
-        
-        def shift_crop_input_image(is_inpaint: bool, inpaint_area: int, independent_control_image: bool):
-            logger.info(str((is_inpaint, inpaint_area, independent_control_image)))
+
+        def shift_crop_input_image(is_inpaint: bool, inpaint_area: int):
             # Note: inpaint_area (0: Whole picture, 1: Only masked)
-            return gr.update(visible=is_inpaint and inpaint_area == 1 and independent_control_image)
+            # By default set value to True, as most preprocessors need cropped result.
+            return gr.update(value=True, visible=is_inpaint and inpaint_area == 1)
 
         gradio_kwargs = dict(
             fn=shift_crop_input_image,
             inputs=[
-                is_inpaint_tab, 
+                is_inpaint_tab,
                 ControlNetUiGroup.img2img_inpaint_area,
-                self.upload_independent_img_in_img2img,
             ],
             outputs=[self.inpaint_crop_input_image],
             show_progress=False,
         )
-        
+
         for elem in ControlNetUiGroup.img2img_inpaint_tabs:
-            elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab])
-            elem.select(**gradio_kwargs)
-            
+            elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
+
         for elem in ControlNetUiGroup.img2img_non_inpaint_tabs:
-            elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab])
-            elem.select(**gradio_kwargs)
-            
-        self.upload_independent_img_in_img2img.change(**gradio_kwargs)
+            elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
+
         ControlNetUiGroup.img2img_inpaint_area.change(**gradio_kwargs)
+
+    def register_shift_hr_options(self):
+        # A1111 version < 1.6.0.
+        if not ControlNetUiGroup.txt2img_enable_hr:
+            return
+
+        ControlNetUiGroup.txt2img_enable_hr.change(
+            fn=lambda checked: gr.update(visible=checked),
+            inputs=[ControlNetUiGroup.txt2img_enable_hr],
+            outputs=[self.hr_option],
+            show_progress=False
+        )
 
     def register_callbacks(self, is_img2img: bool):
         """Register callbacks on the UI elements.
@@ -914,6 +923,8 @@ class ControlNetUiGroup(object):
         if is_img2img:
             self.register_img2img_same_input()
             self.register_shift_crop_input_image()
+        else:
+            self.register_shift_hr_options()
 
     def render_and_register_unit(self, tabname: str, is_img2img: bool):
         """Render the invisible states elements for misc persistent
@@ -1125,8 +1136,8 @@ class ControlNetUiGroup(object):
                     outputs=[g.loopback for g in ui_groups],
                     show_progress=False,
                 )
-                
-    
+
+
     @staticmethod
     def on_after_component(component, **_kwargs):
         elem_id = getattr(component, "elem_id", None)
@@ -1170,15 +1181,15 @@ class ControlNetUiGroup(object):
         if elem_id == "img2img_height":
             ControlNetUiGroup.img2img_h_slider = component
             return
-        
+
         if elem_id in (
             "img2img_img2img_tab",
-            "img2img_img2img_sketch_tab",            
+            "img2img_img2img_sketch_tab",
             "img2img_batch_tab",
         ):
             ControlNetUiGroup.img2img_non_inpaint_tabs.append(component)
             return
-        
+
         if elem_id in (
             "img2img_inpaint_tab",
             "img2img_inpaint_sketch_tab",
@@ -1190,3 +1201,6 @@ class ControlNetUiGroup(object):
         if elem_id == "img2img_inpaint_full_res":
             ControlNetUiGroup.img2img_inpaint_area = component
             return
+
+        if elem_id == "txt2img_hr-checkbox":
+            ControlNetUiGroup.txt2img_enable_hr = component

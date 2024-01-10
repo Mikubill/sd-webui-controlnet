@@ -375,6 +375,21 @@
     }
   }
 
+  let photopeaWarningShown = false;
+
+  function firstTimeUserPrompt() {
+    if (opts.controlnet_photopea_warning){
+      const photopeaPopupMsg = "you are about to connect to https://photopea.com\n" +
+        "- Click OK: proceed.\n" +
+        "- Click Cancel: abort.\n" +
+        "Photopea integration can be disabled in Settings > ControlNet > Disable photopea edit.\n" +
+        "This popup can be disabled in Settings > ControlNet > Photopea popup warning.";
+      if (photopeaWarningShown || confirm(photopeaPopupMsg)) photopeaWarningShown = true;
+      else return false;
+    }
+    return true;
+  }
+
   const cnetRegisteredAccordions = new Set();
   function loadPhotopea() {
     function registerCallbacks(accordion) {
@@ -393,6 +408,8 @@
       tabs.forEach(tab => {
         const photopeaChildTrigger = tab.querySelector('.cnet-photopea-child-trigger');
         photopeaChildTrigger.addEventListener('click', async () => {
+          if (!firstTimeUserPrompt()) return;
+
           photopeaMainTrigger.click();
           if (await photopeaContext.invoke(hasActiveDocument) === "false") {
             await photopeaContext.fetchFromControlNet(tabs);

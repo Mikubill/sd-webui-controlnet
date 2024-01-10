@@ -120,14 +120,16 @@ class Infotext(object):
                 for field, value in vars(parse_unit(v)).items():
                     if field == "image":
                         continue
+                    if value is None:
+                        logger.debug(f"InfoText: Skipping {field} because value is None.")
+                        continue
 
-                    assert value is not None, f"{field} == None"
                     component_locator = f"{k} {field}"
                     updates[component_locator] = value
                     logger.debug(f"InfoText: Setting {component_locator} = {value}")
-            except Exception:
+            except Exception as e:
                 logger.warn(
-                    f"Failed to parse infotext, legacy format infotext is no longer supported:\n{v}"
+                    f"Failed to parse infotext, legacy format infotext is no longer supported:\n{v}\n{e}"
                 )
 
         results.update(updates)

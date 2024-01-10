@@ -74,6 +74,9 @@ class HiResFixOption(Enum):
 
     @staticmethod
     def from_value(value: Any) -> "HiResFixOption":
+        if isinstance(value, str) and value.startswith("HiResFixOption."):
+            _, field = value.split(".")
+            return getattr(HiResFixOption, field)
         if isinstance(value, str):
             return HiResFixOption(value)
         elif isinstance(value, int):
