@@ -1,13 +1,14 @@
 import os
 import cv2
 import numpy as np
+import torch
 
 from annotator.util import HWC3
 from typing import Callable, Tuple
 
 from modules.safe import Extra
 from modules import devices
-
+from scripts.logging import logger
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -646,6 +647,72 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+model_densepose = None
+
+
+def densepose(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img)
+    return remove_pad(result), True
+
+def densepose_parula(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img, cmap="parula")
+    return remove_pad(result), True
+
+def unload_densepose_model():
+    global model_densepose
+    if model_densepose is not None:
+        model_densepose.unload_model()
+
+class InsightFaceModel:
+    def __init__(self):
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            from insightface.app import FaceAnalysis
+            from annotator.annotator_path import models_path
+            self.model = FaceAnalysis(
+                name="buffalo_l",
+                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                root=os.path.join(models_path, "insightface"),
+            )
+            self.model.prepare(ctx_id=0, det_size=(640, 640))
+
+    def run_model(self, img, **kwargs):
+        self.load_model()
+        img = HWC3(img)
+        faces = self.model.get(img)
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the first one will be used")
+        faceid_embeds = {
+            "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
+        }
+        return faceid_embeds, False
+
+
+g_insight_face_model = InsightFaceModel()
+
+
+def face_id_plus(img, **kwargs):
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
+    face_embed, _ = g_insight_face_model.run_model(img)
+    clip_embed, _ = clip(img, config='clip_h')
+    return (face_embed, clip_embed), False
+
+
 class HandRefinerModel:
     def __init__(self):
         self.model = None
@@ -709,7 +776,10 @@ no_control_mode_preprocessors = [
     "clip_vision",
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
-    "t2ia_style_clipvision"
+    "ip-adapter_clip_sdxl_plus_vith",
+    "t2ia_style_clipvision",
+    "ip-adapter_face_id",
+    "ip-adapter_face_id_plus",
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
@@ -1077,6 +1147,22 @@ preprocessor_sliders_config = {
             "max": 2048
         }
     ],
+    "densepose": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "densepose_parula": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
     "depth_hand_refiner": [
         {
             "name": flag_preprocessor_resolution,
@@ -1116,5 +1202,6 @@ preprocessor_filters_aliases = {
     't2i-adapter': ['t2i_adapter', 't2iadapter', 't2ia'],
     'ip-adapter': ['ip_adapter', 'ipadapter'],
     'scribble/sketch': ['scribble', 'sketch'],
-    'tile/blur': ['tile', 'blur']
+    'tile/blur': ['tile', 'blur'],
+    'openpose':['openpose', 'densepose'],
 }  # must use all lower texts
