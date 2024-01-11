@@ -647,6 +647,32 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+model_densepose = None
+
+
+def densepose(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img)
+    return remove_pad(result), True
+
+def densepose_parula(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_densepose
+    if model_hed is None:
+        from annotator.densepose import apply_densepose
+        model_densepose = apply_densepose
+    result = model_densepose(img, cmap="parula")
+    return remove_pad(result), True
+
+def unload_densepose_model():
+    global model_densepose
+    if model_densepose is not None:
+        model_densepose.unload_model()
+
 class InsightFaceModel:
     def __init__(self):
         self.model = None
@@ -1121,6 +1147,22 @@ preprocessor_sliders_config = {
             "max": 2048
         }
     ],
+    "densepose": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "densepose_parula": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
     "depth_hand_refiner": [
         {
             "name": flag_preprocessor_resolution,
@@ -1160,5 +1202,6 @@ preprocessor_filters_aliases = {
     't2i-adapter': ['t2i_adapter', 't2iadapter', 't2ia'],
     'ip-adapter': ['ip_adapter', 'ipadapter'],
     'scribble/sketch': ['scribble', 'sketch'],
-    'tile/blur': ['tile', 'blur']
+    'tile/blur': ['tile', 'blur'],
+    'openpose':['openpose', 'densepose'],
 }  # must use all lower texts
