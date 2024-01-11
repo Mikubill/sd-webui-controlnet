@@ -750,6 +750,7 @@ no_control_mode_preprocessors = [
     "clip_vision",
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
+    "ip-adapter_clip_sdxl_plus_vith",
     "t2ia_style_clipvision",
     "ip-adapter_face_id",
     "ip-adapter_face_id_plus",
