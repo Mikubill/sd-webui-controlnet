@@ -1,7 +1,7 @@
 import math
 import torch
 import torch.nn as nn
-
+from scripts.logging import logger
 
 # attention_channels of input, output, middle
 SD_V12_CHANNELS = [320] * 4 + [640] * 4 + [1280] * 4 + [1280] * 6 + [640] * 6 + [320] * 6 + [1280] * 2
@@ -347,13 +347,13 @@ class IPAdapterModel(torch.nn.Module):
         return image_prompt_embeds, uncond_image_prompt_embeds
 
     @torch.inference_mode()
-    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output):
+    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output, is_v2: bool):
         face_embed = face_embed['image_embeds'].to(self.device)
         from annotator.clipvision import clip_vision_h_uc
         clip_embed = clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32)
         return (
-            self.image_proj_model(face_embed, clip_embed),
-            self.image_proj_model(torch.zeros_like(face_embed), clip_vision_h_uc.to(clip_embed)),
+            self.image_proj_model(face_embed, clip_embed, shortcut=is_v2),
+            self.image_proj_model(torch.zeros_like(face_embed), clip_vision_h_uc.to(clip_embed), shortcut=is_v2),
         )
 
 
@@ -437,8 +437,14 @@ def clear_all_ip_adapter():
 
 
 class PlugableIPAdapter(torch.nn.Module):
-    def __init__(self, state_dict):
+    def __init__(self, state_dict, is_v2: bool = False):
+        """
+        Arguments:
+            - state_dict: model state_dict.
+            - is_v2: whether "v2" is in model name.
+        """
         super().__init__()
+        self.is_v2 = is_v2
         self.is_full = "proj.3.weight" in state_dict['image_proj']
         self.is_faceid = "0.to_q_lora.down.weight" in state_dict["ip_adapter"]
         self.is_plus = (
@@ -449,6 +455,8 @@ class PlugableIPAdapter(torch.nn.Module):
         cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
         self.sdxl = cross_attention_dim == 2048
         self.sdxl_plus = self.sdxl and self.is_plus
+        if self.is_faceid and self.is_v2 and self.is_plus:
+            logger.info("IP-Adapter faceid plus v2 detected.")
 
         if self.is_faceid:
             if self.is_plus:
@@ -504,7 +512,8 @@ class PlugableIPAdapter(torch.nn.Module):
             # Note: FaceID plus uses both face_embed and clip_embed.
             # This should be the return value from preprocessor.
             assert isinstance(clip_vision_output, (list, tuple))
-            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid_plus(*clip_vision_output)
+            assert len(clip_vision_output) == 2
+            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid_plus(*clip_vision_output, is_v2=self.is_v2)
         else:
             self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_output)
 
