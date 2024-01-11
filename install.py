@@ -6,7 +6,6 @@ import sys
 import platform
 import requests
 import tempfile
-import subprocess
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -105,7 +104,10 @@ def try_install_insight_face():
 
     def install_wheel(wheel_path):
         """Install the wheel using pip"""
-        subprocess.run(["pip", "install", wheel_path], check=True)
+        launch.run_pip(
+            f"install {wheel_path}",
+            f"sd-webui-controlnet requirement: install insightface",
+        )
 
     wheel_url = "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl"
 
