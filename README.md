@@ -205,7 +205,7 @@ Note that this feature is only available in the gradio user interface. Call the 
 
 This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
 
-To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
+To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/txt2img_example/api_txt2img.py).
 
 To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
@@ -219,6 +219,7 @@ This extension adds these command line arguments to the webui:
     --no-half-controlnet                                                                       load controlnet models in full precision
     --controlnet-preprocessor-cache-size                                                       Cache size for controlnet preprocessor results
     --controlnet-loglevel                                                                      Log level for the controlnet extension
+    --controlnet-tracemalloc                                                                   Enable malloc memory tracing
 ```
 
 # MacOS Support

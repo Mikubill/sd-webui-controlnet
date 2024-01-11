@@ -1,7 +1,7 @@
 import gc
+import tracemalloc
 import os
 import logging
-import re
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
@@ -10,9 +10,8 @@ from modules import shared, devices, script_callbacks, processing, masking, imag
 import gradio as gr
 import time
 
-
 from einops import rearrange
-from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
+from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
@@ -20,8 +19,9 @@ from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
-from scripts.enums import ControlModelType, StableDiffusionVersion
+from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
+from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
 from modules.images import save_image
@@ -31,7 +31,6 @@ import cv2
 import numpy as np
 import torch
 
-from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
 from scripts.processor import model_free_preprocessors
@@ -261,14 +260,16 @@ class Script(scripts.Script, metaclass=(
             model="None"
         )
 
-    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str) -> Tuple[ControlNetUiGroup, gr.State]:
+    def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Optional[Photopea]) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
             Script.get_default_ui_unit(),
             self.preprocessor,
+            photopea,
         )
         group.render(tabname, elem_id_tabname, is_img2img)
         group.register_callbacks(is_img2img)
-        return group, group.render_and_register_unit(tabname, is_img2img)
+        unit_state = group.render_and_register_unit(tabname, is_img2img)
+        return group, unit_state
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
         batch_option = gr.Radio(
@@ -315,33 +316,38 @@ class Script(scripts.Script, metaclass=(
         Values of those returned components will be passed to run() and process() functions.
         """
         infotext = Infotext()
-        
-        controls = ()
+        ui_groups = []
+        controls = []
         max_models = shared.opts.data.get("control_net_unit_count", 3)
         elem_id_tabname = ("img2img" if is_img2img else "txt2img") + "_controlnet"
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
+                photopea = Photopea() if not shared.opts.data.get("controlnet_disable_photopea_edit", False) else None
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
                             with gr.Tab(f"ControlNet Unit {i}", 
                                         elem_classes=['cnet-unit-tab']):
-                                group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname)
-                                infotext.register_unit(i, group)
-                                controls += (state,)
+                                group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname, photopea)
+                                ui_groups.append(group)
+                                controls.append(state)
                 else:
                     with gr.Column():
-                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname)
-                        infotext.register_unit(0, group)
-                        controls += (state,)
+                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname, photopea)
+                        ui_groups.append(group)
+                        controls.append(state)
                 with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
 
+        ControlNetUiGroup.register_input_mode_sync(ui_groups)
+
+        for i, ui_group in enumerate(ui_groups):
+            infotext.register_unit(i, ui_group)
         if shared.opts.data.get("control_net_sync_field_args", True):
             self.infotext_fields = infotext.infotext_fields
             self.paste_field_names = infotext.paste_field_names
 
-        return controls
+        return tuple(controls)
     
     @staticmethod
     def clear_control_model_cache():
@@ -680,18 +686,23 @@ class Script(scripts.Script, metaclass=(
                 setattr(unit, param, default_value)
                 logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
 
+    @staticmethod
     def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
         """
         Checks whether the given ControlNet unit has model compatible with the currently 
         active sd model. An exception is thrown if ControlNet unit is detected to be
         incompatible.
         """
-        # No need to check if the ControlModelType does not require model to be present.
-        if unit.model.lower() == "none":
-            return
-
         sd_version = global_state.get_sd_version()
         assert sd_version != StableDiffusionVersion.UNKNOWN
+        
+        if "revision" in unit.module.lower() and sd_version != StableDiffusionVersion.SDXL:
+            raise Exception(f"Preprocessor 'revision' only supports SDXL. Current SD base model is {sd_version}.")
+        
+        # No need to check if the ControlModelType does not require model to be present.
+        if unit.model is None or unit.model.lower() == "none":
+            return
+
         cnet_sd_version = StableDiffusionVersion.detect_from_model_name(unit.model)
         
         if cnet_sd_version == StableDiffusionVersion.UNKNOWN:
@@ -780,8 +791,27 @@ class Script(scripts.Script, metaclass=(
                             if a1111_i2i_resize_mode is not None:
                                 resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
-            if 'reference' not in unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) \
-                    and p.inpaint_full_res and a1111_mask_image is not None:
+            # Note: The method determining whether the active script is an upscale script is purely
+            # based on `extra_generation_params` these scripts attach on `p`, and subject to change
+            # in the future.
+            # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
+            is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
+            logger.debug(f"is_upscale_script={is_upscale_script}")
+            # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
+            # option is selected.
+            is_only_masked_inpaint = (
+                issubclass(type(p), StableDiffusionProcessingImg2Img) and
+                p.inpaint_full_res and 
+                a1111_mask_image is not None
+            )
+            # Crop ControlNet input image based on A1111 inpaint mask given.
+            # This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res 
+            # to crop tiles.
+            if (
+                'reference' not in unit.module
+                and is_only_masked_inpaint
+                and (is_upscale_script or unit.inpaint_crop_input_image)
+            ):
                 logger.debug("A1111 inpaint mask START")
                 input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
                 input_image = [Image.fromarray(x) for x in input_image]
@@ -923,10 +953,11 @@ class Script(scripts.Script, metaclass=(
                 guidance_stopped=False,
                 start_guidance_percent=unit.guidance_start,
                 stop_guidance_percent=unit.guidance_end,
-                advanced_weighting=None,
+                advanced_weighting=unit.advanced_weighting,
                 control_model_type=control_model_type,
                 global_average_pooling=global_average_pooling,
                 hr_hint_cond=hr_control,
+                hr_option=HiResFixOption.from_value(unit.hr_option) if high_res_fix else HiResFixOption.BOTH,
                 soft_injection=control_mode != external_code.ControlMode.BALANCED,
                 cfg_injection=control_mode == external_code.ControlMode.CONTROL,
             )
@@ -1039,10 +1070,18 @@ class Script(scripts.Script, metaclass=(
 
     def controlnet_hack(self, p):
         t = time.time()
+        if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
+            tracemalloc.start()
+            setattr(self, "malloc_begin", tracemalloc.take_snapshot())
+            
         self.controlnet_main_entry(p)
+        if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
+            logger.info("After hook malloc:")
+            for stat in tracemalloc.take_snapshot().compare_to(self.malloc_begin, "lineno")[:10]:
+                logger.info(stat)
+            
         if len(self.enabled_units) > 0:
             logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
-        return
 
     @staticmethod
     def process_has_sdxl_refiner(p):
@@ -1126,9 +1165,14 @@ class Script(scripts.Script, metaclass=(
 
         gc.collect()
         devices.torch_gc()
+        if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
+            logger.info("After generation:")
+            for stat in tracemalloc.take_snapshot().compare_to(self.malloc_begin, "lineno")[:10]:
+                logger.info(stat)
+            tracemalloc.stop()
 
     def batch_tab_process(self, p, batches, *args, **kwargs):
-        self.enabled_units = self.get_enabled_units(p)
+        self.enabled_units = Script.get_enabled_units(p)
         for unit_i, unit in enumerate(self.enabled_units):
             unit.batch_images = iter([batch[unit_i] for batch in batches])
 
@@ -1171,8 +1215,6 @@ def on_ui_settings():
         1, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
     shared.opts.add_option("control_net_inpaint_blur_sigma", shared.OptionInfo(
         7, "ControlNet inpainting Gaussian blur sigma", gr.Slider, {"minimum": 0, "maximum": 64, "step": 1}, section=section))
-    shared.opts.add_option("control_net_no_high_res_fix", shared.OptionInfo(
-        False, "Do not apply ControlNet during highres fix", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
         False, "Do not append detectmap to output", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("control_net_detectmap_autosaving", shared.OptionInfo(
@@ -1187,6 +1229,10 @@ def on_ui_settings():
         False, "Increment seed after each controlnet batch iteration", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_disable_openpose_edit", shared.OptionInfo(
         False, "Disable openpose edit", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_disable_photopea_edit", shared.OptionInfo(
+        False, "Disable photopea edit", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_photopea_warning", shared.OptionInfo(
+        True, "Photopea popup warning", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint", 
         gr.Checkbox, {"interactive": True}, section=section))
