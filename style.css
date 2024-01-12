@@ -16,7 +16,7 @@
     background-color: rgba(0, 0, 0, 0.4);
     /* Black with opacity */
     max-width: none !important;
-    /* Fix sizing with SD.Next (vladmandic/automatic#2594)
+    /* Fix sizing with SD.Next (vladmandic/automatic#2594) */
 }
 
 .cnet-modal-content {
@@ -33,7 +33,7 @@
     animation-name: animatetop;
     animation-duration: 0.4s;
     max-width: none !important;
-    /* Fix sizing with SD.Next (vladmandic/automatic#2594)
+    /* Fix sizing with SD.Next (vladmandic/automatic#2594) */
 }
 
 .cnet-modal-content iframe {
