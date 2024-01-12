@@ -647,31 +647,18 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
-model_densepose = None
 
-
-def densepose(img, res=512, **kwargs):
+def densepose(img, res=512, cmap="viridis", **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
-    global model_densepose
-    if model_hed is None:
-        from annotator.densepose import apply_densepose
-        model_densepose = apply_densepose
-    result = model_densepose(img)
+    from annotator.densepose import apply_densepose
+    result = apply_densepose(img, cmap=cmap)
     return remove_pad(result), True
 
-def densepose_parula(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    global model_densepose
-    if model_hed is None:
-        from annotator.densepose import apply_densepose
-        model_densepose = apply_densepose
-    result = model_densepose(img, cmap="parula")
-    return remove_pad(result), True
 
-def unload_densepose_model():
-    global model_densepose
-    if model_densepose is not None:
-        model_densepose.unload_model()
+def unload_densepose():
+    from annotator.densepose import unload_model
+    unload_model()
+
 
 class InsightFaceModel:
     def __init__(self):
