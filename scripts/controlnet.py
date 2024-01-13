@@ -1,46 +1,47 @@
 import gc
-import os
 import logging
+import os
 import re
-from collections import OrderedDict
-from copy import copy
-from typing import Dict, Optional, Tuple
-import modules.scripts as scripts
-from modules import shared, devices, script_callbacks, processing, masking, images
-import gradio as gr
-import time
-
-
-from einops import rearrange
-from scripts import global_state, hook, external_code, processor, batch_hijack, controlnet_version, utils
-from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
-from scripts.processor import *
-from scripts.adapter import Adapter, StyleAdapter, Adapter_light
-from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
-from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
-from scripts.utils import load_state_dict, get_unique_axis0
-from scripts.hook import ControlParams, UnetHook, HackedImageRNG
-from scripts.enums import ControlModelType, StableDiffusionVersion
-from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
-from scripts.logging import logger
-from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
-from modules.images import save_image
-from scripts.infotext import Infotext
-
-import cv2
-import numpy as np
-import torch
-
-from pathlib import Path
-from PIL import Image, ImageFilter, ImageOps
-from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import model_free_preprocessors
-from scripts.controlnet_model_guess import build_model_by_guess
-from scripts.hook import torch_dfs
-
-
 # Gradio 3.32 bug fix
 import tempfile
+import time
+from collections import OrderedDict
+from copy import copy
+from pathlib import Path
+from typing import Dict, Optional, Tuple
+
+import cv2
+import gradio as gr
+import modules.scripts as scripts
+import numpy as np
+import torch
+from einops import rearrange
+from modules import (devices, images, masking, processing, script_callbacks,
+                     shared)
+from modules.images import save_image
+from modules.processing import (StableDiffusionProcessingImg2Img,
+                                StableDiffusionProcessingTxt2Img)
+from PIL import Image, ImageFilter, ImageOps
+
+from scripts import (batch_hijack, controlnet_version, external_code,
+                     global_state, hook, processor, utils)
+from scripts.adapter import Adapter, Adapter_light, StyleAdapter
+from scripts.controlmodel_ipadapter import (PlugableIPAdapter,
+                                            clear_all_ip_adapter)
+from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
+from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
+from scripts.controlnet_model_guess import build_model_by_guess
+from scripts.controlnet_ui.controlnet_ui_group import (ControlNetUiGroup,
+                                                       UiControlNetUnit)
+from scripts.enums import ControlModelType, StableDiffusionVersion
+from scripts.hook import ControlParams, HackedImageRNG, UnetHook, torch_dfs
+from scripts.infotext import Infotext
+from scripts.logging import logger
+from scripts.lvminthin import lvmin_thin, nake_nms
+from scripts.processor import *
+from scripts.processor import model_free_preprocessors
+from scripts.utils import get_unique_axis0, load_state_dict
+
 gradio_tempfile_path = os.path.join(tempfile.gettempdir(), 'gradio')
 os.makedirs(gradio_tempfile_path, exist_ok=True)
 
@@ -386,7 +387,8 @@ class Script(scripts.Script, metaclass=(
             model_path = model_path[1:-1]
 
         if not os.path.exists(model_path):
-            raise ValueError(f"file not found: {model_path}")
+            print(f"file not found: {model_path}")
+            # raise ValueError(f"file not found: {model_path}")
 
         logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)

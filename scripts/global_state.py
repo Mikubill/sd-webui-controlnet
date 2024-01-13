@@ -1,17 +1,18 @@
+import functools
+import json
 import os.path
 import stat
-import functools
 from collections import OrderedDict
+from typing import Callable, Dict, List, Optional, Tuple
 
-from modules import shared, scripts, sd_models
+from modules import scripts, sd_models, shared
 from modules.paths import models_path
-from scripts.processor import *
-import scripts.processor as processor
-from scripts.utils import ndarray_lru_cache
-from scripts.logging import logger
-from scripts.enums import StableDiffusionVersion
 
-from typing import Dict, Callable, Optional, Tuple, List
+import scripts.processor as processor
+from scripts.enums import StableDiffusionVersion
+from scripts.logging import logger
+from scripts.processor import *
+from scripts.utils import ndarray_lru_cache
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors", ".bin"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -217,6 +218,15 @@ def get_all_models(sort_by, filter_by, path):
         if name != "None":
             res[name + f" [{sd_models.model_hash(filename)}]"] = filename
 
+    CONTROLNET_MODEL_LIST_FILE = os.environ.get('CONTROLNET_MODEL_LIST_FILE')
+    if CONTROLNET_MODEL_LIST_FILE is not None:
+      models = {}
+      print('ControlNet 模型列表加载')
+      with open(CONTROLNET_MODEL_LIST_FILE) as f:
+          models = json.load(f)
+      for modelHash in models:
+          res[modelHash] = models[modelHash]
+      print('ControlNet 模型列表加载完成')
     return res
 
 

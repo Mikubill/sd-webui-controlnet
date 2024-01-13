@@ -1,19 +1,22 @@
-import torch
-import os
-import functools
-import time
 import base64
+import functools
+import logging
+import os
+import time
+from typing import Any, Callable, Dict
+
 import numpy as np
 import safetensors.torch
-import logging
-
-from typing import Any, Callable, Dict
+import torch
+from modules import sd_models
 from modules.safe import unsafe_torch_load
+
 from scripts.logging import logger
 
 
 def load_state_dict(ckpt_path, location="cpu"):
     _, extension = os.path.splitext(ckpt_path)
+    ckpt_path = sd_models.download_model_from_oss(ckpt_path)
     if extension.lower() == ".safetensors":
         state_dict = safetensors.torch.load_file(ckpt_path, device=location)
     else:
@@ -112,8 +115,9 @@ class TimeMeta(type):
 svgsupport = False
 try:
     import io
-    from svglib.svglib import svg2rlg
+
     from reportlab.graphics import renderPM
+    from svglib.svglib import svg2rlg
 
     svgsupport = True
 except ImportError:
