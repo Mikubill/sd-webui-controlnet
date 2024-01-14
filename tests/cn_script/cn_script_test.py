@@ -102,9 +102,10 @@ class MockImg2ImgProcessing(processing.StableDiffusionProcessing):
     """Mock the Img2Img processing as the WebUI version have dependency on
     `sd_model`."""
 
-    def __init__(self, init_images, *args, **kwargs):
+    def __init__(self, init_images, resize_mode, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_images = init_images
+        self.resize_mode = resize_mode
 
 
 class TestScript(unittest.TestCase):
