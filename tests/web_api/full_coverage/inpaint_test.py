@@ -74,7 +74,8 @@ class TestInpaintFullCoverage(unittest.TestCase):
                         )
 
     def test_inpaint_no_mask(self):
-        """Inpaint should fail if no mask is provided."""
+        """Inpaint should fail if no mask is provided. Output should not contain
+        ControlNet detected map."""
         for gen_type in ("img2img", "txt2img"):
             if gen_type == "img2img":
                 payload = {
@@ -91,7 +92,7 @@ class TestInpaintFullCoverage(unittest.TestCase):
             unit["model"] = "control_v11p_sd15_inpaint [ebff9138]"
             unit["module"] = "inpaint_only"
             with self.subTest(gen_type=gen_type):
-                self.assertFalse(
+                self.assertTrue(
                     APITestTemplate(
                         f"{gen_type}_no_mask_fail",
                         gen_type,

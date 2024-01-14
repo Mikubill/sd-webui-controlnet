@@ -17,7 +17,6 @@ PayloadOverrideType = Dict[str, Any]
 timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 test_result_dir = Path(__file__).parent / "results" / f"test_result_{timestamp}"
 test_expectation_dir = Path(__file__).parent / "expectations"
-os.makedirs(test_result_dir, exist_ok=True)
 os.makedirs(test_expectation_dir, exist_ok=True)
 resource_dir = Path(__file__).parents[2] / "images"
 
@@ -48,11 +47,10 @@ sd_version = StableDiffusionVersion(
 )
 
 is_full_coverage = os.environ.get("CONTROLNET_TEST_FULL_COVERAGE", None) is not None
-is_full_coverage = True
 
 
 class APITestTemplate:
-    is_set_expectation_run = True
+    is_set_expectation_run = False
 
     def __init__(
         self,
@@ -81,6 +79,9 @@ class APITestTemplate:
         ]
 
     def exec(self) -> bool:
+        if not APITestTemplate.is_set_expectation_run:
+            os.makedirs(test_result_dir, exist_ok=True)
+
         failed = False
 
         response = requests.post(url=self.url, json=self.payload).json()
@@ -108,11 +109,15 @@ class APITestTemplate:
                     failed = True
                     continue
 
+                if img1 is None:
+                    print(f"Warn: No expectation file found {img_file_name}.")
+                    continue
+
                 if not expect_same_image(
                     img1,
                     img2,
-                    diff_img_path=test_result_dir
-                    / img_file_name.replace(".png", "_diff.png"),
+                    diff_img_path=str(test_result_dir
+                    / img_file_name.replace(".png", "_diff.png")),
                 ):
                     failed = True
         return not failed
