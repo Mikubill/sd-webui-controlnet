@@ -779,17 +779,17 @@ class Script(scripts.Script, metaclass=(
                 a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
                 if a1111_i2i_resize_mode is not None:
                     resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
-            
+
             a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
                 a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
-                if a1111_mask.ndim == 2:
-                    if a1111_mask.shape[0] == input_image.shape[0]:
-                        if a1111_mask.shape[1] == input_image.shape[1]:
-                            input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
-                            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                            if a1111_i2i_resize_mode is not None:
-                                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+                assert a1111_mask.ndim == 2
+                assert a1111_mask.shape[0] == input_image.shape[0]
+                assert a1111_mask.shape[1] == input_image.shape[1]
+                input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
+                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+                if a1111_i2i_resize_mode is not None:
+                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             # Note: The method determining whether the active script is an upscale script is purely
             # based on `extra_generation_params` these scripts attach on `p`, and subject to change
