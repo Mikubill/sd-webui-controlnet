@@ -333,7 +333,8 @@ class Script(scripts.Script, metaclass=(
 
     @staticmethod
     def load_control_model(p, unet, model):
-        if model in Script.model_cache:
+        # ip-adapter model contains embedding data, so each model is unique.
+        if 'ip-adapter' not in model and model in Script.model_cache:
             logger.info(f"Loading model from cache: {model}")
             return Script.model_cache[model]
 
