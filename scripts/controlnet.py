@@ -605,24 +605,26 @@ class Script(scripts.Script, metaclass=(
             else:
                 input_image = HWC3(image['image'])
 
-            have_mask = 'mask' in image and not (
-                (image['mask'][:, :, 0] <= 5).all() or
-                (image['mask'][:, :, 0] >= 250).all()
-            )
-            if have_mask:
+            if 'mask' in image and image['mask'] is not None:
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
-
-                if 'inpaint' in unit.module:
-                    logger.info("using inpaint as input")
-                    color = HWC3(image['image'])
-                    alpha = image['mask'][:, :, 0:1]
-                    input_image = np.concatenate([color, alpha], axis=2)
-                else:
-                    if not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
-                        logger.info("using mask as input")
-                        input_image = HWC3(image['mask'][:, :, 0])
-                        unit.module = 'none'  # Always use black bg and white line
+                # There is wield gradio issue that would produce mask that is
+                # not pure color when no scribble is made on canvas.
+                # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
+                if not (
+                    (image['mask'][:, :, 0] <= 5).all() or
+                    (image['mask'][:, :, 0] >= 250).all()
+                ):
+                    if 'inpaint' in unit.module:
+                        logger.info("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    else:
+                        if not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
+                            logger.info("using mask as input")
+                            input_image = HWC3(image['mask'][:, :, 0])
+                            unit.module = 'none'  # Always use black bg and white line
         elif a1111_image is not None:
             input_image = HWC3(np.asarray(a1111_image))
             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
