@@ -1,9 +1,14 @@
+import os
 import cv2
 import numpy as np
+import torch
 
 from annotator.util import HWC3
 from typing import Callable, Tuple
 
+from modules.safe import Extra
+from modules import devices
+from scripts.logging import logger
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -642,6 +647,108 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
+
+def densepose(img, res=512, cmap="viridis", **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    from annotator.densepose import apply_densepose
+    result = apply_densepose(img, cmap=cmap)
+    return remove_pad(result), True
+
+
+def unload_densepose():
+    from annotator.densepose import unload_model
+    unload_model()
+
+
+class InsightFaceModel:
+    def __init__(self):
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            from insightface.app import FaceAnalysis
+            from annotator.annotator_path import models_path
+            self.model = FaceAnalysis(
+                name="buffalo_l",
+                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                root=os.path.join(models_path, "insightface"),
+            )
+            self.model.prepare(ctx_id=0, det_size=(640, 640))
+
+    def run_model(self, img, **kwargs):
+        self.load_model()
+        img = HWC3(img)
+        faces = self.model.get(img)
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the first one will be used")
+        faceid_embeds = {
+            "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
+        }
+        return faceid_embeds, False
+
+
+g_insight_face_model = InsightFaceModel()
+
+
+def face_id_plus(img, **kwargs):
+    """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
+    face_embed, _ = g_insight_face_model.run_model(img)
+    clip_embed, _ = clip(img, config='clip_h')
+    return (face_embed, clip_embed), False
+
+
+class HandRefinerModel:
+    def __init__(self):
+        self.model = None
+        self.device = devices.get_device_for("controlnet")
+        def torch_handler(module: str, name: str):
+            import torch
+            if module == 'torch':
+                return getattr(torch, name)
+        self.torch_handler = torch_handler
+    
+    def load_model(self):
+        if self.model is None:
+            # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
+            import sys
+            from pathlib import Path
+            from annotator.annotator_path import models_path
+            hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
+            if hand_refiner_path not in sys.path:
+                sys.path.append(hand_refiner_path)
+            
+            from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
+            with Extra(self.torch_handler):
+                self.model = MeshGraphormerDetector.from_pretrained(
+                    "hr16/ControlNet-HandRefiner-pruned", 
+                    cache_dir=os.path.join(models_path, "hand_refiner"),
+                    device=self.device,
+                )
+        else:
+            self.model.to(self.device)
+
+    def unload(self):
+        if self.model is not None:
+            self.model.to("cpu")
+
+    def run_model(self, img, res=512, **kwargs):
+        img, remove_pad = resize_image_with_pad(img, res)
+        self.load_model()
+        with Extra(self.torch_handler):
+            depth_map, mask, info = self.model(
+                img, output_type="np",
+                detect_resolution=res,
+                mask_bbox_padding=30,
+            )
+        return remove_pad(depth_map), True
+
+
+g_hand_refiner_model = HandRefinerModel()
+
+
 model_free_preprocessors = [
     "reference_only",
     "reference_adain",
@@ -656,7 +763,10 @@ no_control_mode_preprocessors = [
     "clip_vision",
     "ip-adapter_clip_sd15",
     "ip-adapter_clip_sdxl",
-    "t2ia_style_clipvision"
+    "ip-adapter_clip_sdxl_plus_vith",
+    "t2ia_style_clipvision",
+    "ip-adapter_face_id",
+    "ip-adapter_face_id_plus",
 ]
 
 flag_preprocessor_resolution = "Preprocessor Resolution"
@@ -1024,6 +1134,30 @@ preprocessor_sliders_config = {
             "max": 2048
         }
     ],
+    "densepose": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "densepose_parula": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
+        }
+    ],
+    "depth_hand_refiner": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        } 
+    ],
 }
 
 preprocessor_filters = {
@@ -1056,5 +1190,6 @@ preprocessor_filters_aliases = {
     't2i-adapter': ['t2i_adapter', 't2iadapter', 't2ia'],
     'ip-adapter': ['ip_adapter', 'ipadapter'],
     'scribble/sketch': ['scribble', 'sketch'],
-    'tile/blur': ['tile', 'blur']
+    'tile/blur': ['tile', 'blur'],
+    'openpose':['openpose', 'densepose'],
 }  # must use all lower texts

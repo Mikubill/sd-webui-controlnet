@@ -173,6 +173,9 @@ annotator/downloads/
 # test results and expectations
 web_tests/results/
 web_tests/expectations/
+tests/web_api/full_coverage/results/
+tests/web_api/full_coverage/expectations/
+
 *_diff.png
 
 # Presets

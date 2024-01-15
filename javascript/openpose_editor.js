@@ -5,10 +5,10 @@
 
         async function testEditorPath(path) {
             const res = await fetch(path);
-            return res.status === 200 ? path : undefined;
+            return res.status === 200 ? path : null;
         }
 
-        // Use local editor if the user has the extension installed. Fallback 
+        // Use local editor if the user has the extension installed. Fallback
         // onto remote editor if the local editor is not ready yet.
         // See https://github.com/huchenlei/sd-webui-openpose-editor/issues/53
         // for more details.
@@ -16,7 +16,8 @@
     }
 
     const cnetOpenposeEditorRegisteredElements = new Set();
-    function loadOpenposeEditor(editorURL) {
+    let editorURL = null;
+    function loadOpenposeEditor() {
         // Simulate an `input` DOM event for Gradio Textbox component. Needed after you edit its contents in javascript, otherwise your edits
         // will only visible on web page and not sent to python.
         function updateInput(target) {
@@ -25,7 +26,7 @@
             target.dispatchEvent(e);
         }
 
-        function navigateIframe(iframe) {
+        function navigateIframe(iframe, editorURL) {
             function getPathname(rawURL) {
                 try {
                     return new URL(rawURL).pathname;
@@ -44,7 +45,7 @@
                     if (message['ready']) resolve();
                 }, { once: true });
 
-                if (getPathname(iframe.src) !== editorURL) {
+                if ((editorURL.startsWith("http") ? iframe.src : getPathname(iframe.src)) !== editorURL) {
                     iframe.src = `${editorURL}?${darkThemeParam}`;
                     // By default assume 5 second is enough for the openpose editor
                     // to load.
@@ -70,7 +71,14 @@
                 const modalId = editButton.id.replace('cnet-modal-open-', '');
                 const modalIframe = generatedImageGroup.querySelector('.cnet-modal iframe');
 
-                await navigateIframe(modalIframe);
+                if (!editorURL) {
+                    editorURL = await checkEditorAvailable();
+                    if (!editorURL) {
+                        alert("No openpose editor available.")
+                    }
+                }
+
+                await navigateIframe(modalIframe, editorURL);
                 modalIframe.contentWindow.postMessage({
                     modalId,
                     imageURL: inputImage ? inputImage.src : undefined,
@@ -81,10 +89,10 @@
                 // the click again to resend the frame message.
                 modalIframe.contentWindow.focus();
             });
-            /* 
+            /*
             * Writes the pose data URL to an link element on input image group.
             * Click a hidden button to trigger a backend rendering of the pose JSON.
-            * 
+            *
             * The backend should:
             * - Set the rendered pose image as preprocessor generated image.
             */
@@ -140,42 +148,5 @@
         });
     }
 
-    function loadPlaceHolder() {
-        const tabs = gradioApp().querySelectorAll('.cnet-image-row');
-        tabs.forEach(tab => {
-            if (cnetOpenposeEditorRegisteredElements.has(tab)) return;
-            cnetOpenposeEditorRegisteredElements.add(tab);
-
-            const generatedImageGroup = tab.querySelector('.cnet-generated-image-group');
-            const editButton = generatedImageGroup.querySelector('.cnet-edit-pose');
-            const modalContent = generatedImageGroup.querySelector('.cnet-modal-content');
-
-            modalContent.classList.add('alert');
-            modalContent.innerHTML = `
-        <div>
-            <p>
-                OpenPose editor not found. Please make sure you have an OpenPose editor available on <code>/openpose_editor_index</code>. To hide the edit button, check "Disable openpose edit" in Settings.<br>
-                <br>
-                The following extension(s) provide integration with ControlNet:
-            </p>
-            <ul>
-                <li>
-                    <a href="https://github.com/huchenlei/sd-webui-openpose-editor">huchenlei/sd-webui-openpose-editor</a>
-                </li>
-            </ul>
-        </div>
-        `;
-
-            editButton.innerHTML = '<del>' + editButton.innerHTML + '</del>';
-        });
-    }
-
-    checkEditorAvailable().then(editorURL => {
-        onUiUpdate(() => {
-            if (editorURL)
-                loadOpenposeEditor(editorURL);
-            else
-                loadPlaceHolder();
-        });
-    });
+    onUiUpdate(loadOpenposeEditor);
 })();

@@ -102,9 +102,10 @@ class MockImg2ImgProcessing(processing.StableDiffusionProcessing):
     """Mock the Img2Img processing as the WebUI version have dependency on
     `sd_model`."""
 
-    def __init__(self, init_images, *args, **kwargs):
+    def __init__(self, init_images, resize_mode, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_images = init_images
+        self.resize_mode = resize_mode
 
 
 class TestScript(unittest.TestCase):
@@ -150,22 +151,33 @@ class TestScript(unittest.TestCase):
                 )
 
         with self.subTest(name="control net input"):
-            _, from_a1111 = Script.choose_input_image(
-                p=MockImg2ImgProcessing(init_images=[TestScript.sample_np_image]),
+            _, resize_mode = Script.choose_input_image(
+                p=MockImg2ImgProcessing(
+                    init_images=[TestScript.sample_np_image],
+                    resize_mode=external_code.ResizeMode.OUTER_FIT,
+                ),
                 unit=external_code.ControlNetUnit(
-                    image=TestScript.sample_base64_image, module="none"
+                    image=TestScript.sample_base64_image,
+                    module="none",
+                    resize_mode=external_code.ResizeMode.INNER_FIT,
                 ),
                 idx=0,
             )
-            self.assertFalse(from_a1111)
+            self.assertEqual(resize_mode, external_code.ResizeMode.INNER_FIT)
 
         with self.subTest(name="A1111 input"):
-            _, from_a1111 = Script.choose_input_image(
-                p=MockImg2ImgProcessing(init_images=[TestScript.sample_np_image]),
-                unit=external_code.ControlNetUnit(module="none"),
+            _, resize_mode = Script.choose_input_image(
+                p=MockImg2ImgProcessing(
+                    init_images=[TestScript.sample_np_image],
+                    resize_mode=external_code.ResizeMode.OUTER_FIT,
+                ),
+                unit=external_code.ControlNetUnit(
+                    module="none",
+                    resize_mode=external_code.ResizeMode.INNER_FIT,
+                ),
                 idx=0,
             )
-            self.assertTrue(from_a1111)
+            self.assertEqual(resize_mode, external_code.ResizeMode.OUTER_FIT)
 
 
 if __name__ == "__main__":
