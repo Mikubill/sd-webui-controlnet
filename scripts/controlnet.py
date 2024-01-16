@@ -608,23 +608,24 @@ class Script(scripts.Script, metaclass=(
             if 'mask' in image and image['mask'] is not None:
                 while len(image['mask'].shape) < 3:
                     image['mask'] = image['mask'][..., np.newaxis]
-                # There is wield gradio issue that would produce mask that is
-                # not pure color when no scribble is made on canvas.
-                # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
-                if not (
-                    (image['mask'][:, :, 0] <= 5).all() or
-                    (image['mask'][:, :, 0] >= 250).all()
+                if 'inpaint' in unit.module:
+                    logger.info("using inpaint as input")
+                    color = HWC3(image['image'])
+                    alpha = image['mask'][:, :, 0:1]
+                    input_image = np.concatenate([color, alpha], axis=2)
+                elif (
+                    not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) and
+                    # There is wield gradio issue that would produce mask that is
+                    # not pure color when no scribble is made on canvas.
+                    # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
+                    not (
+                        (image['mask'][:, :, 0] <= 5).all() or
+                        (image['mask'][:, :, 0] >= 250).all()
+                    )
                 ):
-                    if 'inpaint' in unit.module:
-                        logger.info("using inpaint as input")
-                        color = HWC3(image['image'])
-                        alpha = image['mask'][:, :, 0:1]
-                        input_image = np.concatenate([color, alpha], axis=2)
-                    else:
-                        if not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
-                            logger.info("using mask as input")
-                            input_image = HWC3(image['mask'][:, :, 0])
-                            unit.module = 'none'  # Always use black bg and white line
+                    logger.info("using mask as input")
+                    input_image = HWC3(image['mask'][:, :, 0])
+                    unit.module = 'none'  # Always use black bg and white line
         elif a1111_image is not None:
             input_image = HWC3(np.asarray(a1111_image))
             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
@@ -632,12 +633,18 @@ class Script(scripts.Script, metaclass=(
             resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
             a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and a1111_mask_image is not None:
-                a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
-                assert a1111_mask.ndim == 2
-                assert a1111_mask.shape[0] == input_image.shape[0]
-                assert a1111_mask.shape[1] == input_image.shape[1]
-                input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
+            if 'inpaint' in unit.module:
+                if a1111_mask_image is not None:
+                    a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
+                    assert a1111_mask.ndim == 2
+                    assert a1111_mask.shape[0] == input_image.shape[0]
+                    assert a1111_mask.shape[1] == input_image.shape[1]
+                    input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
+                else:
+                    input_image = np.concatenate([
+                        input_image[:, :, 0:3],
+                        np.zeros_like(input_image, dtype=np.uint8)[:, :, 0:1],
+                    ], axis=2)
         else:
             # No input image detected.
             if batch_hijack.instance.is_batch:

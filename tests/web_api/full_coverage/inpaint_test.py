@@ -143,5 +143,43 @@ class TestInpaintFullCoverage(unittest.TestCase):
             ).exec()
         )
 
+    def test_outpaint_without_mask(self):
+        self.assertTrue(
+            APITestTemplate(
+                f"img2img_outpaint_without_mask",
+                "img2img",
+                payload_overrides={
+                    "init_images": [girl_img],
+                    "width": 768,
+                    "height": 768,
+                    "resize_mode": 2,
+                },
+                unit_overrides={
+                    "model": "control_v11p_sd15_inpaint [ebff9138]",
+                    "module": "inpaint_only+lama",
+                },
+            ).exec()
+        )
+
+        self.assertTrue(
+            APITestTemplate(
+                f"txt2img_outpaint_without_mask",
+                "txt2img",
+                payload_overrides={
+                    "width": 768,
+                    "height": 768,
+                },
+                unit_overrides={
+                    "model": "control_v11p_sd15_inpaint [ebff9138]",
+                    "module": "inpaint_only+lama",
+                    "image": {
+                        "image": girl_img,
+                    },
+                    "resize_mode": 2,
+                },
+            ).exec()
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
