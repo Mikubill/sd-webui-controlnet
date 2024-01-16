@@ -645,8 +645,6 @@ class Script(scripts.Script, metaclass=(
             raise ValueError("controlnet is enabled but no input image is given")
 
         assert isinstance(input_image, np.ndarray)
-        if 'inpaint' in unit.module and input_image.shape[2] != 4:
-            raise ValueError("No mask detected for ControlNet inpaint")
         return input_image, resize_mode
 
     @staticmethod
