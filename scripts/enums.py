@@ -31,9 +31,16 @@ class StableDiffusionVersion(Enum):
             return 12
         else:
             return 9 # SDXL
-            
+
     def controlnet_layer_num(self) -> int:
         return self.encoder_block_num() + 1
+
+    def is_compatible_with(self, other: "StableDiffusionVersion") -> bool:
+        """ Incompatible only when one of version is SDXL and other is not. """
+        return (
+            any(v == StableDiffusionVersion.UNKNOWN for v in [self, other]) or
+            sum(v == StableDiffusionVersion.SDXL for v in [self, other]) != 1
+        )
 
 
 class ControlModelType(Enum):
