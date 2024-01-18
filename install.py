@@ -1,7 +1,5 @@
 import launch
-import git  # git is part of A1111 dependency.
 import pkg_resources
-import os
 import sys
 import platform
 import requests
@@ -12,21 +10,6 @@ from typing import Tuple, Optional
 
 repo_root = Path(__file__).parent
 main_req_file = repo_root / "requirements.txt"
-hand_refiner_req_file = (
-    repo_root / "annotator" / "hand_refiner_portable" / "requirements.txt"
-)
-
-
-def sync_submodules():
-    try:
-        repo = git.Repo(repo_root)
-        repo.submodule_update()
-    except Exception as e:
-        print(e)
-        print(
-            "Warning: ControlNet failed to sync submodules. Please try run "
-            "`git submodule init` and `git submodule update` manually."
-        )
 
 
 def comparable_version(version: str) -> Tuple:
@@ -142,8 +125,5 @@ def try_install_insight_face():
         )
 
 
-sync_submodules()
 install_requirements(main_req_file)
-if os.path.exists(hand_refiner_req_file):
-    install_requirements(hand_refiner_req_file)
 try_install_insight_face()
