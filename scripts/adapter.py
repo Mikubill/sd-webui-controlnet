@@ -148,46 +148,6 @@ class ResnetBlock(nn.Module):
         if sk==False:
             self.skep = nn.Conv2d(in_c, out_c, ksize, 1, ps)
         else:
-            # print('n_sk')
-            self.skep = None
-
-        self.down = down
-        if self.down == True:
-            self.down_opt = Downsample(in_c, use_conv=use_conv)
-
-    def forward(self, x):
-        if self.down == True:
-            x = self.down_opt(x)
-        if self.in_conv is not None: # edit
-            h = self.in_conv(x)
-            # x = self.in_conv(x)
-        # else:
-        #     x = x
-
-        h = self.block1(h)
-        h = self.act(h)
-        h = self.block2(h)
-        if self.skep is not None:
-            return h + self.skep(x)
-        else:
-            return h + x
-
-
-class ResnetBlock(nn.Module):
-    def __init__(self, in_c, out_c, down, ksize=3, sk=False, use_conv=True):
-        super().__init__()
-        ps = ksize//2
-        if in_c != out_c or sk==False:
-            self.in_conv = nn.Conv2d(in_c, out_c, ksize, 1, ps)
-        else:
-            # print('n_in')
-            self.in_conv = None
-        self.block1 = nn.Conv2d(out_c, out_c, 3, 1, 1)
-        self.act = nn.ReLU()
-        self.block2 = nn.Conv2d(out_c, out_c, ksize, 1, ps)
-        if sk==False:
-            self.skep = nn.Conv2d(in_c, out_c, ksize, 1, ps)
-        else:
             self.skep = None
 
         self.down = down
