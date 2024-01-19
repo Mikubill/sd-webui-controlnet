@@ -1,6 +1,8 @@
 import launch
 import pkg_resources
 import sys
+import os
+import shutil
 import platform
 import requests
 import tempfile
@@ -24,9 +26,7 @@ def get_installed_version(package: str) -> Optional[str]:
 
 
 def extract_base_package(package_string: str) -> str:
-    """trimesh[easy] -> trimesh"""
-    # Split the string on '[' and take the first part
-    base_package = package_string.split("[")[0]
+    base_package = package_string.split("@git")[0]
     return base_package
 
 
@@ -68,18 +68,18 @@ def install_requirements(req_file):
 def try_install_insight_face():
     """Attempt to install insightface library. The library is necessary to use ip-adapter faceid.
     Note: Building insightface library from source requires compiling C++ code, which should be avoided
-    in principle. Here the solution is to download a precompiled wheel. """
+    in principle. Here the solution is to download a precompiled wheel."""
     if get_installed_version("insightface") is not None:
         return
 
     def download_file(url, temp_dir):
-        """ Download a file from a given URL to a temporary directory """
-        local_filename = url.split('/')[-1]
+        """Download a file from a given URL to a temporary directory"""
+        local_filename = url.split("/")[-1]
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
         filepath = f"{temp_dir}/{local_filename}"
-        with open(filepath, 'wb') as f:
+        with open(filepath, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
@@ -116,7 +116,8 @@ def try_install_insight_face():
                 print("Installation complete.")
         except Exception as e:
             print(
-                "ControlNet init warning: Unable to install insightface automatically. " + e
+                "ControlNet init warning: Unable to install insightface automatically. "
+                + e
             )
     else:
         print(
@@ -125,5 +126,19 @@ def try_install_insight_face():
         )
 
 
+def try_remove_legacy_submodule():
+    """Try remove annotators/hand_refiner_portable submodule dir."""
+    submodule = repo_root / "annotator" / "hand_refiner_portable"
+    if os.path.exists(submodule):
+        try:
+            shutil.rmtree(submodule)
+        except Exception as e:
+            print(e)
+            print(
+                f"Failed to remove submodule {submodule} automatically. You can manually delete the directory."
+            )
+
+
 install_requirements(main_req_file)
 try_install_insight_face()
+try_remove_legacy_submodule()
