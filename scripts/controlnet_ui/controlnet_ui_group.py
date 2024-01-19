@@ -91,10 +91,9 @@ class ControlNetUiGroup(object):
         **shared.hide_dirs,
         elem_id="controlnet_batch_input_dir",
     )
+
     img2img_batch_input_dir = None
-    img2img_batch_input_dir_callbacks = []
     img2img_batch_output_dir = None
-    img2img_batch_output_dir_callbacks = []
     txt2img_submit_button = None
     img2img_submit_button = None
 
@@ -108,6 +107,9 @@ class ControlNetUiGroup(object):
     img2img_non_inpaint_tabs = []
     img2img_inpaint_area = None
     txt2img_enable_hr = None
+
+    on_after_component_listeners: list[tuple[list[str], Callable]] = []
+    created_elem_ids: set[str] = set()
 
     def __init__(
         self,
@@ -519,22 +521,28 @@ class ControlNetUiGroup(object):
             else:
                 return gr.Slider.update(), gr.Slider.update()
 
-        outputs = (
-            [
-                ControlNetUiGroup.img2img_w_slider,
-                ControlNetUiGroup.img2img_h_slider,
-            ]
-            if is_img2img
-            else [
-                ControlNetUiGroup.txt2img_w_slider,
-                ControlNetUiGroup.txt2img_h_slider,
-            ]
-        )
-        self.send_dimen_button.click(
-            fn=send_dimensions,
-            inputs=[self.image],
-            outputs=outputs,
-            show_progress=False
+        def listener():
+            w_slider = (
+                ControlNetUiGroup.img2img_w_slider
+                if is_img2img
+                else ControlNetUiGroup.txt2img_w_slider
+            )
+            h_slider = (
+                ControlNetUiGroup.img2img_h_slider
+                if is_img2img
+                else ControlNetUiGroup.txt2img_h_slider
+            )
+            if w_slider and h_slider:
+                self.send_dimen_button.click(
+                    fn=send_dimensions,
+                    inputs=[self.image],
+                    outputs=[w_slider, h_slider],
+                    show_progress=False,
+                )
+
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["txt2img_width", "txt2img_height", "img2img_width", "img2img_height"],
+            listener,
         )
 
     def register_webcam_toggle(self):
@@ -780,28 +788,42 @@ class ControlNetUiGroup(object):
                 *self.openpose_editor.update(json_acceptor.value),
             )
 
-        self.trigger_preprocessor.click(
-            fn=run_annotator,
-            inputs=[
-                self.image,
-                self.module,
-                self.processor_res,
-                self.threshold_a,
-                self.threshold_b,
+        def listener():
+            w_slider = (
                 ControlNetUiGroup.img2img_w_slider
                 if is_img2img
-                else ControlNetUiGroup.txt2img_w_slider,
+                else ControlNetUiGroup.txt2img_w_slider
+            )
+            h_slider = (
                 ControlNetUiGroup.img2img_h_slider
                 if is_img2img
-                else ControlNetUiGroup.txt2img_h_slider,
-                self.pixel_perfect,
-                self.resize_mode,
-            ],
-            outputs=[
-                self.generated_image,
-                self.preprocessor_preview,
-                *self.openpose_editor.outputs(),
-            ],
+                else ControlNetUiGroup.txt2img_h_slider
+            )
+
+            if w_slider and h_slider:
+                self.trigger_preprocessor.click(
+                    fn=run_annotator,
+                    inputs=[
+                        self.image,
+                        self.module,
+                        self.processor_res,
+                        self.threshold_a,
+                        self.threshold_b,
+                        w_slider,
+                        h_slider,
+                        self.pixel_perfect,
+                        self.resize_mode,
+                    ],
+                    outputs=[
+                        self.generated_image,
+                        self.preprocessor_preview,
+                        *self.openpose_editor.outputs(),
+                    ],
+                )
+
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["txt2img_width", "txt2img_height", "img2img_width", "img2img_height"],
+            listener,
         )
 
     def register_shift_preview(self):
@@ -889,34 +911,52 @@ class ControlNetUiGroup(object):
             # By default set value to True, as most preprocessors need cropped result.
             return gr.update(value=True, visible=is_inpaint and inpaint_area == 1)
 
-        gradio_kwargs = dict(
-            fn=shift_crop_input_image,
-            inputs=[
-                is_inpaint_tab,
-                ControlNetUiGroup.img2img_inpaint_area,
+        def listener():
+            if not ControlNetUiGroup.img2img_inpaint_area:
+                return
+
+            gradio_kwargs = dict(
+                fn=shift_crop_input_image,
+                inputs=[
+                    is_inpaint_tab,
+                    ControlNetUiGroup.img2img_inpaint_area,
+                ],
+                outputs=[self.inpaint_crop_input_image],
+                show_progress=False,
+            )
+
+            for elem in ControlNetUiGroup.img2img_inpaint_tabs:
+                elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
+
+            for elem in ControlNetUiGroup.img2img_non_inpaint_tabs:
+                elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
+
+            ControlNetUiGroup.img2img_inpaint_area.change(**gradio_kwargs)
+
+        ControlNetUiGroup.add_on_after_component_listener(
+            [
+                "img2img_inpaint_full_res",
+                "img2img_img2img_tab",
+                "img2img_img2img_sketch_tab",
+                "img2img_batch_tab",
+                "img2img_inpaint_tab",
+                "img2img_inpaint_sketch_tab",
+                "img2img_inpaint_upload_tab",
             ],
-            outputs=[self.inpaint_crop_input_image],
-            show_progress=False,
+            listener,
         )
 
-        for elem in ControlNetUiGroup.img2img_inpaint_tabs:
-            elem.select(fn=lambda: True, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
-
-        for elem in ControlNetUiGroup.img2img_non_inpaint_tabs:
-            elem.select(fn=lambda: False, inputs=[], outputs=[is_inpaint_tab]).then(**gradio_kwargs)
-
-        ControlNetUiGroup.img2img_inpaint_area.change(**gradio_kwargs)
-
     def register_shift_hr_options(self):
-        # A1111 version < 1.6.0.
-        if not ControlNetUiGroup.txt2img_enable_hr:
-            return
-
-        ControlNetUiGroup.txt2img_enable_hr.change(
-            fn=lambda checked: gr.update(visible=checked),
-            inputs=[ControlNetUiGroup.txt2img_enable_hr],
-            outputs=[self.hr_option],
-            show_progress=False
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["txt2img_hr-checkbox"],
+            lambda: (
+                ControlNetUiGroup.txt2img_enable_hr.change(
+                    fn=lambda checked: gr.update(visible=checked),
+                    inputs=[ControlNetUiGroup.txt2img_enable_hr],
+                    outputs=[self.hr_option],
+                    show_progress=False,
+                )
+            ),
         )
 
     def register_shift_upload_mask(self):
@@ -965,7 +1005,8 @@ class ControlNetUiGroup(object):
         self.register_shift_upload_mask()
         self.register_create_canvas()
         self.openpose_editor.register_callbacks(
-            self.generated_image, self.use_preview_as_input,
+            self.generated_image,
+            self.use_preview_as_input,
             self.model,
         )
         assert self.type_filter is not None
@@ -1083,70 +1124,58 @@ class ControlNetUiGroup(object):
                     outputs=[self.use_preview_as_input, self.generated_image],
                 )
 
-        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
-            if batch_dir:
-                return batch_dir
-            elif fallback_dir:
-                return fallback_dir
-            else:
-                return fallback_fallback_dir
-
         # keep batch_dir in sync with global batch input textboxes
-        def subscribe_for_batch_dir():
+        def listener():
             batch_dirs = [
                 self.batch_image_dir,
                 ControlNetUiGroup.global_batch_input_dir,
                 ControlNetUiGroup.img2img_batch_input_dir,
             ]
-            for batch_dir_comp in batch_dirs:
-                subscriber = getattr(batch_dir_comp, "blur", None)
-                if subscriber is None:
-                    continue
-                subscriber(
-                    fn=determine_batch_dir,
-                    inputs=batch_dirs,
-                    outputs=[batch_image_dir_state],
+
+            if all(dir for dir in batch_dirs):
+                for batch_dir_comp in batch_dirs:
+                    subscriber = getattr(batch_dir_comp, "blur", None)
+                    subscriber(
+                        fn=lambda a, b, c: a or b or c,
+                        inputs=batch_dirs,
+                        outputs=[batch_image_dir_state],
+                        queue=False,
+                    )
+
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["img2img_batch_inpaint_mask_dir", "img2img_batch_input_dir"],
+            listener,
+        )
+
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["img2img_batch_output_dir"],
+            lambda: (
+                ControlNetUiGroup.img2img_batch_output_dir.blur(
+                    fn=lambda a: a,
+                    inputs=[ControlNetUiGroup.img2img_batch_output_dir],
+                    outputs=[output_dir_state],
                     queue=False,
                 )
+            ),
+        )
 
-        if ControlNetUiGroup.img2img_batch_input_dir is None:
-            # we are too soon, subscribe later when available
-            ControlNetUiGroup.img2img_batch_input_dir_callbacks.append(
-                subscribe_for_batch_dir
-            )
-        else:
-            subscribe_for_batch_dir()
-
-        # keep output_dir in sync with global batch output textbox
-        def subscribe_for_output_dir():
-            ControlNetUiGroup.img2img_batch_output_dir.blur(
-                fn=lambda a: a,
-                inputs=[ControlNetUiGroup.img2img_batch_output_dir],
-                outputs=[output_dir_state],
-                queue=False,
-            )
-
-        if ControlNetUiGroup.img2img_batch_input_dir is None:
-            # we are too soon, subscribe later when available
-            ControlNetUiGroup.img2img_batch_output_dir_callbacks.append(
-                subscribe_for_output_dir
-            )
-        else:
-            subscribe_for_output_dir()
-
-        (
-            ControlNetUiGroup.img2img_submit_button
-            if is_img2img
-            else ControlNetUiGroup.txt2img_submit_button
-        ).click(
-            fn=UiControlNetUnit,
-            inputs=list(unit_args),
-            outputs=unit,
-            queue=False,
+        ControlNetUiGroup.add_on_after_component_listener(
+            ["img2img_submit_button", "txt2img_submit_button"],
+            lambda: (
+                (
+                    ControlNetUiGroup.img2img_submit_button
+                    if is_img2img
+                    else ControlNetUiGroup.txt2img_submit_button
+                ).click(
+                    fn=UiControlNetUnit,
+                    inputs=list(unit_args),
+                    outputs=unit,
+                    queue=False,
+                )
+            ),
         )
 
         return unit
-
 
     @staticmethod
     def register_input_mode_sync(ui_groups: List["ControlNetUiGroup"]):
@@ -1195,70 +1224,82 @@ class ControlNetUiGroup(object):
                     show_progress=False,
                 )
 
+    @staticmethod
+    def on_before_ui():
+        ControlNetUiGroup.txt2img_submit_button = None
+        ControlNetUiGroup.img2img_submit_button = None
+        ControlNetUiGroup.img2img_batch_input_dir = None
+        ControlNetUiGroup.img2img_batch_output_dir = None
+        ControlNetUiGroup.txt2img_w_slider = None
+        ControlNetUiGroup.txt2img_h_slider = None
+        ControlNetUiGroup.img2img_w_slider = None
+        ControlNetUiGroup.img2img_h_slider = None
+        ControlNetUiGroup.img2img_inpaint_tabs = []
+        ControlNetUiGroup.img2img_non_inpaint_tabs = []
+        ControlNetUiGroup.img2img_inpaint_area = None
+        ControlNetUiGroup.txt2img_enable_hr = None
+        ControlNetUiGroup.on_after_component_listeners = []
+        ControlNetUiGroup.created_elem_ids = set()
+
+    @staticmethod
+    def add_on_after_component_listener(elem_ids: list[str], callback):
+        # do initial run if any subscribed elem_ids are already created
+        if any(elem_id in ControlNetUiGroup.created_elem_ids for elem_id in elem_ids):
+            callback()
+        ControlNetUiGroup.on_after_component_listeners.append((elem_ids, callback))
 
     @staticmethod
     def on_after_component(component, **_kwargs):
         elem_id = getattr(component, "elem_id", None)
+        ControlNetUiGroup.created_elem_ids.add(elem_id)
 
         if elem_id == "txt2img_generate":
             ControlNetUiGroup.txt2img_submit_button = component
-            return
 
-        if elem_id == "img2img_generate":
+        elif elem_id == "img2img_generate":
             ControlNetUiGroup.img2img_submit_button = component
-            return
 
-        if elem_id == "img2img_batch_input_dir":
+        elif elem_id == "img2img_batch_input_dir":
             ControlNetUiGroup.img2img_batch_input_dir = component
-            for callback in ControlNetUiGroup.img2img_batch_input_dir_callbacks:
-                callback()
-            return
 
-        if elem_id == "img2img_batch_output_dir":
+        elif elem_id == "img2img_batch_output_dir":
             ControlNetUiGroup.img2img_batch_output_dir = component
-            for callback in ControlNetUiGroup.img2img_batch_output_dir_callbacks:
-                callback()
-            return
 
-        if elem_id == "img2img_batch_inpaint_mask_dir":
+        elif elem_id == "img2img_batch_inpaint_mask_dir":
             ControlNetUiGroup.global_batch_input_dir.render()
-            return
 
-        if elem_id == "txt2img_width":
+        elif elem_id == "txt2img_width":
             ControlNetUiGroup.txt2img_w_slider = component
-            return
 
-        if elem_id == "txt2img_height":
+        elif elem_id == "txt2img_height":
             ControlNetUiGroup.txt2img_h_slider = component
-            return
 
-        if elem_id == "img2img_width":
+        elif elem_id == "img2img_width":
             ControlNetUiGroup.img2img_w_slider = component
-            return
 
-        if elem_id == "img2img_height":
+        elif elem_id == "img2img_height":
             ControlNetUiGroup.img2img_h_slider = component
-            return
 
-        if elem_id in (
+        elif elem_id in (
             "img2img_img2img_tab",
             "img2img_img2img_sketch_tab",
             "img2img_batch_tab",
         ):
             ControlNetUiGroup.img2img_non_inpaint_tabs.append(component)
-            return
 
-        if elem_id in (
+        elif elem_id in (
             "img2img_inpaint_tab",
             "img2img_inpaint_sketch_tab",
             "img2img_inpaint_upload_tab",
         ):
             ControlNetUiGroup.img2img_inpaint_tabs.append(component)
-            return
 
-        if elem_id == "img2img_inpaint_full_res":
+        elif elem_id == "img2img_inpaint_full_res":
             ControlNetUiGroup.img2img_inpaint_area = component
-            return
 
-        if elem_id == "txt2img_hr-checkbox":
+        elif elem_id == "txt2img_hr-checkbox":
             ControlNetUiGroup.txt2img_enable_hr = component
+
+        for elem_ids, callback in ControlNetUiGroup.on_after_component_listeners:
+            if elem_id in elem_ids:
+                callback()
