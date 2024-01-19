@@ -9,7 +9,7 @@ import argparse
 import time
 
 import numpy as np
-
+from modules import devices
 from imutils.video import VideoStream
 from midas.model_loader import default_models, load_model
 
@@ -120,7 +120,7 @@ def run(input_path, output_path, model_path, model_type="dpt_beit_large_512", op
     print("Initialize")
 
     # select device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device=devices.get_device_for("controlnet")
     print("Device: %s" % device)
 
     model, transform, net_w, net_h = load_model(device, model_path, model_type, optimize, height, square)
