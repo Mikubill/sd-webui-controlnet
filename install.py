@@ -63,6 +63,19 @@ def install_requirements(req_file):
                 print(
                     f"Warning: Failed to install {package}, some preprocessors may not work."
                 )
+    # Try install hand refiner.
+    if not launch.is_installed("handrefinerportable"):
+        wheel_url = "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.0/handrefinerportable-2024.1.18.0-py2.py3-none-any.whl"
+        try:
+            launch.run_pip(
+                f"install {wheel_url}",
+                "sd-webui-controlnet requirement: handrefinerportable",
+            )
+        except Exception as e:
+            print(e)
+            print(
+                "Warning: Failed to install handrefinerportable. depth_hand_refiner processor will not work."
+            )
 
 
 def try_install_insight_face():

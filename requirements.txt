@@ -1,5 +1,4 @@
 fvcore
-handrefinerportable@git+https://github.com/huchenlei/HandRefinerPortable.git
 mediapipe
 onnxruntime
 opencv-python>=4.8.0
