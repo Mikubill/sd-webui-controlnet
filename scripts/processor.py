@@ -714,15 +714,8 @@ class HandRefinerModel:
     
     def load_model(self):
         if self.model is None:
-            # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
-            import sys
-            from pathlib import Path
             from annotator.annotator_path import models_path
-            hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
-            if hand_refiner_path not in sys.path:
-                sys.path.append(hand_refiner_path)
-            
-            from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
+            from hand_refiner import MeshGraphormerDetector  # installed via hand_refiner_portable
             with Extra(self.torch_handler):
                 self.model = MeshGraphormerDetector.from_pretrained(
                     "hr16/ControlNet-HandRefiner-pruned", 
