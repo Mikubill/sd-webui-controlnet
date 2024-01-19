@@ -350,12 +350,14 @@ clip_encoder = {
 }
 
 
-def clip(img, res=512, config='clip_vitl', **kwargs):
+def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
     img = HWC3(img)
     global clip_encoder
     if clip_encoder[config] is None:
         from annotator.clipvision import ClipVisionDetector
-        clip_encoder[config] = ClipVisionDetector(config)
+        if low_vram:
+            logger.info("Loading CLIP model on CPU.")
+        clip_encoder[config] = ClipVisionDetector(config, low_vram)
     result = clip_encoder[config](img)
     return result, False
 
@@ -693,10 +695,10 @@ class InsightFaceModel:
 g_insight_face_model = InsightFaceModel()
 
 
-def face_id_plus(img, **kwargs):
+def face_id_plus(img, low_vram=False, **kwargs):
     """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
-    clip_embed, _ = clip(img, config='clip_h')
+    clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
     return (face_embed, clip_embed), False
 
 

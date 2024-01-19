@@ -86,13 +86,16 @@ clip_vision_vith_uc = torch.load(clip_vision_vith_uc, map_location=torch.device(
 
 
 class ClipVisionDetector:
-    def __init__(self, config):
+    def __init__(self, config, low_vram: bool):
         assert config in downloads
         self.download_link = downloads[config]
         self.model_path = os.path.join(models_path, 'clip_vision')
         self.file_name = config + '.pth'
         self.config = configs[config]
-        self.device = devices.get_device_for("controlnet")
+        self.device = (
+            torch.device("cpu") if low_vram else
+            devices.get_device_for("controlnet")
+        )
         os.makedirs(self.model_path, exist_ok=True)
         file_path = os.path.join(self.model_path, self.file_name)
         if not os.path.exists(file_path):

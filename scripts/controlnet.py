@@ -876,23 +876,27 @@ class Script(scripts.Script, metaclass=(
 
             logger.info(f'preprocessor resolution = {preprocessor_resolution}')
             # Preprocessor result may depend on numpy random operations, use the
-            # random seed in `StableDiffusionProcessing` to make the 
+            # random seed in `StableDiffusionProcessing` to make the
             # preprocessor result reproducable.
             # Currently following preprocessors use numpy random:
             # - shuffle
             seed = set_numpy_seed(p)
             logger.debug(f"Use numpy seed {seed}.")
             detected_map, is_image = preprocessor(
-                input_image, 
-                res=preprocessor_resolution, 
+                input_image,
+                res=preprocessor_resolution,
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
+                low_vram=(
+                    ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
+                    shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
+                ),
             )
-            
+
             def store_detected_map(detected_map, module: str) -> None:
                 if unit.save_detected_map:
                     detected_maps.append((detected_map, module))
-            
+
             if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -1211,7 +1215,10 @@ def on_ui_settings():
     shared.opts.add_option("controlnet_photopea_warning", shared.OptionInfo(
         True, "Photopea popup warning", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
-        False, "Ignore mask on ControlNet input image if control type is not inpaint", 
+        False, "Ignore mask on ControlNet input image if control type is not inpaint",
+        gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_clip_detector_on_cpu", shared.OptionInfo(
+        False, "Load CLIP preprocessor model on CPU",
         gr.Checkbox, {"interactive": True}, section=section))
 
 
