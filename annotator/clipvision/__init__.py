@@ -79,10 +79,10 @@ downloads = {
 
 
 clip_vision_h_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_h_uc.data')
-clip_vision_h_uc = torch.load(clip_vision_h_uc,  map_location=device=devices.get_device_for("controlnet"))['uc']
+clip_vision_h_uc = torch.load(clip_vision_h_uc,  map_location=devices.get_device_for("controlnet"))['uc']
 
 clip_vision_vith_uc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip_vision_vith_uc.data')
-clip_vision_vith_uc = torch.load(clip_vision_vith_uc, map_location=device=devices.get_device_for("controlnet"))['uc']
+clip_vision_vith_uc = torch.load(clip_vision_vith_uc, map_location=devices.get_device_for("controlnet"))['uc']
 
 
 class ClipVisionDetector:
