@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules import devices
+
 from .constants import weights as constant_weights
 
 
@@ -16,7 +16,7 @@ class CrossEntropy2d(nn.Module):
         self.ignore_label = ignore_label
         self.weights = weights
         if self.weights is not None:
-            device = devices.get_device_for("controlnet")
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             self.weights = torch.FloatTensor(constant_weights[weights]).to(device)
 
     def forward(self, predict, target):
