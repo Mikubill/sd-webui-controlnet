@@ -74,8 +74,17 @@ class A1111Context:
 
     @property
     def ui_initialized(self) -> bool:
-        # Ignore "txt2img_enable_hr" as it is only available after A1111 1.7.0.
-        return all(c for name, c in vars(self).items() if name != "txt2img_enable_hr")
+        # Optional components are only available after A1111 v1.7.0.
+        optional_components = {
+            "img2img_img2img_tab": "img2img_img2img_tab",
+            "img2img_img2img_sketch_tab": "img2img_img2img_sketch_tab",
+            "img2img_batch_tab": "img2img_batch_tab",
+            "img2img_inpaint_tab": "img2img_inpaint_tab",
+            "img2img_inpaint_sketch_tab": "img2img_inpaint_sketch_tab",
+            "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
+        }
+        return all(c for name, c in vars(self).items()
+                   if name not in optional_components.values())
 
     def set_component(self, component: gr.components.IOComponent):
         id_mapping = {
@@ -95,11 +104,14 @@ class A1111Context:
             "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
             "img2img_inpaint_full_res": "img2img_inpaint_area",
             "txt2img_hr-checkbox": "txt2img_enable_hr",
+            # setting_sd_model_checkpoint is expected to be initialized last.
             "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
         elem_id = getattr(component, "elem_id", None)
         if elem_id in id_mapping:
             setattr(self, id_mapping[elem_id], component)
+            logger.debug(f"Setting {elem_id}.")
+            logger.debug(f"A1111 initialized {sum(c is not None for c in vars(self).values())}/{len(vars(self).keys())}.")
 
 
 class UiControlNetUnit(external_code.ControlNetUnit):
@@ -1037,6 +1049,12 @@ class ControlNetUiGroup(object):
         )
 
     def register_shift_crop_input_image(self):
+        # A1111 < 1.7.0 compatibility.
+        if any(c is None for c in ControlNetUiGroup.a1111_context.img2img_inpaint_tabs):
+            self.inpaint_crop_input_image.visible = True
+            self.inpaint_crop_input_image.value = True
+            return
+
         is_inpaint_tab = gr.State(False)
 
         def shift_crop_input_image(is_inpaint: bool, inpaint_area: int):
@@ -1275,6 +1293,7 @@ class ControlNetUiGroup(object):
             ControlNetUiGroup.register_input_mode_sync(
                 [g for g in ControlNetUiGroup.all_ui_groups if not g.is_img2img]
             )
+            logger.info("ControlNet UI callback registered.")
 
     @staticmethod
     def on_after_component(component, **_kwargs):
