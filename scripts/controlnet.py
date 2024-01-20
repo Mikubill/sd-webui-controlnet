@@ -238,14 +238,12 @@ class Script(scripts.Script, metaclass=(
 
     def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Optional[Photopea]) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
+            is_img2img,
             Script.get_default_ui_unit(),
             self.preprocessor,
             photopea,
         )
-        group.render(tabname, elem_id_tabname, is_img2img)
-        group.register_callbacks(is_img2img)
-        unit_state = group.render_and_register_unit(tabname, is_img2img)
-        return group, unit_state
+        return group, group.render(tabname, elem_id_tabname)
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
         batch_option = gr.Radio(
@@ -302,7 +300,7 @@ class Script(scripts.Script, metaclass=(
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"ControlNet Unit {i}", 
+                            with gr.Tab(f"ControlNet Unit {i}",
                                         elem_classes=['cnet-unit-tab']):
                                 group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname, photopea)
                                 ui_groups.append(group)
@@ -315,8 +313,6 @@ class Script(scripts.Script, metaclass=(
                 with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
 
-        ControlNetUiGroup.register_input_mode_sync(ui_groups)
-
         for i, ui_group in enumerate(ui_groups):
             infotext.register_unit(i, ui_group)
         if shared.opts.data.get("control_net_sync_field_args", True):
@@ -324,7 +320,7 @@ class Script(scripts.Script, metaclass=(
             self.paste_field_names = infotext.paste_field_names
 
         return tuple(controls)
-    
+
     @staticmethod
     def clear_control_model_cache():
         Script.model_cache.clear()
