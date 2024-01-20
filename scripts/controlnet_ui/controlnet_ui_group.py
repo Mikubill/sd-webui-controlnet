@@ -1181,6 +1181,7 @@ class ControlNetUiGroup(object):
         self.register_shift_upload_mask()
         self.register_create_canvas()
         self.register_sync_batch_dir()
+        self.register_clear_preview()
         self.openpose_editor.register_callbacks(
             self.generated_image,
             self.use_preview_as_input,
