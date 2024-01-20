@@ -166,8 +166,6 @@ class ControlNetUiGroup(object):
         elem_id="controlnet_batch_input_dir",
     )
     a1111_context = A1111Context()
-    # Whether callbacks have been registered.
-    callbacks_registered: bool = False
     # All ControlNetUiGroup instances created.
     all_ui_groups: List["ControlNetUiGroup"] = []
 
@@ -178,6 +176,9 @@ class ControlNetUiGroup(object):
         preprocessors: List[Callable],
         photopea: Optional[Photopea],
     ):
+        # Whether callbacks have been registered.
+        self.callbacks_registered: bool = False
+
         self.is_img2img = is_img2img
         self.default_unit = default_unit
         self.preprocessors = preprocessors
@@ -1171,6 +1172,11 @@ class ControlNetUiGroup(object):
 
     def register_callbacks(self):
         """Register callbacks on the UI elements."""
+        # Prevent infinite recursion.
+        if self.callbacks_registered:
+            return
+
+        self.callbacks_registered = True
         self.register_send_dimensions()
         self.register_webcam_toggle()
         self.register_webcam_mirror_toggle()
@@ -1249,21 +1255,17 @@ class ControlNetUiGroup(object):
                     show_progress=False,
                 )
 
-    def on_after_component(component, **_kwargs):
-        """Register the A1111 component."""
-        if getattr(component, "elem_id", None) == "img2img_batch_inpaint_mask_dir":
-            ControlNetUiGroup.global_batch_input_dir.render()
-            return
+    @staticmethod
+    def reset():
+        ControlNetUiGroup.a1111_context = A1111Context()
+        ControlNetUiGroup.all_ui_groups = []
 
-        ControlNetUiGroup.a1111_context.set_component(component)
-
+    @staticmethod
+    def try_register_all_callbacks():
         # All A1111 components ControlNet units care about are all registered.
-        if (
-            ControlNetUiGroup.a1111_context.ui_initialized
-            and not ControlNetUiGroup.callbacks_registered
+        if ControlNetUiGroup.a1111_context.ui_initialized and all(
+            not g.callbacks_registered for g in ControlNetUiGroup.all_ui_groups
         ):
-            # Prevent infinite recursion.
-            ControlNetUiGroup.callbacks_registered = True
             for ui_group in ControlNetUiGroup.all_ui_groups:
                 ui_group.register_callbacks()
 
@@ -1273,3 +1275,13 @@ class ControlNetUiGroup(object):
             ControlNetUiGroup.register_input_mode_sync(
                 [g for g in ControlNetUiGroup.all_ui_groups if not g.is_img2img]
             )
+
+    @staticmethod
+    def on_after_component(component, **_kwargs):
+        """Register the A1111 component."""
+        if getattr(component, "elem_id", None) == "img2img_batch_inpaint_mask_dir":
+            ControlNetUiGroup.global_batch_input_dir.render()
+            return
+
+        ControlNetUiGroup.a1111_context.set_component(component)
+        ControlNetUiGroup.try_register_all_callbacks()
