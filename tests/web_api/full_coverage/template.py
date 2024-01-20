@@ -31,6 +31,7 @@ def read_image(img_path: Path) -> str:
 girl_img = read_image(resource_dir / "1girl.png")
 mask_img = read_image(resource_dir / "mask.png")
 mask_small_img = read_image(resource_dir / "mask_small.png")
+realistic_girl_face_img = read_image(resource_dir / "1girl_face_realistic.jpeg")
 
 
 class StableDiffusionVersion(Enum):
