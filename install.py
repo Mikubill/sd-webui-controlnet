@@ -65,7 +65,7 @@ def install_requirements(req_file):
                 )
     # Try install hand refiner.
     if not launch.is_installed("handrefinerportable"):
-        wheel_url = "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.0/handrefinerportable-2024.1.18.0-py2.py3-none-any.whl"
+        wheel_url =  os.environ.get("HANDREFINER_WHEEL", "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.0/handrefinerportable-2024.1.18.0-py2.py3-none-any.whl")
         try:
             launch.run_pip(
                 f"install {wheel_url}",
@@ -105,7 +105,7 @@ def try_install_insight_face():
             f"sd-webui-controlnet requirement: install insightface",
         )
 
-    wheel_url = "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl"
+    wheel_url = os.environ.get("INSIGHTFACE_WHEEL", "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl")
 
     system = platform.system().lower()
     architecture = platform.machine().lower()
