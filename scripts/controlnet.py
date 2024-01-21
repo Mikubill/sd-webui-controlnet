@@ -388,8 +388,7 @@ class Script(scripts.Script, metaclass=(
                 return None
 
         attribute_value = get_element(getattr(p, attribute, None), strict)
-        default_value = get_element(default)
-        return attribute_value if attribute_value is not None else default_value
+        return attribute_value if attribute_value is not None else default
 
     @staticmethod
     def parse_remote_call(p, unit: external_code.ControlNetUnit, idx):
