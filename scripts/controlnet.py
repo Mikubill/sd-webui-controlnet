@@ -23,7 +23,7 @@ from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOpti
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
-from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
+from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
 from scripts.infotext import Infotext
 
@@ -654,6 +654,61 @@ class Script(scripts.Script, metaclass=(
         return input_image, resize_mode
 
     @staticmethod
+    def try_crop_image_with_a1111_mask(
+        p: StableDiffusionProcessing,
+        unit: external_code.ControlNetUnit,
+        input_image: np.ndarray,
+        resize_mode: external_code.ResizeMode,
+    ) -> np.ndarray:
+        """
+        Crop ControlNet input image based on A1111 inpaint mask given.
+        This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res
+        to crop tiles.
+        """
+        # Note: The method determining whether the active script is an upscale script is purely
+        # based on `extra_generation_params` these scripts attach on `p`, and subject to change
+        # in the future.
+        # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
+        is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
+        logger.debug(f"is_upscale_script={is_upscale_script}")
+        # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
+        # option is selected.
+        a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
+        is_only_masked_inpaint = (
+            issubclass(type(p), StableDiffusionProcessingImg2Img) and
+            p.inpaint_full_res and
+            a1111_mask_image is not None
+        )
+        if (
+            'reference' not in unit.module
+            and is_only_masked_inpaint
+            and (is_upscale_script or unit.inpaint_crop_input_image)
+        ):
+            logger.debug("Crop input image based on A1111 mask.")
+            input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
+            input_image = [Image.fromarray(x) for x in input_image]
+
+            mask = prepare_mask(a1111_mask_image, p)
+
+            crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
+            crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
+
+            input_image = [
+                images.resize_image(resize_mode.int_value(), i, mask.width, mask.height)
+                for i in input_image
+            ]
+
+            input_image = [x.crop(crop_region) for x in input_image]
+            input_image = [
+                images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height)
+                for x in input_image
+            ]
+
+            input_image = [np.asarray(x)[:, :, 0] for x in input_image]
+            input_image = np.stack(input_image, axis=2)
+        return input_image
+
+    @staticmethod
     def bound_check_params(unit: external_code.ControlNetUnit) -> None:
         """
         Checks and corrects negative parameters in ControlNetUnit 'unit'.
@@ -765,52 +820,7 @@ class Script(scripts.Script, metaclass=(
                     p.controlnet_control_loras.append(control_lora)
 
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
-
-            # Note: The method determining whether the active script is an upscale script is purely
-            # based on `extra_generation_params` these scripts attach on `p`, and subject to change
-            # in the future.
-            # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
-            is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
-            logger.debug(f"is_upscale_script={is_upscale_script}")
-            # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
-            # option is selected.
-            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
-            is_only_masked_inpaint = (
-                issubclass(type(p), StableDiffusionProcessingImg2Img) and
-                p.inpaint_full_res and
-                a1111_mask_image is not None
-            )
-            # Crop ControlNet input image based on A1111 inpaint mask given.
-            # This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res
-            # to crop tiles.
-            if (
-                'reference' not in unit.module
-                and is_only_masked_inpaint
-                and (is_upscale_script or unit.inpaint_crop_input_image)
-            ):
-                logger.debug("A1111 inpaint mask START")
-                input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
-                input_image = [Image.fromarray(x) for x in input_image]
-
-                mask = prepare_mask(a1111_mask_image, p)
-
-                crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
-                crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
-
-                input_image = [
-                    images.resize_image(resize_mode.int_value(), i, mask.width, mask.height)
-                    for i in input_image
-                ]
-
-                input_image = [x.crop(crop_region) for x in input_image]
-                input_image = [
-                    images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height)
-                    for x in input_image
-                ]
-
-                input_image = [np.asarray(x)[:, :, 0] for x in input_image]
-                input_image = np.stack(input_image, axis=2)
-                logger.debug("A1111 inpaint mask END")
+            input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
 
             if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')

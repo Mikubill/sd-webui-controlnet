@@ -174,7 +174,7 @@ class ControlNetUnit:
     # If hires fix is enabled in A1111, how should this ControlNet unit be applied.
     # The value is ignored if the generation is not using hires fix.
     hr_option: Union[HiResFixOption, int, str] = HiResFixOption.BOTH
-    
+
     # Whether save the detected map of this unit. Setting this option to False prevents saving the
     # detected map or sending detected map along with generated images via API.
     # Currently the option is only accessible in API calls.
