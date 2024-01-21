@@ -269,7 +269,7 @@ class Resampler(nn.Module):
 
 class IPAdapterModel(torch.nn.Module):
     def __init__(self, state_dict, clip_embeddings_dim, cross_attention_dim,
-                 is_plus, sdxl_plus, is_full, is_faceid: bool):
+                 is_plus, sdxl_plus, is_full, is_faceid: bool, is_portrait: bool):
         super().__init__()
         self.device = "cpu"
 
@@ -278,7 +278,7 @@ class IPAdapterModel(torch.nn.Module):
         self.is_plus = is_plus
         self.sdxl_plus = sdxl_plus
         self.is_full = is_full
-        self.clip_extra_context_tokens = 16 if self.is_plus else 4
+        self.clip_extra_context_tokens = 16 if (self.is_plus or is_portrait) else 4
 
         if is_faceid:
             self.image_proj_model = self.init_proj_faceid()
@@ -452,16 +452,17 @@ def clear_all_ip_adapter():
 
 
 class PlugableIPAdapter(torch.nn.Module):
-    def __init__(self, state_dict, is_v2: bool = False):
+    def __init__(self, state_dict, model_name: str):
         """
         Arguments:
             - state_dict: model state_dict.
-            - is_v2: whether "v2" is in model name.
+            - model_name: file name of the model.
         """
         super().__init__()
-        self.is_v2 = is_v2
+        self.is_v2 = "v2" in model_name
+        self.is_faceid = "faceid" in model_name
+        self.is_portrait = "portrait" in model_name
         self.is_full = "proj.3.weight" in state_dict['image_proj']
-        self.is_faceid = "0.to_q_lora.down.weight" in state_dict["ip_adapter"]
         self.is_plus = (
             self.is_full or
             "latents" in state_dict["image_proj"] or
@@ -495,7 +496,8 @@ class PlugableIPAdapter(torch.nn.Module):
                                         is_plus=self.is_plus,
                                         sdxl_plus=self.sdxl_plus,
                                         is_full=self.is_full,
-                                        is_faceid=self.is_faceid)
+                                        is_faceid=self.is_faceid,
+                                        is_portrait=self.is_portrait)
         self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
