@@ -158,7 +158,7 @@ class ControlNetUnit:
     module: str = "none"
     model: str = "None"
     weight: float = 1.0
-    image: Optional[InputImage] = None
+    image: Optional[Union[InputImage, List[InputImage]]] = None
     resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT
     low_vram: bool = False
     processor_res: int = -1
