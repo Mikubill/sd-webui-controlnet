@@ -165,5 +165,5 @@ def read_image_dir(img_dir: str, suffixes=('.png', '.jpg', '.jpeg', '.webp')) ->
             try:
                 images.append(read_image(img_path))
             except IOError:
-                print(f"Error opening {img_path}")
+                logger.error(f"Error opening {img_path}")
     return images

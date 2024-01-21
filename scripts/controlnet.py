@@ -549,13 +549,14 @@ class Script(scripts.Script, metaclass=(
             if remote_unit.enabled:
                 units.append(remote_unit)
 
-        enabled_units = [
-            unit
-            for idx, unit in enumerate(units)
-            for local_unit in (Script.parse_remote_call(p, unit, idx),)
-            if local_unit.enabled
-            for unit in local_unit.unfold_merged()
-        ]
+        enabled_units = []
+        for idx, unit in enumerate(units):
+            local_unit = Script.parse_remote_call(p, unit, idx)
+            if not local_unit.enabled:
+                continue
+            for unfolded_unit in local_unit.unfold_merged():
+                enabled_units.append(unfolded_unit)
+
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
 

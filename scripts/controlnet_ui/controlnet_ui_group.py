@@ -164,6 +164,8 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         for image in read_image_dir(self.merge_image_dir):
             unit = copy(self)
             unit.image = image
+            unit.input_mode = InputMode.SIMPLE
+            result.append(unit)
         if not result:
             logger.warn(f"No image detected in '{self.merge_image_dir}'.")
         return result
