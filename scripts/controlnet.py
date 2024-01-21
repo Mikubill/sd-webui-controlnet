@@ -554,8 +554,10 @@ class Script(scripts.Script, metaclass=(
             local_unit = Script.parse_remote_call(p, unit, idx)
             if not local_unit.enabled:
                 continue
-            for unfolded_unit in local_unit.unfold_merged():
-                enabled_units.append(unfolded_unit)
+            if hasattr(local_unit, "unfold_merged"):
+                enabled_units.extend(local_unit.unfold_merged())
+            else:
+                enabled_units.append(copy(local_unit))
 
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
