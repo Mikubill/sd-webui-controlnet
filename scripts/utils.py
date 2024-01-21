@@ -5,9 +5,10 @@ import time
 import base64
 import numpy as np
 import safetensors.torch
+import cv2
 import logging
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 from modules.safe import unsafe_torch_load
 from scripts.logging import logger
 
@@ -145,3 +146,24 @@ def get_unique_axis0(data):
     unique_idxs[:1] = True
     unique_idxs[1:] = np.any(arr[:-1, :] != arr[1:, :], axis=-1)
     return arr[unique_idxs]
+
+
+def read_image(img_path: str) -> str:
+    """Read image from specified path and return a base64 string."""
+    img = cv2.imread(img_path)
+    _, bytes = cv2.imencode(".png", img)
+    encoded_image = base64.b64encode(bytes).decode("utf-8")
+    return encoded_image
+
+
+def read_image_dir(img_dir: str, suffixes=('.png', '.jpg', '.jpeg', '.webp')) -> List[str]:
+    """Try read all images in given img_dir."""
+    images = []
+    for filename in os.listdir(img_dir):
+        if filename.endswith(suffixes):
+            img_path = os.path.join(img_dir, filename)
+            try:
+                images.append(read_image(img_path))
+            except IOError:
+                print(f"Error opening {img_path}")
+    return images

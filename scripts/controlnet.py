@@ -151,7 +151,7 @@ def prepare_mask(
     mask = mask.convert("L")
     if getattr(p, "inpainting_mask_invert", False):
         mask = ImageOps.invert(mask)
-    
+
     if hasattr(p, 'mask_blur_x'):
         if getattr(p, "mask_blur_x", 0) > 0:
             np_mask = np.array(mask)
@@ -166,7 +166,7 @@ def prepare_mask(
     else:
         if getattr(p, "mask_blur", 0) > 0:
             mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-    
+
     return mask
 
 
@@ -548,12 +548,13 @@ class Script(scripts.Script, metaclass=(
             remote_unit = Script.parse_remote_call(p, Script.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 units.append(remote_unit)
-        
+
         enabled_units = [
-            copy(local_unit)
+            unit
             for idx, unit in enumerate(units)
             for local_unit in (Script.parse_remote_call(p, unit, idx),)
             if local_unit.enabled
+            for unit in local_unit.unfold_merged()
         ]
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
@@ -1050,13 +1051,13 @@ class Script(scripts.Script, metaclass=(
         if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
             tracemalloc.start()
             setattr(self, "malloc_begin", tracemalloc.take_snapshot())
-            
+
         self.controlnet_main_entry(p)
         if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
             logger.info("After hook malloc:")
             for stat in tracemalloc.take_snapshot().compare_to(self.malloc_begin, "lineno")[:10]:
                 logger.info(stat)
-            
+
         if len(self.enabled_units) > 0:
             logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
 

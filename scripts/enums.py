@@ -91,3 +91,14 @@ class HiResFixOption(Enum):
         else:
             assert isinstance(value, HiResFixOption)
             return value
+
+
+class InputMode(Enum):
+    # Single image to a single ControlNet unit.
+    SIMPLE = "simple"
+    # Input is a directory. N generations. Each generation takes 1 input image
+    # from the directory.
+    BATCH = "batch"
+    # Input is a directory. 1 generation. Each generation takes N input image
+    # from the directory.
+    MERGE = "merge"

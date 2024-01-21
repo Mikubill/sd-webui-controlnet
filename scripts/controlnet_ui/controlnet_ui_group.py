@@ -6,11 +6,10 @@ from typing import List, Optional, Union, Callable, Dict, Tuple
 from dataclasses import dataclass
 import numpy as np
 
-from scripts.utils import svg_preprocess
+from scripts.utils import svg_preprocess, read_image_dir
 from scripts import (
     global_state,
     external_code,
-    batch_hijack,
 )
 from scripts.processor import (
     preprocessor_sliders_config,
@@ -25,6 +24,7 @@ from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.controlnet_ui.photopea import Photopea
+from scripts.enums import InputMode
 from modules import shared
 from modules.ui_components import FormRow
 
@@ -119,9 +119,10 @@ class UiControlNetUnit(external_code.ControlNetUnit):
 
     def __init__(
         self,
-        input_mode: batch_hijack.InputMode = batch_hijack.InputMode.SIMPLE,
+        input_mode: InputMode = InputMode.SIMPLE,
         batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
         output_dir: str = "",
+        merge_image_dir: Optional[str] = None,
         loopback: bool = False,
         use_preview_as_input: bool = False,
         generated_image: Optional[np.ndarray] = None,
@@ -150,7 +151,22 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.input_mode = input_mode
         self.batch_images = batch_images
         self.output_dir = output_dir
+        self.merge_image_dir = merge_image_dir
         self.loopback = loopback
+
+    def unfold_merged(self) -> List[external_code.ControlNetUnit]:
+        """Unfolds a merged unit to multiple units."""
+        if self.input_mode != InputMode.MERGE:
+            return [copy(self)]
+
+        assert self.merge_image_dir
+        result = []
+        for image in read_image_dir(self.merge_image_dir):
+            unit = copy(self)
+            unit.image = image
+        if not result:
+            logger.warn(f"No image detected in '{self.merge_image_dir}'.")
+        return result
 
 
 class ControlNetUiGroup(object):
@@ -207,6 +223,8 @@ class ControlNetUiGroup(object):
         self.mask_image = None
         self.batch_tab = None
         self.batch_image_dir = None
+        self.merge_tab = None
+        self.merge_image_dir = None
         self.create_canvas = None
         self.canvas_width = None
         self.canvas_height = None
@@ -242,7 +260,7 @@ class ControlNetUiGroup(object):
         self.upload_independent_img_in_img2img = None
         self.image_upload_panel = None
         self.save_detected_map = None
-        self.input_mode = gr.State(batch_hijack.InputMode.SIMPLE)
+        self.input_mode = gr.State(InputMode.SIMPLE)
         self.inpaint_crop_input_image = None
         self.hr_option = None
         self.batch_image_dir_state = None
@@ -338,6 +356,13 @@ class ControlNetUiGroup(object):
                         label="Input Directory",
                         placeholder="Leave empty to use img2img batch controlnet input directory",
                         elem_id=f"{elem_id_tabname}_{tabname}_batch_image_dir",
+                    )
+
+                with gr.Tab(label="Multi-Inputs") as self.merge_tab:
+                    self.merge_image_dir = gr.Textbox(
+                        label="Input Directory",
+                        placeholder="All images in the input directory will be taken as inputs to this unit",
+                        elem_id=f"{elem_id_tabname}_{tabname}_merge_image_dir",
                     )
 
             if self.photopea:
@@ -596,6 +621,7 @@ class ControlNetUiGroup(object):
             self.input_mode,
             self.batch_image_dir_state,
             self.output_dir_state,
+            self.merge_image_dir,
             self.loopback,
             # Non-persistent fields.
             # Following inputs will not be persistent on `ControlNetUnit`.
@@ -1263,11 +1289,13 @@ class ControlNetUiGroup(object):
             return
 
         for ui_group in ui_groups:
-            batch_fn = lambda: batch_hijack.InputMode.BATCH
-            simple_fn = lambda: batch_hijack.InputMode.SIMPLE
+            batch_fn = lambda: InputMode.BATCH
+            simple_fn = lambda: InputMode.SIMPLE
+            merge_fn = lambda: InputMode.MERGE
             for input_tab, fn in (
                 (ui_group.upload_tab, simple_fn),
                 (ui_group.batch_tab, batch_fn),
+                (ui_group.merge_tab, merge_fn),
             ):
                 # Sync input_mode.
                 input_tab.select(
@@ -1281,7 +1309,7 @@ class ControlNetUiGroup(object):
                         (
                             gr.update(
                                 visible=any(
-                                    m == batch_hijack.InputMode.BATCH
+                                    m == InputMode.BATCH
                                     for m in mode_values
                                 )
                             ),

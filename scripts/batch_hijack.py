@@ -1,11 +1,10 @@
 import os
 from copy import copy
-from enum import Enum
 from typing import Tuple, List
 
 from modules import img2img, processing, shared, script_callbacks
 from scripts import external_code
-
+from scripts.enums import InputMode
 
 class BatchHijack:
     def __init__(self):
@@ -173,11 +172,6 @@ def unhijack_function(module, name, new_name):
     if hasattr(module, new_name):
         setattr(module, name, getattr(module, new_name))
         delattr(module, new_name)
-
-
-class InputMode(Enum):
-    SIMPLE = "simple"
-    BATCH = "batch"
 
 
 def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
