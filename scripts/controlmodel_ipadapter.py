@@ -1,11 +1,11 @@
 import math
+from typing import List
+
 import torch
 import torch.nn as nn
+from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
 from scripts.logging import logger
 
-# attention_channels of input, output, middle
-SD_V12_CHANNELS = [320] * 4 + [640] * 4 + [1280] * 4 + [1280] * 6 + [640] * 6 + [320] * 6 + [1280] * 2
-SD_XL_CHANNELS = [640] * 8 + [1280] * 40 + [1280] * 60 + [640] * 12 + [1280] * 20
 
 class MLPProjModel(torch.nn.Module):
     def __init__(self, cross_attention_dim=1024, clip_embeddings_dim=1024):
@@ -331,7 +331,7 @@ class IPAdapterModel(torch.nn.Module):
         self.ip_layers = To_KV(state_dict["ip_adapter"])
 
     @torch.inference_mode()
-    def get_image_embeds(self, clip_vision_output):
+    def get_image_embeds(self, clip_vision_output: CLIPVisionModelOutput):
         self.image_proj_model.cpu()
 
         if self.is_plus:
@@ -347,14 +347,29 @@ class IPAdapterModel(torch.nn.Module):
         return image_prompt_embeds, uncond_image_prompt_embeds
 
     @torch.inference_mode()
-    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output, is_v2: bool):
-        face_embed = face_embed['image_embeds'].to(self.device)
+    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output: CLIPVisionModelOutput, is_v2: bool):
+        face_embed = face_embed.to(self.device, dtype=torch.float32)
         from annotator.clipvision import clip_vision_h_uc
-        clip_embed = clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32)
+        clip_embed = clip_vision_output['hidden_states'][-2].to(device=self.device, dtype=torch.float32)
         return (
             self.image_proj_model(face_embed, clip_embed, shortcut=is_v2),
             self.image_proj_model(torch.zeros_like(face_embed), clip_vision_h_uc.to(clip_embed), shortcut=is_v2),
         )
+
+    @torch.inference_mode()
+    def get_image_embeds_faceid(self, insightface_outputs: List[torch.Tensor]):
+        """Get image embeds for non-plus faceid. Multiple inputs are supported."""
+        batch_size = len(insightface_outputs)
+
+        faceid_embeds = torch.cat(insightface_outputs, dim=0).to(self.device, dtype=torch.float32)
+        assert faceid_embeds.ndim == 2
+        image_prompt_embeds = self.image_proj_model(faceid_embeds)
+        uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(faceid_embeds))
+
+        c = image_prompt_embeds.size(-1)
+        image_prompt_embeds = image_prompt_embeds.reshape(batch_size, -1, c)
+        uncond_image_prompt_embeds = uncond_image_prompt_embeds.reshape(batch_size, -1, c)
+        return image_prompt_embeds, uncond_image_prompt_embeds
 
 
 def get_block(model, flag):
@@ -514,6 +529,9 @@ class PlugableIPAdapter(torch.nn.Module):
             assert isinstance(clip_vision_output, (list, tuple))
             assert len(clip_vision_output) == 2
             self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid_plus(*clip_vision_output, is_v2=self.is_v2)
+        elif self.is_faceid:
+            assert isinstance(clip_vision_output, (list, tuple))
+            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid(clip_vision_output)
         else:
             self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_output)
 

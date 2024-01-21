@@ -686,9 +686,7 @@ class InsightFaceModel:
         if len(faces) > 1:
             logger.warn("Insightface: More than one face is detected in the image. "
                         "Only the first one will be used")
-        faceid_embeds = {
-            "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
-        }
+        faceid_embeds = [torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)]
         return faceid_embeds, False
 
 
@@ -699,7 +697,8 @@ def face_id_plus(img, low_vram=False, **kwargs):
     """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
     clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
-    return (face_embed, clip_embed), False
+    assert len(face_embed) > 0
+    return (face_embed[0], clip_embed), False
 
 
 class HandRefinerModel:
