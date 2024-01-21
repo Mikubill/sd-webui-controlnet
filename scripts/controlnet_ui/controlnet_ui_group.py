@@ -83,8 +83,11 @@ class A1111Context:
             "img2img_inpaint_sketch_tab": "img2img_inpaint_sketch_tab",
             "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
         }
-        return all(c for name, c in vars(self).items()
-                   if name not in optional_components.values())
+        return all(
+            c
+            for name, c in vars(self).items()
+            if name not in optional_components.values()
+        )
 
     def set_component(self, component: gr.components.IOComponent):
         id_mapping = {
@@ -111,7 +114,9 @@ class A1111Context:
         if elem_id in id_mapping:
             setattr(self, id_mapping[elem_id], component)
             logger.debug(f"Setting {elem_id}.")
-            logger.debug(f"A1111 initialized {sum(c is not None for c in vars(self).values())}/{len(vars(self).keys())}.")
+            logger.debug(
+                f"A1111 initialized {sum(c is not None for c in vars(self).values())}/{len(vars(self).keys())}."
+            )
 
 
 class UiControlNetUnit(external_code.ControlNetUnit):
@@ -889,13 +894,15 @@ class ControlNetUiGroup(object):
         )
 
         def sd_version_changed(type_filter: str, current_model: str):
-            """ When SD version changes, update model dropdown choices. """
+            """When SD version changes, update model dropdown choices."""
             (
                 filtered_preprocessor_list,
                 filtered_model_list,
                 default_option,
                 default_model,
-            ) = global_state.select_control_type(type_filter, global_state.get_sd_version())
+            ) = global_state.select_control_type(
+                type_filter, global_state.get_sd_version()
+            )
 
             if current_model in filtered_model_list:
                 return gr.update()
@@ -1310,10 +1317,7 @@ class ControlNetUiGroup(object):
                     fn=lambda *mode_values: (
                         (
                             gr.update(
-                                visible=any(
-                                    m == InputMode.BATCH
-                                    for m in mode_values
-                                )
+                                visible=any(m == InputMode.BATCH for m in mode_values)
                             ),
                         )
                         * len(ui_groups)
