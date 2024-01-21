@@ -28,11 +28,34 @@ def read_image(img_path: Path) -> str:
     return encoded_image
 
 
+def read_image_dir(img_dir: Path, suffixes=('.png', '.jpg', '.jpeg', '.webp')) -> List[str]:
+    """Try read all images in given img_dir."""
+    img_dir = str(img_dir)
+    images = []
+    for filename in os.listdir(img_dir):
+        if filename.endswith(suffixes):
+            img_path = os.path.join(img_dir, filename)
+            try:
+                images.append(read_image(img_path))
+            except IOError:
+                print(f"Error opening {img_path}")
+    return images
+
+
 girl_img = read_image(resource_dir / "1girl.png")
 mask_img = read_image(resource_dir / "mask.png")
 mask_small_img = read_image(resource_dir / "mask_small.png")
-realistic_girl_face_img = read_image(resource_dir / "1girl_face_realistic.jpeg")
+portrait_imgs = read_image_dir(resource_dir / "portrait")
+realistic_girl_face_img = portrait_imgs[0]
 
+general_negative_prompt = """
+(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality,
+((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot,
+backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21),
+(tranny:1.331), mutated hands, (poorly drawn hands:1.331), blurry, (bad anatomy:1.21),
+(bad proportions:1.331), extra limbs, (missing arms:1.331), (extra legs:1.331),
+(fused fingers:1.61051), (too many fingers:1.61051), (unclear eyes:1.331), bad hands,
+missing fingers, extra digit, bad body, easynegative, nsfw"""
 
 class StableDiffusionVersion(Enum):
     """The version family of stable diffusion model."""
@@ -51,7 +74,7 @@ is_full_coverage = os.environ.get("CONTROLNET_TEST_FULL_COVERAGE", None) is not 
 
 
 class APITestTemplate:
-    is_set_expectation_run = False
+    is_set_expectation_run = True
 
     def __init__(
         self,
@@ -79,7 +102,7 @@ class APITestTemplate:
             for unit_override in unit_overrides
         ]
 
-    def exec(self) -> bool:
+    def exec(self, result_only: bool = True) -> bool:
         if not APITestTemplate.is_set_expectation_run:
             os.makedirs(test_result_dir, exist_ok=True)
 
@@ -95,7 +118,8 @@ class APITestTemplate:
             if APITestTemplate.is_set_expectation_run
             else test_result_dir
         )
-        for i, base64image in enumerate(response["images"]):
+        results = response["images"][:1] if result_only else response["images"]
+        for i, base64image in enumerate(results):
             img_file_name = f"{self.name}_{i}.png"
             Image.open(io.BytesIO(base64.b64decode(base64image.split(",", 1)[0]))).save(
                 dest_dir / img_file_name

@@ -7,7 +7,9 @@ from .template import (
     StableDiffusionVersion,
     is_full_coverage,
     APITestTemplate,
+    portrait_imgs,
     realistic_girl_face_img,
+    general_negative_prompt,
 )
 
 
@@ -16,6 +18,19 @@ class AdapterSetting(NamedTuple):
     model: str
     lora: Optional[str] = None
 
+
+# Used to fix pose for better comparison between different settings.
+openpose_unit = {
+    "module": "openpose",
+    "model": (
+        "control_v11p_sd15_openpose [cab727d4]"
+        if sd_version != StableDiffusionVersion.SDXL
+        else "kohya_controllllite_xl_openpose_anime [7e5349e5]"
+    ),
+    "image": realistic_girl_face_img,
+    "weight": 0.8,
+}
+base_prompt = "1girl, simple background, (white_background: 1.2), portrait"
 
 sd15_face_id = AdapterSetting(
     "ip-adapter_face_id",
@@ -32,6 +47,10 @@ sd15_face_id_plus_v2 = AdapterSetting(
     "ip-adapter-faceid-plusv2_sd15 [6e14fc1a]",
     "ip-adapter-faceid-plusv2_sd15_lora",
 )
+sd15_face_id_portrait = AdapterSetting(
+    "ip-adapter_face_id",
+    "ip-adapter-faceid-portrait_sd15 [b2609049]",
+)
 sdxl_face_id = AdapterSetting(
     "ip-adapter_face_id",
     "ip-adapter-faceid_sdxl [59ee31a3]",
@@ -39,7 +58,7 @@ sdxl_face_id = AdapterSetting(
 )
 
 
-class TestInpaintFullCoverage(unittest.TestCase):
+class TestIPAdapterFullCoverage(unittest.TestCase):
     def setUp(self):
         if not is_full_coverage:
             pytest.skip()
@@ -47,7 +66,12 @@ class TestInpaintFullCoverage(unittest.TestCase):
         if sd_version == StableDiffusionVersion.SDXL:
             self.settings = [sdxl_face_id]
         else:
-            self.settings = [sd15_face_id, sd15_face_id_plus, sd15_face_id_plus_v2]
+            self.settings = [
+                sd15_face_id,
+                sd15_face_id_plus,
+                sd15_face_id_plus_v2,
+                sd15_face_id_portrait,
+            ]
 
     def test_face_id(self):
         for module, model, lora in self.settings:
@@ -58,13 +82,47 @@ class TestInpaintFullCoverage(unittest.TestCase):
                         name,
                         "txt2img",
                         payload_overrides={
-                            "prompt": f"1girl, <lora:{lora}:0.6>",
+                            "prompt": f"{base_prompt} <lora:{lora}:0.6>",
+                            "negative_prompt": general_negative_prompt,
+                            "steps": 20,
+                            "width": 512,
+                            "height": 512,
                         },
-                        unit_overrides={
-                            "module": module,
-                            "model": model,
-                            "image": realistic_girl_face_img,
+                        unit_overrides=[
+                            {
+                                "module": module,
+                                "model": model,
+                                "image": realistic_girl_face_img,
+                            },
+                            openpose_unit,
+                        ],
+                    ).exec()
+                )
+
+    def test_face_id_multi_inputs(self):
+        for module, model, lora in self.settings:
+            name = "multi_inputs" + str((module, model, lora))
+            with self.subTest(name=name):
+                self.assertTrue(
+                    APITestTemplate(
+                        name=name,
+                        gen_type="txt2img",
+                        payload_overrides={
+                            "prompt": base_prompt,
+                            "negative_prompt": general_negative_prompt,
+                            "steps": 20,
+                            "width": 512,
+                            "height": 512,
                         },
+                        unit_overrides=[openpose_unit] + [
+                            {
+                                "image": img,
+                                "module": module,
+                                "model": model,
+                                "weight": 1 / len(portrait_imgs),
+                            }
+                            for img in portrait_imgs
+                        ]
                     ).exec()
                 )
 
