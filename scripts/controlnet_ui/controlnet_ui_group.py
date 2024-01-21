@@ -250,7 +250,6 @@ class ControlNetUiGroup(object):
         self.batch_image_dir = None
         self.merge_tab = None
         self.merge_gallery = None
-        self.merge_gallery_state = None
         self.merge_upload_button = None
         self.merge_clear_button = None
         self.create_canvas = None
