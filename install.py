@@ -109,9 +109,9 @@ def try_install_insight_face():
                 "sd-webui-controlnet requirement: insightface",
             )
         except Exception as e:
+            print(e)
             print(
                 "ControlNet init warning: Unable to install insightface automatically. "
-                + e
             )
     else:
         print(
