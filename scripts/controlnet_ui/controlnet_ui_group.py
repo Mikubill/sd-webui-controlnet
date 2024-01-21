@@ -853,15 +853,35 @@ class ControlNetUiGroup(object):
                     ),
                 ]
 
-        update_args = dict(
+        self.type_filter.change(
             fn=filter_selected,
             inputs=[self.type_filter],
             outputs=[self.module, self.model],
             show_progress=False,
         )
-        self.type_filter.change(**update_args)
+
+        def sd_version_changed(type_filter: str, current_model: str):
+            """ When SD version changes, update model dropdown choices. """
+            (
+                filtered_preprocessor_list,
+                filtered_model_list,
+                default_option,
+                default_model,
+            ) = global_state.select_control_type(type_filter, global_state.get_sd_version())
+
+            if current_model in filtered_model_list:
+                return gr.update()
+
+            return gr.Dropdown.update(
+                value=default_model,
+                choices=filtered_model_list,
+            )
+
         ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
-            **update_args
+            fn=sd_version_changed,
+            inputs=[self.type_filter, self.model],
+            outputs=[self.model],
+            show_progress=False,
         )
 
     def register_run_annotator(self):
