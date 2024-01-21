@@ -241,7 +241,7 @@ def build_model_by_guess(state_dict, unet, model_path: str):
         return network
 
     if 'ip_adapter' in state_dict:
-        network = PlugableIPAdapter(state_dict, is_v2='v2' in model_path)
+        network = PlugableIPAdapter(state_dict, model_path)
         network.to('cpu')
         return network
 
