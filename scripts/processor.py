@@ -10,6 +10,16 @@ from modules.safe import Extra
 from modules import devices
 from scripts.logging import logger
 
+
+def torch_handler(module: str, name: str):
+    """ Allow all torch access. Bypass A1111 safety whitelist. """
+    if module == 'torch':
+        return getattr(torch, name)
+    if module == 'torch._tensor':
+        # depth_anything dep.
+        return getattr(torch._tensor, name)
+
+
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
 
@@ -171,6 +181,24 @@ def unload_mlsd():
     if model_mlsd is not None:
         from annotator.mlsd import unload_mlsd_model
         unload_mlsd_model()
+
+
+model_depth_anything = None
+
+
+def depth_anything(img, colored:bool = True, **kwargs):
+    global model_depth_anything
+    if model_depth_anything is None:
+        with Extra(torch_handler):
+            from annotator.depth_anything import DepthAnythingDetector
+            device = devices.get_device_for("controlnet")
+            model_depth_anything = DepthAnythingDetector(device)
+    return model_depth_anything(img, colored=colored), True
+
+
+def unload_depth_anything():
+    if model_depth_anything is not None:
+        model_depth_anything.unload_model()
 
 
 model_midas = None
@@ -709,19 +737,14 @@ class HandRefinerModel:
     def __init__(self):
         self.model = None
         self.device = devices.get_device_for("controlnet")
-        def torch_handler(module: str, name: str):
-            import torch
-            if module == 'torch':
-                return getattr(torch, name)
-        self.torch_handler = torch_handler
-    
+
     def load_model(self):
         if self.model is None:
             from annotator.annotator_path import models_path
             from hand_refiner import MeshGraphormerDetector  # installed via hand_refiner_portable
-            with Extra(self.torch_handler):
+            with Extra(torch_handler):
                 self.model = MeshGraphormerDetector.from_pretrained(
-                    "hr16/ControlNet-HandRefiner-pruned", 
+                    "hr16/ControlNet-HandRefiner-pruned",
                     cache_dir=os.path.join(models_path, "hand_refiner"),
                     device=self.device,
                 )
@@ -735,7 +758,7 @@ class HandRefinerModel:
     def run_model(self, img, res=512, **kwargs):
         img, remove_pad = resize_image_with_pad(img, res)
         self.load_model()
-        with Extra(self.torch_handler):
+        with Extra(torch_handler):
             depth_map, mask, info = self.model(
                 img, output_type="np",
                 detect_resolution=res,

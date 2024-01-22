@@ -47,6 +47,7 @@ mask_img = read_image(resource_dir / "mask.png")
 mask_small_img = read_image(resource_dir / "mask_small.png")
 portrait_imgs = read_image_dir(resource_dir / "portrait")
 realistic_girl_face_img = portrait_imgs[0]
+living_room_img = read_image(resource_dir / "living_room.webp")
 
 general_negative_prompt = """
 (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality,

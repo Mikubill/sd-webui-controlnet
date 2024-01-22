@@ -4,8 +4,6 @@ import sys
 import os
 import shutil
 import platform
-import requests
-import tempfile
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -65,23 +63,18 @@ def install_requirements(req_file):
                 )
 
 
-def try_install_hand_refiner():
-    """ Attempt to install handrefinerportable. This library is necessary for depth_hand_refiner
-    preprocessor. """
-    if get_installed_version("handrefinerportable") is not None:
+def try_install_from_wheel(pkg_name: str, wheel_url: str):
+    if get_installed_version(pkg_name) is not None:
         return
 
-    wheel_url =  os.environ.get("HANDREFINER_WHEEL", "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.0/handrefinerportable-2024.1.18.0-py2.py3-none-any.whl")
     try:
         launch.run_pip(
             f"install {wheel_url}",
-            "sd-webui-controlnet requirement: handrefinerportable",
+            f"sd-webui-controlnet requirement: {pkg_name}",
         )
     except Exception as e:
         print(e)
-        print(
-            "Warning: Failed to install handrefinerportable. depth_hand_refiner processor will not work."
-        )
+        print(f"Warning: Failed to install {pkg_name}. Some processors will not work.")
 
 
 def try_install_insight_face():
@@ -135,5 +128,18 @@ def try_remove_legacy_submodule():
 
 install_requirements(main_req_file)
 try_install_insight_face()
-try_install_hand_refiner()
+try_install_from_wheel(
+    "handrefinerportable",
+    wheel_url=os.environ.get(
+        "HANDREFINER_WHEEL",
+        "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.0/handrefinerportable-2024.1.18.0-py2.py3-none-any.whl",
+    ),
+)
+try_install_from_wheel(
+    "depth_anything",
+    wheel_url=os.environ.get(
+        "DEPTH_ANYTHING_WHEEL",
+        "https://github.com/huchenlei/Depth-Anything/releases/download/v1.0.0/depth_anything-2024.1.22.0-py2.py3-none-any.whl",
+    ),
+)
 try_remove_legacy_submodule()
