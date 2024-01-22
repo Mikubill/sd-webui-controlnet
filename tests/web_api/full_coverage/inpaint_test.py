@@ -180,6 +180,40 @@ class TestInpaintFullCoverage(unittest.TestCase):
             ).exec()
         )
 
+    def test_inpaint_crop(self):
+        self.assertTrue(
+            APITestTemplate(
+                "img2img_inpaint_crop",
+                "img2img",
+                payload_overrides={
+                    "init_images": [girl_img],
+                    "inpaint_full_res": True,
+                    "mask": mask_small_img,
+                },
+                unit_overrides={
+                    "model": "control_v11p_sd15_canny [d14c016b]",
+                    "module": "canny",
+                    "inpaint_crop_input_image": True,
+                },
+            ).exec()
+        )
+        self.assertTrue(
+            APITestTemplate(
+                "img2img_inpaint_no_crop",
+                "img2img",
+                payload_overrides={
+                    "init_images": [girl_img],
+                    "inpaint_full_res": True,
+                    "mask": mask_small_img,
+                },
+                unit_overrides={
+                    "model": "control_v11p_sd15_canny [d14c016b]",
+                    "module": "canny",
+                    "inpaint_crop_input_image": False,
+                },
+            ).exec()
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
