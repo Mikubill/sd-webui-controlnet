@@ -686,6 +686,7 @@ class InsightFaceModel:
             faces = self.model.get(img)
             if not faces:
                 logger.warn(f"Insightface: No face found in image {i}.")
+                continue
             if len(faces) > 1:
                 logger.warn("Insightface: More than one face is detected in the image. "
                             f"Only the first one will be used {i}.")
