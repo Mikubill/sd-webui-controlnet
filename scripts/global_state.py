@@ -270,7 +270,7 @@ def get_sd_version() -> StableDiffusionVersion:
     else:
         return StableDiffusionVersion.UNKNOWN
 
-    
+
 def select_control_type(
     control_type: str,
     sd_version: StableDiffusionVersion = StableDiffusionVersion.UNKNOWN,
@@ -286,7 +286,7 @@ def select_control_type(
             preprocessor_list,
             all_models,
             'none', #default option
-            "None"  #default model 
+            "None"  #default model
         ]
     filtered_preprocessor_list = [
         x
@@ -323,10 +323,10 @@ def select_control_type(
             if "11" in x.split("[")[0]:
                 default_model = x
                 break
-    
+
     return (
         filtered_preprocessor_list,
-        filtered_model_list, 
+        filtered_model_list,
         default_option,
         default_model
     )
