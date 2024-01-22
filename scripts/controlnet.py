@@ -829,8 +829,6 @@ class Script(scripts.Script, metaclass=(
             Script.bound_check_params(unit)
             Script.check_sd_version_compatible(unit)
 
-            control_mode = external_code.control_mode_from_value(unit.control_mode)
-
             if unit.module in model_free_preprocessors:
                 model_net = None
                 if 'reference' in unit.module:
@@ -935,6 +933,7 @@ class Script(scripts.Script, metaclass=(
                 control_model_type == ControlModelType.ControlNet and
                 model_net.control_model.global_average_pooling
             )
+            control_mode = external_code.control_mode_from_value(unit.control_mode)
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
