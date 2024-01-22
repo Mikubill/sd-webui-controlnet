@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
 import modules.scripts as scripts
-from modules import shared, devices, script_callbacks, processing, masking, images
+from modules import shared, devices, script_callbacks, processing, mask ing, images
 import gradio as gr
 import time
 
@@ -17,7 +17,7 @@ from scripts.processor import *
 from scripts.adapter import Adapter, StyleAdapter, Adapter_light
 from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
 from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
-from scripts.utils import load_state_dict, get_unique_axis0
+from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
@@ -758,6 +758,30 @@ class Script(scripts.Script, metaclass=(
         if not sd_version.is_compatible_with(cnet_sd_version):
             raise Exception(f"ControlNet model {unit.model}({cnet_sd_version}) is not compatible with sd model({sd_version})")
 
+    @staticmethod
+    def get_target_dimensions(p: StableDiffusionProcessing) -> Tuple[int, int, int, int]:
+        """Returns (h, w, hr_h, hr_w)."""
+        h = align_dim_latent(p.height)
+        w = align_dim_latent(p.width)
+
+        high_res_fix = (
+            isinstance(p, StableDiffusionProcessingTxt2Img)
+            and getattr(p, 'enable_hr', False)
+        )
+        if high_res_fix:
+            if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                hr_y = int(p.height * p.hr_scale)
+                hr_x = int(p.width * p.hr_scale)
+            else:
+                hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+            hr_y = align_dim_latent(hr_y)
+            hr_x = align_dim_latent(hr_x)
+        else:
+            hr_y = h
+            hr_x = w
+
+        return h, w, hr_y, hr_x
+
     def controlnet_main_entry(self, p):
         sd_ldm = p.sd_model
         unet = sd_ldm.model.diffusion_model
@@ -835,21 +859,7 @@ class Script(scripts.Script, metaclass=(
             preprocessor = self.preprocessor[unit.module]
 
             high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
-
-            h = (p.height // 8) * 8
-            w = (p.width // 8) * 8
-
-            if high_res_fix:
-                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
-                    hr_y = int(p.height * p.hr_scale)
-                    hr_x = int(p.width * p.hr_scale)
-                else:
-                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
-                hr_y = (hr_y // 8) * 8
-                hr_x = (hr_x // 8) * 8
-            else:
-                hr_y = h
-                hr_x = w
+            h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
             if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
                 # inpaint_only+lama is special and required outpaint fix
