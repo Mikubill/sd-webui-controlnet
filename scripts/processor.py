@@ -173,6 +173,23 @@ def unload_mlsd():
         unload_mlsd_model()
 
 
+model_depth_anything = None
+
+
+def depth_anything(img, colored:bool = True, **kwargs):
+    global model_depth_anything
+    if model_depth_anything is None:
+        from annotator.depth_anything import DepthAnythingDetector
+        device = devices.get_device_for("controlnet")
+        model_depth_anything = DepthAnythingDetector(device)
+    return model_depth_anything(img, colored=colored)
+
+
+def unload_depth_anything():
+    if model_depth_anything is not None:
+        model_depth_anything.unload_model()
+
+
 model_midas = None
 
 

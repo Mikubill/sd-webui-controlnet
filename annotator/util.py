@@ -2,6 +2,22 @@ import numpy as np
 import cv2
 
 
+def load_model(filename: str, remote_url: str) -> str:
+    """
+    Load the model from the specified filename and remote URL if it doesn't exist locally.
+
+    Args:
+        filename (str): The filename of the model.
+        remote_url (str): The remote URL of the model.
+    """
+    local_path = os.path.join(self.model_dir, filename)
+    if not os.path.exists(local_path):
+        from basicsr.utils.download_util import load_file_from_url
+
+        load_file_from_url(remote_url, model_dir=self.model_dir)
+    return local_path
+
+
 def HWC3(x):
     assert x.dtype == np.uint8
     if x.ndim == 2:
