@@ -14,9 +14,8 @@ from einops import rearrange
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
-from scripts.adapter import Adapter, StyleAdapter, Adapter_light
-from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
-from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
+from scripts.controlnet_lllite import clear_all_lllite
+from scripts.controlmodel_ipadapter import clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -34,7 +33,7 @@ import torch
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
 from scripts.processor import model_free_preprocessors
-from scripts.controlnet_model_guess import build_model_by_guess
+from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
 
 
@@ -328,7 +327,7 @@ class Script(scripts.Script, metaclass=(
         devices.torch_gc()
 
     @staticmethod
-    def load_control_model(p, unet, model):
+    def load_control_model(p, unet, model) -> ControlModel:
         # ip-adapter model contains embedding data, so each model is unique.
         if 'ip-adapter' not in model and model in Script.model_cache:
             logger.info(f"Loading model from cache: {model}")
@@ -340,15 +339,15 @@ class Script(scripts.Script, metaclass=(
             gc.collect()
             devices.torch_gc()
 
-        model_net = Script.build_control_model(p, unet, model)
+        control_model = Script.build_control_model(p, unet, model)
 
         if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
-            Script.model_cache[model] = model_net
+            Script.model_cache[model] = control_model
 
-        return model_net
+        return control_model
 
     @staticmethod
-    def build_control_model(p, unet, model):
+    def build_control_model(p, unet, model) -> ControlModel:
         if model is None or model == 'None':
             raise RuntimeError(f"You have not selected any ControlNet Model.")
 
@@ -369,10 +368,10 @@ class Script(scripts.Script, metaclass=(
 
         logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
-        network = build_model_by_guess(state_dict, unet, model_path)
-        network.to('cpu', dtype=p.sd_model.dtype)
+        control_model = build_model_by_guess(state_dict, unet, model_path)
+        control_model.model.to('cpu', dtype=p.sd_model.dtype)
         logger.info(f"ControlNet model {model} loaded.")
-        return network
+        return control_model
 
     @staticmethod
     def get_remote_call(p, attribute, default=None, idx=0, strict=False, force=False):
@@ -834,11 +833,17 @@ class Script(scripts.Script, metaclass=(
 
             if unit.module in model_free_preprocessors:
                 model_net = None
+                if 'reference' in unit.module:
+                    control_model_type = ControlModelType.AttentionInjection
+                elif 'revision' in unit.module:
+                    control_model_type = ControlModelType.ReVision
+                else:
+                    raise Exception("Unable to determine control_model_type.")
             else:
-                model_net = Script.load_control_model(p, unet, unit.model)
+                model_net, control_model_type = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
 
-                if getattr(model_net, 'is_control_lora', False):
+                if control_model_type == ControlModelType.ControlLoRA:
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
@@ -864,25 +869,6 @@ class Script(scripts.Script, metaclass=(
             if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
                 # inpaint_only+lama is special and required outpaint fix
                 _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
-
-            control_model_type = ControlModelType.ControlNet
-            global_average_pooling = False
-
-            if 'reference' in unit.module:
-                control_model_type = ControlModelType.AttentionInjection
-            elif 'revision' in unit.module:
-                control_model_type = ControlModelType.ReVision
-            elif hasattr(model_net, 'control_model') and (isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light)):
-                control_model_type = ControlModelType.T2I_Adapter
-            elif hasattr(model_net, 'control_model') and isinstance(model_net.control_model, StyleAdapter):
-                control_model_type = ControlModelType.T2I_StyleAdapter
-            elif isinstance(model_net, PlugableIPAdapter):
-                control_model_type = ControlModelType.IPAdapter
-            elif isinstance(model_net, PlugableControlLLLite):
-                control_model_type = ControlModelType.Controlllite
-
-            if control_model_type is ControlModelType.ControlNet:
-                global_average_pooling = model_net.control_model.global_average_pooling
 
             preprocessor_resolution = unit.processor_res
             if unit.pixel_perfect:
@@ -945,6 +931,10 @@ class Script(scripts.Script, metaclass=(
                 threshold_b=unit.threshold_b
             )
 
+            global_average_pooling = (
+                control_model_type == ControlModelType.ControlNet and
+                model_net.control_model.global_average_pooling
+            )
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
