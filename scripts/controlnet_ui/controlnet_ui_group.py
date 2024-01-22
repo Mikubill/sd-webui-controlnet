@@ -176,9 +176,9 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         if self.input_mode != InputMode.MERGE:
             return [copy(self)]
 
-        # if self.accepts_multiple_inputs():
-        #     self.input_mode = InputMode.SIMPLE
-        #     return [copy(self)]
+        if self.accepts_multiple_inputs():
+            self.input_mode = InputMode.SIMPLE
+            return [copy(self)]
 
         assert isinstance(self.image, list)
         result = []

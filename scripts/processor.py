@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from annotator.util import HWC3
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union, List
 
 from modules.safe import Extra
 from modules import devices
@@ -677,16 +677,19 @@ class InsightFaceModel:
             )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
 
-    def run_model(self, img, **kwargs):
+    def run_model(self, imgs: Union[List[np.ndarray], np.ndarray], **kwargs):
         self.load_model()
-        img = HWC3(img)
-        faces = self.model.get(img)
-        if not faces:
-            raise Exception("Insightface: No face found in image.")
-        if len(faces) > 1:
-            logger.warn("Insightface: More than one face is detected in the image. "
-                        "Only the first one will be used")
-        faceid_embeds = [torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)]
+        imgs = imgs if isinstance(imgs, list) else [imgs]
+        faceid_embeds = []
+        for i, img in enumerate(imgs):
+            img = HWC3(img)
+            faces = self.model.get(img)
+            if not faces:
+                logger.warn(f"Insightface: No face found in image {i}.")
+            if len(faces) > 1:
+                logger.warn("Insightface: More than one face is detected in the image. "
+                            f"Only the first one will be used {i}.")
+            faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
 

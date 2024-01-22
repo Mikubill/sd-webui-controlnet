@@ -7,6 +7,7 @@ from copy import copy
 from typing import Dict, Optional, Tuple
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
+from modules.api.api import decode_base64_to_image
 import gradio as gr
 import time
 
@@ -576,10 +577,33 @@ class Script(scripts.Script, metaclass=(
             - The input image in ndarray form.
             - The resize mode.
         """
+        def parse_unit_image(unit: external_code.ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+            unit_has_multiple_images = (
+                isinstance(unit.image, list) and
+                len(unit.image) > 0 and
+                "image" in unit.image[0]
+            )
+            if unit_has_multiple_images:
+                return [
+                    d
+                    for img in unit.image
+                    for d in (image_dict_from_any(img),)
+                    if d is not None
+                ]
+            return image_dict_from_any(unit.image)
+
+        def decode_image(img) -> np.ndarray:
+            """Need to check the image for API compatibility."""
+            if isinstance(img, str):
+                return np.asarray(decode_base64_to_image(image['image']))
+            else:
+                assert isinstance(img, np.ndarray)
+                return img
+
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
-        image = image_dict_from_any(unit.image)
+        image = parse_unit_image(unit)
         a1111_image = getattr(p, "init_images", [None])[0]
 
         resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
@@ -595,35 +619,34 @@ class Script(scripts.Script, metaclass=(
                 input_image = np.concatenate([color, alpha], axis=2)
             else:
                 input_image = HWC3(np.asarray(p_input_image))
-        elif image is not None:
-            # Need to check the image for API compatibility
-            if isinstance(image['image'], str):
-                from modules.api.api import decode_base64_to_image
-                input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
+        elif image:
+            if isinstance(image, list):
+                # Add mask logic if later there is a processor that accepts mask
+                # on multiple inputs.
+                input_image = [HWC3(decode_image(img['image'])) for img in image]
             else:
-                input_image = HWC3(image['image'])
-
-            if 'mask' in image and image['mask'] is not None:
-                while len(image['mask'].shape) < 3:
-                    image['mask'] = image['mask'][..., np.newaxis]
-                if 'inpaint' in unit.module:
-                    logger.info("using inpaint as input")
-                    color = HWC3(image['image'])
-                    alpha = image['mask'][:, :, 0:1]
-                    input_image = np.concatenate([color, alpha], axis=2)
-                elif (
-                    not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) and
-                    # There is wield gradio issue that would produce mask that is
-                    # not pure color when no scribble is made on canvas.
-                    # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
-                    not (
-                        (image['mask'][:, :, 0] <= 5).all() or
-                        (image['mask'][:, :, 0] >= 250).all()
-                    )
-                ):
-                    logger.info("using mask as input")
-                    input_image = HWC3(image['mask'][:, :, 0])
-                    unit.module = 'none'  # Always use black bg and white line
+                input_image = HWC3(decode_image(image['image']))
+                if 'mask' in image and image['mask'] is not None:
+                    while len(image['mask'].shape) < 3:
+                        image['mask'] = image['mask'][..., np.newaxis]
+                    if 'inpaint' in unit.module:
+                        logger.info("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    elif (
+                        not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) and
+                        # There is wield gradio issue that would produce mask that is
+                        # not pure color when no scribble is made on canvas.
+                        # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
+                        not (
+                            (image['mask'][:, :, 0] <= 5).all() or
+                            (image['mask'][:, :, 0] >= 250).all()
+                        )
+                    ):
+                        logger.info("using mask as input")
+                        input_image = HWC3(image['mask'][:, :, 0])
+                        unit.module = 'none'  # Always use black bg and white line
         elif a1111_image is not None:
             input_image = HWC3(np.asarray(a1111_image))
             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
@@ -855,32 +878,24 @@ class Script(scripts.Script, metaclass=(
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
-            input_image, resize_mode = Script.choose_input_image(p, unit, idx)
-            input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
-
-            # safe numpy
-            logger.debug("Safe numpy convertion START")
-            input_image = np.ascontiguousarray(input_image.copy()).copy()
-            logger.debug("Safe numpy convertion END")
-
-            logger.info(f"Loading preprocessor: {unit.module}")
-            preprocessor = self.preprocessor[unit.module]
             h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
-            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
-                # inpaint_only+lama is special and required outpaint fix
-                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
-
-            preprocessor_resolution = unit.processor_res
-            if unit.pixel_perfect:
-                preprocessor_resolution = external_code.pixel_perfect_resolution(
-                    input_image,
-                    target_H=h,
-                    target_W=w,
-                    resize_mode=resize_mode
-                )
-
-            logger.info(f'preprocessor resolution = {preprocessor_resolution}')
+            input_image, resize_mode = Script.choose_input_image(p, unit, idx)
+            if isinstance(input_image, list):
+                assert unit.accepts_multiple_inputs()
+            else:
+                input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
+                input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
+                if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+                    # inpaint_only+lama is special and required outpaint fix
+                    _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
+                if unit.pixel_perfect:
+                    unit.processor_res = external_code.pixel_perfect_resolution(
+                        input_image,
+                        target_H=h,
+                        target_W=w,
+                        resize_mode=resize_mode,
+                    )
             # Preprocessor result may depend on numpy random operations, use the
             # random seed in `StableDiffusionProcessing` to make the
             # preprocessor result reproducable.
@@ -888,9 +903,11 @@ class Script(scripts.Script, metaclass=(
             # - shuffle
             seed = set_numpy_seed(p)
             logger.debug(f"Use numpy seed {seed}.")
-            detected_map, is_image = preprocessor(
+            logger.info(f"Using preprocessor: {unit.module}")
+            logger.info(f'preprocessor resolution = {unit.processor_res}')
+            detected_map, is_image = self.preprocessor[unit.module](
                 input_image,
-                res=preprocessor_resolution,
+                res=unit.processor_res,
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
                 low_vram=(
@@ -917,7 +934,8 @@ class Script(scripts.Script, metaclass=(
                 store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
-                store_detected_map(input_image, unit.module)
+                for img in (input_image if isinstance(input_image, list) else [input_image]):
+                    store_detected_map(img, unit.module)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:
                 control = control['last_hidden_state']
@@ -927,7 +945,7 @@ class Script(scripts.Script, metaclass=(
 
             preprocessor_dict = dict(
                 name=unit.module,
-                preprocessor_resolution=preprocessor_resolution,
+                preprocessor_resolution=unit.processor_res,
                 threshold_a=unit.threshold_a,
                 threshold_b=unit.threshold_b
             )
