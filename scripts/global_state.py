@@ -20,28 +20,28 @@ cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safeten
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 
 def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
-    """ We want to share the preprocessor results in a single big cache, instead of a small 
+    """ We want to share the preprocessor results in a single big cache, instead of a small
      cache for each preprocessor function. """
     CACHE_SIZE = getattr(shared.cmd_opts, "controlnet_preprocessor_cache_size", 0)
 
-    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
+    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be
     # helpful when debugging preprocessor code.
     if CACHE_SIZE == 0:
         return preprocessor_modules
-    
+
     logger.debug(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
 
     @ndarray_lru_cache(max_size=CACHE_SIZE)
     def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
         logger.debug(f'Calling preprocessor {preprocessor_name} outside of cache.')
         return preprocessor_modules[preprocessor_name](*args, **kwargs)
-    
+
     # TODO: Introduce a seed parameter for shuffle preprocessor?
     uncacheable_preprocessors = ['shuffle']
 
     return {
         k: (
-            v if k in uncacheable_preprocessors 
+            v if k in uncacheable_preprocessors
             else functools.partial(unified_preprocessor, k)
         )
         for k, v

@@ -165,10 +165,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.output_dir = output_dir
         self.loopback = loopback
 
-    def accepts_multiple_inputs(self) -> bool:
-        """This unit can accept multiple input images."""
-        return self.module == "ip-adapter_face_id"
-
     def unfold_merged(self) -> List[external_code.ControlNetUnit]:
         """Unfolds a merged unit to multiple units. Keeps the unit merged for
         preprocessors that can accept multiple input images.

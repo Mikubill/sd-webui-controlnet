@@ -677,9 +677,9 @@ class InsightFaceModel:
             )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
 
-    def run_model(self, imgs: Union[List[np.ndarray], np.ndarray], **kwargs):
+    def run_model(self, imgs: Union[Tuple[np.ndarray], np.ndarray], **kwargs):
         self.load_model()
-        imgs = imgs if isinstance(imgs, list) else [imgs]
+        imgs = imgs if isinstance(imgs, tuple) else (imgs,)
         faceid_embeds = []
         for i, img in enumerate(imgs):
             img = HWC3(img)

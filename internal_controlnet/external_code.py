@@ -199,6 +199,10 @@ class ControlNetUnit:
 
         return vars(self) == vars(other)
 
+    def accepts_multiple_inputs(self) -> bool:
+        """This unit can accept multiple input images."""
+        return self.module == "ip-adapter_face_id"
+
 
 def to_base64_nparray(encoding: str):
     """

@@ -672,7 +672,7 @@ class Script(scripts.Script, metaclass=(
                 shared.state.interrupted = True
             raise ValueError("controlnet is enabled but no input image is given")
 
-        assert isinstance(input_image, np.ndarray)
+        assert isinstance(input_image, (np.ndarray, list))
         return input_image, resize_mode
 
     @staticmethod
@@ -883,6 +883,8 @@ class Script(scripts.Script, metaclass=(
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             if isinstance(input_image, list):
                 assert unit.accepts_multiple_inputs()
+                # preprocessor function is cached, so all arguments must be hashable.
+                input_image = tuple(input_image)
             else:
                 input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
                 input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
@@ -934,7 +936,7 @@ class Script(scripts.Script, metaclass=(
                 store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
-                for img in (input_image if isinstance(input_image, list) else [input_image]):
+                for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
                     store_detected_map(img, unit.module)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:

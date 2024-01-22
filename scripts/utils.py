@@ -69,7 +69,11 @@ def ndarray_lru_cache(max_size: int = 128, typed: bool = False):
             """The decorated function that delegates the original function."""
 
             def convert_item(item: Any):
-                return HashableNpArray(item) if isinstance(item, np.ndarray) else item
+                if isinstance(item, np.ndarray):
+                    return HashableNpArray(item)
+                if isinstance(item, tuple):
+                    return tuple(convert_item(i) for i in item)
+                return item
 
             args = [convert_item(arg) for arg in args]
             kwargs = {k: convert_item(arg) for k, arg in kwargs.items()}
