@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple
 import modules.scripts as scripts
-from modules import shared, devices, script_callbacks, processing, mask ing, images
+from modules import shared, devices, script_callbacks, processing, masking, images
 import gradio as gr
 import time
 
