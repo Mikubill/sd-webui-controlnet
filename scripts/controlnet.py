@@ -14,9 +14,8 @@ from einops import rearrange
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
-from scripts.adapter import Adapter, StyleAdapter, Adapter_light
-from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
-from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
+from scripts.controlnet_lllite import clear_all_lllite
+from scripts.controlmodel_ipadapter import clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
