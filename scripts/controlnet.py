@@ -825,9 +825,18 @@ class Script(scripts.Script, metaclass=(
                 self.unloadable.get(key, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
+        high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
             Script.check_sd_version_compatible(unit)
+            if (
+                'inpaint_only' == unit.module and
+                issubclass(type(p), StableDiffusionProcessingImg2Img) and
+                p.image_mask is not None
+            ):
+                logger.warning('A1111 inpaint and ControlNet inpaint duplicated. Falls back to inpaint_global_harmonious.')
+                unit.module = 'inpaint'
 
             if unit.module in model_free_preprocessors:
                 model_net = None
@@ -849,10 +858,6 @@ class Script(scripts.Script, metaclass=(
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
 
-            if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
-                logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
-                unit.module = 'inpaint'
-
             # safe numpy
             logger.debug("Safe numpy convertion START")
             input_image = np.ascontiguousarray(input_image.copy()).copy()
@@ -860,8 +865,6 @@ class Script(scripts.Script, metaclass=(
 
             logger.info(f"Loading preprocessor: {unit.module}")
             preprocessor = self.preprocessor[unit.module]
-
-            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
             h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
             if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
