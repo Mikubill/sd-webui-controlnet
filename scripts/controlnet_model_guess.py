@@ -229,7 +229,7 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
         ).cpu()
         adapter.load_state_dict(state_dict, strict=False)
         network = PlugableAdapter(adapter)
-        return network
+        return ControlModel(network, ControlModelType.T2I_Adapter)
 
     if 'style_embedding' in state_dict:
         config = copy.deepcopy(t2i_adapter_style_config)
