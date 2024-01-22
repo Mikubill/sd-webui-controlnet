@@ -186,14 +186,15 @@ def unload_mlsd():
 model_depth_anything = None
 
 
-def depth_anything(img, colored:bool = True, **kwargs):
+def depth_anything(img, res:int = 512, colored:bool = True, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
     global model_depth_anything
     if model_depth_anything is None:
         with Extra(torch_handler):
             from annotator.depth_anything import DepthAnythingDetector
             device = devices.get_device_for("controlnet")
             model_depth_anything = DepthAnythingDetector(device)
-    return model_depth_anything(img, colored=colored), True
+    return remove_pad(model_depth_anything(img, colored=colored)), True
 
 
 def unload_depth_anything():
