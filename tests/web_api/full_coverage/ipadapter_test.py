@@ -101,30 +101,59 @@ class TestIPAdapterFullCoverage(unittest.TestCase):
 
     def test_face_id_multi_inputs(self):
         for module, model, lora in self.settings:
-            name = "multi_inputs" + str((module, model, lora))
-            with self.subTest(name=name):
-                self.assertTrue(
-                    APITestTemplate(
-                        name=name,
-                        gen_type="txt2img",
-                        payload_overrides={
-                            "prompt": base_prompt,
-                            "negative_prompt": general_negative_prompt,
-                            "steps": 20,
-                            "width": 512,
-                            "height": 512,
-                        },
-                        unit_overrides=[openpose_unit] + [
-                            {
-                                "image": img,
-                                "module": module,
-                                "model": model,
-                                "weight": 1 / len(portrait_imgs),
-                            }
-                            for img in portrait_imgs
-                        ]
-                    ).exec()
-                )
+            for i, negative_prompt in enumerate((general_negative_prompt, "", "bad")):
+                name = "multi_inputs" + str((module, model, lora, i))
+                with self.subTest(name=name):
+                    self.assertTrue(
+                        APITestTemplate(
+                            name=name,
+                            gen_type="txt2img",
+                            payload_overrides={
+                                "prompt": base_prompt,
+                                "negative_prompt": negative_prompt,
+                                "steps": 20,
+                                "width": 512,
+                                "height": 512,
+                            },
+                            unit_overrides=[openpose_unit]
+                            + [
+                                {
+                                    "image": img,
+                                    "module": module,
+                                    "model": model,
+                                    "weight": 1 / len(portrait_imgs),
+                                }
+                                for img in portrait_imgs
+                            ],
+                        ).exec()
+                    )
+
+    def test_face_id_real_multi_inputs(self):
+        for module, model, lora in (sd15_face_id, sd15_face_id_portrait):
+            for i, negative_prompt in enumerate((general_negative_prompt, "", "bad")):
+                name = "real_multi_inputs" + str((module, model, lora, i))
+                with self.subTest(name=name):
+                    self.assertTrue(
+                        APITestTemplate(
+                            name=name,
+                            gen_type="txt2img",
+                            payload_overrides={
+                                "prompt": base_prompt,
+                                "negative_prompt": negative_prompt,
+                                "steps": 20,
+                                "width": 512,
+                                "height": 512,
+                            },
+                            unit_overrides=[
+                                openpose_unit,
+                                {
+                                    "image": [{"image": img} for img in portrait_imgs],
+                                    "module": module,
+                                    "model": model,
+                                },
+                            ],
+                        ).exec()
+                    )
 
 
 if __name__ == "__main__":
