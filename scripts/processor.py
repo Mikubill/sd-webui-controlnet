@@ -758,7 +758,7 @@ class HandRefinerModel:
     def run_model(self, img, res=512, **kwargs):
         img, remove_pad = resize_image_with_pad(img, res)
         self.load_model()
-        with Extra(self.torch_handler):
+        with Extra(torch_handler):
             depth_map, mask, info = self.model(
                 img, output_type="np",
                 detect_resolution=res,
