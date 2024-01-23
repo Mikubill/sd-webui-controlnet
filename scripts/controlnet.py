@@ -858,6 +858,7 @@ class Script(scripts.Script, metaclass=(
                 not global_state.ip_adapter_pairing_model[unit.module](unit.model)
             ):
                 logger.error(f"Invalid pair of IP-Adapter preprocessor({unit.module}) and model({unit.model}).\n"
+                             "Please follow following pairing logic:\n"
                              + global_state.ip_adapter_pairing_logic_text)
                 continue
 
