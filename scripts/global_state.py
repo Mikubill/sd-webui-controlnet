@@ -111,6 +111,8 @@ cn_preprocessor_modules = {
     "anime_face_segment": anime_face_segment,
     "densepose": functools.partial(densepose, cmap="viridis"),
     "densepose_parula": functools.partial(densepose, cmap="parula"),
+    "te_hed":functools.partial(te_hed, is_safe=False),
+    "te_hed_safe":functools.partial(te_hed, is_safe=True),
 }
 
 cn_preprocessor_unloadable = {
@@ -149,6 +151,7 @@ cn_preprocessor_unloadable = {
     "densepose": unload_densepose,
     "densepose_parula": unload_densepose,
     "depth_hand_refiner": g_hand_refiner_model.unload,
+    "te_hed":unload_te_hed,
 }
 
 preprocessor_aliases = {
@@ -171,7 +174,9 @@ preprocessor_aliases = {
     "inpaint": "inpaint_global_harmonious",
     "anime_face_segment": "seg_anime_face",
     "densepose": "densepose (pruple bg & purple torso)",
-    "densepose_parula": "densepose_parula (black bg & blue torso)"
+    "densepose_parula": "densepose_parula (black bg & blue torso)",
+    "te_hed": "softedge_teed",
+    "te_hed_safe": "softedge_teed_safe",
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]

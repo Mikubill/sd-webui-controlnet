@@ -170,5 +170,3 @@ class AnimeFaceSegment:
             img = rearrange(seg,'h w c -> w c h')
             img = [[PALETTE[np.argmax(val)] for val in buf]for buf in img]
             return np.array(img).astype(np.uint8)
-
-    
