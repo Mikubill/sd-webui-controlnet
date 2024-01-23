@@ -182,6 +182,7 @@ class UiControlNetUnit(external_code.ControlNetUnit):
             unit = copy(self)
             unit.image = image["image"]
             unit.input_mode = InputMode.SIMPLE
+            unit.weight = 1 / len(self.image)
             result.append(unit)
         return result
 
