@@ -588,15 +588,12 @@ class PlugableIPAdapter(torch.nn.Module):
             if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
                 return 0
 
-            cond_mark = current_model.cond_mark.flatten().tolist()
+            cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
+            cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
-            k_cond = self.call_ip(k_key, self.image_emb, device=q.device)
-            k_uncond = self.call_ip(k_key, self.uncond_image_emb, device=q.device)
-            v_cond = self.call_ip(v_key, self.image_emb, device=q.device)
-            v_uncond = self.call_ip(v_key, self.uncond_image_emb, device=q.device)
-            ip_k = torch.cat([(k_cond, k_uncond)[int(i)] for i in cond_mark], dim=0)
-            ip_v = torch.cat([(v_cond, v_uncond)[int(i)] for i in cond_mark], dim=0)
+            ip_k = self.call_ip(k_key, cond_uncond_image_emb, device=q.device)
+            ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
 
             ip_k, ip_v = map(
                 lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
