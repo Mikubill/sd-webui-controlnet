@@ -102,21 +102,20 @@ class ClipVisionDetector:
             load_file_from_url(url=self.download_link, model_dir=self.model_path, file_name=self.file_name)
         config = CLIPVisionConfig(**self.config)
 
-        with self.device:
-            self.model = CLIPVisionModelWithProjection(config)
-            self.processor = CLIPImageProcessor(crop_size=224,
-                                                do_center_crop=True,
-                                                do_convert_rgb=True,
-                                                do_normalize=True,
-                                                do_resize=True,
-                                                image_mean=[0.48145466, 0.4578275, 0.40821073],
-                                                image_std=[0.26862954, 0.26130258, 0.27577711],
-                                                resample=3,
-                                                size=224)
-            sd = torch.load(file_path, map_location=self.device)
-            self.model.load_state_dict(sd, strict=False)
-            del sd
-            self.model.eval()
+        self.model = CLIPVisionModelWithProjection(config)
+        self.processor = CLIPImageProcessor(crop_size=224,
+                                            do_center_crop=True,
+                                            do_convert_rgb=True,
+                                            do_normalize=True,
+                                            do_resize=True,
+                                            image_mean=[0.48145466, 0.4578275, 0.40821073],
+                                            image_std=[0.26862954, 0.26130258, 0.27577711],
+                                            resample=3,
+                                            size=224)
+        sd = torch.load(file_path, map_location=self.device)
+        self.model.load_state_dict(sd, strict=False)
+        del sd
+        self.model.eval()
 
     def unload_model(self):
         if self.model is not None:
