@@ -690,6 +690,20 @@ def unload_densepose():
     from annotator.densepose import unload_model
     unload_model()
 
+model_te_hed = None
+
+def te_hed(img, res=512, is_safe=True,**kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_te_hed
+    if model_te_hed is None:
+        from annotator.teed import TEEDDector
+        model_te_hed = TEEDDector
+    result = model_te_hed(img, is_safe=is_safe)
+    return remove_pad(result), True
+
+def unload_te_hed():
+    if model_te_hed is not None:
+        model_te_hed.unload_model()
 
 class InsightFaceModel:
     def __init__(self):
@@ -1173,6 +1187,22 @@ preprocessor_sliders_config = {
         }
     ],
     "depth_hand_refiner": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        } 
+    ],
+    "te_hed": [
+        {
+            "name": flag_preprocessor_resolution,
+            "value": 512,
+            "min": 64,
+            "max": 2048
+        } 
+    ],
+    "te_hed_safe": [
         {
             "name": flag_preprocessor_resolution,
             "value": 512,
