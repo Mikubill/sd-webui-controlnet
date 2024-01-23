@@ -37,8 +37,7 @@ class TEEDDector:
             self.model.cpu()
 
     def __call__(self, image: np.ndarray, is_safe: bool = True) -> np.ndarray:
-        if self.model is None:
-            self.load_model()
+
         self.model.to(self.device)
 
         H, W, _ = image.shape
@@ -52,5 +51,5 @@ class TEEDDector:
             edge = 1 / (1 + np.exp(-np.mean(edges, axis=2).astype(np.float64)))
             if is_safe:
                 edge = safe_step(edge)
-            edge = cv2.bitwise_not(edge).astype(np.uint8)
+            edge = (edge * 255.0).clip(0, 255).astype(np.uint8)
             return edge
