@@ -9,11 +9,11 @@ import numpy as np
 
 import torch
 
-from ted import TED  # TEED architecture
+from annotator.teed.ted import TED  # TEED architecture
 from einops import rearrange
 from modules import devices
-from .util import load_model,safe_step
-from .annotator_path import models_path
+from annotator.util import load_model,safe_step
+from annotator.annotator_path import models_path
 
 class TEEDDector:
     """https://github.com/xavysp/TEED"""

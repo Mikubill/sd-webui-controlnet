@@ -1,9 +1,6 @@
 """
-Script based on:
-Wang, Xueliang, Honge Ren, and Achuan Wang.
- "Smish: A Novel Activation Function for Deep Learning Methods.
- " Electronics 11.4 (2022): 540.
-smish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + sigmoid(x)))
+Applies the mish function element-wise:
+mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
 """
 
 # import pytorch
@@ -12,10 +9,10 @@ import torch.nn.functional as F
 from torch import nn
 
 # import activation functions
-from .Fsmish import smish
+from .Fmish import mish
 
 
-class Smish(nn.Module):
+class Mish(nn.Module):
     """
     Applies the mish function element-wise:
     mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
@@ -40,4 +37,7 @@ class Smish(nn.Module):
         """
         Forward pass of the function.
         """
-        return smish(input)
+        if torch.__version__ >= "1.9":
+            return F.mish(input)
+        else:
+            return mish(input)
