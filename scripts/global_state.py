@@ -270,7 +270,7 @@ def get_sd_version() -> StableDiffusionVersion:
     else:
         return StableDiffusionVersion.UNKNOWN
 
-    
+
 def select_control_type(
     control_type: str,
     sd_version: StableDiffusionVersion = StableDiffusionVersion.UNKNOWN,
@@ -286,16 +286,18 @@ def select_control_type(
             preprocessor_list,
             all_models,
             'none', #default option
-            "None"  #default model 
+            "None"  #default model
         ]
     filtered_preprocessor_list = [
         x
         for x in preprocessor_list
-        if (
+        if ((
             pattern in x.lower() or
             any(a in x.lower() for a in processor.preprocessor_filters_aliases.get(pattern, [])) or
             x.lower() == "none"
-        )
+        ) and (
+            sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(x))
+        ))
     ]
     if pattern in ["canny", "lineart", "scribble/sketch", "mlsd"]:
         filtered_preprocessor_list += [
@@ -308,8 +310,7 @@ def select_control_type(
             pattern in model.lower() or
             any(a in model.lower() for a in processor.preprocessor_filters_aliases.get(pattern, []))
         ) and (
-            sd_version == StableDiffusionVersion.UNKNOWN or
-            sd_version == StableDiffusionVersion.detect_from_model_name(model)
+            sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(model))
         ))
     ]
     assert len(filtered_model_list) > 0, "'None' model should always be available."
@@ -323,10 +324,10 @@ def select_control_type(
             if "11" in x.split("[")[0]:
                 default_model = x
                 break
-    
+
     return (
         filtered_preprocessor_list,
-        filtered_model_list, 
+        filtered_model_list,
         default_option,
         default_model
     )
