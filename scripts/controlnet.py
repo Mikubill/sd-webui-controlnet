@@ -886,6 +886,10 @@ class Script(scripts.Script, metaclass=(
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
+                    # Change control_model_type to ControlNet as all processes
+                    # in hook.py still want the ControlNetLoRA to be treated
+                    # the same way as ControlNet.
+                    control_model_type = ControlModelType.ControlNet
 
             h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
