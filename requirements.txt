@@ -1,5 +1,5 @@
-mediapipe
-svglib
 fvcore
+mediapipe
 onnxruntime
 opencv-python>=4.8.0
+svglib

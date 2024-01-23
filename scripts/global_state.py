@@ -20,28 +20,28 @@ cn_models = OrderedDict()      # "My_Lora(abcd1234)" -> C:/path/to/model.safeten
 cn_models_names = {}  # "my_lora" -> "My_Lora(abcd1234)"
 
 def cache_preprocessors(preprocessor_modules: Dict[str, Callable]) -> Dict[str, Callable]:
-    """ We want to share the preprocessor results in a single big cache, instead of a small 
+    """ We want to share the preprocessor results in a single big cache, instead of a small
      cache for each preprocessor function. """
     CACHE_SIZE = getattr(shared.cmd_opts, "controlnet_preprocessor_cache_size", 0)
 
-    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be 
+    # Set CACHE_SIZE = 0 will completely remove the caching layer. This can be
     # helpful when debugging preprocessor code.
     if CACHE_SIZE == 0:
         return preprocessor_modules
-    
+
     logger.debug(f'Create LRU cache (max_size={CACHE_SIZE}) for preprocessor results.')
 
     @ndarray_lru_cache(max_size=CACHE_SIZE)
     def unified_preprocessor(preprocessor_name: str, *args, **kwargs):
         logger.debug(f'Calling preprocessor {preprocessor_name} outside of cache.')
         return preprocessor_modules[preprocessor_name](*args, **kwargs)
-    
+
     # TODO: Introduce a seed parameter for shuffle preprocessor?
     uncacheable_preprocessors = ['shuffle']
 
     return {
         k: (
-            v if k in uncacheable_preprocessors 
+            v if k in uncacheable_preprocessors
             else functools.partial(unified_preprocessor, k)
         )
         for k, v
@@ -55,6 +55,7 @@ cn_preprocessor_modules = {
     "depth_leres": functools.partial(leres, boost=False),
     "depth_leres++": functools.partial(leres, boost=True),
     "depth_hand_refiner": g_hand_refiner_model.run_model,
+    "depth_anything": functools.partial(depth_anything, colored=False),
     "hed": hed,
     "hed_safe": hed_safe,
     "mediapipe_face": mediapipe_face,
@@ -108,8 +109,8 @@ cn_preprocessor_modules = {
     "recolor_intensity": recolor_intensity,
     "blur_gaussian": blur_gaussian,
     "anime_face_segment": anime_face_segment,
-    "densepose": densepose,
-    "densepose_parula": densepose_parula
+    "densepose": functools.partial(densepose, cmap="viridis"),
+    "densepose_parula": functools.partial(densepose, cmap="parula"),
 }
 
 cn_preprocessor_unloadable = {
@@ -125,6 +126,7 @@ cn_preprocessor_unloadable = {
     "ip-adapter_clip_sdxl": functools.partial(unload_clip, config='clip_g'),
     "depth": unload_midas,
     "depth_leres": unload_leres,
+    "depth_anything": unload_depth_anything,
     "normal_map": unload_midas,
     "pidinet": unload_pidinet,
     "openpose": g_openpose_model.unload,
@@ -144,8 +146,8 @@ cn_preprocessor_unloadable = {
     "lineart_anime_denoise": unload_lineart_anime_denoise,
     "inpaint_only+lama": unload_lama_inpaint,
     "anime_face_segment": unload_anime_face_segment,
-    "densepose": unload_densepose_model,
-    "densepose_parula": unload_densepose_model,
+    "densepose": unload_densepose,
+    "densepose_parula": unload_densepose,
     "depth_hand_refiner": g_hand_refiner_model.unload,
 }
 
@@ -268,7 +270,7 @@ def get_sd_version() -> StableDiffusionVersion:
     else:
         return StableDiffusionVersion.UNKNOWN
 
-    
+
 def select_control_type(
     control_type: str,
     sd_version: StableDiffusionVersion = StableDiffusionVersion.UNKNOWN,
@@ -284,16 +286,18 @@ def select_control_type(
             preprocessor_list,
             all_models,
             'none', #default option
-            "None"  #default model 
+            "None"  #default model
         ]
     filtered_preprocessor_list = [
         x
         for x in preprocessor_list
-        if (
+        if ((
             pattern in x.lower() or
             any(a in x.lower() for a in processor.preprocessor_filters_aliases.get(pattern, [])) or
             x.lower() == "none"
-        )
+        ) and (
+            sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(x))
+        ))
     ]
     if pattern in ["canny", "lineart", "scribble/sketch", "mlsd"]:
         filtered_preprocessor_list += [
@@ -306,8 +310,7 @@ def select_control_type(
             pattern in model.lower() or
             any(a in model.lower() for a in processor.preprocessor_filters_aliases.get(pattern, []))
         ) and (
-            sd_version == StableDiffusionVersion.UNKNOWN or
-            sd_version == StableDiffusionVersion.detect_from_model_name(model)
+            sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(model))
         ))
     ]
     assert len(filtered_model_list) > 0, "'None' model should always be available."
@@ -321,10 +324,29 @@ def select_control_type(
             if "11" in x.split("[")[0]:
                 default_model = x
                 break
-    
+
     return (
         filtered_preprocessor_list,
-        filtered_model_list, 
+        filtered_model_list,
         default_option,
         default_model
     )
+
+
+ip_adapter_pairing_model = {
+    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
+    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
+    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
+    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
+    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
+}
+
+ip_adapter_pairing_logic_text = """
+{
+    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
+    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
+    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
+    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
+    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
+}
+"""

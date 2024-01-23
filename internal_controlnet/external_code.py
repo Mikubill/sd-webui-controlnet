@@ -158,7 +158,7 @@ class ControlNetUnit:
     module: str = "none"
     model: str = "None"
     weight: float = 1.0
-    image: Optional[InputImage] = None
+    image: Optional[Union[InputImage, List[InputImage]]] = None
     resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT
     low_vram: bool = False
     processor_res: int = -1
@@ -174,7 +174,7 @@ class ControlNetUnit:
     # If hires fix is enabled in A1111, how should this ControlNet unit be applied.
     # The value is ignored if the generation is not using hires fix.
     hr_option: Union[HiResFixOption, int, str] = HiResFixOption.BOTH
-    
+
     # Whether save the detected map of this unit. Setting this option to False prevents saving the
     # detected map or sending detected map along with generated images via API.
     # Currently the option is only accessible in API calls.
@@ -198,6 +198,10 @@ class ControlNetUnit:
             return False
 
         return vars(self) == vars(other)
+
+    def accepts_multiple_inputs(self) -> bool:
+        """This unit can accept multiple input images."""
+        return self.module == "ip-adapter_face_id"
 
 
 def to_base64_nparray(encoding: str):

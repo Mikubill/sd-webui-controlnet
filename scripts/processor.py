@@ -4,11 +4,21 @@ import numpy as np
 import torch
 
 from annotator.util import HWC3
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union, List
 
 from modules.safe import Extra
 from modules import devices
 from scripts.logging import logger
+
+
+def torch_handler(module: str, name: str):
+    """ Allow all torch access. Bypass A1111 safety whitelist. """
+    if module == 'torch':
+        return getattr(torch, name)
+    if module == 'torch._tensor':
+        # depth_anything dep.
+        return getattr(torch._tensor, name)
+
 
 def pad64(x):
     return int(np.ceil(float(x) / 64.0) * 64 - x)
@@ -171,6 +181,25 @@ def unload_mlsd():
     if model_mlsd is not None:
         from annotator.mlsd import unload_mlsd_model
         unload_mlsd_model()
+
+
+model_depth_anything = None
+
+
+def depth_anything(img, res:int = 512, colored:bool = True, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_depth_anything
+    if model_depth_anything is None:
+        with Extra(torch_handler):
+            from annotator.depth_anything import DepthAnythingDetector
+            device = devices.get_device_for("controlnet")
+            model_depth_anything = DepthAnythingDetector(device)
+    return remove_pad(model_depth_anything(img, colored=colored)), True
+
+
+def unload_depth_anything():
+    if model_depth_anything is not None:
+        model_depth_anything.unload_model()
 
 
 model_midas = None
@@ -350,12 +379,14 @@ clip_encoder = {
 }
 
 
-def clip(img, res=512, config='clip_vitl', **kwargs):
+def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
     img = HWC3(img)
     global clip_encoder
     if clip_encoder[config] is None:
         from annotator.clipvision import ClipVisionDetector
-        clip_encoder[config] = ClipVisionDetector(config)
+        if low_vram:
+            logger.info("Loading CLIP model on CPU.")
+        clip_encoder[config] = ClipVisionDetector(config, low_vram)
     result = clip_encoder[config](img)
     return result, False
 
@@ -647,31 +678,18 @@ def unload_anime_face_segment():
         model_anime_face_segment.unload_model()
 
 
-model_densepose = None
 
-
-def densepose(img, res=512, **kwargs):
+def densepose(img, res=512, cmap="viridis", **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
-    global model_densepose
-    if model_hed is None:
-        from annotator.densepose import apply_densepose
-        model_densepose = apply_densepose
-    result = model_densepose(img)
+    from annotator.densepose import apply_densepose
+    result = apply_densepose(img, cmap=cmap)
     return remove_pad(result), True
 
-def densepose_parula(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    global model_densepose
-    if model_hed is None:
-        from annotator.densepose import apply_densepose
-        model_densepose = apply_densepose
-    result = model_densepose(img, cmap="parula")
-    return remove_pad(result), True
 
-def unload_densepose_model():
-    global model_densepose
-    if model_densepose is not None:
-        model_densepose.unload_model()
+def unload_densepose():
+    from annotator.densepose import unload_model
+    unload_model()
+
 
 class InsightFaceModel:
     def __init__(self):
@@ -688,55 +706,46 @@ class InsightFaceModel:
             )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
 
-    def run_model(self, img, **kwargs):
+    def run_model(self, imgs: Union[Tuple[np.ndarray], np.ndarray], **kwargs):
         self.load_model()
-        img = HWC3(img)
-        faces = self.model.get(img)
-        if not faces:
-            raise Exception("Insightface: No face found in image.")
-        if len(faces) > 1:
-            logger.warn("Insightface: More than one face is detected in the image. "
-                        "Only the first one will be used")
-        faceid_embeds = {
-            "image_embeds": torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
-        }
+        imgs = imgs if isinstance(imgs, tuple) else (imgs,)
+        faceid_embeds = []
+        for i, img in enumerate(imgs):
+            img = HWC3(img)
+            faces = self.model.get(img)
+            if not faces:
+                logger.warn(f"Insightface: No face found in image {i}.")
+                continue
+            if len(faces) > 1:
+                logger.warn("Insightface: More than one face is detected in the image. "
+                            f"Only the first one will be used {i}.")
+            faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
 
 g_insight_face_model = InsightFaceModel()
 
 
-def face_id_plus(img, **kwargs):
+def face_id_plus(img, low_vram=False, **kwargs):
     """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
     face_embed, _ = g_insight_face_model.run_model(img)
-    clip_embed, _ = clip(img, config='clip_h')
-    return (face_embed, clip_embed), False
+    clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
+    assert len(face_embed) > 0
+    return (face_embed[0], clip_embed), False
 
 
 class HandRefinerModel:
     def __init__(self):
         self.model = None
         self.device = devices.get_device_for("controlnet")
-        def torch_handler(module: str, name: str):
-            import torch
-            if module == 'torch':
-                return getattr(torch, name)
-        self.torch_handler = torch_handler
-    
+
     def load_model(self):
         if self.model is None:
-            # Add submodule hand_refiner to sys.path so that it can be discovered correctly.
-            import sys
-            from pathlib import Path
             from annotator.annotator_path import models_path
-            hand_refiner_path = str(Path(__file__).parent.parent / 'annotator' / 'hand_refiner_portable')
-            if hand_refiner_path not in sys.path:
-                sys.path.append(hand_refiner_path)
-            
-            from annotator.hand_refiner_portable.hand_refiner import MeshGraphormerDetector
-            with Extra(self.torch_handler):
+            from hand_refiner import MeshGraphormerDetector  # installed via hand_refiner_portable
+            with Extra(torch_handler):
                 self.model = MeshGraphormerDetector.from_pretrained(
-                    "hr16/ControlNet-HandRefiner-pruned", 
+                    "hr16/ControlNet-HandRefiner-pruned",
                     cache_dir=os.path.join(models_path, "hand_refiner"),
                     device=self.device,
                 )
@@ -750,7 +759,7 @@ class HandRefinerModel:
     def run_model(self, img, res=512, **kwargs):
         img, remove_pad = resize_image_with_pad(img, res)
         self.load_model()
-        with Extra(self.torch_handler):
+        with Extra(torch_handler):
             depth_map, mask, info = self.model(
                 img, output_type="np",
                 detect_resolution=res,

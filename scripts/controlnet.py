@@ -7,6 +7,7 @@ from copy import copy
 from typing import Dict, Optional, Tuple
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
+from modules.api.api import decode_base64_to_image
 import gradio as gr
 import time
 
@@ -14,16 +15,15 @@ from einops import rearrange
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
-from scripts.adapter import Adapter, StyleAdapter, Adapter_light
-from scripts.controlnet_lllite import PlugableControlLLLite, clear_all_lllite
-from scripts.controlmodel_ipadapter import PlugableIPAdapter, clear_all_ip_adapter
-from scripts.utils import load_state_dict, get_unique_axis0
+from scripts.controlnet_lllite import clear_all_lllite
+from scripts.controlmodel_ipadapter import clear_all_ip_adapter
+from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
-from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img
+from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
 from scripts.infotext import Infotext
 
@@ -34,7 +34,7 @@ import torch
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
 from scripts.processor import model_free_preprocessors
-from scripts.controlnet_model_guess import build_model_by_guess
+from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
 
 
@@ -105,48 +105,24 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         elif image['image']:
             image['image'] = external_code.to_base64_nparray(image['image'])
         else:
-            image['image'] = None            
+            image['image'] = None
 
     # If there is no image, return image with None image and None mask
     if image['image'] is None:
         image['mask'] = None
         return image
 
-    if isinstance(image['mask'], str):
+    if 'mask' not in image or image['mask'] is None:
+        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
+    elif isinstance(image['mask'], str):
         if os.path.exists(image['mask']):
             image['mask'] = np.array(Image.open(image['mask'])).astype('uint8')
         elif image['mask']:
             image['mask'] = external_code.to_base64_nparray(image['mask'])
         else:
             image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
-    elif image['mask'] is None:
-        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
 
     return image
-
-
-def image_has_mask(input_image: np.ndarray) -> bool:
-    """
-    Determine if an image has an alpha channel (mask) that is not empty.
-
-    The function checks if the input image has three dimensions (height, width, channels), 
-    and if the third dimension (channel dimension) is of size 4 (presumably RGB + alpha). 
-    Then it checks if the maximum value in the alpha channel is greater than 127. This is 
-    presumably to check if there is any non-transparent (or semi-transparent) pixel in the 
-    image. A pixel is considered non-transparent if its alpha value is above 127.
-
-    Args:
-        input_image (np.ndarray): A 3D numpy array representing an image. The dimensions 
-        should represent [height, width, channels].
-
-    Returns:
-        bool: True if the image has a non-empty alpha channel, False otherwise.
-    """    
-    return (
-        input_image.ndim == 3 and 
-        input_image.shape[2] == 4 and 
-        np.max(input_image[:, :, 3]) > 127
-    )
 
 
 def prepare_mask(
@@ -175,7 +151,7 @@ def prepare_mask(
     mask = mask.convert("L")
     if getattr(p, "inpainting_mask_invert", False):
         mask = ImageOps.invert(mask)
-    
+
     if hasattr(p, 'mask_blur_x'):
         if getattr(p, "mask_blur_x", 0) > 0:
             np_mask = np.array(mask)
@@ -190,7 +166,7 @@ def prepare_mask(
     else:
         if getattr(p, "mask_blur", 0) > 0:
             mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-    
+
     return mask
 
 
@@ -262,14 +238,12 @@ class Script(scripts.Script, metaclass=(
 
     def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Optional[Photopea]) -> Tuple[ControlNetUiGroup, gr.State]:
         group = ControlNetUiGroup(
+            is_img2img,
             Script.get_default_ui_unit(),
             self.preprocessor,
             photopea,
         )
-        group.render(tabname, elem_id_tabname, is_img2img)
-        group.register_callbacks(is_img2img)
-        unit_state = group.render_and_register_unit(tabname, is_img2img)
-        return group, unit_state
+        return group, group.render(tabname, elem_id_tabname)
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
         batch_option = gr.Radio(
@@ -326,7 +300,7 @@ class Script(scripts.Script, metaclass=(
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
-                            with gr.Tab(f"ControlNet Unit {i}", 
+                            with gr.Tab(f"ControlNet Unit {i}",
                                         elem_classes=['cnet-unit-tab']):
                                 group, state = self.uigroup(f"ControlNet-{i}", is_img2img, elem_id_tabname, photopea)
                                 ui_groups.append(group)
@@ -339,8 +313,6 @@ class Script(scripts.Script, metaclass=(
                 with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
 
-        ControlNetUiGroup.register_input_mode_sync(ui_groups)
-
         for i, ui_group in enumerate(ui_groups):
             infotext.register_unit(i, ui_group)
         if shared.opts.data.get("control_net_sync_field_args", True):
@@ -348,7 +320,7 @@ class Script(scripts.Script, metaclass=(
             self.paste_field_names = infotext.paste_field_names
 
         return tuple(controls)
-    
+
     @staticmethod
     def clear_control_model_cache():
         Script.model_cache.clear()
@@ -356,8 +328,9 @@ class Script(scripts.Script, metaclass=(
         devices.torch_gc()
 
     @staticmethod
-    def load_control_model(p, unet, model):
-        if model in Script.model_cache:
+    def load_control_model(p, unet, model) -> ControlModel:
+        # ip-adapter model contains embedding data, so each model is unique.
+        if 'ip-adapter' not in model and model in Script.model_cache:
             logger.info(f"Loading model from cache: {model}")
             return Script.model_cache[model]
 
@@ -367,15 +340,15 @@ class Script(scripts.Script, metaclass=(
             gc.collect()
             devices.torch_gc()
 
-        model_net = Script.build_control_model(p, unet, model)
+        control_model = Script.build_control_model(p, unet, model)
 
         if shared.opts.data.get("control_net_model_cache_size", 2) > 0:
-            Script.model_cache[model] = model_net
+            Script.model_cache[model] = control_model
 
-        return model_net
+        return control_model
 
     @staticmethod
-    def build_control_model(p, unet, model):
+    def build_control_model(p, unet, model) -> ControlModel:
         if model is None or model == 'None':
             raise RuntimeError(f"You have not selected any ControlNet Model.")
 
@@ -396,10 +369,10 @@ class Script(scripts.Script, metaclass=(
 
         logger.info(f"Loading model: {model}")
         state_dict = load_state_dict(model_path)
-        network = build_model_by_guess(state_dict, unet, model_path)
-        network.to('cpu', dtype=p.sd_model.dtype)
+        control_model = build_model_by_guess(state_dict, unet, model_path)
+        control_model.model.to('cpu', dtype=p.sd_model.dtype)
         logger.info(f"ControlNet model {model} loaded.")
-        return network
+        return control_model
 
     @staticmethod
     def get_remote_call(p, attribute, default=None, idx=0, strict=False, force=False):
@@ -415,8 +388,7 @@ class Script(scripts.Script, metaclass=(
                 return None
 
         attribute_value = get_element(getattr(p, attribute, None), strict)
-        default_value = get_element(default)
-        return attribute_value if attribute_value is not None else default_value
+        return attribute_value if attribute_value is not None else default
 
     @staticmethod
     def parse_remote_call(p, unit: external_code.ControlNetUnit, idx):
@@ -575,42 +547,70 @@ class Script(scripts.Script, metaclass=(
             remote_unit = Script.parse_remote_call(p, Script.get_default_ui_unit(), 0)
             if remote_unit.enabled:
                 units.append(remote_unit)
-        
-        enabled_units = [
-            copy(local_unit)
-            for idx, unit in enumerate(units)
-            for local_unit in (Script.parse_remote_call(p, unit, idx),)
-            if local_unit.enabled
-        ]
+
+        enabled_units = []
+        for idx, unit in enumerate(units):
+            local_unit = Script.parse_remote_call(p, unit, idx)
+            if not local_unit.enabled:
+                continue
+            if hasattr(local_unit, "unfold_merged"):
+                enabled_units.extend(local_unit.unfold_merged())
+            else:
+                enabled_units.append(copy(local_unit))
+
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
 
     @staticmethod
     def choose_input_image(
-            p: processing.StableDiffusionProcessing, 
+            p: processing.StableDiffusionProcessing,
             unit: external_code.ControlNetUnit,
             idx: int
-        ) -> Tuple[np.ndarray, bool]:
+        ) -> Tuple[np.ndarray, external_code.ResizeMode]:
         """ Choose input image from following sources with descending priority:
          - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
          - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
-         - unit.image: 
-           - ControlNet tab input image.
-           - Input image from API call.
+         - unit.image: ControlNet tab input image.
          - p.init_images: A1111 img2img tab input image.
 
         Returns:
             - The input image in ndarray form.
-            - Whether input image is from A1111.
+            - The resize mode.
         """
-        image_from_a1111 = False
+        def parse_unit_image(unit: external_code.ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+            unit_has_multiple_images = (
+                isinstance(unit.image, list) and
+                len(unit.image) > 0 and
+                "image" in unit.image[0]
+            )
+            if unit_has_multiple_images:
+                return [
+                    d
+                    for img in unit.image
+                    for d in (image_dict_from_any(img),)
+                    if d is not None
+                ]
+            return image_dict_from_any(unit.image)
 
+        def decode_image(img) -> np.ndarray:
+            """Need to check the image for API compatibility."""
+            if isinstance(img, str):
+                return np.asarray(decode_base64_to_image(image['image']))
+            else:
+                assert isinstance(img, np.ndarray)
+                return img
+
+        # 4 input image sources.
+        p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
-        image = image_dict_from_any(unit.image)
+        image = parse_unit_image(unit)
+        a1111_image = getattr(p, "init_images", [None])[0]
 
-        if batch_hijack.instance.is_batch and getattr(p, "image_control", None) is not None:
+        resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
+
+        if batch_hijack.instance.is_batch and p_image_control is not None:
             logger.warning("Warn: Using legacy field 'p.image_control'.")
-            input_image = HWC3(np.asarray(p.image_control))
+            input_image = HWC3(np.asarray(p_image_control))
         elif p_input_image is not None:
             logger.warning("Warn: Using legacy field 'p.controlnet_input_image'")
             if isinstance(p_input_image, dict) and "mask" in p_input_image and "image" in p_input_image:
@@ -619,56 +619,124 @@ class Script(scripts.Script, metaclass=(
                 input_image = np.concatenate([color, alpha], axis=2)
             else:
                 input_image = HWC3(np.asarray(p_input_image))
-        elif image is not None:
-            while len(image['mask'].shape) < 3:
-                image['mask'] = image['mask'][..., np.newaxis]
-
-            # Need to check the image for API compatibility
-            if isinstance(image['image'], str):
-                from modules.api.api import decode_base64_to_image
-                input_image = HWC3(np.asarray(decode_base64_to_image(image['image'])))
+        elif image:
+            if isinstance(image, list):
+                # Add mask logic if later there is a processor that accepts mask
+                # on multiple inputs.
+                input_image = [HWC3(decode_image(img['image'])) for img in image]
             else:
-                input_image = HWC3(image['image'])
+                input_image = HWC3(decode_image(image['image']))
+                if 'mask' in image and image['mask'] is not None:
+                    while len(image['mask'].shape) < 3:
+                        image['mask'] = image['mask'][..., np.newaxis]
+                    if 'inpaint' in unit.module:
+                        logger.info("using inpaint as input")
+                        color = HWC3(image['image'])
+                        alpha = image['mask'][:, :, 0:1]
+                        input_image = np.concatenate([color, alpha], axis=2)
+                    elif (
+                        not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) and
+                        # There is wield gradio issue that would produce mask that is
+                        # not pure color when no scribble is made on canvas.
+                        # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
+                        not (
+                            (image['mask'][:, :, 0] <= 5).all() or
+                            (image['mask'][:, :, 0] >= 250).all()
+                        )
+                    ):
+                        logger.info("using mask as input")
+                        input_image = HWC3(image['mask'][:, :, 0])
+                        unit.module = 'none'  # Always use black bg and white line
+        elif a1111_image is not None:
+            input_image = HWC3(np.asarray(a1111_image))
+            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
+            assert a1111_i2i_resize_mode is not None
+            resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
 
-            have_mask = 'mask' in image and not (
-                (image['mask'][:, :, 0] <= 5).all() or 
-                (image['mask'][:, :, 0] >= 250).all()
-            )
-
+            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
             if 'inpaint' in unit.module:
-                logger.info("using inpaint as input")
-                color = HWC3(image['image'])
-                if have_mask:
-                    alpha = image['mask'][:, :, 0:1]
+                if a1111_mask_image is not None:
+                    a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
+                    assert a1111_mask.ndim == 2
+                    assert a1111_mask.shape[0] == input_image.shape[0]
+                    assert a1111_mask.shape[1] == input_image.shape[1]
+                    input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
                 else:
-                    alpha = np.zeros_like(color)[:, :, 0:1]
-                input_image = np.concatenate([color, alpha], axis=2)
-            else:
-                if have_mask and not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False):
-                    logger.info("using mask as input")
-                    input_image = HWC3(image['mask'][:, :, 0])
-                    unit.module = 'none'  # Always use black bg and white line
+                    input_image = np.concatenate([
+                        input_image[:, :, 0:3],
+                        np.zeros_like(input_image, dtype=np.uint8)[:, :, 0:1],
+                    ], axis=2)
         else:
-            # use img2img init_image as default
-            input_image = getattr(p, "init_images", [None])[0]
-            if input_image is None:
-                if batch_hijack.instance.is_batch:
-                    shared.state.interrupted = True
-                raise ValueError('controlnet is enabled but no input image is given')
+            # No input image detected.
+            if batch_hijack.instance.is_batch:
+                shared.state.interrupted = True
+            raise ValueError("controlnet is enabled but no input image is given")
 
-            input_image = HWC3(np.asarray(input_image))
-            image_from_a1111 = True
-        
-        assert isinstance(input_image, np.ndarray)
-        return input_image, image_from_a1111
-    
+        assert isinstance(input_image, (np.ndarray, list))
+        return input_image, resize_mode
+
+    @staticmethod
+    def try_crop_image_with_a1111_mask(
+        p: StableDiffusionProcessing,
+        unit: external_code.ControlNetUnit,
+        input_image: np.ndarray,
+        resize_mode: external_code.ResizeMode,
+    ) -> np.ndarray:
+        """
+        Crop ControlNet input image based on A1111 inpaint mask given.
+        This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res
+        to crop tiles.
+        """
+        # Note: The method determining whether the active script is an upscale script is purely
+        # based on `extra_generation_params` these scripts attach on `p`, and subject to change
+        # in the future.
+        # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
+        is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
+        logger.debug(f"is_upscale_script={is_upscale_script}")
+        # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
+        # option is selected.
+        a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
+        is_only_masked_inpaint = (
+            issubclass(type(p), StableDiffusionProcessingImg2Img) and
+            p.inpaint_full_res and
+            a1111_mask_image is not None
+        )
+        if (
+            'reference' not in unit.module
+            and is_only_masked_inpaint
+            and (is_upscale_script or unit.inpaint_crop_input_image)
+        ):
+            logger.debug("Crop input image based on A1111 mask.")
+            input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
+            input_image = [Image.fromarray(x) for x in input_image]
+
+            mask = prepare_mask(a1111_mask_image, p)
+
+            crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
+            crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
+
+            input_image = [
+                images.resize_image(resize_mode.int_value(), i, mask.width, mask.height)
+                for i in input_image
+            ]
+
+            input_image = [x.crop(crop_region) for x in input_image]
+            input_image = [
+                images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height)
+                for x in input_image
+            ]
+
+            input_image = [np.asarray(x)[:, :, 0] for x in input_image]
+            input_image = np.stack(input_image, axis=2)
+        return input_image
+
     @staticmethod
     def bound_check_params(unit: external_code.ControlNetUnit) -> None:
         """
         Checks and corrects negative parameters in ControlNetUnit 'unit'.
-        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to 
+        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
         their default values if negative.
-        
+
         Args:
             unit (external_code.ControlNetUnit): The ControlNetUnit instance to check.
         """
@@ -689,28 +757,52 @@ class Script(scripts.Script, metaclass=(
     @staticmethod
     def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
         """
-        Checks whether the given ControlNet unit has model compatible with the currently 
+        Checks whether the given ControlNet unit has model compatible with the currently
         active sd model. An exception is thrown if ControlNet unit is detected to be
         incompatible.
         """
         sd_version = global_state.get_sd_version()
         assert sd_version != StableDiffusionVersion.UNKNOWN
-        
+
         if "revision" in unit.module.lower() and sd_version != StableDiffusionVersion.SDXL:
             raise Exception(f"Preprocessor 'revision' only supports SDXL. Current SD base model is {sd_version}.")
-        
+
         # No need to check if the ControlModelType does not require model to be present.
         if unit.model is None or unit.model.lower() == "none":
             return
 
         cnet_sd_version = StableDiffusionVersion.detect_from_model_name(unit.model)
-        
+
         if cnet_sd_version == StableDiffusionVersion.UNKNOWN:
             logger.warn(f"Unable to determine version for ControlNet model '{unit.model}'.")
             return
 
-        if sd_version != cnet_sd_version:
+        if not sd_version.is_compatible_with(cnet_sd_version):
             raise Exception(f"ControlNet model {unit.model}({cnet_sd_version}) is not compatible with sd model({sd_version})")
+
+    @staticmethod
+    def get_target_dimensions(p: StableDiffusionProcessing) -> Tuple[int, int, int, int]:
+        """Returns (h, w, hr_h, hr_w)."""
+        h = align_dim_latent(p.height)
+        w = align_dim_latent(p.width)
+
+        high_res_fix = (
+            isinstance(p, StableDiffusionProcessingTxt2Img)
+            and getattr(p, 'enable_hr', False)
+        )
+        if high_res_fix:
+            if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                hr_y = int(p.height * p.hr_scale)
+                hr_x = int(p.width * p.hr_scale)
+            else:
+                hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+            hr_y = align_dim_latent(hr_y)
+            hr_x = align_dim_latent(hr_x)
+        else:
+            hr_y = h
+            hr_x = w
+
+        return h, w, hr_y, hr_x
 
     def controlnet_main_entry(self, p):
         sd_ldm = p.sd_model
@@ -756,166 +848,93 @@ class Script(scripts.Script, metaclass=(
                 self.unloadable.get(key, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
+        high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
             Script.check_sd_version_compatible(unit)
+            if (
+                "ip-adapter" in unit.module and
+                not global_state.ip_adapter_pairing_model[unit.module](unit.model)
+            ):
+                logger.error(f"Invalid pair of IP-Adapter preprocessor({unit.module}) and model({unit.model}).\n"
+                             "Please follow following pairing logic:\n"
+                             + global_state.ip_adapter_pairing_logic_text)
+                continue
 
-            resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
-            control_mode = external_code.control_mode_from_value(unit.control_mode)
+            if (
+                'inpaint_only' == unit.module and
+                issubclass(type(p), StableDiffusionProcessingImg2Img) and
+                p.image_mask is not None
+            ):
+                logger.warning('A1111 inpaint and ControlNet inpaint duplicated. Falls back to inpaint_global_harmonious.')
+                unit.module = 'inpaint'
 
             if unit.module in model_free_preprocessors:
                 model_net = None
+                if 'reference' in unit.module:
+                    control_model_type = ControlModelType.AttentionInjection
+                elif 'revision' in unit.module:
+                    control_model_type = ControlModelType.ReVision
+                else:
+                    raise Exception("Unable to determine control_model_type.")
             else:
-                model_net = Script.load_control_model(p, unet, unit.model)
+                model_net, control_model_type = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
 
-                if getattr(model_net, 'is_control_lora', False):
+                if control_model_type == ControlModelType.ControlLoRA:
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
+                    # Change control_model_type to ControlNet as all processes
+                    # in hook.py still want the ControlNetLoRA to be treated
+                    # the same way as ControlNet.
+                    control_model_type = ControlModelType.ControlNet
 
-            input_image, image_from_a1111 = Script.choose_input_image(p, unit, idx)
-            if image_from_a1111:
-                a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                if a1111_i2i_resize_mode is not None:
-                    resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
-            
-            a1111_mask_image : Optional[Image.Image] = getattr(p, "image_mask", None)
-            if 'inpaint' in unit.module and not image_has_mask(input_image) and a1111_mask_image is not None:
-                a1111_mask = np.array(prepare_mask(a1111_mask_image, p))
-                if a1111_mask.ndim == 2:
-                    if a1111_mask.shape[0] == input_image.shape[0]:
-                        if a1111_mask.shape[1] == input_image.shape[1]:
-                            input_image = np.concatenate([input_image[:, :, 0:3], a1111_mask[:, :, None]], axis=2)
-                            a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
-                            if a1111_i2i_resize_mode is not None:
-                                resize_mode = external_code.resize_mode_from_value(a1111_i2i_resize_mode)
+            h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
-            # Note: The method determining whether the active script is an upscale script is purely
-            # based on `extra_generation_params` these scripts attach on `p`, and subject to change
-            # in the future.
-            # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
-            is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
-            logger.debug(f"is_upscale_script={is_upscale_script}")
-            # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
-            # option is selected.
-            is_only_masked_inpaint = (
-                issubclass(type(p), StableDiffusionProcessingImg2Img) and
-                p.inpaint_full_res and 
-                a1111_mask_image is not None
-            )
-            # Crop ControlNet input image based on A1111 inpaint mask given.
-            # This logic is crutial in upscale scripts, as they use A1111 mask + inpaint_full_res 
-            # to crop tiles.
-            if (
-                'reference' not in unit.module
-                and is_only_masked_inpaint
-                and (is_upscale_script or unit.inpaint_crop_input_image)
-            ):
-                logger.debug("A1111 inpaint mask START")
-                input_image = [input_image[:, :, i] for i in range(input_image.shape[2])]
-                input_image = [Image.fromarray(x) for x in input_image]
-
-                mask = prepare_mask(a1111_mask_image, p)
-
-                crop_region = masking.get_crop_region(np.array(mask), p.inpaint_full_res_padding)
-                crop_region = masking.expand_crop_region(crop_region, p.width, p.height, mask.width, mask.height)
-
-                input_image = [
-                    images.resize_image(resize_mode.int_value(), i, mask.width, mask.height) 
-                    for i in input_image
-                ]
-
-                input_image = [x.crop(crop_region) for x in input_image]
-                input_image = [
-                    images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height) 
-                    for x in input_image
-                ]
-
-                input_image = [np.asarray(x)[:, :, 0] for x in input_image]
-                input_image = np.stack(input_image, axis=2)
-                logger.debug("A1111 inpaint mask END")
-
-            if 'inpaint_only' == unit.module and issubclass(type(p), StableDiffusionProcessingImg2Img) and p.image_mask is not None:
-                logger.warning('A1111 inpaint and ControlNet inpaint duplicated. ControlNet support enabled.')
-                unit.module = 'inpaint'
-
-            # safe numpy
-            logger.debug("Safe numpy convertion START")
-            input_image = np.ascontiguousarray(input_image.copy()).copy()
-            logger.debug("Safe numpy convertion END")
-
-            logger.info(f"Loading preprocessor: {unit.module}")
-            preprocessor = self.preprocessor[unit.module]
-
-            high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
-
-            h = (p.height // 8) * 8
-            w = (p.width // 8) * 8
-
-            if high_res_fix:
-                if p.hr_resize_x == 0 and p.hr_resize_y == 0:
-                    hr_y = int(p.height * p.hr_scale)
-                    hr_x = int(p.width * p.hr_scale)
-                else:
-                    hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
-                hr_y = (hr_y // 8) * 8
-                hr_x = (hr_x // 8) * 8
+            input_image, resize_mode = Script.choose_input_image(p, unit, idx)
+            if isinstance(input_image, list):
+                assert unit.accepts_multiple_inputs()
+                # preprocessor function is cached, so all arguments must be hashable.
+                input_image = tuple(input_image)
             else:
-                hr_y = h
-                hr_x = w
-
-            if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
-                # inpaint_only+lama is special and required outpaint fix
-                _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
-
-            control_model_type = ControlModelType.ControlNet
-            global_average_pooling = False
-
-            if 'reference' in unit.module:
-                control_model_type = ControlModelType.AttentionInjection
-            elif 'revision' in unit.module:
-                control_model_type = ControlModelType.ReVision
-            elif hasattr(model_net, 'control_model') and (isinstance(model_net.control_model, Adapter) or isinstance(model_net.control_model, Adapter_light)):
-                control_model_type = ControlModelType.T2I_Adapter
-            elif hasattr(model_net, 'control_model') and isinstance(model_net.control_model, StyleAdapter):
-                control_model_type = ControlModelType.T2I_StyleAdapter
-            elif isinstance(model_net, PlugableIPAdapter):
-                control_model_type = ControlModelType.IPAdapter
-            elif isinstance(model_net, PlugableControlLLLite):
-                control_model_type = ControlModelType.Controlllite
-
-            if control_model_type is ControlModelType.ControlNet:
-                global_average_pooling = model_net.control_model.global_average_pooling
-
-            preprocessor_resolution = unit.processor_res
-            if unit.pixel_perfect:
-                preprocessor_resolution = external_code.pixel_perfect_resolution(
-                    input_image,
-                    target_H=h,
-                    target_W=w,
-                    resize_mode=resize_mode
-                )
-
-            logger.info(f'preprocessor resolution = {preprocessor_resolution}')
+                input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
+                input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
+                if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+                    # inpaint_only+lama is special and required outpaint fix
+                    _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
+                if unit.pixel_perfect:
+                    unit.processor_res = external_code.pixel_perfect_resolution(
+                        input_image,
+                        target_H=h,
+                        target_W=w,
+                        resize_mode=resize_mode,
+                    )
             # Preprocessor result may depend on numpy random operations, use the
-            # random seed in `StableDiffusionProcessing` to make the 
+            # random seed in `StableDiffusionProcessing` to make the
             # preprocessor result reproducable.
             # Currently following preprocessors use numpy random:
             # - shuffle
             seed = set_numpy_seed(p)
             logger.debug(f"Use numpy seed {seed}.")
-            detected_map, is_image = preprocessor(
-                input_image, 
-                res=preprocessor_resolution, 
+            logger.info(f"Using preprocessor: {unit.module}")
+            logger.info(f'preprocessor resolution = {unit.processor_res}')
+            detected_map, is_image = self.preprocessor[unit.module](
+                input_image,
+                res=unit.processor_res,
                 thr_a=unit.threshold_a,
                 thr_b=unit.threshold_b,
+                low_vram=(
+                    ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
+                    shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
+                ),
             )
-            
+
             def store_detected_map(detected_map, module: str) -> None:
                 if unit.save_detected_map:
                     detected_maps.append((detected_map, module))
-            
+
             if high_res_fix:
                 if is_image:
                     hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -930,7 +949,8 @@ class Script(scripts.Script, metaclass=(
                 store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
-                store_detected_map(input_image, unit.module)
+                for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
+                    store_detected_map(img, unit.module)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:
                 control = control['last_hidden_state']
@@ -940,11 +960,16 @@ class Script(scripts.Script, metaclass=(
 
             preprocessor_dict = dict(
                 name=unit.module,
-                preprocessor_resolution=preprocessor_resolution,
+                preprocessor_resolution=unit.processor_res,
                 threshold_a=unit.threshold_a,
                 threshold_b=unit.threshold_b
             )
 
+            global_average_pooling = (
+                control_model_type == ControlModelType.ControlNet and
+                model_net.control_model.global_average_pooling
+            )
+            control_mode = external_code.control_mode_from_value(unit.control_mode)
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
@@ -1073,13 +1098,13 @@ class Script(scripts.Script, metaclass=(
         if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
             tracemalloc.start()
             setattr(self, "malloc_begin", tracemalloc.take_snapshot())
-            
+
         self.controlnet_main_entry(p)
         if getattr(shared.cmd_opts, 'controlnet_tracemalloc', False):
             logger.info("After hook malloc:")
             for stat in tracemalloc.take_snapshot().compare_to(self.malloc_begin, "lineno")[:10]:
                 logger.info(stat)
-            
+
         if len(self.enabled_units) > 0:
             logger.info(f'ControlNet Hooked - Time = {time.time() - t}')
 
@@ -1234,7 +1259,10 @@ def on_ui_settings():
     shared.opts.add_option("controlnet_photopea_warning", shared.OptionInfo(
         True, "Photopea popup warning", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
-        False, "Ignore mask on ControlNet input image if control type is not inpaint", 
+        False, "Ignore mask on ControlNet input image if control type is not inpaint",
+        gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_clip_detector_on_cpu", shared.OptionInfo(
+        False, "Load CLIP preprocessor model on CPU",
         gr.Checkbox, {"interactive": True}, section=section))
 
 
@@ -1242,3 +1270,4 @@ batch_hijack.instance.do_hijack()
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_infotext_pasted(Infotext.on_infotext_pasted)
 script_callbacks.on_after_component(ControlNetUiGroup.on_after_component)
+script_callbacks.on_before_reload(ControlNetUiGroup.reset)

@@ -10,9 +10,9 @@ import os
 
 N_PART_LABELS = 24
 result_visualizer = DensePoseMaskedColormapResultsVisualizer(
-    alpha=1, 
-    data_extractor=_extract_i_from_iuvarr, 
-    segm_extractor=_extract_i_from_iuvarr, 
+    alpha=1,
+    data_extractor=_extract_i_from_iuvarr,
+    segm_extractor=_extract_i_from_iuvarr,
     val_scale = 255.0 / N_PART_LABELS
 )
 remote_torchscript_path = "https://huggingface.co/LayerNorm/DensePose-TorchScript-with-hint-image/resolve/main/densepose_r50_fpn_dl.torchscript"

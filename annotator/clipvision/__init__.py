@@ -86,18 +86,22 @@ clip_vision_vith_uc = torch.load(clip_vision_vith_uc, map_location=torch.device(
 
 
 class ClipVisionDetector:
-    def __init__(self, config):
+    def __init__(self, config, low_vram: bool):
         assert config in downloads
         self.download_link = downloads[config]
         self.model_path = os.path.join(models_path, 'clip_vision')
         self.file_name = config + '.pth'
         self.config = configs[config]
-        self.device = devices.get_device_for("controlnet")
+        self.device = (
+            torch.device("cpu") if low_vram else
+            devices.get_device_for("controlnet")
+        )
         os.makedirs(self.model_path, exist_ok=True)
         file_path = os.path.join(self.model_path, self.file_name)
         if not os.path.exists(file_path):
             load_file_from_url(url=self.download_link, model_dir=self.model_path, file_name=self.file_name)
         config = CLIPVisionConfig(**self.config)
+
         self.model = CLIPVisionModelWithProjection(config)
         self.processor = CLIPImageProcessor(crop_size=224,
                                             do_center_crop=True,
@@ -108,13 +112,11 @@ class ClipVisionDetector:
                                             image_std=[0.26862954, 0.26130258, 0.27577711],
                                             resample=3,
                                             size=224)
-
-        sd = torch.load(file_path, map_location=torch.device('cpu'))
+        sd = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(sd, strict=False)
         del sd
-
+        self.model.to(self.device)
         self.model.eval()
-        self.model.cpu()
 
     def unload_model(self):
         if self.model is not None:
@@ -123,10 +125,9 @@ class ClipVisionDetector:
     def __call__(self, input_image):
         with torch.no_grad():
             input_image = cv2.resize(input_image, (224, 224), interpolation=cv2.INTER_AREA)
-            clip_vision_model = self.model.cpu()
             feat = self.processor(images=input_image, return_tensors="pt")
-            feat['pixel_values'] = feat['pixel_values'].cpu()
-            result = clip_vision_model(**feat, output_hidden_states=True)
-            result['hidden_states'] = [v.to(devices.get_device_for("controlnet")) for v in result['hidden_states']]
-            result = {k: v.to(devices.get_device_for("controlnet")) if isinstance(v, torch.Tensor) else v for k, v in result.items()}
+            feat['pixel_values'] = feat['pixel_values'].to(self.device)
+            result = self.model(**feat, output_hidden_states=True)
+            result['hidden_states'] = [v.to(self.device) for v in result['hidden_states']]
+            result = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in result.items()}
         return result
