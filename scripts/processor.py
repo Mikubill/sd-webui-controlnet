@@ -697,7 +697,7 @@ def te_hed(img, res=512, is_safe=True,**kwargs):
     global model_te_hed
     if model_te_hed is None:
         from annotator.teed import TEEDDector
-        model_te_hed = TEEDDector
+        model_te_hed = TEEDDector()
     result = model_te_hed(img, is_safe=is_safe)
     return remove_pad(result), True
 
