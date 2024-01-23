@@ -330,3 +330,22 @@ def select_control_type(
         default_option,
         default_model
     )
+
+
+ip_adapter_pairing_model = {
+    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
+    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
+    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
+    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
+    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
+}
+
+ip_adapter_pairing_logic_text = """
+{
+    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
+    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
+    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
+    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
+    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
+}
+"""

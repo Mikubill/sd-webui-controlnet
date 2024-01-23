@@ -854,6 +854,14 @@ class Script(scripts.Script, metaclass=(
             Script.bound_check_params(unit)
             Script.check_sd_version_compatible(unit)
             if (
+                "ip-adapter" in unit.module and
+                not global_state.ip_adapter_pairing_model[unit.module](unit.model)
+            ):
+                logger.error(f"Invalid pair of IP-Adapter preprocessor({unit.module}) and model({unit.model}).\n"
+                             + global_state.ip_adapter_pairing_logic_text)
+                continue
+
+            if (
                 'inpaint_only' == unit.module and
                 issubclass(type(p), StableDiffusionProcessingImg2Img) and
                 p.image_mask is not None
