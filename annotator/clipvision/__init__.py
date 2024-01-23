@@ -115,6 +115,7 @@ class ClipVisionDetector:
         sd = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(sd, strict=False)
         del sd
+        self.model.to(self.device)
         self.model.eval()
 
     def unload_model(self):
