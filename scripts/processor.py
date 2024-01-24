@@ -692,13 +692,13 @@ def unload_densepose():
 
 model_te_hed = None
 
-def te_hed(img, res=512, is_safe=True,**kwargs):
+def te_hed(img, res=512, thr_a=2, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     global model_te_hed
     if model_te_hed is None:
         from annotator.teed import TEEDDector
         model_te_hed = TEEDDector()
-    result = model_te_hed(img, is_safe=is_safe)
+    result = model_te_hed(img, safe_steps=int(thr_a))
     return remove_pad(result), True
 
 def unload_te_hed():
@@ -1200,15 +1200,14 @@ preprocessor_sliders_config = {
             "value": 512,
             "min": 64,
             "max": 2048
-        } 
-    ],
-    "te_hed_safe": [
+        },
         {
-            "name": flag_preprocessor_resolution,
-            "value": 512,
-            "min": 64,
-            "max": 2048
-        } 
+            "name": "Safe Steps",
+            "min": 0,
+            "max": 10,
+            "value": 2,
+            "step": 1,
+        },
     ],
 }
 
