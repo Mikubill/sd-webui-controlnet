@@ -111,8 +111,7 @@ cn_preprocessor_modules = {
     "anime_face_segment": anime_face_segment,
     "densepose": functools.partial(densepose, cmap="viridis"),
     "densepose_parula": functools.partial(densepose, cmap="parula"),
-    "te_hed":functools.partial(te_hed, is_safe=False),
-    "te_hed_safe":functools.partial(te_hed, is_safe=True),
+    "te_hed":te_hed,
 }
 
 cn_preprocessor_unloadable = {
@@ -176,7 +175,6 @@ preprocessor_aliases = {
     "densepose": "densepose (pruple bg & purple torso)",
     "densepose_parula": "densepose_parula (black bg & blue torso)",
     "te_hed": "softedge_teed",
-    "te_hed_safe": "softedge_teed_safe",
 }
 
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
