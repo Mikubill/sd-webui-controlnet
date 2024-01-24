@@ -75,7 +75,7 @@ is_full_coverage = os.environ.get("CONTROLNET_TEST_FULL_COVERAGE", None) is not 
 
 
 class APITestTemplate:
-    is_set_expectation_run = True
+    is_set_expectation_run = os.environ.get("CONTROLNET_SET_EXP", "True") == "True"
 
     def __init__(
         self,
