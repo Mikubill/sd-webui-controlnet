@@ -40,6 +40,143 @@ negative_prompts = {
     "no_neg": "",
 }
 
+
+sd15_full_face = AdapterSetting(
+    "ip-adapter_clip_sd15",
+    "ip-adapter-full-face_sd15 [852b9843]",
+)
+sd15_plus_face = AdapterSetting(
+    "ip-adapter_clip_sd15",
+    "ip-adapter-plus-face_sd15 [71693645]",
+)
+sd15_normal = AdapterSetting(
+    "ip-adapter_clip_sd15",
+    "ip-adapter_sd15 [6a3f6166]",
+)
+sd15_light = AdapterSetting(
+    "ip-adapter_clip_sd15",
+    "ip-adapter_sd15_light [be1c9b97]",
+)
+sdxl_normal = AdapterSetting(
+    "ip-adapter_clip_sdxl",
+    "ip-adapter_sdxl [d5d53548]"
+)
+sdxl_vit = AdapterSetting(
+    "ip-adapter_clip_sdxl_plus_vith",
+    "ip-adapter_sdxl_vit-h [75a08f84]",
+)
+sdxl_plus_vit = AdapterSetting(
+    "ip-adapter_clip_sdxl_plus_vith",
+    "ip-adapter-plus_sdxl_vit-h [f1f19f7d]",
+)
+sdxl_plus_vit_face = AdapterSetting(
+    "ip-adapter_clip_sdxl_plus_vith",
+    "ip-adapter-plus-face_sdxl_vit-h [c60d7d48]",
+)
+class TestIPAdapterFullCoverage(unittest.TestCase):
+    def setUp(self):
+        if not is_full_coverage:
+            pytest.skip()
+
+        if sd_version == StableDiffusionVersion.SDXL:
+            self.settings = [
+                sdxl_normal,
+                sdxl_vit,
+                sdxl_plus_vit,
+                sdxl_plus_vit_face,
+            ]
+        else:
+            self.settings = [
+                sd15_normal,
+                sd15_light,
+                sd15_plus_face,
+                sd15_full_face,
+            ]
+
+    def test_adapter(self):
+        for s in self.settings:
+            for n, negative_prompt in negative_prompts.items():
+                name = f"{s}_{n}"
+                with self.subTest(name=name):
+                    self.assertTrue(
+                        APITestTemplate(
+                            name,
+                            "txt2img",
+                            payload_overrides={
+                                "prompt": f"{base_prompt},{s.lora_prompt}",
+                                "negative_prompt": negative_prompt,
+                                "steps": 20,
+                                "width": 512,
+                                "height": 512,
+                            },
+                            unit_overrides=[
+                                {
+                                    "module": s.module,
+                                    "model": s.model,
+                                    "image": realistic_girl_face_img,
+                                },
+                                openpose_unit,
+                            ],
+                        ).exec()
+                    )
+
+    def test_adapter_multi_inputs(self):
+        for s in self.settings:
+            for n, negative_prompt in negative_prompts.items():
+                name = f"multi_inputs_{s}_{n}"
+                with self.subTest(name=name):
+                    self.assertTrue(
+                        APITestTemplate(
+                            name=name,
+                            gen_type="txt2img",
+                            payload_overrides={
+                                "prompt": f"{base_prompt}, {s.lora_prompt}",
+                                "negative_prompt": negative_prompt,
+                                "steps": 20,
+                                "width": 512,
+                                "height": 512,
+                            },
+                            unit_overrides=[openpose_unit]
+                            + [
+                                {
+                                    "image": img,
+                                    "module": s.module,
+                                    "model": s.model,
+                                    "weight": 1 / len(portrait_imgs),
+                                }
+                                for img in portrait_imgs
+                            ],
+                        ).exec()
+                    )
+
+    def test_adapter_real_multi_inputs(self):
+        for s in self.settings:
+            for n, negative_prompt in negative_prompts.items():
+                name = f"real_multi_{s}_{n}"
+                with self.subTest(name=name):
+                    self.assertTrue(
+                        APITestTemplate(
+                            name=name,
+                            gen_type="txt2img",
+                            payload_overrides={
+                                "prompt": f"{base_prompt}, {s.lora_prompt}",
+                                "negative_prompt": negative_prompt,
+                                "steps": 20,
+                                "width": 512,
+                                "height": 512,
+                            },
+                            unit_overrides=[
+                                openpose_unit,
+                                {
+                                    "image": [{"image": img} for img in portrait_imgs],
+                                    "module": s.module,
+                                    "model": s.model,
+                                },
+                            ],
+                        ).exec()
+                    )
+
+
 sd15_face_id = AdapterSetting(
     "ip-adapter_face_id",
     "ip-adapter-faceid_sd15 [0a1757e9]",
@@ -66,7 +203,7 @@ sdxl_face_id = AdapterSetting(
 )
 
 
-class TestIPAdapterFullCoverage(unittest.TestCase):
+class TestIPAdapterFaceIdFullCoverage(unittest.TestCase):
     def setUp(self):
         if not is_full_coverage:
             pytest.skip()
@@ -138,7 +275,7 @@ class TestIPAdapterFullCoverage(unittest.TestCase):
                     )
 
     def test_face_id_real_multi_inputs(self):
-        for s in (sd15_face_id, sd15_face_id_portrait):
+        for s in self.settings:
             for n, negative_prompt in negative_prompts.items():
                 name = f"real_multi_{s}_{n}"
                 with self.subTest(name=name):

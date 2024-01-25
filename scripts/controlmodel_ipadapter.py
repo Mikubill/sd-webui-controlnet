@@ -3,7 +3,7 @@ from typing import List
 
 import torch
 import torch.nn as nn
-from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
+from einops import rearrange
 from scripts.logging import logger
 
 
@@ -331,36 +331,56 @@ class IPAdapterModel(torch.nn.Module):
         self.ip_layers = To_KV(state_dict["ip_adapter"])
 
     @torch.inference_mode()
-    def get_image_embeds(self, clip_vision_output: CLIPVisionModelOutput):
-        self.image_proj_model.cpu()
-
+    def get_image_embeds(self, clip_vision_outputs):
+        self.image_proj_model.to(self.device)
+        clip_vision_outputs = clip_vision_outputs if isinstance(clip_vision_outputs, (list, tuple)) else [clip_vision_outputs]
         if self.is_plus:
-            from annotator.clipvision import clip_vision_h_uc, clip_vision_vith_uc
-            cond = self.image_proj_model(clip_vision_output['hidden_states'][-2].to(device='cpu', dtype=torch.float32))
-            uncond = clip_vision_vith_uc.to(cond) if self.sdxl_plus else self.image_proj_model(clip_vision_h_uc.to(cond))
-            return cond, uncond
+            clip_embeds = torch.cat([
+                clip_vision_output['hidden_states'][-2]
+                for clip_vision_output in clip_vision_outputs
+            ], dim=0).to(device=self.device, dtype=torch.float32)
 
-        clip_image_embeds = clip_vision_output['image_embeds'].to(device='cpu', dtype=torch.float32)
-        image_prompt_embeds = self.image_proj_model(clip_image_embeds)
-        # input zero vector for unconditional.
-        uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
-        return image_prompt_embeds, uncond_image_prompt_embeds
+            from annotator.clipvision import clip_vision_h_uc, clip_vision_vith_uc
+            cond = self.image_proj_model(clip_embeds)
+            if self.sdxl_plus:
+                uncond = clip_vision_vith_uc.to(cond)
+            else:
+                uncond = self.image_proj_model(clip_vision_h_uc.to(cond))
+            return cond, uncond
+        else:
+            clip_image_embeds = torch.cat([
+                clip_vision_output['image_embeds']
+                for clip_vision_output in clip_vision_outputs
+            ], dim=0).to(device=self.device, dtype=torch.float32)
+            image_prompt_embeds = self.image_proj_model(clip_image_embeds)
+            uncond_image_prompt_embeds = self.image_proj_model(torch.zeros_like(clip_image_embeds))
+            return image_prompt_embeds, uncond_image_prompt_embeds
 
     @torch.inference_mode()
-    def get_image_embeds_faceid_plus(self, face_embed, clip_vision_output: CLIPVisionModelOutput, is_v2: bool):
-        face_embed = face_embed.to(self.device, dtype=torch.float32)
+    def get_image_embeds_faceid_plus(self, insightface_outputs, clip_vision_outputs, is_v2: bool):
+        self.image_proj_model.to(self.device)
+        faceid_embed_list = insightface_outputs
+        clip_vision_outputs = clip_vision_outputs if isinstance(clip_vision_outputs, (list, tuple)) else [clip_vision_outputs]
+        clip_embed_list = [
+            clip_vision_output['hidden_states'][-2]
+            for clip_vision_output in clip_vision_outputs
+        ]
+        conds = []
+        unconds = []
         from annotator.clipvision import clip_vision_h_uc
-        clip_embed = clip_vision_output['hidden_states'][-2].to(device=self.device, dtype=torch.float32)
-        return (
-            self.image_proj_model(face_embed, clip_embed, shortcut=is_v2),
-            self.image_proj_model(torch.zeros_like(face_embed), clip_vision_h_uc.to(clip_embed), shortcut=is_v2),
-        )
+        for faceid_embed, clip_embed in zip(faceid_embed_list, clip_embed_list):
+            faceid_embed = faceid_embed.to(device=self.device, dtype=torch.float32)
+            clip_embed = clip_embed.to(device=self.device, dtype=torch.float32)
+            conds.append(self.image_proj_model(faceid_embed, clip_embed, shortcut=is_v2))
+            unconds.append(self.image_proj_model(torch.zeros_like(faceid_embed), clip_vision_h_uc.to(clip_embed), shortcut=is_v2))
+
+        return torch.cat(conds, dim=0), torch.cat(unconds, dim=0)
 
     @torch.inference_mode()
     def get_image_embeds_faceid(self, insightface_outputs: List[torch.Tensor]):
         """Get image embeds for non-plus faceid. Multiple inputs are supported."""
+        self.image_proj_model.to(self.device)
         batch_size = len(insightface_outputs)
-
         faceid_embeds = torch.cat(insightface_outputs, dim=0).to(self.device, dtype=torch.float32)
         assert faceid_embeds.ndim == 2
         image_prompt_embeds = self.image_proj_model(faceid_embeds)
@@ -537,8 +557,9 @@ class PlugableIPAdapter(torch.nn.Module):
         else:
             self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(clip_vision_output)
 
-        self.image_emb = self.image_emb.to(device, dtype=self.dtype)
-        self.uncond_image_emb = self.uncond_image_emb.to(device, dtype=self.dtype)
+        assert self.image_emb.ndim == self.uncond_image_emb.ndim == 3
+        self.image_emb = self.image_emb.to(device, dtype=self.dtype).unsqueeze(0)
+        self.uncond_image_emb = self.uncond_image_emb.to(device, dtype=self.dtype).unsqueeze(0)
 
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         if not self.sdxl:
@@ -580,6 +601,7 @@ class PlugableIPAdapter(torch.nn.Module):
     def patch_forward(self, number: int):
         @torch.no_grad()
         def forward(attn_blk, x, q):
+            emb_size = self.image_emb.shape[1]
             batch_size, sequence_length, inner_dim = x.shape
             h = attn_blk.heads
             head_dim = inner_dim // h
@@ -588,7 +610,7 @@ class PlugableIPAdapter(torch.nn.Module):
             if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
                 return 0
 
-            cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
+            cond_mark = current_model.cond_mark.to(self.image_emb)
             cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
@@ -596,7 +618,10 @@ class PlugableIPAdapter(torch.nn.Module):
             ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
 
             ip_k, ip_v = map(
-                lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
+                lambda t: rearrange(
+                    t, "batch emb key (head head_dim) -> emb batch head key head_dim",
+                    batch=batch_size, emb=emb_size, head=h, head_dim=head_dim,
+                ),
                 (ip_k, ip_v),
             )
             assert ip_k.dtype == ip_v.dtype
@@ -608,7 +633,7 @@ class PlugableIPAdapter(torch.nn.Module):
                 ip_v = ip_v.to(dtype=q.dtype)
 
             ip_out = torch.nn.functional.scaled_dot_product_attention(q, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False)
-            ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
+            ip_out = ip_out.mean(dim=0).transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
             return ip_out * self.weight
         return forward
