@@ -61,6 +61,15 @@ class ControlModelType(Enum):
     ReVision = "ReVision, Stability"
     IPAdapter = "IPAdapter, Hu Ye"
     Controlllite = "Controlllite, Kohya"
+    InstantID = "InstantID, Qixun Wang"
+
+    def is_controlnet(self) -> bool:
+        """Returns whether the control model should be treated as ControlNet."""
+        return self in (
+            ControlModelType.ControlNet,
+            ControlModelType.ControlLoRA,
+            ControlModelType.InstantID,
+        )
 
     def allow_context_sharing(self) -> bool:
         """Returns whether this control model type allows the same PlugableControlModel

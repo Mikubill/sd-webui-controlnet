@@ -543,14 +543,17 @@ class UnetHook(nn.Module):
                 if param.guidance_stopped or param.disabled_by_hr_option(self.is_in_high_res_fix):
                     continue
 
-                if param.control_model_type not in [ControlModelType.ControlNet, ControlModelType.T2I_Adapter]:
+                if not (
+                    param.control_model_type.is_controlnet() or
+                    param.control_model_type == ControlModelType.T2I_Adapter
+                ):
                     continue
 
                 # inpaint model workaround
                 x_in = x
                 control_model = param.control_model.control_model
 
-                if param.control_model_type == ControlModelType.ControlNet:
+                if control_model_type.is_controlnet():
                     if x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9:
                         # inpaint_model: 4 data + 4 downscaled image + 1 mask
                         x_in = x[:, :4, ...]
@@ -594,10 +597,10 @@ class UnetHook(nn.Module):
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
-                    elif param.control_model_type == ControlModelType.ControlNet:
+                    elif param.control_model_type.is_controlnet():
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
 
-                if is_sdxl and param.control_model_type == ControlModelType.ControlNet:
+                if is_sdxl and param.control_model_type.is_controlnet():
                     control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
@@ -612,7 +615,7 @@ class UnetHook(nn.Module):
 
                 for idx, item in enumerate(control):
                     target = None
-                    if param.control_model_type == ControlModelType.ControlNet:
+                    if param.control_model_type.is_controlnet():
                         target = total_controlnet_embedding
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         target = total_t2i_adapter_embedding
