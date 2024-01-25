@@ -570,7 +570,13 @@ class UnetHook(nn.Module):
                     m = (m > 0.5).float()
                     hint = c * (1 - m) - m
 
-                control = param.control_model(x=x_in, hint=hint, timesteps=timesteps, context=context, y=y)
+                control = param.control_model(
+                    x=x_in,
+                    hint=hint,
+                    timesteps=timesteps,
+                    context=context,
+                    y=y
+                )
 
                 if is_sdxl:
                     control_scales = [param.weight] * 10

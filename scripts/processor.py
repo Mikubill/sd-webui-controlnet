@@ -1238,7 +1238,7 @@ preprocessor_sliders_config = {
             "value": 512,
             "min": 64,
             "max": 2048
-        } 
+        }
     ],
     "te_hed": [
         {
@@ -1252,6 +1252,16 @@ preprocessor_sliders_config = {
             "min": 0,
             "max": 10,
             "value": 2,
+            "step": 1,
+        },
+    ],
+    "instant_id": [
+        None,
+        {
+            "name": "Pairing unit ID",
+            "min": 0,
+            "max": 5,
+            "value": 0,
             "step": 1,
         },
     ],
