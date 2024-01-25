@@ -381,16 +381,23 @@ clip_encoder = {
 }
 
 
-def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
-    img = HWC3(img)
-    global clip_encoder
-    if clip_encoder[config] is None:
-        from annotator.clipvision import ClipVisionDetector
-        if low_vram:
-            logger.info("Loading CLIP model on CPU.")
-        clip_encoder[config] = ClipVisionDetector(config, low_vram)
-    result = clip_encoder[config](img)
-    return result, False
+def clip(imgs: Union[Tuple[np.ndarray], np.ndarray], config='clip_vitl', low_vram=False, **kwargs):
+    imgs = imgs if isinstance(imgs, tuple) else (imgs,)
+    result = []
+    for img in imgs:
+        img = HWC3(img)
+        global clip_encoder
+        if clip_encoder[config] is None:
+            from annotator.clipvision import ClipVisionDetector
+            if low_vram:
+                logger.info("Loading CLIP model on CPU.")
+            clip_encoder[config] = ClipVisionDetector(config, low_vram)
+        result.append(clip_encoder[config](img))
+
+    if len(result) == 1:
+        return result[0], False
+    else:
+        return result, False
 
 
 def unload_clip(config='clip_vitl'):
@@ -823,12 +830,11 @@ g_insight_face_model = InsightFaceModel()
 g_insight_face_instant_id_model = InsightFaceModel(face_analysis_model_name="antelopev2")
 
 
-def face_id_plus(img, low_vram=False, **kwargs):
+def face_id_plus(imgs: Union[Tuple[np.ndarray], np.ndarray], low_vram=False, **kwargs):
     """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
-    face_embed, _ = g_insight_face_model.run_model(img)
-    clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
-    assert len(face_embed) > 0
-    return (face_embed[0], clip_embed), False
+    face_embed, _ = g_insight_face_model.run_model(imgs)
+    clip_embed, _ = clip(imgs, config='clip_h', low_vram=low_vram)
+    return (face_embed, clip_embed), False
 
 
 class HandRefinerModel:

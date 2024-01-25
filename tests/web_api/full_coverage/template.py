@@ -164,7 +164,7 @@ def expect_same_image(img1, img2, diff_img_path: str) -> bool:
         cv2.imwrite(diff_img_path, diff_highlighted)
 
     matching_pixels = np.isclose(img1, img2, rtol=0.5, atol=1)
-    similar_in_general = (matching_pixels.sum() / matching_pixels.size()) >= 0.95
+    similar_in_general = (matching_pixels.sum() / matching_pixels.size) >= 0.95
     return similar_in_general
 
 
