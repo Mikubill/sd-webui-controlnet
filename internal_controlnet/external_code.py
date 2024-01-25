@@ -201,7 +201,13 @@ class ControlNetUnit:
 
     def accepts_multiple_inputs(self) -> bool:
         """This unit can accept multiple input images."""
-        return False
+        return self.module in (
+            "ip-adapter_clip_sdxl",
+            "ip-adapter_clip_sdxl_plus_vith",
+            "ip-adapter_clip_sd15",
+            "ip-adapter_face_id",
+            "ip-adapter_face_id_plus",
+        )
 
 
 def to_base64_nparray(encoding: str):
