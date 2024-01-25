@@ -2,9 +2,11 @@ import os
 import cv2
 import numpy as np
 import torch
+import math
+import PIL
 
 from annotator.util import HWC3
-from typing import Callable, Tuple, Union, List
+from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
@@ -736,6 +738,49 @@ class InsightFaceModel:
             faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
+    def run_model_instant_id(self, img: np.ndarray, keypoints: bool = False, **kwargs):
+        """Run the model for instant_id."""
+        def draw_kps(img: np.ndarray, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]):
+            stickwidth = 4
+            limbSeq = np.array([[0, 2], [1, 2], [3, 2], [4, 2]])
+            kps = np.array(kps)
+
+            h, w, _ = img.shape
+            out_img = np.zeros([h, w, 3])
+
+            for i in range(len(limbSeq)):
+                index = limbSeq[i]
+                color = color_list[index[0]]
+
+                x = kps[index][:, 0]
+                y = kps[index][:, 1]
+                length = ((x[0] - x[1]) ** 2 + (y[0] - y[1]) ** 2) ** 0.5
+                angle = math.degrees(math.atan2(y[0] - y[1], x[0] - x[1]))
+                polygon = cv2.ellipse2Poly((int(np.mean(x)), int(np.mean(y))), (int(length / 2), stickwidth), int(angle), 0, 360, 1)
+                out_img = cv2.fillConvexPoly(out_img.copy(), polygon, color)
+            out_img = (out_img * 0.6).astype(np.uint8)
+
+            for idx_kp, kp in enumerate(kps):
+                color = color_list[idx_kp]
+                x, y = kp
+                out_img = cv2.circle(out_img.copy(), (int(x), int(y)), 10, color, -1)
+
+            return out_img.astype(np.uint8)
+
+        self.load_model()
+        face_info = self.model.get(img)
+        if not face_info:
+            raise Exception(f"Insightface: No face found in image.")
+        if len(face_info) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        f"Only the first one will be used.")
+        # only use the maximum face
+        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
+        if keypoints:
+            return draw_kps(img, face_info['kps']), True
+        else:
+            return face_info['embedding'], False
+
 
 g_insight_face_model = InsightFaceModel()
 
@@ -1231,6 +1276,7 @@ preprocessor_filters = {
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
+    "Instant_ID": "instant_id_face_embed",
 }
 
 preprocessor_filters_aliases = {

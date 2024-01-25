@@ -4,7 +4,7 @@ import os
 import logging
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 from modules.api.api import decode_base64_to_image
@@ -1085,7 +1085,7 @@ class Script(scripts.Script, metaclass=(
             if param.control_model_type == ControlModelType.IPAdapter:
                 param.control_model.hook(
                     model=unet,
-                    clip_vision_output=param.hint_cond,
+                    preprocessor_output=param.hint_cond,
                     weight=param.weight,
                     dtype=torch.float32,
                     start=param.start_guidance_percent,

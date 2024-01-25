@@ -76,6 +76,8 @@ cn_preprocessor_modules = {
     "ip-adapter_clip_sdxl": functools.partial(clip, config='clip_g'),
     "ip-adapter_face_id": g_insight_face_model.run_model,
     "ip-adapter_face_id_plus": face_id_plus,
+    "instant_id_face_embed": functools.partial(g_insight_face_model.run_model_instant_id, keypoints=False),
+    "instant_id_face_keypoints": functools.partial(g_insight_face_model.run_model_instant_id, keypoints=True),
     "color": color,
     "pidinet": pidinet,
     "pidinet_safe": pidinet_safe,
