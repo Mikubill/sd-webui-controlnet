@@ -501,7 +501,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
-        self.cache = {}
+        self.cache = None
         self.p_start = 0.0
         self.p_end = 1.0
         return

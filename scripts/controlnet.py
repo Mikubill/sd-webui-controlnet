@@ -202,7 +202,7 @@ def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
 class Script(scripts.Script, metaclass=(
     utils.TimeMeta if logger.level == logging.DEBUG else type)):
 
-    model_cache = OrderedDict()
+    model_cache: Dict[str, ControlModel] = OrderedDict()
 
     def __init__(self) -> None:
         super().__init__()
@@ -329,10 +329,20 @@ class Script(scripts.Script, metaclass=(
 
     @staticmethod
     def load_control_model(p, unet, model) -> ControlModel:
-        # ip-adapter model contains embedding data, so each model is unique.
-        if 'ip-adapter' not in model and model in Script.model_cache:
+        if model in Script.model_cache:
             logger.info(f"Loading model from cache: {model}")
-            return Script.model_cache[model]
+            control_model = Script.model_cache[model]
+            if control_model.type == ControlModelType.Controlllite:
+                # Falls through to load Controlllite model fresh.
+                # TODO Fix context sharing issue for Controlllite.
+                pass
+            elif not control_model.type.allow_context_sharing():
+                # Creates a shallow-copy of control_model so that configs/inputs
+                # from different units can be bind correctly. While heavy objects
+                # of the underlying nn.Module is not copied.
+                return ControlModel(copy(control_model.model), control_model.type)
+            else:
+                return control_model
 
         # Remove model from cache to clear space before building another model
         if len(Script.model_cache) > 0 and len(Script.model_cache) >= shared.opts.data.get("control_net_model_cache_size", 2):

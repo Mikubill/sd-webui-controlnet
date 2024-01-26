@@ -62,6 +62,17 @@ class ControlModelType(Enum):
     IPAdapter = "IPAdapter, Hu Ye"
     Controlllite = "Controlllite, Kohya"
 
+    def allow_context_sharing(self) -> bool:
+        """Returns whether this control model type allows the same PlugableControlModel
+        object map to multiple ControlNetUnit.
+        Both IPAdapter and Controlllite have unit specific input (clip/image) stored
+        on the model object during inference. Sharing the context means that the input
+        set earlier gets lost.
+        """
+        return self not in (
+            ControlModelType.IPAdapter,
+            ControlModelType.Controlllite,
+        )
 
 # Written by Lvmin
 class AutoMachine(Enum):
