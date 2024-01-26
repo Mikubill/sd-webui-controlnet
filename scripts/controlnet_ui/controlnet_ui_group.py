@@ -191,6 +191,9 @@ class UiControlNetUnit(external_code.ControlNetUnit):
 
     def unfold_instant_id(self) -> List[external_code.ControlNetUnit]:
         """InstantID has 2 model inputs on UI. Unfolds it into 2 units."""
+        if not self.model2 or self.model2.lower() == "none":
+            return [self]
+
         unit2 = copy(self)
         unit2.model = self.model2
         self.model2 = None
@@ -676,6 +679,7 @@ class ControlNetUiGroup(object):
             self.batch_image_dir_state,
             self.output_dir_state,
             self.loopback,
+            self.model2,
             # Non-persistent fields.
             # Following inputs will not be persistent on `ControlNetUnit`.
             # They are only used during object construction.

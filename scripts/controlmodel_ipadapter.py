@@ -490,7 +490,7 @@ class ImageEmbed(NamedTuple):
 
     def eval(self, cond_mark: torch.Tensor) -> torch.Tensor:
         assert cond_mark.ndim == 4
-        assert self.cond_emb.ndim == self.uncond_emb == 3
+        assert self.cond_emb.ndim == self.uncond_emb.ndim == 3
         assert self.cond_emb.shape[0] == self.uncond_emb.shape[0] == 1
         cond_mark = cond_mark[:, :, :, 0].to(self.cond_emb)
         return self.cond_emb * cond_mark + self.uncond_emb * (1 - cond_mark)
@@ -576,7 +576,7 @@ class PlugableIPAdapter(torch.nn.Module):
 
         self.ipadapter.to(device, dtype=self.dtype)
         if self.is_instantid:
-            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output.embedding)
         elif self.is_faceid and self.is_plus:
             # Note: FaceID plus uses both face_embed and clip_embed.
             # This should be the return value from preprocessor.
@@ -644,7 +644,7 @@ class PlugableIPAdapter(torch.nn.Module):
 
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
-            cond_uncond_image_emb = self.image_emb.eval(cond_mark)
+            cond_uncond_image_emb = self.image_emb.eval(current_model.cond_mark)
             ip_k = self.call_ip(k_key, cond_uncond_image_emb, device=q.device)
             ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
 

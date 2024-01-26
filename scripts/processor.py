@@ -6,11 +6,12 @@ import math
 import PIL
 
 from annotator.util import HWC3
-from typing import Callable, Tuple, Union, NamedTuple
+from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
 from scripts.logging import logger
+from scripts.controlmodel_instant_id import RawInstantIdInput
 
 
 def torch_handler(module: str, name: str):
@@ -767,10 +768,6 @@ class InsightFaceModel:
 
             return out_img.astype(np.uint8)
 
-        class InstantIdInput(NamedTuple):
-            keypoints: np.ndarray
-            embedding: torch.Tensor
-
         self.load_model()
         face_info = self.model.get(img)
         if not face_info:
@@ -780,7 +777,7 @@ class InsightFaceModel:
                         f"Only the first one will be used.")
         # only use the maximum face
         face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
-        return InstantIdInput(draw_kps(img, face_info['kps']), face_info['embedding']), False
+        return RawInstantIdInput(draw_kps(img, face_info['kps']), face_info['embedding']), False
 
 
 g_insight_face_model = InsightFaceModel()

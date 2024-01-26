@@ -17,6 +17,7 @@ from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.controlmodel_ipadapter import clear_all_ip_adapter
+from scripts.controlmodel_instant_id import ResizedInstantIdInput, InstantIdInput
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -197,6 +198,20 @@ def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
         logger.warning(e)
         logger.warning('Warning: Failed to use consistent random seed.')
         return None
+
+
+def get_pytorch_control(x: np.ndarray) -> torch.Tensor:
+    # A very safe method to make sure that Apple/Mac works
+    y = x
+
+    # below is very boring but do not change these. If you change these Apple or Mac may fail.
+    y = torch.from_numpy(y)
+    y = y.float() / 255.0
+    y = rearrange(y, 'h w c -> 1 c h w')
+    y = y.clone()
+    y = y.to(devices.get_device_for("controlnet"))
+    y = y.clone()
+    return y
 
 
 class Script(scripts.Script, metaclass=(
@@ -440,19 +455,6 @@ class Script(scripts.Script, metaclass=(
             y = y.copy()
             y = np.ascontiguousarray(y)
             y = y.copy()
-            return y
-
-        def get_pytorch_control(x):
-            # A very safe method to make sure that Apple/Mac works
-            y = x
-
-            # below is very boring but do not change these. If you change these Apple or Mac may fail.
-            y = torch.from_numpy(y)
-            y = y.float() / 255.0
-            y = rearrange(y, 'h w c -> 1 c h w')
-            y = y.clone()
-            y = y.to(devices.get_device_for("controlnet"))
-            y = y.clone()
             return y
 
         def high_quality_resize(x, size):
@@ -859,6 +861,7 @@ class Script(scripts.Script, metaclass=(
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+        h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
@@ -896,8 +899,6 @@ class Script(scripts.Script, metaclass=(
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
-
-            h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             if isinstance(input_image, list):
@@ -957,6 +958,12 @@ class Script(scripts.Script, metaclass=(
                 control = detected_map
                 for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
                     store_detected_map(img, unit.module)
+
+                if control_model_type == ControlModelType.InstantID:
+                    assert isinstance(detected_map, tuple)
+                    raw_input = detected_map
+                    resized_keypoints, _ = Script.detectmap_proc(raw_input.keypoints, unit.module, resize_mode, h, w)
+                    control = ResizedInstantIdInput(resized_keypoints, raw_input.embedding)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:
                 control = control['last_hidden_state']
@@ -1090,7 +1097,7 @@ class Script(scripts.Script, metaclass=(
                     start=param.start_guidance_percent,
                     end=param.stop_guidance_percent
                 )
-            if control_model_type == ControlModelType.InstantID:
+            if param.control_model_type == ControlModelType.InstantID:
                 # For instant_id we always expect ip-adapter model followed
                 # by ControlNet model.
                 assert i > 0, "InstantID control model should follow ipadapter model."
@@ -1099,8 +1106,10 @@ class Script(scripts.Script, metaclass=(
                         "InstantID control model should follow ipadapter model."
                 control_model = ip_adapter_param.control_model
                 assert hasattr(control_model, "image_emb")
-                assert hasattr(control_model, "uncond_image_emb")
-                param.hint_cond = (param.hint_cond.keypoints, control_model.image_emb)
+                param.hint_cond = InstantIdInput(
+                    param.hint_cond.resized_keypoints,
+                    control_model.image_emb,
+                )
 
         self.latest_network = UnetHook(lowvram=is_low_vram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,

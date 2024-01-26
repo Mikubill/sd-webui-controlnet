@@ -7,6 +7,7 @@ from functools import partial
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
+from scripts.controlmodel_instant_id import InstantIdInput
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -553,7 +554,7 @@ class UnetHook(nn.Module):
                 x_in = x
                 control_model = param.control_model.control_model
 
-                if control_model_type.is_controlnet():
+                if param.control_model_type.is_controlnet():
                     if x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9:
                         # inpaint_model: 4 data + 4 downscaled image + 1 mask
                         x_in = x[:, :4, ...]
@@ -562,6 +563,11 @@ class UnetHook(nn.Module):
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
 
                 hint = param.used_hint_cond
+                # Unpack inputs for InstantID.
+                if param.control_model_type == ControlModelType.InstantID:
+                    assert isinstance(hint, InstantIdInput)
+                    context = hint.projected_embedding.eval(cond_mark).to(x.device, dtype=x.dtype)
+                    hint = hint.resized_keypoints.to(x.device, dtype=x.dtype)
 
                 # ControlNet inpaint protocol
                 if hint.shape[1] == 4:
