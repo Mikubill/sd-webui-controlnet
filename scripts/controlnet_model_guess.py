@@ -267,4 +267,16 @@ def build_model_by_guess(state_dict, unet, model_path: str):
         network.to('cpu')
         return network
 
+    if "time_embed.0.weight" in state_dict: # external reference
+        from omegaconf import OmegaConf
+        from ldm.modules.diffusionmodules.openaimodel import UNetModel
+        from modules.sd_models_config import config_default
+        from modules.sd_models import repair_config
+        sd_config = OmegaConf.load(config_default)
+        repair_config(sd_config)
+        network = UNetModel(**sd_config.model.params.unet_config.params)
+        network.load_state_dict(state_dict, strict=False)
+        network.to(devices.device) # TODO: implement lowvram, remove some layers
+        return network
+
     raise '[ControlNet Error] Cannot recognize the ControlModel!'

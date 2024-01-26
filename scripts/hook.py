@@ -411,6 +411,11 @@ class UnetHook(nn.Module):
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
             if self.model is not None:
                 self.model.current_sampling_percent = current_sampling_percent
+            if "revision_moore" in param.preprocessor['name']:
+                if "ignore_prompt" in param.preprocessor['name']:
+                    x.text_cond = param.hint_cond.repeat(x.batch_size, 1, 1)
+                else:
+                    x.text_cond = param.hint_cond.repeat(x.batch_size, 1, 1).concat(x.text_cond, dim=1)
 
     def hook(self, model, sd_ldm, control_params, process, batch_option_uint_separate=False, batch_option_style_align=False):
         self.model = model
@@ -683,7 +688,13 @@ class UnetHook(nn.Module):
                 if param.control_model_type not in [ControlModelType.AttentionInjection]:
                     continue
 
-                ref_xt = predict_q_sample(outer.sd_ldm, param.used_hint_cond_latent, torch.round(timesteps.float()).long())
+                control_name = param.preprocessor['name']
+                has_external_ref = 'moore' in control_name or 'magic_animate' in control_name
+
+                if has_external_ref:
+                    ref_xt = param.used_hint_cond_latent
+                else:
+                    ref_xt = predict_q_sample(outer.sd_ldm, param.used_hint_cond_latent, torch.round(timesteps.float()).long())
 
                 # Inpaint Hijack
                 if x.shape[1] == 9:
@@ -707,9 +718,8 @@ class UnetHook(nn.Module):
                 elif param.soft_injection or is_in_high_res_fix:
                     outer.current_style_fidelity = 0.0
 
-                control_name = param.preprocessor['name']
 
-                if control_name in ['reference_only', 'reference_adain+attn']:
+                if has_external_ref or control_name in ['reference_only', 'reference_adain+attn']:
                     outer.attention_auto_machine = AutoMachine.Write
                     outer.attention_auto_machine_weight = param.weight
 
@@ -717,19 +727,48 @@ class UnetHook(nn.Module):
                     outer.gn_auto_machine = AutoMachine.Write
                     outer.gn_auto_machine_weight = param.weight
 
-                if is_sdxl:
-                    outer.original_forward(
-                        x=ref_xt.to(devices.dtype_unet),
-                        timesteps=timesteps.to(devices.dtype_unet),
-                        context=context.to(devices.dtype_unet),
-                        y=y
-                    )
+                if has_external_ref:
+                     if "moore" in control_name and param.control_model is not None:
+                        param.control_model(
+                            x=ref_xt.to(devices.dtype_unet),
+                            timesteps=torch.zeros_like(timesteps).to(devices.dtype_unet),
+                            context=context.to(devices.dtype_unet),
+                        )
+                        for name, module in param.control_model.named_modules():
+                            if hasattr(module, 'bank'):
+                                self.named_modules()[name].bank = module.bank
+
+                        import gc
+                        param.control_model.to('cpu')
+                        del param.control_model
+                        param.control_model = None
+                        devices.torch_gc()
+                        gc.collect()
+                     elif "magic_animate" in control_name:
+                        param.control_model(
+                            x=ref_xt.to(devices.dtype_unet),
+                            timesteps=timesteps.to(devices.dtype_unet),
+                            context=context.to(devices.dtype_unet),
+                        )
+                        for name, module in param.control_model.named_modules():
+                            if "input_blocks" in name:
+                                continue
+                            if hasattr(module, 'bank'):
+                                self.named_modules()[name].bank = module.bank
                 else:
-                    outer.original_forward(
-                        x=ref_xt.to(devices.dtype_unet),
-                        timesteps=timesteps.to(devices.dtype_unet),
-                        context=context.to(devices.dtype_unet)
-                    )
+                    if is_sdxl:
+                        outer.original_forward(
+                            x=ref_xt.to(devices.dtype_unet),
+                            timesteps=timesteps.to(devices.dtype_unet),
+                            context=context.to(devices.dtype_unet),
+                            y=y
+                        )
+                    else:
+                        outer.original_forward(
+                            x=ref_xt.to(devices.dtype_unet),
+                            timesteps=timesteps.to(devices.dtype_unet),
+                            context=context.to(devices.dtype_unet)
+                        )
 
                 outer.attention_auto_machine = AutoMachine.Read
                 outer.gn_auto_machine = AutoMachine.Read

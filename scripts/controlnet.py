@@ -686,7 +686,7 @@ class Script(scripts.Script, metaclass=(
         sd_version = global_state.get_sd_version()
         assert sd_version != StableDiffusionVersion.UNKNOWN
         
-        if "revision" in unit.module.lower() and sd_version != StableDiffusionVersion.SDXL:
+        if "revision" in unit.module.lower() and sd_version != StableDiffusionVersion.SDXL and "moore" not in unit.module.lower():
             raise Exception(f"Preprocessor 'revision' only supports SDXL. Current SD base model is {sd_version}.")
         
         # No need to check if the ControlModelType does not require model to be present.

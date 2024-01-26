@@ -65,6 +65,25 @@ config_clip_vitl = {
   "torch_dtype": "float32"
 }
 
+config_clip_vith = {
+  "attention_dropout": 0.0,
+  "dropout": 0.0,
+  "hidden_act": "quick_gelu",
+  "hidden_size": 1024,
+  "image_size": 224,
+  "initializer_factor": 1.0,
+  "initializer_range": 0.02,
+  "intermediate_size": 4096,
+  "layer_norm_eps": 1e-05,
+  "model_type": "clip_vision_model",
+  "num_attention_heads": 16,
+  "num_channels": 3,
+  "num_hidden_layers": 24,
+  "patch_size": 14,
+  "projection_dim": 768,
+  "torch_dtype": "float32"
+}
+
 configs = {
     'clip_g': config_clip_g,
     'clip_h': config_clip_h,
@@ -73,6 +92,7 @@ configs = {
 
 downloads = {
     'clip_vitl': 'https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin',
+    'clip_vith': 'https://huggingface.co/lambdalabs/sd-image-variations-diffusers/resolve/main/image_encoder/pytorch_model.bin?download=true',
     'clip_g': 'https://huggingface.co/lllyasviel/Annotators/resolve/main/clip_g.pth',
     'clip_h': 'https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/pytorch_model.bin'
 }

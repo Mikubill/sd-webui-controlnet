@@ -54,6 +54,7 @@ class ControlModelType(Enum):
     ReVision = "ReVision, Stability"
     IPAdapter = "IPAdapter, Hu Ye"
     Controlllite = "Controlllite, Kohya"
+    PoseNet = "PoseNet, Moore Threads"
     SparseCtrl = "SparseCtrl, Yuwei Guo"
 
 
