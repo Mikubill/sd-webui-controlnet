@@ -709,15 +709,16 @@ def unload_te_hed():
         model_te_hed.unload_model()
 
 class InsightFaceModel:
-    def __init__(self):
+    def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
+        self.face_analysis_model_name = face_analysis_model_name
 
     def load_model(self):
         if self.model is None:
             from insightface.app import FaceAnalysis
             from annotator.annotator_path import models_path
             self.model = FaceAnalysis(
-                name="buffalo_l",
+                name=self.face_analysis_model_name,
                 providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
                 root=os.path.join(models_path, "insightface"),
             )
@@ -781,6 +782,7 @@ class InsightFaceModel:
 
 
 g_insight_face_model = InsightFaceModel()
+g_insight_face_instant_id_model = InsightFaceModel(face_analysis_model_name="antelopev2")
 
 
 def face_id_plus(img, low_vram=False, **kwargs):
