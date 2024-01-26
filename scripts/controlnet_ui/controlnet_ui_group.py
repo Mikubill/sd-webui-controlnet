@@ -563,16 +563,19 @@ class ControlNetUiGroup(object):
                 value=self.default_unit.model,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model_dropdown",
             )
+            self.refresh_models = ToolButton(
+                value=ControlNetUiGroup.refresh_symbol,
+                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
+                tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.refresh_symbol],
+            )
+
+        with gr.Row():
             self.model2 = gr.Dropdown(
                 list(global_state.cn_models.keys()),
                 label=f"Model 2",
                 value=self.default_unit.model,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model2_dropdown",
-            )
-            self.refresh_models = ToolButton(
-                value=ControlNetUiGroup.refresh_symbol,
-                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
-                tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.refresh_symbol],
+                visible=False,
             )
 
         with gr.Row(elem_classes=["controlnet_weight_steps", "controlnet_row"]):
@@ -803,11 +806,11 @@ class ControlNetUiGroup(object):
             return (
                 gr.Dropdown.update(
                     value=model1 if model1 in global_state.cn_models else "None",
-                    choices=choices
+                    choices=choices,
                 ),
                 gr.Dropdown.update(
                     value=model2 if model2 in global_state.cn_models else "None",
-                    choices=choices
+                    choices=choices,
                 ),
             )
 
@@ -934,6 +937,10 @@ class ControlNetUiGroup(object):
                 return [
                     gr.Dropdown.update(choices=filtered_preprocessor_list),
                     gr.Dropdown.update(choices=filtered_model_list),
+                    gr.Dropdown.update(
+                        choices=filtered_model_list,
+                        visible=k == "Instant_ID",
+                    ),
                 ]
             else:
                 return [
@@ -943,12 +950,16 @@ class ControlNetUiGroup(object):
                     gr.Dropdown.update(
                         value=default_model, choices=filtered_model_list
                     ),
+                    gr.Dropdown.update(
+                        choices=filtered_model_list,
+                        visible=k == "Instant_ID",
+                    ),
                 ]
 
         self.type_filter.change(
             fn=filter_selected,
             inputs=[self.type_filter],
-            outputs=[self.module, self.model],
+            outputs=[self.module, self.model, self.model2],
             show_progress=False,
         )
 
@@ -966,15 +977,20 @@ class ControlNetUiGroup(object):
             if current_model in filtered_model_list:
                 return gr.update()
 
-            return gr.Dropdown.update(
-                value=default_model,
-                choices=filtered_model_list,
+            return (
+                gr.Dropdown.update(
+                    value=default_model,
+                    choices=filtered_model_list,
+                ),
+                gr.Dropdown.update(
+                    choices=filtered_model_list,
+                ),
             )
 
         ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
             fn=sd_version_changed,
             inputs=[self.type_filter, self.model],
-            outputs=[self.model],
+            outputs=[self.model, self.model2],
             show_progress=False,
         )
 
