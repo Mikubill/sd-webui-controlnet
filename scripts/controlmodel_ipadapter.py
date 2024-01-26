@@ -1,5 +1,5 @@
 import math
-from typing import List
+from typing import List, NamedTuple
 
 import torch
 import torch.nn as nn
@@ -483,6 +483,19 @@ def clear_all_ip_adapter():
     return
 
 
+class ImageEmbed(NamedTuple):
+    """Image embed for a single image."""
+    cond_emb: torch.Tensor
+    uncond_emb: torch.Tensor
+
+    def eval(self, cond_mark: torch.Tensor) -> torch.Tensor:
+        assert cond_mark.ndim == 4
+        assert self.cond_emb.ndim == self.uncond_emb == 3
+        assert self.cond_emb.shape[0] == self.uncond_emb.shape[0] == 1
+        cond_mark = cond_mark[:, :, :, 0].to(self.cond_emb)
+        return self.cond_emb * cond_mark + self.uncond_emb * (1 - cond_mark)
+
+
 class PlugableIPAdapter(torch.nn.Module):
     def __init__(self, state_dict, model_name: str):
         """
@@ -563,21 +576,23 @@ class PlugableIPAdapter(torch.nn.Module):
 
         self.ipadapter.to(device, dtype=self.dtype)
         if self.is_instantid:
-            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output)
         elif self.is_faceid and self.is_plus:
             # Note: FaceID plus uses both face_embed and clip_embed.
             # This should be the return value from preprocessor.
             assert isinstance(preprocessor_output, (list, tuple))
             assert len(preprocessor_output) == 2
-            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid_plus(*preprocessor_output, is_v2=self.is_v2)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_faceid_plus(*preprocessor_output, is_v2=self.is_v2)
         elif self.is_faceid:
             assert isinstance(preprocessor_output, (list, tuple))
-            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds_faceid(preprocessor_output)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_faceid(preprocessor_output)
         else:
-            self.image_emb, self.uncond_image_emb = self.ipadapter.get_image_embeds(preprocessor_output)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds(preprocessor_output)
 
-        self.image_emb = self.image_emb.to(device, dtype=self.dtype)
-        self.uncond_image_emb = self.uncond_image_emb.to(device, dtype=self.dtype)
+        self.image_emb = ImageEmbed(
+            image_emb.to(device, dtype=self.dtype),
+            uncond_image_emb.to(device, dtype=self.dtype)
+        )
 
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         if not self.sdxl:
@@ -627,10 +642,9 @@ class PlugableIPAdapter(torch.nn.Module):
             if current_sampling_percent < self.p_start or current_sampling_percent > self.p_end:
                 return 0
 
-            cond_mark = current_model.cond_mark[:, :, :, 0].to(self.image_emb)
-            cond_uncond_image_emb = self.image_emb * cond_mark + self.uncond_image_emb * (1 - cond_mark)
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
+            cond_uncond_image_emb = self.image_emb.eval(cond_mark)
             ip_k = self.call_ip(k_key, cond_uncond_image_emb, device=q.device)
             ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
 

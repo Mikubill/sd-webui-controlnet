@@ -1255,16 +1255,6 @@ preprocessor_sliders_config = {
             "step": 1,
         },
     ],
-    "instant_id": [
-        None,
-        {
-            "name": "Pairing unit ID",
-            "min": 0,
-            "max": 5,
-            "value": 0,
-            "step": 1,
-        },
-    ],
 }
 
 preprocessor_filters = {
@@ -1287,7 +1277,7 @@ preprocessor_filters = {
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
-    "Instant_ID": "instant_id_face_embed",
+    "Instant_ID": "instant_id",
 }
 
 preprocessor_filters_aliases = {

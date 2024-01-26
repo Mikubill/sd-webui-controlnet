@@ -563,8 +563,8 @@ class Script(scripts.Script, metaclass=(
             local_unit = Script.parse_remote_call(p, unit, idx)
             if not local_unit.enabled:
                 continue
-            if hasattr(local_unit, "unfold_merged"):
-                enabled_units.extend(local_unit.unfold_merged())
+            if hasattr(local_unit, "unfold"):
+                enabled_units.extend(local_unit.unfold())
             else:
                 enabled_units.append(copy(local_unit))
 
@@ -1072,12 +1072,7 @@ class Script(scripts.Script, metaclass=(
 
         is_low_vram = any(unit.low_vram for unit in self.enabled_units)
 
-        self.latest_network = UnetHook(lowvram=is_low_vram)
-        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,
-                                 batch_option_uint_separate=batch_option_uint_separate,
-                                 batch_option_style_align=batch_option_style_align)
-
-        for param in forward_params:
+        for i, param in enumerate(forward_params):
             if param.control_model_type == ControlModelType.IPAdapter:
                 param.control_model.hook(
                     model=unet,
@@ -1095,6 +1090,22 @@ class Script(scripts.Script, metaclass=(
                     start=param.start_guidance_percent,
                     end=param.stop_guidance_percent
                 )
+            if control_model_type == ControlModelType.InstantID:
+                # For instant_id we always expect ip-adapter model followed
+                # by ControlNet model.
+                assert i > 0, "InstantID control model should follow ipadapter model."
+                ip_adapter_param = forward_params[i - 1]
+                assert ip_adapter_param.control_model_type == ControlModelType.IPAdapter, \
+                        "InstantID control model should follow ipadapter model."
+                control_model = ip_adapter_param.control_model
+                assert hasattr(control_model, "image_emb")
+                assert hasattr(control_model, "uncond_image_emb")
+                param.hint_cond = (param.hint_cond.keypoints, control_model.image_emb)
+
+        self.latest_network = UnetHook(lowvram=is_low_vram)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,
+                                 batch_option_uint_separate=batch_option_uint_separate,
+                                 batch_option_style_align=batch_option_style_align)
 
         self.detected_map = detected_maps
         self.post_processors = post_processors

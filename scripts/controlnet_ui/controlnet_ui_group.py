@@ -128,6 +128,7 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
         output_dir: str = "",
         loopback: bool = False,
+        model2: Optional[str] = None,
         merge_gallery_files: List[
             Dict[Union[Literal["name"], Literal["data"]], str]
         ] = [],
@@ -164,6 +165,8 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.batch_images = batch_images
         self.output_dir = output_dir
         self.loopback = loopback
+        # InstantID requires 2 models to work together.
+        self.model2 = model2
 
     def unfold_merged(self) -> List[external_code.ControlNetUnit]:
         """Unfolds a merged unit to multiple units. Keeps the unit merged for
@@ -185,6 +188,20 @@ class UiControlNetUnit(external_code.ControlNetUnit):
             unit.weight = self.weight / len(self.image)
             result.append(unit)
         return result
+
+    def unfold_instant_id(self) -> List[external_code.ControlNetUnit]:
+        """InstantID has 2 model inputs on UI. Unfolds it into 2 units."""
+        unit2 = copy(self)
+        unit2.model = self.model2
+        self.model2 = None
+        return [self, unit2]
+
+    def unfold(self) -> List[external_code.ControlNetUnit]:
+        return [
+            unit
+            for unmerged in self.unfold_merged()
+            for unit in unmerged.unfold_instant_id()
+        ]
 
 
 class ControlNetUiGroup(object):
@@ -267,6 +284,7 @@ class ControlNetUiGroup(object):
         self.module = None
         self.trigger_preprocessor = None
         self.model = None
+        self.model2 = None
         self.refresh_models = None
         self.weight = None
         self.guidance_start = None
@@ -542,6 +560,12 @@ class ControlNetUiGroup(object):
                 value=self.default_unit.model,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model_dropdown",
             )
+            self.model2 = gr.Dropdown(
+                list(global_state.cn_models.keys()),
+                label=f"Model 2",
+                value=self.default_unit.model,
+                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model2_dropdown",
+            )
             self.refresh_models = ToolButton(
                 value=ControlNetUiGroup.refresh_symbol,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_refresh_models",
@@ -769,17 +793,25 @@ class ControlNetUiGroup(object):
         )
 
     def register_refresh_all_models(self):
-        def refresh_all_models(*inputs):
+        def refresh_all_models(model1: str, model2: str):
             global_state.update_cn_models()
-
-            dd = inputs[0]
-            selected = dd if dd in global_state.cn_models else "None"
-            return gr.Dropdown.update(
-                value=selected, choices=list(global_state.cn_models.keys())
+            choices = list(global_state.cn_models.keys())
+            return (
+                gr.Dropdown.update(
+                    value=model1 if model1 in global_state.cn_models else "None",
+                    choices=choices
+                ),
+                gr.Dropdown.update(
+                    value=model2 if model2 in global_state.cn_models else "None",
+                    choices=choices
+                ),
             )
 
         self.refresh_models.click(
-            refresh_all_models, self.model, self.model, show_progress=False
+            refresh_all_models,
+            inputs=[self.model, self.model2],
+            outputs=[self.model, self.model2],
+            show_progress=False,
         )
 
     def register_build_sliders(self):
