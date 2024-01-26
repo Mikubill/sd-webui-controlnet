@@ -954,16 +954,16 @@ class Script(scripts.Script, metaclass=(
             if is_image:
                 control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
                 store_detected_map(detected_map, unit.module)
+            elif control_model_type == ControlModelType.InstantID:
+                assert isinstance(detected_map, tuple)
+                raw_input = detected_map
+                resized_keypoints, detected_map = Script.detectmap_proc(raw_input.keypoints, unit.module, resize_mode, h, w)
+                control = ResizedInstantIdInput(resized_keypoints, raw_input.embedding)
+                store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
                 for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
                     store_detected_map(img, unit.module)
-
-                if control_model_type == ControlModelType.InstantID:
-                    assert isinstance(detected_map, tuple)
-                    raw_input = detected_map
-                    resized_keypoints, _ = Script.detectmap_proc(raw_input.keypoints, unit.module, resize_mode, h, w)
-                    control = ResizedInstantIdInput(resized_keypoints, raw_input.embedding)
 
             if control_model_type == ControlModelType.T2I_StyleAdapter:
                 control = control['last_hidden_state']
