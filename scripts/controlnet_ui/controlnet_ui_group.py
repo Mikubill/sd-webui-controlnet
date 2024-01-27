@@ -975,7 +975,7 @@ class ControlNetUiGroup(object):
             )
 
             if current_model in filtered_model_list:
-                return gr.update()
+                return gr.update(), gr.update()
 
             return (
                 gr.Dropdown.update(

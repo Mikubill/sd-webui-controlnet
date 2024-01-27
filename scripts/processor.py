@@ -740,7 +740,7 @@ class InsightFaceModel:
             faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
-    def run_model_instant_id(self, img: np.ndarray, **kwargs):
+    def run_model_instant_id(self, img: np.ndarray, res:int = 512, **kwargs):
         """Run the model for instant_id."""
         def draw_kps(img: np.ndarray, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]):
             stickwidth = 4
@@ -770,6 +770,7 @@ class InsightFaceModel:
             return out_img.astype(np.uint8)
 
         self.load_model()
+        img, remove_pad = resize_image_with_pad(img, res)
         face_info = self.model.get(img)
         if not face_info:
             raise Exception(f"Insightface: No face found in image.")
@@ -778,7 +779,10 @@ class InsightFaceModel:
                         f"Only the first one will be used.")
         # only use the maximum face
         face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
-        return RawInstantIdInput(draw_kps(img, face_info['kps']), face_info['embedding']), False
+        return RawInstantIdInput(
+            remove_pad(draw_kps(img, face_info['kps'])),
+            face_info['embedding']
+        ), False
 
 
 g_insight_face_model = InsightFaceModel()
