@@ -88,7 +88,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 global_state.update_cn_models()
 
 
-def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
+def image_dict_from_any(image, is_image: bool) -> Optional[Dict[str, np.ndarray]]:
     if image is None:
         return None
 
@@ -590,6 +590,9 @@ class Script(scripts.Script, metaclass=(
             - The resize mode.
         """
         def parse_unit_image(unit: external_code.ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+            if unit.accepts_non_image_input():
+                return unit.image if isinstance(unit.image, dict) else {"image": unit.image}
+
             unit_has_multiple_images = (
                 isinstance(unit.image, list) and
                 len(unit.image) > 0 and
@@ -613,6 +616,8 @@ class Script(scripts.Script, metaclass=(
                 return HWC3(obj)
 
             if unit.accepts_non_image_input():
+                # Necessary for deserialize CLIPVisionModelOutput object.
+                from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
                 import base64
                 import io
                 decoded_bytes = base64.b64decode(obj)

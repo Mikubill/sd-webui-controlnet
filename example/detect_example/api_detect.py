@@ -19,6 +19,7 @@ def generate(url: str, payload: dict):
     response = requests.post(url=url, json=payload).json()
     if "images" not in response:
         print(response)
+        return
     else:
         for i, base64image in enumerate(response["images"]):
             Image.open(io.BytesIO(base64.b64decode(base64image.split(",", 1)[0]))).save(
@@ -30,6 +31,7 @@ def detect_clip(url: str, payload: dict):
     response = requests.post(url=url, json=payload).json()
     if "tensor" not in response:
         print(response)
+        return
     else:
         return response["tensor"]
 
@@ -41,7 +43,7 @@ def read_image(img_path: str) -> str:
     return encoded_image
 
 
-input_image = read_image(str(Path(__file__).parent / "inpaint_example" / "1girl.png"))
+input_image = read_image(str(Path(__file__).parent.parent / "inpaint_example" / "1girl.png"))
 
 detect_payload = {
     "controlnet_module": "ip-adapter_clip_sd15",
@@ -59,10 +61,10 @@ txt2img_payload = {
                     "guidance_end": 1,
                     "guidance_start": 0,
                     "image": {
-                        "image": "ip-adapter_sd15",
+                        "image": "",
                     },
                     "low_vram": False,
-                    "model": "",
+                    "model": "ip-adapter_sd15",
                     "module": "none",
                     "pixel_perfect": False,
                     "processor_res": -1,
@@ -118,8 +120,8 @@ txt2img_payload = {
 
 
 if __name__ == "__main__":
-    url = "http://localhost:7860/sdapi/v1/"
+    url = "http://localhost:7860/"
     clip = detect_clip(url + "controlnet/detect", detect_payload)[0]
     print(len(clip))
-    # txt2img_payload["alwayson_scripts"]["ControlNet"]["args"][0]["image"]["image"] = clip
-    # generate(url + "txt2img", txt2img_payload)
+    txt2img_payload["alwayson_scripts"]["ControlNet"]["args"][0]["image"]["image"] = clip
+    generate(url + "sdapi/v1/txt2img", txt2img_payload)
