@@ -17,7 +17,7 @@ from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.controlmodel_ipadapter import clear_all_ip_adapter
-from scripts.controlmodel_instant_id import ResizedInstantIdInput, InstantIdInput
+from scripts.controlmodel_instant_id import InstantIdControlNetInput
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -954,12 +954,6 @@ class Script(scripts.Script, metaclass=(
             if is_image:
                 control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
                 store_detected_map(detected_map, unit.module)
-            elif control_model_type == ControlModelType.InstantID:
-                assert isinstance(detected_map, tuple)
-                raw_input = detected_map
-                resized_keypoints, detected_map = Script.detectmap_proc(raw_input.keypoints, unit.module, resize_mode, h, w)
-                control = ResizedInstantIdInput(resized_keypoints, raw_input.embedding)
-                store_detected_map(detected_map, unit.module)
             else:
                 control = detected_map
                 for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
@@ -1106,8 +1100,9 @@ class Script(scripts.Script, metaclass=(
                         "InstantID control model should follow ipadapter model."
                 control_model = ip_adapter_param.control_model
                 assert hasattr(control_model, "image_emb")
-                param.hint_cond = InstantIdInput(
-                    param.hint_cond.resized_keypoints,
+                assert isinstance(param.hint_cond, torch.Tensor)
+                param.hint_cond = InstantIdControlNetInput(
+                    param.hint_cond,
                     control_model.image_emb,
                 )
 

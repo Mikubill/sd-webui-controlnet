@@ -7,7 +7,7 @@ from functools import partial
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
-from scripts.controlmodel_instant_id import InstantIdInput
+from scripts.controlmodel_instant_id import InstantIdControlNetInput
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -565,7 +565,7 @@ class UnetHook(nn.Module):
                 hint = param.used_hint_cond
                 # Unpack inputs for InstantID.
                 if param.control_model_type == ControlModelType.InstantID:
-                    assert isinstance(hint, InstantIdInput)
+                    assert isinstance(hint, InstantIdControlNetInput)
                     context = hint.projected_embedding.eval(cond_mark).to(x.device, dtype=x.dtype)
                     hint = hint.resized_keypoints.to(x.device, dtype=x.dtype)
 

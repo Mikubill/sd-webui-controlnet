@@ -1,27 +1,15 @@
 import torch
-import numpy as np
 from typing import NamedTuple
 
 
 from scripts.controlmodel_ipadapter import ImageEmbed
 
 
-class RawInstantIdInput(NamedTuple):
-    """Raw input from insightface."""
-
-    keypoints: np.ndarray
-    embedding: torch.Tensor
-
-
-class ResizedInstantIdInput(NamedTuple):
-    """keypoints image get resized and convert to torch.Tensor."""
-
-    resized_keypoints: torch.Tensor
-    embedding: torch.Tensor
-
-
-class InstantIdInput(NamedTuple):
-    """embedding get projected in IPAdapter."""
+class InstantIdControlNetInput(NamedTuple):
+    """The ControlNet input for InstantID control model type. Unlike normal
+    ControlNet which accepts text prompt as ControlNet's crossattn condition,
+    InstantID's ControlNet accepts projected face embedding as ControlNet's
+    crossattn condition."""
 
     resized_keypoints: torch.Tensor
     projected_embedding: ImageEmbed

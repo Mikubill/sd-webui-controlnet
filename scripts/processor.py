@@ -11,7 +11,6 @@ from typing import Callable, Tuple, Union
 from modules.safe import Extra
 from modules import devices
 from scripts.logging import logger
-from scripts.controlmodel_instant_id import RawInstantIdInput
 
 
 def torch_handler(module: str, name: str):
@@ -740,8 +739,19 @@ class InsightFaceModel:
             faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
-    def run_model_instant_id(self, img: np.ndarray, res:int = 512, **kwargs):
-        """Run the model for instant_id."""
+    def run_model_instant_id(
+        self,
+        img: np.ndarray,
+        res: int = 512,
+        return_keypoints: bool = False,
+        **kwargs
+    ) -> Tuple[Union[np.ndarray, torch.Tensor], bool]:
+        """Run the insightface model for instant_id.
+        Arguments:
+            - img: Input image in any size.
+            - res: Resolution used to resize image.
+            - return_keypoints: Whether to return keypoints image or face embedding.
+        """
         def draw_kps(img: np.ndarray, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]):
             stickwidth = 4
             limbSeq = np.array([[0, 2], [1, 2], [3, 2], [4, 2]])
@@ -776,13 +786,13 @@ class InsightFaceModel:
             raise Exception(f"Insightface: No face found in image.")
         if len(face_info) > 1:
             logger.warn("Insightface: More than one face is detected in the image. "
-                        f"Only the first one will be used.")
+                        f"Only the biggest one will be used.")
         # only use the maximum face
         face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
-        return RawInstantIdInput(
-            remove_pad(draw_kps(img, face_info['kps'])),
-            face_info['embedding']
-        ), False
+        if return_keypoints:
+            return remove_pad(draw_kps(img, face_info['kps'])), True
+        else:
+            return face_info['embedding'], False
 
 
 g_insight_face_model = InsightFaceModel()

@@ -576,7 +576,7 @@ class PlugableIPAdapter(torch.nn.Module):
 
         self.ipadapter.to(device, dtype=self.dtype)
         if self.is_instantid:
-            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output.embedding)
+            image_emb, uncond_image_emb = self.ipadapter.get_image_embeds_instantid(preprocessor_output)
         elif self.is_faceid and self.is_plus:
             # Note: FaceID plus uses both face_embed and clip_embed.
             # This should be the return value from preprocessor.
