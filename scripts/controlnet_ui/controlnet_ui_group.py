@@ -128,7 +128,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
         output_dir: str = "",
         loopback: bool = False,
-        model2: Optional[str] = None,
         merge_gallery_files: List[
             Dict[Union[Literal["name"], Literal["data"]], str]
         ] = [],
@@ -165,8 +164,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.batch_images = batch_images
         self.output_dir = output_dir
         self.loopback = loopback
-        # InstantID requires 2 models to work together.
-        self.model2 = model2
 
     def unfold_merged(self) -> List[external_code.ControlNetUnit]:
         """Unfolds a merged unit to multiple units. Keeps the unit merged for
@@ -188,23 +185,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
             unit.weight = self.weight / len(self.image)
             result.append(unit)
         return result
-
-    def unfold_instant_id(self) -> List[external_code.ControlNetUnit]:
-        """InstantID has 2 model inputs on UI. Unfolds it into 2 units."""
-        if not self.model2 or self.model2.lower() == "none":
-            return [self]
-
-        unit2 = copy(self)
-        unit2.model = self.model2
-        self.model2 = None
-        return [self, unit2]
-
-    def unfold(self) -> List[external_code.ControlNetUnit]:
-        return [
-            unit
-            for unmerged in self.unfold_merged()
-            for unit in unmerged.unfold_instant_id()
-        ]
 
 
 class ControlNetUiGroup(object):
@@ -287,7 +267,6 @@ class ControlNetUiGroup(object):
         self.module = None
         self.trigger_preprocessor = None
         self.model = None
-        self.model2 = None
         self.refresh_models = None
         self.weight = None
         self.guidance_start = None
@@ -569,15 +548,6 @@ class ControlNetUiGroup(object):
                 tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.refresh_symbol],
             )
 
-        with gr.Row():
-            self.model2 = gr.Dropdown(
-                list(global_state.cn_models.keys()),
-                label=f"Model 2",
-                value=self.default_unit.model,
-                elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model2_dropdown",
-                visible=False,
-            )
-
         with gr.Row(elem_classes=["controlnet_weight_steps", "controlnet_row"]):
             self.weight = gr.Slider(
                 label=f"Control Weight",
@@ -682,7 +652,6 @@ class ControlNetUiGroup(object):
             self.batch_image_dir_state,
             self.output_dir_state,
             self.loopback,
-            self.model2,
             # Non-persistent fields.
             # Following inputs will not be persistent on `ControlNetUnit`.
             # They are only used during object construction.
@@ -803,21 +772,15 @@ class ControlNetUiGroup(object):
         def refresh_all_models(model1: str, model2: str):
             global_state.update_cn_models()
             choices = list(global_state.cn_models.keys())
-            return (
-                gr.Dropdown.update(
-                    value=model1 if model1 in global_state.cn_models else "None",
-                    choices=choices,
-                ),
-                gr.Dropdown.update(
-                    value=model2 if model2 in global_state.cn_models else "None",
-                    choices=choices,
-                ),
+            return gr.Dropdown.update(
+                value=model1 if model1 in global_state.cn_models else "None",
+                choices=choices,
             )
 
         self.refresh_models.click(
             refresh_all_models,
-            inputs=[self.model, self.model2],
-            outputs=[self.model, self.model2],
+            inputs=[self.model],
+            outputs=[self.model],
             show_progress=False,
         )
 
@@ -937,10 +900,6 @@ class ControlNetUiGroup(object):
                 return [
                     gr.Dropdown.update(choices=filtered_preprocessor_list),
                     gr.Dropdown.update(choices=filtered_model_list),
-                    gr.Dropdown.update(
-                        choices=filtered_model_list,
-                        visible=k == "Instant_ID",
-                    ),
                 ]
             else:
                 return [
@@ -950,16 +909,12 @@ class ControlNetUiGroup(object):
                     gr.Dropdown.update(
                         value=default_model, choices=filtered_model_list
                     ),
-                    gr.Dropdown.update(
-                        choices=filtered_model_list,
-                        visible=k == "Instant_ID",
-                    ),
                 ]
 
         self.type_filter.change(
             fn=filter_selected,
             inputs=[self.type_filter],
-            outputs=[self.module, self.model, self.model2],
+            outputs=[self.module, self.model],
             show_progress=False,
         )
 
@@ -975,22 +930,17 @@ class ControlNetUiGroup(object):
             )
 
             if current_model in filtered_model_list:
-                return gr.update(), gr.update()
+                return gr.update()
 
-            return (
-                gr.Dropdown.update(
-                    value=default_model,
-                    choices=filtered_model_list,
-                ),
-                gr.Dropdown.update(
-                    choices=filtered_model_list,
-                ),
+            return gr.Dropdown.update(
+                value=default_model,
+                choices=filtered_model_list,
             )
 
         ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
             fn=sd_version_changed,
             inputs=[self.type_filter, self.model],
-            outputs=[self.model, self.model2],
+            outputs=[self.model],
             show_progress=False,
         )
 

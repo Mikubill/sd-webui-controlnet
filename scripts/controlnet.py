@@ -565,8 +565,8 @@ class Script(scripts.Script, metaclass=(
             local_unit = Script.parse_remote_call(p, unit, idx)
             if not local_unit.enabled:
                 continue
-            if hasattr(local_unit, "unfold"):
-                enabled_units.extend(local_unit.unfold())
+            if hasattr(local_unit, "unfold_merged"):
+                enabled_units.extend(local_unit.unfold_merged())
             else:
                 enabled_units.append(copy(local_unit))
 
