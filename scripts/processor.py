@@ -711,6 +711,27 @@ class InsightFaceModel:
     def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
         self.face_analysis_model_name = face_analysis_model_name
+        self.antelopev2_installed = False
+
+    def install_antelopev2(self):
+        """insightface's github release on antelopev2 model is down. Downloading
+        from huggingface mirror."""
+        from basicsr.utils.download_util import load_file_from_url
+        from annotator.annotator_path import models_path
+        model_root = os.path.join(models_path, "insightface", "models", "antelopev2")
+        if not model_root:
+            os.makedirs(model_root, exist_ok=True)
+        for local_file, url in (
+            ("1k3d68.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/1k3d68.onnx"),
+            ("2d106det.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/2d106det.onnx"),
+            ("genderage.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/genderage.onnx"),
+            ("glintr100.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/glintr100.onnx"),
+            ("scrfd_10g_bnkps.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/scrfd_10g_bnkps.onnx"),
+        ):
+            local_path = os.path.join(model_root, local_file)
+            if not os.path.exists(local_path):
+                load_file_from_url(url, model_root)
+        self.antelopev2_installed = True
 
     def load_model(self):
         if self.model is None:
@@ -779,7 +800,10 @@ class InsightFaceModel:
 
             return out_img.astype(np.uint8)
 
+        if not self.antelopev2_installed:
+            self.install_antelopev2()
         self.load_model()
+
         img, remove_pad = resize_image_with_pad(img, res)
         face_info = self.model.get(img)
         if not face_info:
