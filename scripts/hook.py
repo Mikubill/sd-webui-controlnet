@@ -566,8 +566,10 @@ class UnetHook(nn.Module):
                 # Unpack inputs for InstantID.
                 if param.control_model_type == ControlModelType.InstantID:
                     assert isinstance(hint, InstantIdControlNetInput)
-                    context = hint.projected_embedding.eval(cond_mark).to(x.device, dtype=x.dtype)
+                    controlnet_context = hint.projected_embedding.eval(cond_mark).to(x.device, dtype=x.dtype)
                     hint = hint.resized_keypoints.to(x.device, dtype=x.dtype)
+                else:
+                    controlnet_context = context
 
                 # ControlNet inpaint protocol
                 if hint.shape[1] == 4:
@@ -580,7 +582,7 @@ class UnetHook(nn.Module):
                     x=x_in,
                     hint=hint,
                     timesteps=timesteps,
-                    context=context,
+                    context=controlnet_context,
                     y=y
                 )
 
