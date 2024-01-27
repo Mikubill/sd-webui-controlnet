@@ -203,6 +203,17 @@ class ControlNetUnit:
         """This unit can accept multiple input images."""
         return False
 
+    def accepts_non_image_input(self) -> bool:
+        """The input to this unit should be tensor object instead of image."""
+        # Revision also uses non-image input. However, Revision does not have
+        # a model.
+        # TODO: find a way to call revision with CLIP output directly passed
+        # in API payload.
+        return self.module.lower() == "none" and any(
+            m in self.model
+            for m in ("ip-adapter", "t2iadapter_style")
+        )
+
 
 def to_base64_nparray(encoding: str):
     """

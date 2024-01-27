@@ -1,5 +1,7 @@
 from typing import List, Optional
-
+import base64
+import io
+import torch
 import numpy as np
 from fastapi import FastAPI, Body
 from fastapi.exceptions import HTTPException
@@ -33,6 +35,14 @@ def encode_to_base64(image):
 def encode_np_to_base64(image):
     pil = Image.fromarray(image)
     return api.encode_pil_to_base64(pil)
+
+
+def encode_tensor_object(obj) -> str:
+    # Serialize the tensor data to a bytes buffer
+    buffer = io.BytesIO()
+    torch.save(obj, buffer)
+    buffer.seek(0)  # Rewind the buffer
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
@@ -130,29 +140,36 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-
-            results.append(
-                processor_module(
-                    img,
-                    res=controlnet_processor_res,
-                    thr_a=controlnet_threshold_a,
-                    thr_b=controlnet_threshold_b,
-                    json_pose_callback=json_acceptor.accept,
-                    low_vram=low_vram,
-                )[0]
+            detected_map, is_image = processor_module(
+                img,
+                res=controlnet_processor_res,
+                thr_a=controlnet_threshold_a,
+                thr_b=controlnet_threshold_b,
+                json_pose_callback=json_acceptor.accept,
+                low_vram=low_vram,
             )
+            results.append(detected_map)
 
             if "openpose" in controlnet_module:
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
-        results64 = list(map(encode_to_base64, results))
-        res = {"images": results64, "info": "Success"}
+
+        if is_image:
+            result_key = "images"
+            encode_result = encode_to_base64
+        else:
+            result_key = "tensor"
+            encode_result = encode_tensor_object
+        res = {
+            result_key: [encode_result(r) for r in results],
+            "info": "Success"
+        }
         if poses:
             res["poses"] = poses
-
         return res
+
 
     class Person(BaseModel):
         pose_keypoints_2d: List[float]
