@@ -769,17 +769,19 @@ class ControlNetUiGroup(object):
         )
 
     def register_refresh_all_models(self):
-        def refresh_all_models(*inputs):
+        def refresh_all_models(model1: str, model2: str):
             global_state.update_cn_models()
-
-            dd = inputs[0]
-            selected = dd if dd in global_state.cn_models else "None"
+            choices = list(global_state.cn_models.keys())
             return gr.Dropdown.update(
-                value=selected, choices=list(global_state.cn_models.keys())
+                value=model1 if model1 in global_state.cn_models else "None",
+                choices=choices,
             )
 
         self.refresh_models.click(
-            refresh_all_models, self.model, self.model, show_progress=False
+            refresh_all_models,
+            inputs=[self.model],
+            outputs=[self.model],
+            show_progress=False,
         )
 
     def register_build_sliders(self):

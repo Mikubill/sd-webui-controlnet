@@ -2,9 +2,11 @@ import os
 import cv2
 import numpy as np
 import torch
+import math
+import PIL
 
 from annotator.util import HWC3
-from typing import Callable, Tuple, Union, List
+from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
@@ -706,15 +708,37 @@ def unload_te_hed():
         model_te_hed.unload_model()
 
 class InsightFaceModel:
-    def __init__(self):
+    def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
+        self.face_analysis_model_name = face_analysis_model_name
+        self.antelopev2_installed = False
+
+    def install_antelopev2(self):
+        """insightface's github release on antelopev2 model is down. Downloading
+        from huggingface mirror."""
+        from basicsr.utils.download_util import load_file_from_url
+        from annotator.annotator_path import models_path
+        model_root = os.path.join(models_path, "insightface", "models", "antelopev2")
+        if not model_root:
+            os.makedirs(model_root, exist_ok=True)
+        for local_file, url in (
+            ("1k3d68.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/1k3d68.onnx"),
+            ("2d106det.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/2d106det.onnx"),
+            ("genderage.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/genderage.onnx"),
+            ("glintr100.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/glintr100.onnx"),
+            ("scrfd_10g_bnkps.onnx", "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/scrfd_10g_bnkps.onnx"),
+        ):
+            local_path = os.path.join(model_root, local_file)
+            if not os.path.exists(local_path):
+                load_file_from_url(url, model_root)
+        self.antelopev2_installed = True
 
     def load_model(self):
         if self.model is None:
             from insightface.app import FaceAnalysis
             from annotator.annotator_path import models_path
             self.model = FaceAnalysis(
-                name="buffalo_l",
+                name=self.face_analysis_model_name,
                 providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
                 root=os.path.join(models_path, "insightface"),
             )
@@ -736,8 +760,67 @@ class InsightFaceModel:
             faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
         return faceid_embeds, False
 
+    def run_model_instant_id(
+        self,
+        img: np.ndarray,
+        res: int = 512,
+        return_keypoints: bool = False,
+        **kwargs
+    ) -> Tuple[Union[np.ndarray, torch.Tensor], bool]:
+        """Run the insightface model for instant_id.
+        Arguments:
+            - img: Input image in any size.
+            - res: Resolution used to resize image.
+            - return_keypoints: Whether to return keypoints image or face embedding.
+        """
+        def draw_kps(img: np.ndarray, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]):
+            stickwidth = 4
+            limbSeq = np.array([[0, 2], [1, 2], [3, 2], [4, 2]])
+            kps = np.array(kps)
+
+            h, w, _ = img.shape
+            out_img = np.zeros([h, w, 3])
+
+            for i in range(len(limbSeq)):
+                index = limbSeq[i]
+                color = color_list[index[0]]
+
+                x = kps[index][:, 0]
+                y = kps[index][:, 1]
+                length = ((x[0] - x[1]) ** 2 + (y[0] - y[1]) ** 2) ** 0.5
+                angle = math.degrees(math.atan2(y[0] - y[1], x[0] - x[1]))
+                polygon = cv2.ellipse2Poly((int(np.mean(x)), int(np.mean(y))), (int(length / 2), stickwidth), int(angle), 0, 360, 1)
+                out_img = cv2.fillConvexPoly(out_img.copy(), polygon, color)
+            out_img = (out_img * 0.6).astype(np.uint8)
+
+            for idx_kp, kp in enumerate(kps):
+                color = color_list[idx_kp]
+                x, y = kp
+                out_img = cv2.circle(out_img.copy(), (int(x), int(y)), 10, color, -1)
+
+            return out_img.astype(np.uint8)
+
+        if not self.antelopev2_installed:
+            self.install_antelopev2()
+        self.load_model()
+
+        img, remove_pad = resize_image_with_pad(img, res)
+        face_info = self.model.get(img)
+        if not face_info:
+            raise Exception(f"Insightface: No face found in image.")
+        if len(face_info) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        f"Only the biggest one will be used.")
+        # only use the maximum face
+        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
+        if return_keypoints:
+            return remove_pad(draw_kps(img, face_info['kps'])), True
+        else:
+            return face_info['embedding'], False
+
 
 g_insight_face_model = InsightFaceModel()
+g_insight_face_instant_id_model = InsightFaceModel(face_analysis_model_name="antelopev2")
 
 
 def face_id_plus(img, low_vram=False, **kwargs):
@@ -1192,7 +1275,7 @@ preprocessor_sliders_config = {
             "value": 512,
             "min": 64,
             "max": 2048
-        } 
+        }
     ],
     "te_hed": [
         {
@@ -1231,6 +1314,7 @@ preprocessor_filters = {
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
+    "Instant_ID": "instant_id",
 }
 
 preprocessor_filters_aliases = {

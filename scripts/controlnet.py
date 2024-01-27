@@ -4,7 +4,7 @@ import os
 import logging
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 from modules.api.api import decode_base64_to_image
@@ -17,6 +17,7 @@ from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.controlmodel_ipadapter import clear_all_ip_adapter
+from scripts.controlmodel_instant_id import InstantIdControlNetInput
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -197,6 +198,20 @@ def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
         logger.warning(e)
         logger.warning('Warning: Failed to use consistent random seed.')
         return None
+
+
+def get_pytorch_control(x: np.ndarray) -> torch.Tensor:
+    # A very safe method to make sure that Apple/Mac works
+    y = x
+
+    # below is very boring but do not change these. If you change these Apple or Mac may fail.
+    y = torch.from_numpy(y)
+    y = y.float() / 255.0
+    y = rearrange(y, 'h w c -> 1 c h w')
+    y = y.clone()
+    y = y.to(devices.get_device_for("controlnet"))
+    y = y.clone()
+    return y
 
 
 class Script(scripts.Script, metaclass=(
@@ -440,19 +455,6 @@ class Script(scripts.Script, metaclass=(
             y = y.copy()
             y = np.ascontiguousarray(y)
             y = y.copy()
-            return y
-
-        def get_pytorch_control(x):
-            # A very safe method to make sure that Apple/Mac works
-            y = x
-
-            # below is very boring but do not change these. If you change these Apple or Mac may fail.
-            y = torch.from_numpy(y)
-            y = y.float() / 255.0
-            y = rearrange(y, 'h w c -> 1 c h w')
-            y = y.clone()
-            y = y.to(devices.get_device_for("controlnet"))
-            y = y.clone()
             return y
 
         def high_quality_resize(x, size):
@@ -859,6 +861,7 @@ class Script(scripts.Script, metaclass=(
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+        h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
@@ -896,12 +899,6 @@ class Script(scripts.Script, metaclass=(
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
-                    # Change control_model_type to ControlNet as all processes
-                    # in hook.py still want the ControlNetLoRA to be treated
-                    # the same way as ControlNet.
-                    control_model_type = ControlModelType.ControlNet
-
-            h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             if isinstance(input_image, list):
@@ -976,7 +973,7 @@ class Script(scripts.Script, metaclass=(
             )
 
             global_average_pooling = (
-                control_model_type == ControlModelType.ControlNet and
+                control_model_type.is_controlnet() and
                 model_net.control_model.global_average_pooling
             )
             control_mode = external_code.control_mode_from_value(unit.control_mode)
@@ -1076,16 +1073,11 @@ class Script(scripts.Script, metaclass=(
 
         is_low_vram = any(unit.low_vram for unit in self.enabled_units)
 
-        self.latest_network = UnetHook(lowvram=is_low_vram)
-        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,
-                                 batch_option_uint_separate=batch_option_uint_separate,
-                                 batch_option_style_align=batch_option_style_align)
-
-        for param in forward_params:
+        for i, param in enumerate(forward_params):
             if param.control_model_type == ControlModelType.IPAdapter:
                 param.control_model.hook(
                     model=unet,
-                    clip_vision_output=param.hint_cond,
+                    preprocessor_output=param.hint_cond,
                     weight=param.weight,
                     dtype=torch.float32,
                     start=param.start_guidance_percent,
@@ -1099,6 +1091,25 @@ class Script(scripts.Script, metaclass=(
                     start=param.start_guidance_percent,
                     end=param.stop_guidance_percent
                 )
+            if param.control_model_type == ControlModelType.InstantID:
+                # For instant_id we always expect ip-adapter model followed
+                # by ControlNet model.
+                assert i > 0, "InstantID control model should follow ipadapter model."
+                ip_adapter_param = forward_params[i - 1]
+                assert ip_adapter_param.control_model_type == ControlModelType.IPAdapter, \
+                        "InstantID control model should follow ipadapter model."
+                control_model = ip_adapter_param.control_model
+                assert hasattr(control_model, "image_emb")
+                assert isinstance(param.hint_cond, torch.Tensor)
+                param.hint_cond = InstantIdControlNetInput(
+                    param.hint_cond,
+                    control_model.image_emb,
+                )
+
+        self.latest_network = UnetHook(lowvram=is_low_vram)
+        self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,
+                                 batch_option_uint_separate=batch_option_uint_separate,
+                                 batch_option_style_align=batch_option_style_align)
 
         self.detected_map = detected_maps
         self.post_processors = post_processors

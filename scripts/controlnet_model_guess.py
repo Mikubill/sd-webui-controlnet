@@ -208,7 +208,11 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
 
         network = PlugableControlModel(config, state_dict)
         network.to(devices.dtype_unet)
-        return ControlModel(network, ControlModelType.ControlNet)
+        if "instant_id" in model_path.lower():
+            control_model_type = ControlModelType.InstantID
+        else:
+            control_model_type = ControlModelType.ControlNet
+        return ControlModel(network, control_model_type)
 
     if 'conv_in.weight' in state_dict:
         logger.info('t2i_adapter_config')
