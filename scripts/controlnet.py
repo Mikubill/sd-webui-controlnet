@@ -88,7 +88,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 global_state.update_cn_models()
 
 
-def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
+def image_dict_from_any(image, is_image: bool) -> Optional[Dict[str, np.ndarray]]:
     if image is None:
         return None
 
@@ -590,6 +590,9 @@ class Script(scripts.Script, metaclass=(
             - The resize mode.
         """
         def parse_unit_image(unit: external_code.ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+            if unit.accepts_non_image_input():
+                return unit.image if isinstance(unit.image, dict) else {"image": unit.image}
+
             unit_has_multiple_images = (
                 isinstance(unit.image, list) and
                 len(unit.image) > 0 and
@@ -604,13 +607,23 @@ class Script(scripts.Script, metaclass=(
                 ]
             return image_dict_from_any(unit.image)
 
-        def decode_image(img) -> np.ndarray:
-            """Need to check the image for API compatibility."""
-            if isinstance(img, str):
-                return np.asarray(decode_base64_to_image(image['image']))
+        def decode(obj):
+            """Need to check for API compatibility. Image and tensor object are
+            passed in as base64 string via API."""
+            # For UI call, obj should always be image.
+            if not isinstance(obj, str):
+                assert isinstance(obj, np.ndarray)
+                return HWC3(obj)
+
+            if unit.accepts_non_image_input():
+                # Necessary for deserialize CLIPVisionModelOutput object.
+                from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
+                import base64
+                import io
+                decoded_bytes = base64.b64decode(obj)
+                return torch.load(io.BytesIO(decoded_bytes))
             else:
-                assert isinstance(img, np.ndarray)
-                return img
+                return HWC3(np.asarray(decode_base64_to_image(obj)))
 
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
@@ -635,9 +648,9 @@ class Script(scripts.Script, metaclass=(
             if isinstance(image, list):
                 # Add mask logic if later there is a processor that accepts mask
                 # on multiple inputs.
-                input_image = [HWC3(decode_image(img['image'])) for img in image]
+                input_image = [decode(img['image']) for img in image]
             else:
-                input_image = HWC3(decode_image(image['image']))
+                input_image = decode(image['image'])
                 if 'mask' in image and image['mask'] is not None:
                     while len(image['mask'].shape) < 3:
                         image['mask'] = image['mask'][..., np.newaxis]
@@ -905,7 +918,7 @@ class Script(scripts.Script, metaclass=(
                 assert unit.accepts_multiple_inputs()
                 # preprocessor function is cached, so all arguments must be hashable.
                 input_image = tuple(input_image)
-            else:
+            elif isinstance(input_image, np.ndarray):
                 input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
                 input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
                 if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
