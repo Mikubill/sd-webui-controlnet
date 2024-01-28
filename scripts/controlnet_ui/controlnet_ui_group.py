@@ -74,14 +74,18 @@ class A1111Context:
 
     @property
     def ui_initialized(self) -> bool:
-        # Optional components are only available after A1111 v1.7.0.
         optional_components = {
+            # Optional components are only available after A1111 v1.7.0.
             "img2img_img2img_tab": "img2img_img2img_tab",
             "img2img_img2img_sketch_tab": "img2img_img2img_sketch_tab",
             "img2img_batch_tab": "img2img_batch_tab",
             "img2img_inpaint_tab": "img2img_inpaint_tab",
             "img2img_inpaint_sketch_tab": "img2img_inpaint_sketch_tab",
             "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
+            # SDNext does not have this field. Temporarily disable the callback on
+            # the checkpoint change until we find a way to register an event when
+            # all A1111 UI components are ready.
+            "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
         return all(
             c
@@ -939,12 +943,13 @@ class ControlNetUiGroup(object):
                 choices=filtered_model_list,
             )
 
-        ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
-            fn=sd_version_changed,
-            inputs=[self.type_filter, self.model],
-            outputs=[self.model],
-            show_progress=False,
-        )
+        if ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint:
+            ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
+                fn=sd_version_changed,
+                inputs=[self.type_filter, self.model],
+                outputs=[self.model],
+                show_progress=False,
+            )
 
     def register_run_annotator(self):
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
