@@ -17,7 +17,6 @@ from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import *
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.controlmodel_ipadapter import clear_all_ip_adapter
-from scripts.controlmodel_instant_id import InstantIdControlNetInput
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -1110,11 +1109,7 @@ class Script(scripts.Script, metaclass=(
                         "InstantID control model should follow ipadapter model."
                 control_model = ip_adapter_param.control_model
                 assert hasattr(control_model, "image_emb")
-                assert isinstance(param.hint_cond, torch.Tensor)
-                param.hint_cond = InstantIdControlNetInput(
-                    param.hint_cond,
-                    control_model.image_emb,
-                )
+                param.control_context_override = control_model.image_emb
 
         self.latest_network = UnetHook(lowvram=is_low_vram)
         self.latest_network.hook(model=unet, sd_ldm=sd_ldm, control_params=forward_params, process=p,

@@ -3,11 +3,11 @@ import hashlib
 import numpy as np
 import torch.nn as nn
 from functools import partial
-
+from typing import Optional, Any
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
-from scripts.controlmodel_instant_id import InstantIdControlNetInput
+from scripts.controlmodel_ipadapter import ImageEmbed
 from modules import devices, lowvram, shared, scripts
 
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
@@ -171,6 +171,7 @@ class ControlParams:
             soft_injection,
             cfg_injection,
             hr_option: HiResFixOption = HiResFixOption.BOTH,
+            control_context_override: Optional[Any] = None,
             **kwargs  # To avoid errors
     ):
         self.control_model = control_model
@@ -185,6 +186,7 @@ class ControlParams:
         self.global_average_pooling = global_average_pooling
         self.hr_hint_cond = hr_hint_cond
         self.hr_option = hr_option
+        self.control_context_override = control_context_override
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None
@@ -206,7 +208,7 @@ class ControlParams:
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None
-    
+
     def disabled_by_hr_option(self, is_in_high_res_fix: bool) -> bool:
         if self.hr_option == HiResFixOption.BOTH:
             control_disabled = False
@@ -563,11 +565,9 @@ class UnetHook(nn.Module):
                 assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
 
                 hint = param.used_hint_cond
-                # Unpack inputs for InstantID.
                 if param.control_model_type == ControlModelType.InstantID:
-                    assert isinstance(hint, InstantIdControlNetInput)
-                    controlnet_context = hint.projected_embedding.eval(cond_mark).to(x.device, dtype=x.dtype)
-                    hint = hint.resized_keypoints.to(x.device, dtype=x.dtype)
+                    assert isinstance(param.control_context_override, ImageEmbed)
+                    controlnet_context = param.control_context_override.eval(cond_mark).to(x.device, dtype=x.dtype)
                 else:
                     controlnet_context = context
 
