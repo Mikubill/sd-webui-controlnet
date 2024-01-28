@@ -3,7 +3,8 @@ import cv2
 import numpy as np
 import torch
 import math
-import PIL
+from dataclasses import dataclass
+from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
 
 from annotator.util import HWC3
 from typing import Callable, Tuple, Union
@@ -381,23 +382,16 @@ clip_encoder = {
 }
 
 
-def clip(imgs: Union[Tuple[np.ndarray], np.ndarray], config='clip_vitl', low_vram=False, **kwargs):
-    imgs = imgs if isinstance(imgs, tuple) else (imgs,)
-    result = []
-    for img in imgs:
-        img = HWC3(img)
-        global clip_encoder
-        if clip_encoder[config] is None:
-            from annotator.clipvision import ClipVisionDetector
-            if low_vram:
-                logger.info("Loading CLIP model on CPU.")
-            clip_encoder[config] = ClipVisionDetector(config, low_vram)
-        result.append(clip_encoder[config](img))
-
-    if len(result) == 1:
-        return result[0], False
-    else:
-        return result, False
+def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
+    img = HWC3(img)
+    global clip_encoder
+    if clip_encoder[config] is None:
+        from annotator.clipvision import ClipVisionDetector
+        if low_vram:
+            logger.info("Loading CLIP model on CPU.")
+        clip_encoder[config] = ClipVisionDetector(config, low_vram)
+    result = clip_encoder[config](img)
+    return result, False
 
 
 def unload_clip(config='clip_vitl'):
@@ -751,21 +745,16 @@ class InsightFaceModel:
             )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
 
-    def run_model(self, imgs: Union[Tuple[np.ndarray], np.ndarray], **kwargs):
+    def run_model(self, img: np.ndarray, **kwargs) -> Tuple[torch.Tensor, bool]:
         self.load_model()
-        imgs = imgs if isinstance(imgs, tuple) else (imgs,)
-        faceid_embeds = []
-        for i, img in enumerate(imgs):
-            img = HWC3(img)
-            faces = self.model.get(img)
-            if not faces:
-                logger.warn(f"Insightface: No face found in image {i}.")
-                continue
-            if len(faces) > 1:
-                logger.warn("Insightface: More than one face is detected in the image. "
-                            f"Only the first one will be used {i}.")
-            faceid_embeds.append(torch.from_numpy(faces[0].normed_embedding).unsqueeze(0))
-        return faceid_embeds, False
+        img = HWC3(img)
+        faces = self.model.get(img)
+        if not faces:
+            raise Exception(f"Insightface: No face found in image {i}.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        f"Only the first one will be used {i}.")
+        return torch.from_numpy(faces[0].normed_embedding).unsqueeze(0), False
 
     def run_model_instant_id(
         self,
@@ -823,18 +812,24 @@ class InsightFaceModel:
         if return_keypoints:
             return remove_pad(draw_kps(img, face_info['kps'])), True
         else:
-            return face_info['embedding'], False
+            return torch.from_numpy(face_info['embedding']), False
 
 
 g_insight_face_model = InsightFaceModel()
 g_insight_face_instant_id_model = InsightFaceModel(face_analysis_model_name="antelopev2")
 
 
-def face_id_plus(imgs: Union[Tuple[np.ndarray], np.ndarray], low_vram=False, **kwargs):
+@dataclass
+class FaceIdPlusInput:
+    face_embed: torch.Tensor
+    clip_embed: CLIPVisionModelOutput
+
+
+def face_id_plus(img, low_vram=False, **kwargs):
     """ FaceID plus uses both face_embeding from insightface and clip_embeding from clip. """
-    face_embed, _ = g_insight_face_model.run_model(imgs)
-    clip_embed, _ = clip(imgs, config='clip_h', low_vram=low_vram)
-    return (face_embed, clip_embed), False
+    face_embed, _ = g_insight_face_model.run_model(img)
+    clip_embed, _ = clip(img, config='clip_h', low_vram=low_vram)
+    return FaceIdPlusInput(face_embed, clip_embed), False
 
 
 class HandRefinerModel:
