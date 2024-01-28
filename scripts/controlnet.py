@@ -4,7 +4,7 @@ import os
 import logging
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, NamedTuple
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 from modules.api.api import decode_base64_to_image
@@ -903,9 +903,8 @@ class Script(scripts.Script, metaclass=(
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             if isinstance(input_image, list):
                 assert unit.accepts_multiple_inputs()
-                # preprocessor function is cached, so all arguments must be hashable.
-                input_image = tuple(input_image)
-            else:
+                input_images = input_image
+            else: # Following operations are only for single input image.
                 input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
                 input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
                 if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
@@ -918,6 +917,7 @@ class Script(scripts.Script, metaclass=(
                         target_W=w,
                         resize_mode=resize_mode,
                     )
+                input_images = [input_image]
             # Preprocessor result may depend on numpy random operations, use the
             # random seed in `StableDiffusionProcessing` to make the
             # preprocessor result reproducable.
@@ -927,43 +927,53 @@ class Script(scripts.Script, metaclass=(
             logger.debug(f"Use numpy seed {seed}.")
             logger.info(f"Using preprocessor: {unit.module}")
             logger.info(f'preprocessor resolution = {unit.processor_res}')
-            detected_map, is_image = self.preprocessor[unit.module](
-                input_image,
-                res=unit.processor_res,
-                thr_a=unit.threshold_a,
-                thr_b=unit.threshold_b,
-                low_vram=(
-                    ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
-                    shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
-                ),
-            )
 
             def store_detected_map(detected_map, module: str) -> None:
                 if unit.save_detected_map:
                     detected_maps.append((detected_map, module))
 
-            if high_res_fix:
-                if is_image:
-                    hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
-                    store_detected_map(hr_detected_map, unit.module)
+            def preprocess_input_image(input_image: np.ndarray):
+                """ Preprocess single input image. """
+                detected_map, is_image = self.preprocessor[unit.module](
+                    input_image,
+                    res=unit.processor_res,
+                    thr_a=unit.threshold_a,
+                    thr_b=unit.threshold_b,
+                    low_vram=(
+                        ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
+                        shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
+                    ),
+                )
+                if high_res_fix:
+                    if is_image:
+                        hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                        store_detected_map(hr_detected_map, unit.module)
+                    else:
+                        hr_control = detected_map
                 else:
-                    hr_control = detected_map
+                    hr_control = None
+
+                if is_image:
+                    control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
+                    store_detected_map(detected_map, unit.module)
+                else:
+                    control = detected_map
+                    store_detected_map(input_image, unit.module)
+
+                if control_model_type == ControlModelType.T2I_StyleAdapter:
+                    control = control['last_hidden_state']
+
+                if control_model_type == ControlModelType.ReVision:
+                    control = control['image_embeds']
+                return control, hr_control
+
+            controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in input_images]))
+            if len(controls) == len(hr_controls) == 1:
+                control = controls[0]
+                hr_control = hr_controls[0]
             else:
-                hr_control = None
-
-            if is_image:
-                control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
-                store_detected_map(detected_map, unit.module)
-            else:
-                control = detected_map
-                for img in (input_image if isinstance(input_image, (list, tuple)) else [input_image]):
-                    store_detected_map(img, unit.module)
-
-            if control_model_type == ControlModelType.T2I_StyleAdapter:
-                control = control['last_hidden_state']
-
-            if control_model_type == ControlModelType.ReVision:
-                control = control['image_embeds']
+                control = controls
+                hr_control = hr_controls
 
             preprocessor_dict = dict(
                 name=unit.module,
@@ -1077,7 +1087,7 @@ class Script(scripts.Script, metaclass=(
             if param.control_model_type == ControlModelType.IPAdapter:
                 param.control_model.hook(
                     model=unet,
-                    preprocessor_output=param.hint_cond,
+                    preprocessor_outputs=param.hint_cond,
                     weight=param.weight,
                     dtype=torch.float32,
                     start=param.start_guidance_percent,
