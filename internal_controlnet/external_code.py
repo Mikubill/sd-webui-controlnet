@@ -207,6 +207,7 @@ class ControlNetUnit:
             "ip-adapter_clip_sd15",
             "ip-adapter_face_id",
             "ip-adapter_face_id_plus",
+            "instant_id_face_embedding",
         )
 
 
