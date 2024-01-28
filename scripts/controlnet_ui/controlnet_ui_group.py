@@ -111,7 +111,9 @@ class A1111Context:
             "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
         elem_id = getattr(component, "elem_id", None)
-        if elem_id in id_mapping:
+        # Do not set component if it has already been set.
+        # https://github.com/Mikubill/sd-webui-controlnet/issues/2587
+        if elem_id in id_mapping and getattr(self, id_mapping[elem_id]) is None:
             setattr(self, id_mapping[elem_id], component)
             logger.debug(f"Setting {elem_id}.")
             logger.debug(
