@@ -74,14 +74,18 @@ class A1111Context:
 
     @property
     def ui_initialized(self) -> bool:
-        # Optional components are only available after A1111 v1.7.0.
         optional_components = {
+            # Optional components are only available after A1111 v1.7.0.
             "img2img_img2img_tab": "img2img_img2img_tab",
             "img2img_img2img_sketch_tab": "img2img_img2img_sketch_tab",
             "img2img_batch_tab": "img2img_batch_tab",
             "img2img_inpaint_tab": "img2img_inpaint_tab",
             "img2img_inpaint_sketch_tab": "img2img_inpaint_sketch_tab",
             "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
+            # SDNext does not have this field. Temporarily disable the callback on
+            # the checkpoint change until we find a way to register an event when
+            # all A1111 UI components are ready.
+            "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
         return all(
             c
@@ -108,7 +112,7 @@ class A1111Context:
             "img2img_inpaint_full_res": "img2img_inpaint_area",
             "txt2img_hr-checkbox": "txt2img_enable_hr",
             # setting_sd_model_checkpoint is expected to be initialized last.
-            "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
+            # "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
         elem_id = getattr(component, "elem_id", None)
         # Do not set component if it has already been set.
@@ -226,6 +230,8 @@ class ControlNetUiGroup(object):
     ):
         # Whether callbacks have been registered.
         self.callbacks_registered: bool = False
+        # Whether the render method on this object has been called.
+        self.ui_initialized: bool = False
 
         self.is_img2img = is_img2img
         self.default_unit = default_unit
@@ -710,7 +716,8 @@ class ControlNetUiGroup(object):
             outputs=unit,
             queue=False,
         )
-
+        self.register_core_callbacks()
+        self.ui_initialized = True
         return unit
 
     def register_send_dimensions(self):
@@ -920,6 +927,7 @@ class ControlNetUiGroup(object):
             show_progress=False,
         )
 
+    def register_sd_version_changed(self):
         def sd_version_changed(type_filter: str, current_model: str):
             """When SD version changes, update model dropdown choices."""
             (
@@ -939,12 +947,13 @@ class ControlNetUiGroup(object):
                 choices=filtered_model_list,
             )
 
-        ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
-            fn=sd_version_changed,
-            inputs=[self.type_filter, self.model],
-            outputs=[self.model],
-            show_progress=False,
-        )
+        if ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint:
+            ControlNetUiGroup.a1111_context.setting_sd_model_checkpoint.change(
+                fn=sd_version_changed,
+                inputs=[self.type_filter, self.model],
+                outputs=[self.model],
+                show_progress=False,
+            )
 
     def register_run_annotator(self):
         def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
@@ -1298,23 +1307,16 @@ class ControlNetUiGroup(object):
             outputs=[self.update_unit_counter],
         )
 
-    def register_callbacks(self):
-        """Register callbacks on the UI elements."""
-        # Prevent infinite recursion.
-        if self.callbacks_registered:
-            return
-
-        self.callbacks_registered = True
-        self.register_send_dimensions()
+    def register_core_callbacks(self):
+        """Register core callbacks that only involves gradio components defined
+        within this ui group."""
         self.register_webcam_toggle()
         self.register_webcam_mirror_toggle()
         self.register_refresh_all_models()
         self.register_build_sliders()
-        self.register_run_annotator()
         self.register_shift_preview()
         self.register_shift_upload_mask()
         self.register_create_canvas()
-        self.register_sync_batch_dir()
         self.register_clear_preview()
         self.register_multi_images_upload()
         self.openpose_editor.register_callbacks(
@@ -1333,6 +1335,19 @@ class ControlNetUiGroup(object):
         )
         if self.is_img2img:
             self.register_img2img_same_input()
+
+    def register_callbacks(self):
+        """Register callbacks that involves A1111 context gradio components."""
+        # Prevent infinite recursion.
+        if self.callbacks_registered:
+            return
+
+        self.callbacks_registered = True
+        self.register_sd_version_changed()
+        self.register_send_dimensions()
+        self.register_run_annotator()
+        self.register_sync_batch_dir()
+        if self.is_img2img:
             self.register_shift_crop_input_image()
         else:
             self.register_shift_hr_options()
@@ -1390,9 +1405,16 @@ class ControlNetUiGroup(object):
 
     @staticmethod
     def try_register_all_callbacks():
-        # All A1111 components ControlNet units care about are all registered.
-        if ControlNetUiGroup.a1111_context.ui_initialized and all(
-            not g.callbacks_registered for g in ControlNetUiGroup.all_ui_groups
+        unit_count = shared.opts.data.get("control_net_unit_count", 3)
+        all_unit_count = unit_count * 2  # txt2img + img2img.
+        if (
+            # All A1111 components ControlNet units care about are all registered.
+            ControlNetUiGroup.a1111_context.ui_initialized
+            and all_unit_count == len(ControlNetUiGroup.all_ui_groups)
+            and all(
+                g.ui_initialized and (not g.callbacks_registered)
+                for g in ControlNetUiGroup.all_ui_groups
+            )
         ):
             for ui_group in ControlNetUiGroup.all_ui_groups:
                 ui_group.register_callbacks()
