@@ -1,4 +1,4 @@
-version_flag = 'v1.1.439'
+version_flag = 'v1.1.440'
 
 from scripts.logging import logger
 
