@@ -649,7 +649,7 @@ class UnetHook(nn.Module):
             for param in outer.control_params:
                 if not isinstance(param.used_hint_cond, torch.Tensor):
                     continue
-                if param.used_hint_cond.shape[1] != 4:
+                if param.used_hint_cond.ndim < 2 or param.used_hint_cond.shape[1] != 4:
                     continue
                 if x.shape[1] != 9:
                     continue
