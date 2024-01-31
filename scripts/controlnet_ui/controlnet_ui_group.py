@@ -778,11 +778,11 @@ class ControlNetUiGroup(object):
         )
 
     def register_refresh_all_models(self):
-        def refresh_all_models(model1: str, model2: str):
+        def refresh_all_models(model: str):
             global_state.update_cn_models()
             choices = list(global_state.cn_models.keys())
             return gr.Dropdown.update(
-                value=model1 if model1 in global_state.cn_models else "None",
+                value=model if model in global_state.cn_models else "None",
                 choices=choices,
             )
 
