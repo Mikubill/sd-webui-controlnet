@@ -262,4 +262,4 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
         network.to('cpu')
         return ControlModel(network, ControlModelType.Controlllite)
 
-    raise '[ControlNet Error] Cannot recognize the ControlModel!'
+    raise Exception('[ControlNet Error] Cannot recognize the ControlModel!')
