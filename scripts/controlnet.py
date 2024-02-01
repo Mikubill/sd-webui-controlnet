@@ -395,7 +395,7 @@ class Script(scripts.Script, metaclass=(
         state_dict = load_state_dict(model_path)
         control_model = build_model_by_guess(state_dict, unet, model_path)
         control_model.model.to('cpu', dtype=p.sd_model.dtype)
-        logger.info(f"ControlNet model {model} loaded.")
+        logger.info(f"ControlNet model {model}({control_model.type}) loaded.")
         return control_model
 
     @staticmethod
