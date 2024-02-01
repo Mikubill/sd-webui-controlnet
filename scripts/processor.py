@@ -750,10 +750,10 @@ class InsightFaceModel:
         img = HWC3(img)
         faces = self.model.get(img)
         if not faces:
-            raise Exception(f"Insightface: No face found in image {i}.")
+            raise Exception(f"Insightface: No face found in image.")
         if len(faces) > 1:
             logger.warn("Insightface: More than one face is detected in the image. "
-                        f"Only the first one will be used {i}.")
+                        f"Only the first one will be used.")
         return torch.from_numpy(faces[0].normed_embedding).unsqueeze(0), False
 
     def run_model_instant_id(
