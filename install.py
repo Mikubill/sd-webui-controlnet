@@ -70,7 +70,7 @@ def try_install_from_wheel(pkg_name: str, wheel_url: str, version: Optional[str]
         if version is None:
             return
         # Version requirement already satisfied.
-        if comparable_version(current_version) >= version:
+        if comparable_version(current_version) >= comparable_version(version):
             return
 
     try:
