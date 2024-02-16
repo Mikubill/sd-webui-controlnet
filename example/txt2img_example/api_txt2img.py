@@ -73,5 +73,5 @@ if __name__ == '__main__':
 
     result = output['images'][0]
 
-    image = Image.open(io.BytesIO(base64.b64decode(result.split(",", 1)[0])))
+    image = Image.open(io.BytesIO(base64.b64decode(result)))
     image.show()
