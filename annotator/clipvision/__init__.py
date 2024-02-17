@@ -3,10 +3,14 @@ import cv2
 import torch
 
 from modules import devices
-from modules.modelloader import load_file_from_url
 from annotator.annotator_path import models_path
 from transformers import CLIPVisionModelWithProjection, CLIPVisionConfig, CLIPImageProcessor
 
+try:
+    from modules.modelloader import load_file_from_url
+except ImportError:
+    # backward compability for webui < 1.5.0
+    from basicsr.utils.download_util import load_file_from_url
 
 config_clip_g = {
   "attention_dropout": 0.0,
