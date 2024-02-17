@@ -276,7 +276,7 @@ def get_sd_version() -> StableDiffusionVersion:
         else:
             return StableDiffusionVersion.UNKNOWN
 
-    # backward compability with webui < 1.5.0
+    # backward compability for webui < 1.5.0
     else:
         if hasattr(shared.sd_model, 'conditioner'):
             return StableDiffusionVersion.SDXL
@@ -284,7 +284,7 @@ def get_sd_version() -> StableDiffusionVersion:
             return StableDiffusionVersion.SD2x
         else:
             return StableDiffusionVersion.SD1x
-    
+
 
 
 def select_control_type(

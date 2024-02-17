@@ -9,6 +9,7 @@ from transformers import CLIPVisionModelWithProjection, CLIPVisionConfig, CLIPIm
 try:
     from modules.modelloader import load_file_from_url
 except ImportError:
+    # backward compability for webui < 1.5.0
     from basicsr.utils.download_util import load_file_from_url
 
 config_clip_g = {
