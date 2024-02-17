@@ -1,8 +1,8 @@
+import os
 import io
 import cv2
 import base64
 import requests
-from PIL import Image
 
 """
     To use this example make sure you've done the following steps before executing:
@@ -20,9 +20,8 @@ def generate(url: str, payload: dict):
         print(response)
     else:
         for i, base64image in enumerate(response["images"]):
-            Image.open(io.BytesIO(base64.b64decode(base64image.split(",", 1)[0]))).save(
-                f"{url.split('/')[-1]}-{i}.png"
-            )
+            with open(f"{os.path.basename(url)}-{i}{file_suffix}.png", 'wb') as f:
+                f.write(base64.b64decode(response['images'][i]))
 
 
 def read_image(img_path: str) -> str:

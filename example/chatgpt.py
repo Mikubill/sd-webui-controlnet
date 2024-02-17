@@ -8,7 +8,6 @@ import io, base64
 import numpy as np
 import gradio as gr
 from PIL import Image
-from base64 import b64encode
 from omegaconf import OmegaConf
 from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration, BlipForQuestionAnswering
 from transformers import AutoModelForCausalLM, AutoTokenizer, CLIPSegProcessor, CLIPSegForImageSegmentation
@@ -62,7 +61,7 @@ if torch.cuda.is_available():
 def readImage(path):
     img = cv2.imread(path)
     retval, buffer = cv2.imencode('.jpg', img)
-    b64img = b64encode(buffer).decode("utf-8")
+    b64img = base64.b64encode(buffer).decode("utf-8")
     return b64img
 
 def get_model(pattern='^control_canny.*'):
@@ -178,12 +177,12 @@ class MaskFormer:
 #         resp = do_webui_request(
 #             url=ENDPOINT + "/sdapi/v1/img2img",
 #             init_images=[readImage(image_path)],
-#             mask=b64encode(buffered.getvalue()).decode("utf-8"),
+#             mask=base64.b64encode(buffered.getvalue()).decode("utf-8"),
 #             prompt=replace_with_txt,
 #         )
-#         image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
 #         updated_image_path = get_new_image_name(image_path, func_name="replace-something")
-#         updated_image.save(updated_image_path)
+#         with open(updated_image_path, 'wb') as f:
+#             f.write(base64.b64decode(resp['images'][0]))
 #         return updated_image_path
 
 # class Pix2Pix:
@@ -220,8 +219,8 @@ class T2I:
             url=ENDPOINT + "/sdapi/v1/txt2img",
             prompt=refined_text,
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
-        image.save(image_filename)
+        with open(image_filename, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         print(f"Processed T2I.run, text: {text}, image_filename: {image_filename}")
         return image_filename
 
@@ -263,10 +262,9 @@ class canny2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_canny.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="canny2image")
-        real_image = Image.fromarray(x_samples[0])  
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -279,8 +277,8 @@ class image2line:
             controlnet_module="mlsd",
         )
         updated_image_path = get_new_image_name(inputs, func_name="line-of")
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -294,10 +292,9 @@ class line2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_mlsd.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="line2image")
-        real_image = Image.fromarray(x_samples[0])  # default the index0 image
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -309,9 +306,9 @@ class image2hed:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="hed",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="hed-boundary")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -324,10 +321,9 @@ class hed2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_hed.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="hed2image")
-        real_image = Image.fromarray(x_samples[0])  # default the index0 image
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -339,9 +335,9 @@ class image2scribble:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="scribble",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="scribble")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -355,10 +351,9 @@ class scribble2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_scribble.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="scribble2image")
-        real_image = Image.fromarray(x_samples[0])  
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
     
     
@@ -370,9 +365,9 @@ class image2pose:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="openpose",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="human-pose")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -386,10 +381,9 @@ class pose2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_openpose.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="pose2image")
-        real_image = Image.fromarray(x_samples[0])  # default the index0 image
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -401,9 +395,9 @@ class image2seg:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="segmentation",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="segmentation")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -417,10 +411,9 @@ class seg2image:
             controlnet_module="none",
             controlnet_model=get_model(pattern='^control_seg.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="segment2image")
-        real_image = Image.fromarray(x_samples[0])  
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -432,9 +425,9 @@ class image2depth:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="depth",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="depth")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -448,10 +441,9 @@ class depth2image:
             controlnet_module="depth",
             controlnet_model=get_model(pattern='^control_depth.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="depth2image")
-        real_image = Image.fromarray(x_samples[0])  # default the index0 image
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -463,9 +455,9 @@ class image2normal:
             controlnet_input_images=[readImage(inputs)], 
             controlnet_module="normal",
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(inputs, func_name="normal-map")
-        image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
@@ -479,10 +471,9 @@ class normal2image:
             controlnet_module="normal",
             controlnet_model=get_model(pattern='^control_normal.*'),
         )
-        image = Image.open(io.BytesIO(base64.b64decode(resp["images"][0])))
         updated_image_path = get_new_image_name(image_path, func_name="normal2image")
-        real_image = Image.fromarray(x_samples[0])  # default the index0 image
-        real_image.save(updated_image_path)
+        with open(updated_image_path, 'wb') as f:
+            f.write(base64.b64decode(resp['images'][0]))
         return updated_image_path
 
 
