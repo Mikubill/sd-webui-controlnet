@@ -266,14 +266,25 @@ def update_cn_models():
 
 
 def get_sd_version() -> StableDiffusionVersion:
-    if shared.sd_model.is_sdxl:
-        return StableDiffusionVersion.SDXL
-    elif shared.sd_model.is_sd2:
-        return StableDiffusionVersion.SD2x
-    elif shared.sd_model.is_sd1:
-        return StableDiffusionVersion.SD1x
+    if hasattr(shared.sd_model, 'is_sdxl'):
+        if shared.sd_model.is_sdxl:
+            return StableDiffusionVersion.SDXL
+        elif shared.sd_model.is_sd2:
+            return StableDiffusionVersion.SD2x
+        elif shared.sd_model.is_sd1:
+            return StableDiffusionVersion.SD1x
+        else:
+            return StableDiffusionVersion.UNKNOWN
+
+    # backward compability with webui < 1.5.0
     else:
-        return StableDiffusionVersion.UNKNOWN
+        if hasattr(shared.sd_model, 'conditioner'):
+            return StableDiffusionVersion.SDXL
+        elif hasattr(shared.sd_model.cond_stage_model, 'model'):
+            return StableDiffusionVersion.SD2x
+        else:
+            return StableDiffusionVersion.SD1x
+    
 
 
 def select_control_type(
