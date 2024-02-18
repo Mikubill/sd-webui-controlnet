@@ -111,6 +111,8 @@ class A1111Context:
             "img2img_inpaint_upload_tab": "img2img_inpaint_upload_tab",
             "img2img_inpaint_full_res": "img2img_inpaint_area",
             "txt2img_hr-checkbox": "txt2img_enable_hr",
+            # backward compatibility for webui < 1.6.0
+            "txt2img_enable_hr": "txt2img_enable_hr",
             # setting_sd_model_checkpoint is expected to be initialized last.
             # "setting_sd_model_checkpoint": "setting_sd_model_checkpoint",
         }
