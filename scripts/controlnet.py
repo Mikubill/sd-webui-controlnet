@@ -5,6 +5,8 @@ import logging
 from collections import OrderedDict
 from copy import copy
 from typing import Dict, Optional, Tuple, List, NamedTuple
+
+from httpx import get
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 from modules.api.api import decode_base64_to_image
@@ -614,6 +616,38 @@ class Script(scripts.Script, metaclass=(
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
+
+        # AnimateDiff + ControlNet batch processing.
+        unit_is_ad_batch = getattr(unit, "animatediff_batch", False)
+        if unit_is_ad_batch:
+            batch_parameters = unit.batch_images.split("\n")
+            batch_image_dir = batch_parameters[0]
+            logger.info(f"AnimateDiff + ControlNet {unit.module} receive the following parameters:")
+            logger.info(f"\tbatch control images: {batch_image_dir}")
+            for ad_cn_batch_parameter in batch_parameters[1:]:
+                if ad_cn_batch_parameter.startswith("mask:"):
+                    unit.batch_mask_dir = ad_cn_batch_parameter[5:].strip()
+                    logger.info(f"\tbatch control mask: {unit.batch_mask_dir}")
+                elif ad_cn_batch_parameter.startswith("sparsectrl:"):
+                    unit.batch_sparsectrl_frame = ad_cn_batch_parameter[11:].strip()
+                    logger.info(f"\tbatch control sparsectrl frame index: {unit.batch_sparsectrl_frame}")
+            batch_image_files = shared.listfiles(batch_image_dir)
+            for batch_modifier in getattr(unit, 'batch_modifiers', []):
+                batch_image_files = batch_modifier(batch_image_files, p)
+            unit.image = []
+            for idx, image_path in enumerate(batch_image_files):
+                mask_path = None
+                if getattr(unit, "batch_mask_dir", None) is not None:
+                    batch_mask_files = shared.listfiles(unit.batch_mask_dir)
+                    if len(batch_mask_files) >= len(batch_image_files):
+                        mask_path = batch_mask_files[idx]
+                    else:
+                        mask_path = batch_mask_files[0]
+                unit.image.append({
+                    "image": image_path,
+                    "mask": mask_path,
+                })
+
         image = parse_unit_image(unit)
         a1111_image = getattr(p, "init_images", [None])[0]
 
@@ -635,6 +669,14 @@ class Script(scripts.Script, metaclass=(
                 # Add mask logic if later there is a processor that accepts mask
                 # on multiple inputs.
                 input_image = [HWC3(decode_image(img['image'])) for img in image]
+                if unit_is_ad_batch and 'mask' in image and image['mask'] is not None:
+                    for idx, img in enumerate(input_image):
+                        while len(img['mask'].shape) < 3:
+                            img['mask'] = img['mask'][..., np.newaxis]
+                        if 'inpaint' in unit.module:
+                            color = HWC3(img['image'])
+                            alpha = img['mask'][:, :, 0:1]
+                            input_image[idx] = np.concatenate([color, alpha], axis=2)
             else:
                 input_image = HWC3(decode_image(image['image']))
                 if 'mask' in image and image['mask'] is not None:
@@ -894,14 +936,20 @@ class Script(scripts.Script, metaclass=(
                 model_net, control_model_type = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
 
+                if model_net is not None and getattr(devices, "fp8", False) and not isinstance(model_net, PlugableIPAdapter):
+                    for _module in model_net.modules():
+                        if isinstance(_module, (torch.nn.Conv2d, torch.nn.Linear)):
+                            _module.to(torch.float8_e4m3fn)
+
                 if control_model_type == ControlModelType.ControlLoRA:
                     control_lora = model_net.control_model
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
+            is_cn_ad_batch = getattr(unit, "animatediff_batch", False)
             if isinstance(input_image, list):
-                assert unit.accepts_multiple_inputs()
+                assert unit.accepts_multiple_inputs() or is_cn_ad_batch
                 input_images = input_image
             else: # Following operations are only for single input image.
                 input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
@@ -909,14 +957,15 @@ class Script(scripts.Script, metaclass=(
                 if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
                     # inpaint_only+lama is special and required outpaint fix
                     _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
-                if unit.pixel_perfect:
-                    unit.processor_res = external_code.pixel_perfect_resolution(
-                        input_image,
-                        target_H=h,
-                        target_W=w,
-                        resize_mode=resize_mode,
-                    )
                 input_images = [input_image]
+
+            if unit.pixel_perfect:
+                unit.processor_res = external_code.pixel_perfect_resolution(
+                    input_images[0],
+                    target_H=h,
+                    target_W=w,
+                    resize_mode=resize_mode,
+                )
             # Preprocessor result may depend on numpy random operations, use the
             # random seed in `StableDiffusionProcessing` to make the
             # preprocessor result reproducable.
@@ -964,12 +1013,32 @@ class Script(scripts.Script, metaclass=(
 
                 if control_model_type == ControlModelType.ReVision:
                     control = control['image_embeds']
+
+                if is_cn_ad_batch: # AnimateDiff save VRAM
+                    control = control.cpu()
+                    if hr_control is not None:
+                        hr_control = hr_control.cpu()
+
                 return control, hr_control
 
-            controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in input_images]))
+            def optional_tqdm(iterable, use_tqdm=is_cn_ad_batch):
+                from tqdm import tqdm
+                return tqdm(iterable) if use_tqdm else iterable
+
+            controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in optional_tqdm(input_images)]))
             if len(controls) == len(hr_controls) == 1:
                 control = controls[0]
                 hr_control = hr_controls[0]
+            elif is_cn_ad_batch:
+                control = torch.cat(controls, dim=0)
+                if shared.opts.batch_cond_uncond:
+                    control = torch.cat([control, control], dim=0)
+                if hr_controls[0] is not None:
+                    hr_control = torch.cat(hr_controls, dim=0)
+                    if shared.opts.batch_cond_uncond:
+                        hr_control = torch.cat([hr_control, hr_control], dim=0)
+                else:
+                    hr_control = None
             else:
                 control = controls
                 hr_control = hr_controls
