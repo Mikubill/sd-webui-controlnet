@@ -669,13 +669,13 @@ class Script(scripts.Script, metaclass=(
                 # Add mask logic if later there is a processor that accepts mask
                 # on multiple inputs.
                 input_image = [HWC3(decode_image(img['image'])) for img in image]
-                if unit_is_ad_batch and 'mask' in image and image['mask'] is not None:
-                    for idx, img in enumerate(input_image):
-                        while len(img['mask'].shape) < 3:
-                            img['mask'] = img['mask'][..., np.newaxis]
+                if unit_is_ad_batch and len(image) > 0 and 'mask' in image[0] and image[0]['mask'] is not None:
+                    for idx in range(len(input_image)):
+                        while len(image[idx]['mask'].shape) < 3:
+                            image[idx]['mask'] = image[idx]['mask'][..., np.newaxis]
                         if 'inpaint' in unit.module:
-                            color = HWC3(img['image'])
-                            alpha = img['mask'][:, :, 0:1]
+                            color = HWC3(image[idx]["image"])
+                            alpha = image[idx]['mask'][:, :, 0:1]
                             input_image[idx] = np.concatenate([color, alpha], axis=2)
             else:
                 input_image = HWC3(decode_image(image['image']))
@@ -1077,22 +1077,24 @@ class Script(scripts.Script, metaclass=(
                 final_inpaint_feed = hr_control if hr_control is not None else control
                 final_inpaint_feed = final_inpaint_feed.detach().cpu().numpy()
                 final_inpaint_feed = np.ascontiguousarray(final_inpaint_feed).copy()
-                final_inpaint_mask = final_inpaint_feed[0, 3, :, :].astype(np.float32)
-                final_inpaint_raw = final_inpaint_feed[0, :3].astype(np.float32)
+                final_inpaint_mask = final_inpaint_feed[:, 3, :, :].astype(np.float32)
+                final_inpaint_raw = final_inpaint_feed[:, :3].astype(np.float32)
                 sigma = shared.opts.data.get("control_net_inpaint_blur_sigma", 7)
                 final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
                 final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[None]
-                _, Hmask, Wmask = final_inpaint_mask.shape
+                _, _, Hmask, Wmask = final_inpaint_mask.shape
                 final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
                 final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())
 
-                def inpaint_only_post_processing(x):
+                def inpaint_only_post_processing(x, i):
+                    if i >= final_inpaint_raw.shape[0]:
+                        i = 0
                     _, H, W = x.shape
                     if Hmask != H or Wmask != W:
                         logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
                         return x
-                    r = final_inpaint_raw.to(x.dtype).to(x.device)
-                    m = final_inpaint_mask.to(x.dtype).to(x.device)
+                    r = final_inpaint_raw[i].to(x.dtype).to(x.device)
+                    m = final_inpaint_mask[i].to(x.dtype).to(x.device)
                     y = m * x.clip(0, 1) + (1 - m) * r
                     y = y.clip(0, 1)
                     return y
@@ -1103,13 +1105,15 @@ class Script(scripts.Script, metaclass=(
                 final_feed = hr_control if hr_control is not None else control
                 final_feed = final_feed.detach().cpu().numpy()
                 final_feed = np.ascontiguousarray(final_feed).copy()
-                final_feed = final_feed[0, 0, :, :].astype(np.float32)
+                final_feed = final_feed[:, 0, :, :].astype(np.float32)
                 final_feed = (final_feed * 255).clip(0, 255).astype(np.uint8)
-                Hfeed, Wfeed = final_feed.shape
+                _, Hfeed, Wfeed = final_feed.shape
 
                 if 'luminance' in unit.module:
 
-                    def recolor_luminance_post_processing(x):
+                    def recolor_luminance_post_processing(x, i):
+                        if i >= final_feed.shape[0]:
+                            i = 0
                         C, H, W = x.shape
                         if Hfeed != H or Wfeed != W or C != 3:
                             logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
@@ -1117,7 +1121,7 @@ class Script(scripts.Script, metaclass=(
                         h = x.detach().cpu().numpy().transpose((1, 2, 0))
                         h = (h * 255).clip(0, 255).astype(np.uint8)
                         h = cv2.cvtColor(h, cv2.COLOR_RGB2LAB)
-                        h[:, :, 0] = final_feed
+                        h[:, :, 0] = final_feed[i]
                         h = cv2.cvtColor(h, cv2.COLOR_LAB2RGB)
                         h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
                         y = torch.from_numpy(h).clip(0, 1).to(x)
@@ -1127,7 +1131,9 @@ class Script(scripts.Script, metaclass=(
 
                 if 'intensity' in unit.module:
 
-                    def recolor_intensity_post_processing(x):
+                    def recolor_intensity_post_processing(x, i):
+                        if i >= final_feed.shape[0]:
+                            i = 0
                         C, H, W = x.shape
                         if Hfeed != H or Wfeed != W or C != 3:
                             logger.error('Error: ControlNet find post-processing resolution mismatch. This could be related to other extensions hacked processing.')
@@ -1135,7 +1141,7 @@ class Script(scripts.Script, metaclass=(
                         h = x.detach().cpu().numpy().transpose((1, 2, 0))
                         h = (h * 255).clip(0, 255).astype(np.uint8)
                         h = cv2.cvtColor(h, cv2.COLOR_RGB2HSV)
-                        h[:, :, 2] = final_feed
+                        h[:, :, 2] = final_feed[i]
                         h = cv2.cvtColor(h, cv2.COLOR_HSV2RGB)
                         h = (h.astype(np.float32) / 255.0).transpose((2, 0, 1))
                         y = torch.from_numpy(h).clip(0, 1).to(x)
@@ -1226,7 +1232,7 @@ class Script(scripts.Script, metaclass=(
         images = kwargs.get('images', [])
         for post_processor in self.post_processors:
             for i in range(len(images)):
-                images[i] = post_processor(images[i])
+                images[i] = post_processor(images[i], i)
         return
 
     def postprocess(self, p, processed, *args):
