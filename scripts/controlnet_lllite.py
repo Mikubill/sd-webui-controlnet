@@ -3,8 +3,6 @@
 import re
 import torch
 
-from modules import devices
-
 
 class LLLiteModule(torch.nn.Module):
     def __init__(
@@ -146,7 +144,7 @@ class PlugableControlLLLite(torch.nn.Module):
                 cond_emb_dim=weights["conditioning1.0.weight"].shape[0] * 2,
                 mlp_dim=weights["down.0.weight"].shape[0],
             )
-            info = module.load_state_dict(weights)
+            module.load_state_dict(weights)
             modules[module_name] = module
             setattr(self, module_name, module)
             if len(modules) == 1:

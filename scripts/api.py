@@ -9,7 +9,7 @@ from PIL import Image
 
 import gradio as gr
 
-from modules.api.models import *
+from modules.api.models import *  # noqa:F403
 from modules.api import api
 
 from scripts import external_code, global_state
@@ -193,5 +193,5 @@ try:
     import modules.script_callbacks as script_callbacks
 
     script_callbacks.on_app_started(controlnet_api)
-except:
-    pass
+except Exception:
+    logger.warn("Unable to mount ControlNet API.")

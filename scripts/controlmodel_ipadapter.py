@@ -225,7 +225,7 @@ class PerceiverAttention(nn.Module):
         x = self.norm1(x)
         latents = self.norm2(latents)
 
-        b, l, _ = latents.shape
+        b, l, _ = latents.shape  # noqa: E741
 
         q = self.to_q(latents)
         kv_input = torch.cat((x, latents), dim=-2)

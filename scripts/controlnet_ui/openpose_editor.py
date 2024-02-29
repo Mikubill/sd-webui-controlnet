@@ -52,7 +52,7 @@ class OpenposeEditor(object):
             # immediately navigate. Most of controlnet units do not need
             # openpose editor active. Only navigate when the user first click
             # 'Edit'. The navigation logic is in `openpose_editor.js`.
-            f'<iframe src="about:blank"></iframe>',
+            '<iframe src="about:blank"></iframe>',
             open_button_text="Edit",
             open_button_classes=["cnet-edit-pose"],
             open_button_extra_attrs=f'title="Send pose to {OpenposeEditor.editor_url} for edit."',

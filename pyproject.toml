@@ -8,7 +8,8 @@ exclude = [
   "web_tests",
   "example",
   "extract_controlnet_diff.py",
-  "scripts",
+  "scripts/global_state.py",
+  "scripts/movie2movie.py",
 ]
 
 ignore = [

@@ -56,7 +56,7 @@ model_canny = None
 
 
 def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
-    l, h = thr_a, thr_b
+    l, h = thr_a, thr_b  # noqa: E741
     img, remove_pad = resize_image_with_pad(img, res)
     global model_canny
     if model_canny is None:
@@ -750,10 +750,10 @@ class InsightFaceModel:
         img = HWC3(img)
         faces = self.model.get(img)
         if not faces:
-            raise Exception(f"Insightface: No face found in image.")
+            raise Exception("Insightface: No face found in image.")
         if len(faces) > 1:
             logger.warn("Insightface: More than one face is detected in the image. "
-                        f"Only the first one will be used.")
+                        "Only the first one will be used.")
         return torch.from_numpy(faces[0].normed_embedding).unsqueeze(0), False
 
     def run_model_instant_id(
@@ -803,10 +803,10 @@ class InsightFaceModel:
         img, remove_pad = resize_image_with_pad(img, res)
         face_info = self.model.get(img)
         if not face_info:
-            raise Exception(f"Insightface: No face found in image.")
+            raise Exception("Insightface: No face found in image.")
         if len(face_info) > 1:
             logger.warn("Insightface: More than one face is detected in the image. "
-                        f"Only the biggest one will be used.")
+                        "Only the biggest one will be used.")
         # only use the maximum face
         face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
         if return_keypoints:

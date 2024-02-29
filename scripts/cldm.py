@@ -8,7 +8,7 @@ try:
     from sgm.modules.diffusionmodules.openaimodel import conv_nd, linear, zero_module, timestep_embedding, \
         TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
     using_sgm = True
-except:
+except ImportError:
     from ldm.modules.diffusionmodules.openaimodel import conv_nd, linear, zero_module, timestep_embedding, \
         TimestepEmbedSequential, ResBlock, Downsample, SpatialTransformer, exists
     using_sgm = False
