@@ -134,7 +134,7 @@ def pixel_perfect_resolution(
     else:
         estimation = max(k0, k1) * float(min(raw_H, raw_W))
 
-    logger.debug(f"Pixel Perfect Computation:")
+    logger.debug("Pixel Perfect Computation:")
     logger.debug(f"resize_mode = {resize_mode}")
     logger.debug(f"raw_H = {raw_H}")
     logger.debug(f"raw_W = {raw_W}")

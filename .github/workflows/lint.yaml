@@ -1,0 +1,24 @@
+name: Linter
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  lint-python:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+          # NB: there's no cache: pip here since we're not installing anything
+          #     from the requirements.txt file(s) in the repository; it's faster
+          #     not to have GHA download an (at the time of writing) 4 GB cache
+          #     of PyTorch and other dependencies.
+      - name: Install Ruff
+        run: pip install ruff==0.1.6
+      - name: Run Ruff
+        run: ruff .
