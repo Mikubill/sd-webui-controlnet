@@ -3,7 +3,7 @@ import tracemalloc
 import os
 import logging
 from collections import OrderedDict
-from copy import copy
+from copy import copy, deepcopy
 from typing import Dict, Optional, Tuple, List, Union
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
@@ -1044,8 +1044,17 @@ class Script(scripts.Script, metaclass=(
                             c = SparseCtrl.create_cond_mask(cn_ad_keyframe_idx, c, p.batch_size).cpu()
                         elif unit.accepts_multiple_inputs():
                             # ip-adapter should do prompt travel
-                            cc.append(cn_ad_keyframe_idx)
-                            return cc
+                            from scripts.animatediff_utils import get_animatediff_arg
+                            c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
+                            for i, idx in enumerate(cn_ad_keyframe_idx[:-1]):
+                                c_full[idx:cn_ad_keyframe_idx[i + 1]] = c[i]
+                            c_full[cn_ad_keyframe_idx[-1]:] = c[-1]
+                            ad_params = get_animatediff_arg(p)
+                            prompt_scheduler = deepcopy(ad_params.prompt_scheduler)
+                            prompt_scheduler.prompt_map = {i: "" for i in cn_ad_keyframe_idx}
+                            prompt_closed_loop = (ad_params.video_length > ad_params.batch_size) and (ad_params.closed_loop in ['R+P', 'A'])
+                            c_full = prompt_scheduler.multi_cond(c_full, prompt_closed_loop)
+                            c = c_full
                         else:
                             # normal CN should insert empty frames
                             c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
