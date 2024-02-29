@@ -183,3 +183,6 @@ presets/
 
 # Ignore existing dir of hand refiner if exists.
 annotator/hand_refiner_portable
+
+# Ruff linter cache dir
+.ruff_cache/
