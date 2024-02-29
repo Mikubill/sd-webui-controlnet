@@ -16,7 +16,8 @@ class ImageEmbed(NamedTuple):
     def eval(self, cond_mark: torch.Tensor) -> torch.Tensor:
         assert cond_mark.ndim == 4
         assert self.cond_emb.ndim == self.uncond_emb.ndim == 3
-        assert self.cond_emb.shape[0] == self.uncond_emb.shape[0] == 1
+        assert self.cond_emb.shape[0] == self.uncond_emb.shape[0]
+        assert self.cond_emb.shape[0] == 1 or self.cond_emb.shape[0] == cond_mark.shape[0]
         cond_mark = cond_mark[:, :, :, 0].to(self.cond_emb)
         device = cond_mark.device
         dtype = cond_mark.dtype

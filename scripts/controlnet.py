@@ -1,3 +1,4 @@
+from ast import Not
 import gc
 import tracemalloc
 import os
@@ -626,11 +627,12 @@ class Script(scripts.Script, metaclass=(
             logger.info(f"\tbatch control images: {batch_image_dir}")
             for ad_cn_batch_parameter in batch_parameters[1:]:
                 if ad_cn_batch_parameter.startswith("mask:"):
-                    unit.batch_mask_dir = ad_cn_batch_parameter[5:].strip()
+                    unit.batch_mask_dir = ad_cn_batch_parameter[len("mask:"):].strip()
                     logger.info(f"\tbatch control mask: {unit.batch_mask_dir}")
-                elif ad_cn_batch_parameter.startswith("sparsectrl:"):
-                    unit.batch_sparsectrl_frame = ad_cn_batch_parameter[11:].strip()
-                    logger.info(f"\tbatch control sparsectrl frame index: {unit.batch_sparsectrl_frame}")
+                elif ad_cn_batch_parameter.startswith("keyframe:"):
+                    unit.batch_keyframe_idx = ad_cn_batch_parameter[len("keyframe:"):].strip()
+                    unit.batch_keyframe_idx = [int(b_i.strip()) for b_i in unit.batch_keyframe_idx.split(',')]
+                    logger.info(f"\tbatch control keyframe index: {unit.batch_sparsectrl_frame}")
             batch_image_files = shared.listfiles(batch_image_dir)
             for batch_modifier in getattr(unit, 'batch_modifiers', []):
                 batch_image_files = batch_modifier(batch_image_files, p)
@@ -936,8 +938,8 @@ class Script(scripts.Script, metaclass=(
                 model_net, control_model_type = Script.load_control_model(p, unet, unit.model)
                 model_net.reset()
 
-                if model_net is not None and getattr(devices, "fp8", False) and not isinstance(model_net, PlugableIPAdapter):
-                    for _module in model_net.modules():
+                if model_net is not None and getattr(devices, "fp8", False) and control_model_type == ControlModelType.ControlNet:
+                    for _module in model_net.modules(): # FIXME: let's only apply fp8 to ControlNet for now
                         if isinstance(_module, (torch.nn.Conv2d, torch.nn.Linear)):
                             _module.to(torch.float8_e4m3fn)
 
@@ -948,6 +950,7 @@ class Script(scripts.Script, metaclass=(
 
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             is_cn_ad_batch = getattr(unit, "animatediff_batch", False)
+            cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
             if isinstance(input_image, list):
                 assert unit.accepts_multiple_inputs() or is_cn_ad_batch
                 input_images = input_image
@@ -1026,19 +1029,38 @@ class Script(scripts.Script, metaclass=(
                 return tqdm(iterable) if use_tqdm else iterable
 
             controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in optional_tqdm(input_images)]))
-            if len(controls) == len(hr_controls) == 1:
+            if len(controls) == len(hr_controls) == 1 and control_model_type not in [ControlModelType.SparseCtrl]:
                 control = controls[0]
                 hr_control = hr_controls[0]
-            elif is_cn_ad_batch:
-                control = torch.cat(controls, dim=0)
-                if shared.opts.batch_cond_uncond:
-                    control = torch.cat([control, control], dim=0)
-                if hr_controls[0] is not None:
-                    hr_control = torch.cat(hr_controls, dim=0)
+            elif is_cn_ad_batch or control_model_type in [ControlModelType.SparseCtrl]:
+                def ad_process_control(cc: List[torch.Tensor]):
+                    c = torch.cat(cc, dim=0)
+                    # SparseCtrl keyframe need to encode control image with VAE
+                    if control_model_type == ControlModelType.SparseCtrl and \
+                        model_net.control_model.use_simplified_condition_embedding:
+                        c = UnetHook.call_vae_using_process(p, c)
+                    # handle key frame control for different control methods
+                    if cn_ad_keyframe_idx is not None or control_model_type in [ControlModelType.SparseCtrl]:
+                        if control_model_type == ControlModelType.SparseCtrl:
+                            # sparsectrl has its own embed generator
+                            from scripts.controlnet_sparsectrl import SparseCtrl
+                            c = SparseCtrl.create_cond_mask(cn_ad_keyframe_idx, c, p.batch_size).cpu()
+                        elif unit.accepts_multiple_inputs():
+                            # ip-adapter should do prompt travel
+                            cc.append(cn_ad_keyframe_idx)
+                            return cc
+                        else:
+                            # normal CN should insert empty frames
+                            c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
+                            c_full[cn_ad_keyframe_idx] = c
+                            c = c_full
+                    # handle batch condition and unconditional
                     if shared.opts.batch_cond_uncond:
-                        hr_control = torch.cat([hr_control, hr_control], dim=0)
-                else:
-                    hr_control = None
+                        c = torch.cat([c, c], dim=0)
+                    return c
+
+                control = ad_process_control(controls)
+                hr_control = ad_process_control(hr_controls) if hr_controls[0] is not None else None
             else:
                 control = controls
                 hr_control = hr_controls

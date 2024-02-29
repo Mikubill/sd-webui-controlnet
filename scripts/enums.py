@@ -62,6 +62,7 @@ class ControlModelType(Enum):
     IPAdapter = "IPAdapter, Hu Ye"
     Controlllite = "Controlllite, Kohya"
     InstantID = "InstantID, Qixun Wang"
+    SparseCtrl = "SparseCtrl, Yuwei Guo"
 
     def is_controlnet(self) -> bool:
         """Returns whether the control model should be treated as ControlNet."""

@@ -1316,6 +1316,7 @@ preprocessor_filters = {
     "T2I-Adapter": "none",
     "IP-Adapter": "ip-adapter_clip_sd15",
     "Instant_ID": "instant_id",
+    "SparseCtrl": "none",
 }
 
 preprocessor_filters_aliases = {
