@@ -1,4 +1,3 @@
-from ast import Not
 import gc
 import tracemalloc
 import os
@@ -1035,7 +1034,7 @@ class Script(scripts.Script, metaclass=(
                     c = torch.cat(cc, dim=0)
                     # SparseCtrl keyframe need to encode control image with VAE
                     if control_model_type == ControlModelType.SparseCtrl and \
-                        model_net.control_model.use_simplified_condition_embedding:
+                        model_net.control_model.use_simplified_condition_embedding: # noqa
                         c = UnetHook.call_vae_using_process(p, c)
                     # handle key frame control for different control methods
                     if cn_ad_keyframe_idx is not None or control_model_type in [ControlModelType.SparseCtrl]:
