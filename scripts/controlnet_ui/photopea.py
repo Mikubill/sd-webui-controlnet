@@ -131,7 +131,7 @@ class Photopea(object):
                 # Use about:blank here as placeholder so that the iframe does not
                 # immediately navigate. Only navigate when the user first click
                 # 'Edit'. The navigation logic is in `photopea.js`.
-                f"""
+                """
                 <div class="photopea-button-group">
                     <button class="photopea-button photopea-fetch">Fetch from ControlNet</button>
                     <button class="photopea-button photopea-send">Send to ControlNet</button>
@@ -172,7 +172,7 @@ class Photopea(object):
             visible=False,
             source="upload",
             type="numpy",
-            elem_classes=[f"cnet-photopea-output"],
+            elem_classes=["cnet-photopea-output"],
         )
 
         output.upload(

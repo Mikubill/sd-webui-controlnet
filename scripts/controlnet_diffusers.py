@@ -1,9 +1,6 @@
 # https://gist.github.com/takuma104/4adfb3d968d80bea1d18a30c06439242
 # 2nd editing by lllyasviel
 
-import torch
-
-
 # =================#
 # UNet Conversion #
 # =================#
