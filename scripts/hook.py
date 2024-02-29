@@ -10,8 +10,6 @@ from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
 from scripts.controlmodel_ipadapter import ImageEmbed
 from modules import devices, lowvram, shared, scripts
 
-cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
-
 from ldm.modules.diffusionmodules.util import timestep_embedding, make_beta_schedule
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
 from ldm.modules.attention import BasicTransformerBlock
@@ -23,10 +21,11 @@ from modules.processing import StableDiffusionProcessing
 
 try:
     from sgm.modules.attention import BasicTransformerBlock as BasicTransformerBlockSGM
-except:
+except ImportError:
     print('Warning: ControlNet failed to load SGM - will use LDM instead.')
     BasicTransformerBlockSGM = BasicTransformerBlock
 
+cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 POSITIVE_MARK_TOKEN = 1024
 NEGATIVE_MARK_TOKEN = - POSITIVE_MARK_TOKEN
@@ -388,9 +387,9 @@ class UnetHook(nn.Module):
                     vae_output = p.sd_model.encode_first_stage(x)
                     vae_output = p.sd_model.get_first_stage_encoding(vae_output)
                     if torch.all(torch.isnan(vae_output)).item():
-                        logger.info(f'ControlNet find Nans in the VAE encoding. \n '
-                                    f'Now ControlNet will automatically retry.\n '
-                                    f'To always start with 32-bit VAE, use --no-half-vae commandline flag.')
+                        logger.info('ControlNet find Nans in the VAE encoding. \n '
+                                    'Now ControlNet will automatically retry.\n '
+                                    'To always start with 32-bit VAE, use --no-half-vae commandline flag.')
                         devices.dtype_vae = torch.float32
                         x = x.to(devices.dtype_vae)
                         p.sd_model.first_stage_model.to(devices.dtype_vae)
@@ -562,7 +561,7 @@ class UnetHook(nn.Module):
                         x_in = x[:, :4, ...]
                         require_inpaint_hijack = True
 
-                assert param.used_hint_cond is not None, f"Controlnet is enabled but no input image is given"
+                assert param.used_hint_cond is not None, "Controlnet is enabled but no input image is given"
 
                 hint = param.used_hint_cond
                 if param.control_model_type == ControlModelType.InstantID:
@@ -676,8 +675,8 @@ class UnetHook(nn.Module):
                 try:
                     # Trigger the register_forward_pre_hook
                     outer.sd_ldm.model()
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(e)
 
             # Clear attention and AdaIn cache
             for module in outer.attn_module_list:

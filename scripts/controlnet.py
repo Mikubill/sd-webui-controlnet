@@ -4,7 +4,7 @@ import os
 import logging
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Optional, Tuple, List, NamedTuple
+from typing import Dict, Optional, Tuple, List, Union
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
 from modules.api.api import decode_base64_to_image
@@ -14,7 +14,7 @@ import time
 from einops import rearrange
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
-from scripts.processor import *
+from scripts.processor import HWC3, preprocessor_sliders_config
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.controlmodel_ipadapter import clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
@@ -321,10 +321,10 @@ class Script(scripts.Script, metaclass=(
                                 controls.append(state)
                 else:
                     with gr.Column():
-                        group, state = self.uigroup(f"ControlNet", is_img2img, elem_id_tabname, photopea)
+                        group, state = self.uigroup("ControlNet", is_img2img, elem_id_tabname, photopea)
                         ui_groups.append(group)
                         controls.append(state)
-                with gr.Accordion(f"Batch Options", open=False, elem_id="controlnet_batch_options"):
+                with gr.Accordion("Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
 
         for i, ui_group in enumerate(ui_groups):
@@ -374,7 +374,7 @@ class Script(scripts.Script, metaclass=(
     @staticmethod
     def build_control_model(p, unet, model) -> ControlModel:
         if model is None or model == 'None':
-            raise RuntimeError(f"You have not selected any ControlNet Model.")
+            raise RuntimeError("You have not selected any ControlNet Model.")
 
         model_path = global_state.cn_models.get(model, None)
         if model_path is None:
@@ -1229,7 +1229,8 @@ class Script(scripts.Script, metaclass=(
 
     def batch_tab_process_each(self, p, *args, **kwargs):
         for unit_i, unit in enumerate(self.enabled_units):
-            if getattr(unit, 'loopback', False) and batch_hijack.instance.batch_index > 0: continue
+            if getattr(unit, 'loopback', False) and batch_hijack.instance.batch_index > 0:
+                continue
 
             unit.image = next(unit.batch_images)
 
@@ -1245,7 +1246,8 @@ class Script(scripts.Script, metaclass=(
     def batch_tab_postprocess(self, p, *args, **kwargs):
         self.enabled_units.clear()
         self.input_image = None
-        if self.latest_network is None: return
+        if self.latest_network is None:
+            return
 
         self.latest_network.restore()
         self.latest_network = None
