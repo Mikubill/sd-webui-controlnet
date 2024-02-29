@@ -808,7 +808,7 @@ class InsightFaceModel:
             logger.warn("Insightface: More than one face is detected in the image. "
                         f"Only the biggest one will be used.")
         # only use the maximum face
-        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]
+        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
         if return_keypoints:
             return remove_pad(draw_kps(img, face_info['kps'])), True
         else:
