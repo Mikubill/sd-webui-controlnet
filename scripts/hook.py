@@ -676,7 +676,8 @@ class UnetHook(nn.Module):
                     # Trigger the register_forward_pre_hook
                     outer.sd_ldm.model()
                 except Exception as e:
-                    logger.error(e)
+                    logger.debug("register_forward_pre_hook")
+                    logger.debug(e)
 
             # Clear attention and AdaIn cache
             for module in outer.attn_module_list:
