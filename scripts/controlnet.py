@@ -116,7 +116,7 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
         image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
     elif isinstance(image['mask'], str):
         if os.path.exists(image['mask']):
-            image['mask'] = np.array(Image.open(image['mask'])).astype('uint8')
+            image['mask'] = np.array(Image.open(image['mask']).convert("RGB")).astype('uint8')
         elif image['mask']:
             image['mask'] = external_code.to_base64_nparray(image['mask'])
         else:
@@ -629,10 +629,11 @@ class Script(scripts.Script, metaclass=(
                 elif ad_cn_batch_parameter.startswith("keyframe:"):
                     unit.batch_keyframe_idx = ad_cn_batch_parameter[len("keyframe:"):].strip()
                     unit.batch_keyframe_idx = [int(b_i.strip()) for b_i in unit.batch_keyframe_idx.split(',')]
-                    logger.info(f"\tbatch control keyframe index: {unit.batch_sparsectrl_frame}")
+                    logger.info(f"\tbatch control keyframe index: {unit.batch_keyframe_idx}")
             batch_image_files = shared.listfiles(batch_image_dir)
             for batch_modifier in getattr(unit, 'batch_modifiers', []):
                 batch_image_files = batch_modifier(batch_image_files, p)
+            unit.batch_image_files = batch_image_files
             unit.image = []
             for idx, image_path in enumerate(batch_image_files):
                 mask_path = None
@@ -1014,7 +1015,7 @@ class Script(scripts.Script, metaclass=(
                 if control_model_type == ControlModelType.ReVision:
                     control = control['image_embeds']
 
-                if is_cn_ad_batch: # AnimateDiff save VRAM
+                if is_image and is_cn_ad_batch: # AnimateDiff save VRAM
                     control = control.cpu()
                     if hr_control is not None:
                         hr_control = hr_control.cpu()
@@ -1030,7 +1031,7 @@ class Script(scripts.Script, metaclass=(
                 control = controls[0]
                 hr_control = hr_controls[0]
             elif is_cn_ad_batch or control_model_type in [ControlModelType.SparseCtrl]:
-                def ad_process_control(cc: List[torch.Tensor]):
+                def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
                     c = torch.cat(cc, dim=0)
                     # SparseCtrl keyframe need to encode control image with VAE
                     if control_model_type == ControlModelType.SparseCtrl and \
@@ -1041,9 +1042,19 @@ class Script(scripts.Script, metaclass=(
                         if control_model_type == ControlModelType.SparseCtrl:
                             # sparsectrl has its own embed generator
                             from scripts.controlnet_sparsectrl import SparseCtrl
+                            if cn_ad_keyframe_idx is None:
+                                cn_ad_keyframe_idx = [0]
+                                logger.info(f"SparseCtrl: control images will be applied to frames: {cn_ad_keyframe_idx}")
+                            else:
+                                logger.info(f"SparseCtrl: control images will be applied to frames: {cn_ad_keyframe_idx}")
+                                for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
+                                    logger.info(f"\t{frame_idx}: {frame_path}")
                             c = SparseCtrl.create_cond_mask(cn_ad_keyframe_idx, c, p.batch_size).cpu()
                         elif unit.accepts_multiple_inputs():
                             # ip-adapter should do prompt travel
+                            logger.info("IP-Adapter: control prompts will be traveled in the following way:")
+                            for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
+                                logger.info(f"\t{frame_idx}: {frame_path}")
                             from scripts.animatediff_utils import get_animatediff_arg
                             c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
                             for i, idx in enumerate(cn_ad_keyframe_idx[:-1]):
@@ -1057,6 +1068,9 @@ class Script(scripts.Script, metaclass=(
                             c = c_full
                         else:
                             # normal CN should insert empty frames
+                            logger.info(f"ControlNet: control images will be applied to frames: {cn_ad_keyframe_idx} where")
+                            for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
+                                logger.info(f"\t{frame_idx}: {frame_path}")
                             c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
                             c_full[cn_ad_keyframe_idx] = c
                             c = c_full
@@ -1067,6 +1081,8 @@ class Script(scripts.Script, metaclass=(
 
                 control = ad_process_control(controls)
                 hr_control = ad_process_control(hr_controls) if hr_controls[0] is not None else None
+                if control_model_type == ControlModelType.SparseCtrl:
+                    control_model_type = ControlModelType.ControlNet
             else:
                 control = controls
                 hr_control = hr_controls
@@ -1109,7 +1125,7 @@ class Script(scripts.Script, metaclass=(
                 final_inpaint_raw = final_inpaint_feed[:, :3].astype(np.float32)
                 sigma = shared.opts.data.get("control_net_inpaint_blur_sigma", 7)
                 final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
-                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[None]
+                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[:, None]
                 _, _, Hmask, Wmask = final_inpaint_mask.shape
                 final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
                 final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())

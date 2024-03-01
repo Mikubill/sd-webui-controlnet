@@ -4,7 +4,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from scripts.logging import logger
 from scripts.cldm import PlugableControlModel, ControlNet, zero_module, conv_nd, TimestepEmbedSequential
 
 class PlugableSparseCtrlModel(PlugableControlModel):
@@ -89,9 +88,6 @@ class SparseCtrl(ControlNet):
 
     @staticmethod
     def create_cond_mask(control_image_index: List[int], control_image_latents: torch.Tensor, video_length: int):
-        if control_image_index is None:
-            control_image_index = list(range(video_length))
-        logger.info(f"SparseCtrl: control images will be applied to frames: {control_image_index}")
         hint_cond = torch.zeros((video_length, *control_image_latents.shape[1:]), device=control_image_latents.device, dtype=control_image_latents.dtype)
         hint_cond[control_image_index] = control_image_latents[:len(control_image_index)]
         hint_cond_mask = torch.zeros((hint_cond.shape[0], 1, *hint_cond.shape[2:]), device=control_image_latents.device, dtype=control_image_latents.dtype)

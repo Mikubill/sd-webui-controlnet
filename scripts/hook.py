@@ -8,6 +8,7 @@ from typing import Optional, Any
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
 from scripts.controlmodel_ipadapter import ImageEmbed
+from scripts.controlnet_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
 
 from ldm.modules.diffusionmodules.util import timestep_embedding, make_beta_schedule
@@ -386,7 +387,7 @@ class UnetHook(nn.Module):
                 with devices.autocast():
                     vae_output = torch.stack([
                         p.sd_model.get_first_stage_encoding(
-                            p.sd_model.encode_first_stage(torch.unsqueeze(img, 0))
+                            p.sd_model.encode_first_stage(torch.unsqueeze(img, 0).to(device=devices.device))
                         )[0]
                         for img in x
                     ])
@@ -579,7 +580,7 @@ class UnetHook(nn.Module):
                     controlnet_context = context
 
                 # ControlNet inpaint protocol
-                if hint.shape[1] == 4 and param.control_model_type != ControlModelType.SparseCtrl:
+                if hint.shape[1] == 4 and not isinstance(control_model, SparseCtrl):
                     c = hint[:, 0:3, :, :]
                     m = hint[:, 3:4, :, :]
                     m = (m > 0.5).float()
