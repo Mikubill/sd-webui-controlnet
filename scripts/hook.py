@@ -388,7 +388,7 @@ class UnetHook(nn.Module):
                     vae_output = torch.stack([
                         p.sd_model.get_first_stage_encoding(
                             p.sd_model.encode_first_stage(torch.unsqueeze(img, 0).to(device=devices.device))
-                        )[0]
+                        )[0].to(img.device)
                         for img in x
                     ])
                     if torch.all(torch.isnan(vae_output)).item():
@@ -400,8 +400,8 @@ class UnetHook(nn.Module):
                         p.sd_model.first_stage_model.to(devices.dtype_vae)
                         vae_output = torch.stack([
                             p.sd_model.get_first_stage_encoding(
-                                p.sd_model.encode_first_stage(torch.unsqueeze(img, 0))
-                            )[0]
+                                p.sd_model.encode_first_stage(torch.unsqueeze(img, 0).to(device=devices.device))
+                            )[0].to(img.device)
                             for img in x
                         ])
                 vae_cache.set(x, vae_output)

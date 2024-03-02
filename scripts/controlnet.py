@@ -16,7 +16,7 @@ from scripts import global_state, hook, external_code, batch_hijack, controlnet_
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import HWC3, preprocessor_sliders_config
 from scripts.controlnet_lllite import clear_all_lllite
-from scripts.controlmodel_ipadapter import clear_all_ip_adapter
+from scripts.controlmodel_ipadapter import ImageEmbed, PlugableIPAdapter, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -1032,7 +1032,16 @@ class Script(scripts.Script, metaclass=(
                 hr_control = hr_controls[0]
             elif is_cn_ad_batch or control_model_type in [ControlModelType.SparseCtrl]:
                 def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
-                    c = torch.cat(cc, dim=0)
+                    if unit.accepts_multiple_inputs():
+                        ip_adapter_image_emb_cond = []
+                        model_net.ipadapter.image_proj_model.to(torch.float32)
+                        for c in cc:
+                            c = model_net.get_image_emb(c)
+                            ip_adapter_image_emb_cond.append(c.cond_emb)
+                        c_cond = torch.cat(ip_adapter_image_emb_cond, dim=0)
+                        c = ImageEmbed(c_cond, c.uncond_emb, True)
+                    else:
+                        c = torch.cat(cc, dim=0)
                     # SparseCtrl keyframe need to encode control image with VAE
                     if control_model_type == ControlModelType.SparseCtrl and \
                         model_net.control_model.use_simplified_condition_embedding: # noqa
@@ -1056,6 +1065,8 @@ class Script(scripts.Script, metaclass=(
                             for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
                                 logger.info(f"\t{frame_idx}: {frame_path}")
                             from scripts.animatediff_utils import get_animatediff_arg
+                            ip_adapter_emb = c
+                            c = c.cond_emb
                             c_full = torch.zeros((p.batch_size, *c.shape[1:]), dtype=c.dtype, device=c.device)
                             for i, idx in enumerate(cn_ad_keyframe_idx[:-1]):
                                 c_full[idx:cn_ad_keyframe_idx[i + 1]] = c[i]
@@ -1065,7 +1076,9 @@ class Script(scripts.Script, metaclass=(
                             prompt_scheduler.prompt_map = {i: "" for i in cn_ad_keyframe_idx}
                             prompt_closed_loop = (ad_params.video_length > ad_params.batch_size) and (ad_params.closed_loop in ['R+P', 'A'])
                             c_full = prompt_scheduler.multi_cond(c_full, prompt_closed_loop)
-                            c = c_full
+                            if shared.opts.batch_cond_uncond:
+                                c_full = torch.cat([c_full, c_full], dim=0)
+                            c = ImageEmbed(c_full, ip_adapter_emb.uncond_emb, True)
                         else:
                             # normal CN should insert empty frames
                             logger.info(f"ControlNet: control images will be applied to frames: {cn_ad_keyframe_idx} where")
@@ -1075,7 +1088,7 @@ class Script(scripts.Script, metaclass=(
                             c_full[cn_ad_keyframe_idx] = c
                             c = c_full
                     # handle batch condition and unconditional
-                    if shared.opts.batch_cond_uncond:
+                    if shared.opts.batch_cond_uncond and not unit.accepts_multiple_inputs():
                         c = torch.cat([c, c], dim=0)
                     return c
 
