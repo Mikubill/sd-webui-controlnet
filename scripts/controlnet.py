@@ -16,7 +16,7 @@ from scripts import global_state, hook, external_code, batch_hijack, controlnet_
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import HWC3, preprocessor_sliders_config
 from scripts.controlnet_lllite import clear_all_lllite
-from scripts.controlmodel_ipadapter import ImageEmbed, PlugableIPAdapter, clear_all_ip_adapter
+from scripts.controlmodel_ipadapter import ImageEmbed, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -1034,9 +1034,9 @@ class Script(scripts.Script, metaclass=(
                 def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
                     if unit.accepts_multiple_inputs():
                         ip_adapter_image_emb_cond = []
-                        model_net.ipadapter.image_proj_model.to(torch.float32)
+                        model_net.ipadapter.image_proj_model.to(torch.float32) # noqa
                         for c in cc:
-                            c = model_net.get_image_emb(c)
+                            c = model_net.get_image_emb(c) # noqa
                             ip_adapter_image_emb_cond.append(c.cond_emb)
                         c_cond = torch.cat(ip_adapter_image_emb_cond, dim=0)
                         c = ImageEmbed(c_cond, c.uncond_emb, True)
