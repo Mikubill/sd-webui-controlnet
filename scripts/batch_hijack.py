@@ -19,6 +19,16 @@ class BatchHijack:
         self.postprocess_batch_callbacks = [self.on_postprocess_batch]
 
     def img2img_process_batch_hijack(self, p, *args, **kwargs):
+        try:
+            from scripts.animatediff_utils import get_animatediff_arg
+            ad_params = get_animatediff_arg(p)
+            if ad_params and ad_params.enable:
+                ad_params.is_i2i_batch = True
+                from scripts.animatediff_i2ibatch import animatediff_i2i_batch
+                return animatediff_i2i_batch(p, *args, **kwargs)
+        except ImportError:
+            pass
+
         cn_is_batch, batches, output_dir, _ = get_cn_batches(p)
         if not cn_is_batch:
             return getattr(img2img, '__controlnet_original_process_batch')(p, *args, **kwargs)
@@ -31,6 +41,14 @@ class BatchHijack:
             self.dispatch_callbacks(self.postprocess_batch_callbacks, p)
 
     def processing_process_images_hijack(self, p, *args, **kwargs):
+        try:
+            from scripts.animatediff_utils import get_animatediff_arg
+            ad_params = get_animatediff_arg(p)
+            if ad_params and ad_params.enable:
+                return getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
+        except ImportError:
+            pass
+
         if self.is_batch:
             # we are in img2img batch tab, do a single batch iteration
             return self.process_images_cn_batch(p, *args, **kwargs)

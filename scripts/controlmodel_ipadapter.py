@@ -12,11 +12,13 @@ class ImageEmbed(NamedTuple):
     """Image embed for a single image."""
     cond_emb: torch.Tensor
     uncond_emb: torch.Tensor
+    bypass_average: bool = False
 
     def eval(self, cond_mark: torch.Tensor) -> torch.Tensor:
         assert cond_mark.ndim == 4
         assert self.cond_emb.ndim == self.uncond_emb.ndim == 3
-        assert self.cond_emb.shape[0] == self.uncond_emb.shape[0] == 1
+        assert self.uncond_emb.shape[0] == 1 or self.cond_emb.shape[0] == self.uncond_emb.shape[0]
+        assert self.cond_emb.shape[0] == 1 or self.cond_emb.shape[0] == cond_mark.shape[0]
         cond_mark = cond_mark[:, :, :, 0].to(self.cond_emb)
         device = cond_mark.device
         dtype = cond_mark.dtype
@@ -26,7 +28,7 @@ class ImageEmbed(NamedTuple):
         )
 
     def average_of(*args: List[Tuple[torch.Tensor, torch.Tensor]]) -> "ImageEmbed":
-        conds, unconds = zip(*args)
+        conds, unconds, _ = zip(*args)
         def average_tensors(tensors: List[torch.Tensor]) -> torch.Tensor:
             return torch.sum(torch.stack(tensors), dim=0) / len(tensors)
         return ImageEmbed(average_tensors(conds), average_tensors(unconds))
@@ -603,11 +605,14 @@ class PlugableIPAdapter(torch.nn.Module):
         self.dtype = dtype
 
         self.ipadapter.to(device, dtype=self.dtype)
-        if isinstance(preprocessor_outputs, (list, tuple)):
-            preprocessor_outputs = preprocessor_outputs
+        if getattr(preprocessor_outputs, "bypass_average", False):
+            self.image_emb = preprocessor_outputs
         else:
-            preprocessor_outputs = [preprocessor_outputs]
-        self.image_emb = ImageEmbed.average_of(*[self.get_image_emb(o) for o in preprocessor_outputs])
+            if isinstance(preprocessor_outputs, (list, tuple)):
+                preprocessor_outputs = preprocessor_outputs
+            else:
+                preprocessor_outputs = [preprocessor_outputs]
+            self.image_emb = ImageEmbed.average_of(*[self.get_image_emb(o) for o in preprocessor_outputs])
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         if not self.sdxl:
             number = 0  # index of to_kvs

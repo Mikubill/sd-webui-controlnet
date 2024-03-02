@@ -8,6 +8,7 @@ from typing import Optional, Any
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
 from scripts.controlmodel_ipadapter import ImageEmbed
+from scripts.controlnet_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
 
 from ldm.modules.diffusionmodules.util import timestep_embedding, make_beta_schedule
@@ -384,8 +385,12 @@ class UnetHook(nn.Module):
             vae_output = vae_cache.get(x)
             if vae_output is None:
                 with devices.autocast():
-                    vae_output = p.sd_model.encode_first_stage(x)
-                    vae_output = p.sd_model.get_first_stage_encoding(vae_output)
+                    vae_output = torch.stack([
+                        p.sd_model.get_first_stage_encoding(
+                            p.sd_model.encode_first_stage(torch.unsqueeze(img, 0).to(device=devices.device))
+                        )[0].to(img.device)
+                        for img in x
+                    ])
                     if torch.all(torch.isnan(vae_output)).item():
                         logger.info('ControlNet find Nans in the VAE encoding. \n '
                                     'Now ControlNet will automatically retry.\n '
@@ -393,8 +398,12 @@ class UnetHook(nn.Module):
                         devices.dtype_vae = torch.float32
                         x = x.to(devices.dtype_vae)
                         p.sd_model.first_stage_model.to(devices.dtype_vae)
-                        vae_output = p.sd_model.encode_first_stage(x)
-                        vae_output = p.sd_model.get_first_stage_encoding(vae_output)
+                        vae_output = torch.stack([
+                            p.sd_model.get_first_stage_encoding(
+                                p.sd_model.encode_first_stage(torch.unsqueeze(img, 0).to(device=devices.device))
+                            )[0].to(img.device)
+                            for img in x
+                        ])
                 vae_cache.set(x, vae_output)
                 logger.info(f'ControlNet used {str(devices.dtype_vae)} VAE to encode {vae_output.shape}.')
             latent = vae_output
@@ -571,7 +580,7 @@ class UnetHook(nn.Module):
                     controlnet_context = context
 
                 # ControlNet inpaint protocol
-                if hint.shape[1] == 4:
+                if hint.shape[1] == 4 and not isinstance(control_model, SparseCtrl):
                     c = hint[:, 0:3, :, :]
                     m = hint[:, 3:4, :, :]
                     m = (m > 0.5).float()
