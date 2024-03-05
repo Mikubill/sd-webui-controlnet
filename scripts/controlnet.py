@@ -1137,8 +1137,12 @@ class Script(scripts.Script, metaclass=(
                 final_inpaint_mask = final_inpaint_feed[:, 3, :, :].astype(np.float32)
                 final_inpaint_raw = final_inpaint_feed[:, :3].astype(np.float32)
                 sigma = shared.opts.data.get("control_net_inpaint_blur_sigma", 7)
-                final_inpaint_mask = cv2.dilate(final_inpaint_mask, np.ones((sigma, sigma), dtype=np.uint8))
-                final_inpaint_mask = cv2.blur(final_inpaint_mask, (sigma, sigma))[:, None]
+                final_inpaint_mask_post_cv = []
+                for m in final_inpaint_mask:
+                    m = cv2.dilate(m, np.ones((sigma, sigma), dtype=np.uint8))
+                    m = cv2.blur(m, (sigma, sigma))[None, None]
+                    final_inpaint_mask_post_cv.append(m)
+                final_inpaint_mask = np.concatenate(final_inpaint_mask_post_cv, axis=0)
                 _, _, Hmask, Wmask = final_inpaint_mask.shape
                 final_inpaint_raw = torch.from_numpy(np.ascontiguousarray(final_inpaint_raw).copy())
                 final_inpaint_mask = torch.from_numpy(np.ascontiguousarray(final_inpaint_mask).copy())
