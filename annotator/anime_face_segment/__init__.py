@@ -138,7 +138,7 @@ class AnimeFaceSegment:
         remote_model_path = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/resolve/main/Annotators/UNet.pth"
         modelpath = os.path.join(self.model_dir, "UNet.pth")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
         net = UNet()
         ckpt = torch.load(modelpath, map_location=self.device)

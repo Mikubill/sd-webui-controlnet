@@ -13,8 +13,7 @@ def load_model(filename: str, remote_url: str, model_dir: str) -> str:
     """
     local_path = os.path.join(model_dir, filename)
     if not os.path.exists(local_path):
-        from basicsr.utils.download_util import load_file_from_url
-
+        from scripts.utils import load_file_from_url
         load_file_from_url(remote_url, model_dir=model_dir)
     return local_path
 

@@ -203,17 +203,17 @@ class OpenposeDetector:
         face_modelpath = os.path.join(self.model_dir, "facenet.pth")
 
         if not os.path.exists(body_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
 
             load_file_from_url(body_model_path, model_dir=self.model_dir)
 
         if not os.path.exists(hand_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
 
             load_file_from_url(hand_model_path, model_dir=self.model_dir)
 
         if not os.path.exists(face_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
 
             load_file_from_url(face_model_path, model_dir=self.model_dir)
 
@@ -227,7 +227,7 @@ class OpenposeDetector:
         def load_model(filename: str, remote_url: str):
             local_path = os.path.join(self.model_dir, filename)
             if not os.path.exists(local_path):
-                from basicsr.utils.download_util import load_file_from_url
+                from scripts.utils import load_file_from_url
 
                 load_file_from_url(remote_url, model_dir=self.model_dir)
             return local_path
@@ -249,7 +249,7 @@ class OpenposeDetector:
             """
             local_path = os.path.join(self.model_dir, filename)
             if not os.path.exists(local_path):
-                from basicsr.utils.download_util import load_file_from_url
+                from scripts.utils import load_file_from_url
 
                 load_file_from_url(remote_url, model_dir=self.model_dir)
             return local_path

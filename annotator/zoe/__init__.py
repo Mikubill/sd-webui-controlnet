@@ -21,7 +21,7 @@ class ZoeDetector:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/ZoeD_M12_N.pt"
         modelpath = os.path.join(self.model_dir, "ZoeD_M12_N.pt")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
         conf = get_config("zoedepth", "infer")
         model = ZoeDepth.build_from_config(conf)

@@ -10,7 +10,7 @@ try:
     from modules.modelloader import load_file_from_url
 except ImportError:
     # backward compability for webui < 1.5.0
-    from basicsr.utils.download_util import load_file_from_url
+    from scripts.utils import load_file_from_url
 
 config_clip_g = {
   "attention_dropout": 0.0,
