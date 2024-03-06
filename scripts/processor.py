@@ -731,7 +731,7 @@ class InsightFaceModel:
         ):
             local_path = os.path.join(model_root, local_file)
             if not os.path.exists(local_path):
-                load_file_from_url(url, model_root)
+                load_file_from_url(url, model_dir=model_root)
         self.antelopev2_installed = True
 
     def load_model(self):
