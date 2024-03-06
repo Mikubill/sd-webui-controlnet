@@ -102,7 +102,7 @@ def load_model(model_type):
         if os.path.exists(old_model_path):
             model_path = old_model_path
         elif not os.path.exists(model_path):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=base_model_path)
         
         model = DPTDepthModel(

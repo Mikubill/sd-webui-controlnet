@@ -717,7 +717,7 @@ class InsightFaceModel:
     def install_antelopev2(self):
         """insightface's github release on antelopev2 model is down. Downloading
         from huggingface mirror."""
-        from basicsr.utils.download_util import load_file_from_url
+        from scripts.utils import load_file_from_url
         from annotator.annotator_path import models_path
         model_root = os.path.join(models_path, "insightface", "models", "antelopev2")
         if not model_root:

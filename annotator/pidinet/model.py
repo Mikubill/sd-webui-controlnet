@@ -5,13 +5,10 @@ Date: Feb 18, 2021
 
 import math
 
-import cv2
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from modules import devices
-from basicsr.utils import img2tensor
 
 nets = {
     'baseline': {
@@ -639,16 +636,3 @@ def pidinet():
     dil = 24 #if args.dil else None
     return PiDiNet(60, pdcs, dil=dil, sa=True)
 
-
-if __name__ == '__main__':
-    model = pidinet()
-    ckp = torch.load('table5_pidinet.pth')['state_dict']
-    model.load_state_dict({k.replace('module.',''):v for k, v in ckp.items()})
-    im = cv2.imread('examples/test_my/cat_v4.png')
-    im = img2tensor(im).unsqueeze(0)/255.
-    res = model(im)[-1]
-    res = res>0.5
-    res = res.float()
-    res = (res[0,0].cpu().data.numpy()*255.).astype(np.uint8)
-    print(res.shape)
-    cv2.imwrite('edge.png', res)

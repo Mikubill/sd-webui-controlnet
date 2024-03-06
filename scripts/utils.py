@@ -10,6 +10,7 @@ import logging
 
 from typing import Any, Callable, Dict, List
 from modules.safe import unsafe_torch_load
+from modules.modelloader import load_file_from_url  # noqa: F401
 from scripts.logging import logger
 
 
