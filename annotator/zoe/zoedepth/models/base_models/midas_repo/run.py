@@ -122,7 +122,7 @@ def run(input_path, output_path, model_path, model_type="dpt_beit_large_512", op
     print("Initialize")
 
     # select device
-    device = torch.device(devices.get_device_for("controlnet") if torch.cuda.is_available() else "cpu")
+    device = devices.get_device_for("controlnet") if torch.cuda.is_available() else torch.device("cpu")
     print("Device: %s" % device)
 
     model, transform, net_w, net_h = load_model(device, model_path, model_type, optimize, height, square)
