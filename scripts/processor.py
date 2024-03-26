@@ -712,14 +712,13 @@ def unload_te_hed():
 model_normal_dsine = None
 
 
-def normal_dsine(img, res=512, thr_a=60.0, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
+def normal_dsine(img, res=512, thr_a=60.0,thr_b=5, **kwargs):
     global model_normal_dsine
     if model_normal_dsine is None:
         from annotator.normaldsine import NormalDsineDetector
         model_normal_dsine = NormalDsineDetector()
-    result = model_normal_dsine(img, new_fov=float(thr_a))
-    return remove_pad(result), True
+    result = model_normal_dsine(img, new_fov=float(thr_a), iterations=int(thr_b), resulotion=res)
+    return result, True
 
 
 def unload_normal_dsine():
@@ -1326,6 +1325,13 @@ preprocessor_sliders_config = {
             "max": 360.0,
             "value": 60.0,
             "step": 0.1,
+        },
+        {
+            "name": "Iterations",
+            "min": 1,
+            "max": 20,
+            "value": 5,
+            "step": 1,
         },
     ],
 }
