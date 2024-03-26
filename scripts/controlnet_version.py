@@ -1,6 +1,6 @@
 from scripts.logging import logger
 
-version_flag = 'v1.1.441'
+version_flag = 'v1.1.442'
 
 logger.info(f"ControlNet {version_flag}")
 # A smart trick to know if user has updated as well as if user has restarted terminal.
