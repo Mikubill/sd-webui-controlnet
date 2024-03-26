@@ -24,7 +24,7 @@ class NormalDsineDetector:
         if not os.path.exists(modelpath):
             from scripts.utils import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
-        model = DSINE(args)
+        model = DSINE()
         model.pixel_coords = model.pixel_coords.to(self.device)
         model = utils.load_checkpoint(modelpath, model)
         model.eval()
