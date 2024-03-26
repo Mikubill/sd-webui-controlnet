@@ -114,6 +114,7 @@ cn_preprocessor_modules = {
     "densepose": functools.partial(densepose, cmap="viridis"),
     "densepose_parula": functools.partial(densepose, cmap="parula"),
     "te_hed":te_hed,
+    "normal_dsine": normal_dsine,
 }
 
 cn_preprocessor_unloadable = {
@@ -153,6 +154,7 @@ cn_preprocessor_unloadable = {
     "densepose_parula": unload_densepose,
     "depth_hand_refiner": g_hand_refiner_model.unload,
     "te_hed":unload_te_hed,
+    "normal_dsine": unload_normal_dsine,
 }
 
 preprocessor_aliases = {

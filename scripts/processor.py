@@ -708,6 +708,26 @@ def unload_te_hed():
     if model_te_hed is not None:
         model_te_hed.unload_model()
 
+
+model_normal_dsine = None
+
+
+def normal_dsine(img, res=512, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_normal_dsine
+    if model_normal_dsine is None:
+        from annotator.normaldsine import NormalDsineDetector
+        model_normal_dsine = NormalDsineDetector()
+    result = model_normal_dsine(img)
+    return remove_pad(result), True
+
+
+def unload_normal_dsine():
+    global model_normal_dsine
+    if model_normal_dsine is not None:
+        model_normal_dsine.unload_model()
+
+
 class InsightFaceModel:
     def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
@@ -1291,6 +1311,14 @@ preprocessor_sliders_config = {
             "max": 10,
             "value": 2,
             "step": 1,
+        },
+    ],
+    "normal_dsine": [
+        {
+            "name": flag_preprocessor_resolution,
+            "min": 64,
+            "max": 2048,
+            "value": 512
         },
     ],
 }
