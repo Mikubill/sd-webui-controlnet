@@ -35,7 +35,7 @@ class NormalDsineDetector:
         if self.model is not None:
             self.model.cpu()
 
-    def __call__(self, input_image):
+    def __call__(self, input_image, new_fov=60.0):
         if self.model is None:
             self.load_model()
 
@@ -54,7 +54,7 @@ class NormalDsineDetector:
             img = F.pad(image_normal, (l, r, t, b), mode="constant", value=0.0)
             img = self.norm(img)
             
-            intrins = utils.get_intrins_from_fov(new_fov=60.0, H=orig_H, W=orig_W, device=self.device).unsqueeze(0)
+            intrins = utils.get_intrins_from_fov(new_fov=new_fov, H=orig_H, W=orig_W, device=self.device).unsqueeze(0)
             
             intrins[:, 0, 2] += l
             intrins[:, 1, 2] += t

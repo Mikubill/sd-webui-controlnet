@@ -154,7 +154,7 @@ try_install_from_wheel(
     "dsine",
     wheel_url=os.environ.get(
         "DSINE_WHEEL",
-        "https://github.com/sdbds/DSINE/releases/download/1.0.0/dsine-2024.3.23-py3-none-any.whl",
+        "https://github.com/sdbds/DSINE/releases/download/1.0.2/dsine-2024.3.23-py3-none-any.whl",
     ),
 )
 try_remove_legacy_submodule()
