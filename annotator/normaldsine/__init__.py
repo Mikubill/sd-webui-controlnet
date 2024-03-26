@@ -43,7 +43,7 @@ class NormalDsineDetector:
         self.model.to(self.device)
         self.model.num_iter = iterations
         orig_H, orig_W = input_image.shape[:2]
-        l, r, t, b = get_pad(orig_H, orig_W)
+        l, r, t, b = utils.pad_input(orig_H, orig_W)
         input_image, remove_pad = resize_image_with_pad(input_image, resulotion)
         assert input_image.ndim == 3
         image_normal = input_image
@@ -70,21 +70,3 @@ class NormalDsineDetector:
             normal_image = (normal * 255.0).clip(0, 255).astype(np.uint8)
 
             return remove_pad(normal_image)
-        
-def get_pad(orig_H, orig_W):
-    if orig_W % 64 == 0:
-        l = 0
-        r = 0
-    else:
-        new_W = 64 * ((orig_W // 64) + 1)
-        l = (new_W - orig_W) // 2
-        r = (new_W - orig_W) - l
-
-    if orig_H % 64 == 0:
-        t = 0
-        b = 0
-    else:
-        new_H = 64 * ((orig_H // 64) + 1)
-        t = (new_H - orig_H) // 2
-        b = (new_H - orig_H) - t
-    return l, r, t, b
