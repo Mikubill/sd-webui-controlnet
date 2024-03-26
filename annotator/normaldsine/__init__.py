@@ -51,7 +51,7 @@ class NormalDsineDetector:
             _, _, orig_H, orig_W = image_normal.shape
            
             l, r, t, b = utils.pad_input(orig_H, orig_W)
-            img = F.pad(img, (l, r, t, b), mode="constant", value=0.0)
+            img = F.pad(image_normal, (l, r, t, b), mode="constant", value=0.0)
             img = self.norm(img)
             
             intrins = utils.get_intrins_from_fov(new_fov=60.0, H=orig_H, W=orig_W, device=self.device).unsqueeze(0)
