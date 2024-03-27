@@ -20,7 +20,7 @@ class NormalDsineDetector:
         self.device = devices.get_device_for("controlnet")
 
     def load_model(self):
-        remote_model_path = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/blob/main/Annotators/dsine.pt"
+        remote_model_path = "https://huggingface.co/bdsqlsz/qinglong_controlnet-lllite/resolve/main/Annotators/dsine.pt"
         modelpath = os.path.join(self.model_dir, "dsine.pt")
         if not os.path.exists(modelpath):
             from scripts.utils import load_file_from_url
