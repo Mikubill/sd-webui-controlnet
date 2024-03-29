@@ -9,7 +9,7 @@ from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_ligh
 from scripts.controlnet_lllite import PlugableControlLLLite
 from scripts.cldm import PlugableControlModel
 from scripts.controlnet_sparsectrl import PlugableSparseCtrlModel
-from scripts.controlmodel_ipadapter import PlugableIPAdapter
+from scripts.ipadapter.plugable_ipadapter import PlugableIPAdapter
 from scripts.logging import logger
 from scripts.controlnet_diffusers import convert_from_diffuser_state_dict
 from scripts.controlnet_lora import controlnet_lora_hijack, force_load_state_dict
