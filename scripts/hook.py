@@ -416,6 +416,9 @@ class UnetHook(nn.Module):
             raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
 
     def guidance_schedule_handler(self, x):
+        if not self.control_params:
+            return
+
         for param in self.control_params:
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
