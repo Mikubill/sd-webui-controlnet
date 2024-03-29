@@ -16,7 +16,7 @@ from scripts import global_state, hook, external_code, batch_hijack, controlnet_
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import HWC3, preprocessor_sliders_config
 from scripts.controlnet_lllite import clear_all_lllite
-from scripts.controlmodel_ipadapter import ImageEmbed, clear_all_ip_adapter
+from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption

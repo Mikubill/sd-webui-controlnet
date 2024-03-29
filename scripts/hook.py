@@ -7,7 +7,7 @@ from typing import Optional, Any
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
-from scripts.controlmodel_ipadapter import ImageEmbed
+from scripts.ipadapter.ipadapter_model import ImageEmbed
 from scripts.controlnet_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
 
