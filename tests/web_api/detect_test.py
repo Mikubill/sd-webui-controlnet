@@ -48,9 +48,6 @@ def detect_template(payload, output_name: str, status: int = 200):
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[ip-adapter_face_id_plus] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AEE3100>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[instant_id_face_embedding] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AFF6CF0>
 
-# https://github.com/Mikubill/sd-webui-controlnet/issues/2693
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[segmentation] - assert 500 == 200
-
 # TODO: file issue on these failures.
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[depth_zoe] - assert 500 == 200
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[inpaint_only+lama] - assert 500 == 200
