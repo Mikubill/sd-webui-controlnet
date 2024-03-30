@@ -1355,7 +1355,7 @@ preprocessor_filters = {
     "Recolor": "recolor_luminance",
     "Revision": "revision_clipvision",
     "T2I-Adapter": "none",
-    "IP-Adapter": "ip-adapter_clip_sd15",
+    "IP-Adapter": "ip-adapter-auto",
     "Instant_ID": "instant_id",
     "SparseCtrl": "none",
 }
