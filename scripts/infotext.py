@@ -29,16 +29,8 @@ def parse_value(value: str) -> Union[str, float, int, bool]:
 
 
 def serialize_unit(unit: external_code.ControlNetUnit) -> str:
-    excluded_fields = (
-        "image",
-        "enabled",
-        # Note: "advanced_weighting" is excluded as it is an API-only field.
-        "advanced_weighting",
-        # Note: "inpaint_crop_image" is img2img inpaint only flag, which does not
-        # provide much information when restoring the unit.
-        "inpaint_crop_input_image",
-    )
-    
+    excluded_fields = external_code.ControlNetUnit.infotext_excluded_fields()
+
     log_value = {
         field_to_displaytext(field): getattr(unit, field)
         for field in vars(external_code.ControlNetUnit()).keys()
@@ -48,7 +40,7 @@ def serialize_unit(unit: external_code.ControlNetUnit) -> str:
     if not all("," not in str(v) and ":" not in str(v) for v in log_value.values()):
         logger.error(f"Unexpected tokens encountered:\n{log_value}")
         return ""
-    
+
     return ", ".join(f"{field}: {value}" for field, value in log_value.items())
 
 
