@@ -124,9 +124,14 @@ class APITestTemplate:
         if gen_type == "img2img" and input_image is not None:
             self.payload["init_images"] = [input_image]
 
-        # CQ runs on CPU. Reduce steps to increase test speed.
-        if "steps" not in payload_overrides and APITestTemplate.is_cq_run:
-            self.payload["steps"] = 3
+        # CQ runs on CPU. Reduce steps/width/height to increase test speed.
+        if APITestTemplate.is_cq_run:
+            if "steps" not in payload_overrides:
+                self.payload["steps"] = 3
+            if "width" not in payload_overrides:
+                self.payload["width"] = 64
+            if "height" not in payload_overrides:
+                self.payload["height"] = 64
 
         unit_overrides = (
             unit_overrides
