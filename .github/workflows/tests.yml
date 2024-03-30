@@ -4,6 +4,9 @@ on:
   - push
   - pull_request
 
+env:
+  FORGE_CQ_TEST: "True"
+
 jobs:
   build:
     runs-on: ubuntu-latest
