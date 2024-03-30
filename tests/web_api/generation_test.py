@@ -21,6 +21,20 @@ def test_no_unit(gen_type):
 
 
 @pytest.mark.parametrize("gen_type", ["img2img", "txt2img"])
+def test_unrecognized_param(gen_type):
+    assert APITestTemplate(
+        f"test_unrecognized_param_{gen_type}",
+        gen_type,
+        payload_overrides={},
+        unit_overrides={
+            "foo": True,
+            "is_ui": False,
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+@pytest.mark.parametrize("gen_type", ["img2img", "txt2img"])
 def test_multiple_iter(gen_type):
     assert APITestTemplate(
         f"test_multiple_iter{gen_type}",
@@ -86,6 +100,105 @@ def test_save_map(gen_type, save_map):
         unit_overrides={"save_detected_map": save_map},
         input_image=girl_img,
     ).exec(expected_output_num=2 if save_map else 1)
+
+
+def test_ip_adapter_face():
+    assert APITestTemplate(
+        "test_ip_adapter_face",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "module": "ip-adapter_clip_sd15",
+            "model": get_model("ip-adapter-plus-face_sd15"),
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+def test_ip_adapter_fullface():
+    assert APITestTemplate(
+        "test_ip_adapter_fullface",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "module": "ip-adapter_clip_sd15",
+            "model": get_model("ip-adapter-full-face_sd15"),
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+def test_control_lora():
+    assert APITestTemplate(
+        "test_control_lora",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "module": "canny",
+            "model": get_model("control_lora_rank128_v11p_sd15_canny"),
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+def test_t2i_adapter():
+    assert APITestTemplate(
+        "test_t2i_adapter",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "module": "canny",
+            "model": get_model("t2iadapter_canny_sd15v2"),
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+def test_reference():
+    assert APITestTemplate(
+        "test_reference",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "module": "reference_only",
+            "model": "None",
+        },
+        input_image=girl_img,
+    ).exec()
+
+
+def test_advanced_weighting():
+    assert APITestTemplate(
+        "test_advanced_weighting",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={"advanced_weighting": [0.75] * 13},  # SD1.5
+        input_image=girl_img,
+    ).exec()
+
+
+def test_hr_option():
+    assert APITestTemplate(
+        "test_hr_option",
+        "txt2img",
+        payload_overrides={
+            "enable_hr": True,
+            "denoising_strength": 0.75,
+        },
+        unit_overrides={"hr_option": "HiResFixOption.BOTH"},
+        input_image=girl_img,
+    ).exec(expected_output_num=3)
+
+
+def test_hr_option_default():
+    """In non-hr run, hr_option should be ignored."""
+    assert APITestTemplate(
+        "test_hr_option_default",
+        "txt2img",
+        payload_overrides={"enable_hr": False},
+        unit_overrides={"hr_option": "HiResFixOption.BOTH"},
+        input_image=girl_img,
+    ).exec(expected_output_num=2)
 
 
 @disable_in_cq
