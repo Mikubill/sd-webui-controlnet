@@ -17,6 +17,7 @@ from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import HWC3, preprocessor_sliders_config
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
+from scripts.ipadapter.presets import IPAdapterPreset
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -562,6 +563,12 @@ class Script(scripts.Script, metaclass=(
         enabled_units = []
         for idx, unit in enumerate(units):
             local_unit = Script.parse_remote_call(p, unit, idx)
+
+            # Consolidate meta preprocessors.
+            if local_unit.module == "ip-adapter-auto":
+                local_unit.module = IPAdapterPreset.match_model(local_unit.model).module
+                logger.info(f"ip-adapter-auto => {local_unit.module}")
+
             if not local_unit.enabled:
                 continue
             if hasattr(local_unit, "unfold_merged"):
@@ -907,15 +914,6 @@ class Script(scripts.Script, metaclass=(
         for idx, unit in enumerate(self.enabled_units):
             Script.bound_check_params(unit)
             Script.check_sd_version_compatible(unit)
-            if (
-                "ip-adapter" in unit.module and
-                not global_state.ip_adapter_pairing_model[unit.module](unit.model)
-            ):
-                logger.error(f"Invalid pair of IP-Adapter preprocessor({unit.module}) and model({unit.model}).\n"
-                             "Please follow following pairing logic:\n"
-                             + global_state.ip_adapter_pairing_logic_text)
-                continue
-
             if (
                 'inpaint_only' == unit.module and
                 issubclass(type(p), StableDiffusionProcessingImg2Img) and

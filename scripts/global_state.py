@@ -179,9 +179,15 @@ preprocessor_aliases = {
     "densepose": "densepose (pruple bg & purple torso)",
     "densepose_parula": "densepose_parula (black bg & blue torso)",
     "te_hed": "softedge_teed",
+    "ip-adapter_clip_sd15": "ip-adapter_clip_h",
+    "ip-adapter_clip_sdxl": "ip-adapter_clip_g",
 }
 
+# Preprocessor that automatically maps to other preprocessors.
+meta_preprocessors = ["ip-adapter-auto"]
+
 ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
+ui_preprocessor_keys += meta_preprocessors
 ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
                                 for k in cn_preprocessor_modules.keys()
                                 if preprocessor_aliases.get(k, k) not in ui_preprocessor_keys])
@@ -353,22 +359,3 @@ def select_control_type(
         default_option,
         default_model
     )
-
-
-ip_adapter_pairing_model = {
-    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
-    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
-    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
-    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
-    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
-}
-
-ip_adapter_pairing_logic_text = """
-{
-    "ip-adapter_clip_sdxl": lambda model: "faceid" not in model and "vit" not in model,
-    "ip-adapter_clip_sdxl_plus_vith": lambda model: "faceid" not in model and "vit" in model,
-    "ip-adapter_clip_sd15": lambda model: "faceid" not in model,
-    "ip-adapter_face_id": lambda model: "faceid" in model and "plus" not in model,
-    "ip-adapter_face_id_plus": lambda model: "faceid" in model and "plus" in model,
-}
-"""
