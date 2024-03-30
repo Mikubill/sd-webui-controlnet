@@ -210,6 +210,18 @@ class ControlNetUnit:
             "instant_id_face_embedding",
         )
 
+    @staticmethod
+    def infotext_excluded_fields() -> List[str]:
+        return [
+            "image",
+            "enabled",
+            # Note: "advanced_weighting" is excluded as it is an API-only field.
+            "advanced_weighting",
+            # Note: "inpaint_crop_image" is img2img inpaint only flag, which does not
+            # provide much information when restoring the unit.
+            "inpaint_crop_input_image",
+        ]
+
 
 def to_base64_nparray(encoding: str):
     """
@@ -332,6 +344,10 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
         if 'mask' in unit:
             mask = unit['mask']
             del unit['mask']
+
+        if "image_mask" in unit:
+            mask = unit["image_mask"]
+            del unit["image_mask"]
 
         if 'image' in unit and not isinstance(unit['image'], dict):
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit[
