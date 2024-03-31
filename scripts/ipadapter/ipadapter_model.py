@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import List, NamedTuple, Tuple, Union
 
 import torch
@@ -65,11 +66,13 @@ class IPAdapterModel(torch.nn.Module):
         clip_embeddings_dim,
         cross_attention_dim,
         is_plus,
+        is_sdxl: bool,
         sdxl_plus,
         is_full,
         is_faceid: bool,
         is_portrait: bool,
         is_instantid: bool,
+        is_v2: bool,
     ):
         super().__init__()
         self.device = "cpu"
@@ -77,8 +80,12 @@ class IPAdapterModel(torch.nn.Module):
         self.clip_embeddings_dim = clip_embeddings_dim
         self.cross_attention_dim = cross_attention_dim
         self.is_plus = is_plus
+        self.is_sdxl = is_sdxl
         self.sdxl_plus = sdxl_plus
         self.is_full = is_full
+        self.is_v2 = is_v2
+        self.is_faceid = is_faceid
+        self.is_instantid = is_instantid
         self.clip_extra_context_tokens = 16 if (self.is_plus or is_portrait) else 4
 
         if is_instantid:
@@ -114,7 +121,8 @@ class IPAdapterModel(torch.nn.Module):
                 clip_extra_context_tokens=self.clip_extra_context_tokens,
             )
 
-        self.load_ip_adapter(state_dict)
+        self.image_proj_model.load_state_dict(state_dict["image_proj"])
+        self.ip_layers = To_KV(state_dict["ip_adapter"])
 
     def init_proj_faceid(self):
         if self.is_plus:
@@ -145,20 +153,18 @@ class IPAdapterModel(torch.nn.Module):
         )
         return image_proj_model
 
-    def load_ip_adapter(self, state_dict):
-        self.image_proj_model.load_state_dict(state_dict["image_proj"])
-        self.ip_layers = To_KV(state_dict["ip_adapter"])
-
     @torch.inference_mode()
-    def get_image_embeds(self, clip_vision_output: CLIPVisionModelOutput) -> ImageEmbed:
-        self.image_proj_model.cpu()
+    def _get_image_embeds(
+        self, clip_vision_output: CLIPVisionModelOutput
+    ) -> ImageEmbed:
+        self.image_proj_model.to(self.device)
 
         if self.is_plus:
             from annotator.clipvision import clip_vision_h_uc, clip_vision_vith_uc
 
             cond = self.image_proj_model(
                 clip_vision_output["hidden_states"][-2].to(
-                    device="cpu", dtype=torch.float32
+                    device=self.device, dtype=torch.float32
                 )
             )
             uncond = (
@@ -169,7 +175,7 @@ class IPAdapterModel(torch.nn.Module):
             return ImageEmbed(cond, uncond)
 
         clip_image_embeds = clip_vision_output["image_embeds"].to(
-            device="cpu", dtype=torch.float32
+            device=self.device, dtype=torch.float32
         )
         image_prompt_embeds = self.image_proj_model(clip_image_embeds)
         # input zero vector for unconditional.
@@ -179,7 +185,7 @@ class IPAdapterModel(torch.nn.Module):
         return ImageEmbed(image_prompt_embeds, uncond_image_prompt_embeds)
 
     @torch.inference_mode()
-    def get_image_embeds_faceid_plus(
+    def _get_image_embeds_faceid_plus(
         self,
         face_embed: torch.Tensor,
         clip_vision_output: CLIPVisionModelOutput,
@@ -201,7 +207,7 @@ class IPAdapterModel(torch.nn.Module):
         )
 
     @torch.inference_mode()
-    def get_image_embeds_faceid(self, insightface_output: torch.Tensor) -> ImageEmbed:
+    def _get_image_embeds_faceid(self, insightface_output: torch.Tensor) -> ImageEmbed:
         """Get image embeds for non-plus faceid. Multiple inputs are supported."""
         self.image_proj_model.to(self.device)
         faceid_embed = insightface_output.to(self.device, dtype=torch.float32)
@@ -211,7 +217,7 @@ class IPAdapterModel(torch.nn.Module):
         )
 
     @torch.inference_mode()
-    def get_image_embeds_instantid(
+    def _get_image_embeds_instantid(
         self, prompt_image_emb: Union[torch.Tensor, np.ndarray]
     ) -> ImageEmbed:
         """Get image embeds for instantid."""
@@ -229,3 +235,77 @@ class IPAdapterModel(torch.nn.Module):
             self.image_proj_model(prompt_image_emb),
             self.image_proj_model(torch.zeros_like(prompt_image_emb)),
         )
+
+    @staticmethod
+    def load(state_dict: dict, model_name: str) -> IPAdapterModel:
+        """
+        Arguments:
+            - state_dict: model state_dict.
+            - model_name: file name of the model.
+        """
+        is_v2 = "v2" in model_name
+        is_faceid = "faceid" in model_name
+        is_instantid = "instant_id" in model_name
+        is_portrait = "portrait" in model_name
+        is_full = "proj.3.weight" in state_dict["image_proj"]
+        is_plus = (
+            is_full
+            or "latents" in state_dict["image_proj"]
+            or "perceiver_resampler.proj_in.weight" in state_dict["image_proj"]
+        )
+        cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
+        sdxl = cross_attention_dim == 2048
+        sdxl_plus = sdxl and is_plus
+
+        if is_instantid:
+            # InstantID does not use clip embedding.
+            clip_embeddings_dim = None
+        elif is_faceid:
+            if is_plus:
+                clip_embeddings_dim = 1280
+            else:
+                # Plain faceid does not use clip_embeddings_dim.
+                clip_embeddings_dim = None
+        elif is_plus:
+            if sdxl_plus:
+                clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
+            elif is_full:
+                clip_embeddings_dim = int(
+                    state_dict["image_proj"]["proj.0.weight"].shape[1]
+                )
+            else:
+                clip_embeddings_dim = int(
+                    state_dict["image_proj"]["proj_in.weight"].shape[1]
+                )
+        else:
+            clip_embeddings_dim = int(state_dict["image_proj"]["proj.weight"].shape[1])
+
+        return IPAdapterModel(
+            state_dict,
+            clip_embeddings_dim=clip_embeddings_dim,
+            cross_attention_dim=cross_attention_dim,
+            is_plus=is_plus,
+            is_sdxl=sdxl,
+            sdxl_plus=sdxl_plus,
+            is_full=is_full,
+            is_faceid=is_faceid,
+            is_portrait=is_portrait,
+            is_instantid=is_instantid,
+            is_v2=is_v2,
+        )
+
+    def get_image_emb(self, preprocessor_output) -> ImageEmbed:
+        if self.is_instantid:
+            return self._get_image_embeds_instantid(preprocessor_output)
+        elif self.is_faceid and self.is_plus:
+            # Note: FaceID plus uses both face_embed and clip_embed.
+            # This should be the return value from preprocessor.
+            return self._get_image_embeds_faceid_plus(
+                preprocessor_output.face_embed,
+                preprocessor_output.clip_embed,
+                is_v2=self.is_v2,
+            )
+        elif self.is_faceid:
+            return self._get_image_embeds_faceid(preprocessor_output)
+        else:
+            return self._get_image_embeds(preprocessor_output)

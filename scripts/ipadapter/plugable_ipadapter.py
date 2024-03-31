@@ -1,5 +1,4 @@
 import torch
-from scripts.logging import logger
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
 
@@ -90,90 +89,18 @@ def clear_all_ip_adapter():
 
 
 class PlugableIPAdapter(torch.nn.Module):
-    def __init__(self, state_dict, model_name: str):
-        """
-        Arguments:
-            - state_dict: model state_dict.
-            - model_name: file name of the model.
-        """
+    def __init__(self, ipadapter: IPAdapterModel):
         super().__init__()
-        self.is_v2 = "v2" in model_name
-        self.is_faceid = "faceid" in model_name
-        self.is_instantid = "instant_id" in model_name
-        self.is_portrait = "portrait" in model_name
-        self.is_full = "proj.3.weight" in state_dict["image_proj"]
-        self.is_plus = (
-            self.is_full
-            or "latents" in state_dict["image_proj"]
-            or "perceiver_resampler.proj_in.weight" in state_dict["image_proj"]
-        )
-        cross_attention_dim = state_dict["ip_adapter"]["1.to_k_ip.weight"].shape[1]
-        self.sdxl = cross_attention_dim == 2048
-        self.sdxl_plus = self.sdxl and self.is_plus
-        if self.is_faceid and self.is_v2 and self.is_plus:
-            logger.info("IP-Adapter faceid plus v2 detected.")
-
-        if self.is_instantid:
-            # InstantID does not use clip embedding.
-            clip_embeddings_dim = None
-        elif self.is_faceid:
-            if self.is_plus:
-                clip_embeddings_dim = 1280
-            else:
-                # Plain faceid does not use clip_embeddings_dim.
-                clip_embeddings_dim = None
-        elif self.is_plus:
-            if self.sdxl_plus:
-                clip_embeddings_dim = int(state_dict["image_proj"]["latents"].shape[2])
-            elif self.is_full:
-                clip_embeddings_dim = int(
-                    state_dict["image_proj"]["proj.0.weight"].shape[1]
-                )
-            else:
-                clip_embeddings_dim = int(
-                    state_dict["image_proj"]["proj_in.weight"].shape[1]
-                )
-        else:
-            clip_embeddings_dim = int(state_dict["image_proj"]["proj.weight"].shape[1])
-
-        self.ipadapter = IPAdapterModel(
-            state_dict,
-            clip_embeddings_dim=clip_embeddings_dim,
-            cross_attention_dim=cross_attention_dim,
-            is_plus=self.is_plus,
-            sdxl_plus=self.sdxl_plus,
-            is_full=self.is_full,
-            is_faceid=self.is_faceid,
-            is_portrait=self.is_portrait,
-            is_instantid=self.is_instantid,
-        )
+        self.ipadapter = ipadapter
         self.disable_memory_management = True
         self.dtype = None
         self.weight = 1.0
         self.cache = None
         self.p_start = 0.0
         self.p_end = 1.0
-        return
 
     def reset(self):
         self.cache = {}
-        return
-
-    def get_image_emb(self, preprocessor_output) -> ImageEmbed:
-        if self.is_instantid:
-            return self.ipadapter.get_image_embeds_instantid(preprocessor_output)
-        elif self.is_faceid and self.is_plus:
-            # Note: FaceID plus uses both face_embed and clip_embed.
-            # This should be the return value from preprocessor.
-            return self.ipadapter.get_image_embeds_faceid_plus(
-                preprocessor_output.face_embed,
-                preprocessor_output.clip_embed,
-                is_v2=self.is_v2,
-            )
-        elif self.is_faceid:
-            return self.ipadapter.get_image_embeds_faceid(preprocessor_output)
-        else:
-            return self.ipadapter.get_image_embeds(preprocessor_output)
 
     @torch.no_grad()
     def hook(
@@ -200,10 +127,10 @@ class PlugableIPAdapter(torch.nn.Module):
             else:
                 preprocessor_outputs = [preprocessor_outputs]
             self.image_emb = ImageEmbed.average_of(
-                *[self.get_image_emb(o) for o in preprocessor_outputs]
+                *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
             )
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
-        if not self.sdxl:
+        if not self.ipadapter.is_sdxl:
             number = 0  # index of to_kvs
             for id in [
                 1,

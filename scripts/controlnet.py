@@ -1034,7 +1034,7 @@ class Script(scripts.Script, metaclass=(
                         ip_adapter_image_emb_cond = []
                         model_net.ipadapter.image_proj_model.to(torch.float32) # noqa
                         for c in cc:
-                            c = model_net.get_image_emb(c) # noqa
+                            c = model_net.ipadapter.get_image_emb(c) # noqa
                             ip_adapter_image_emb_cond.append(c.cond_emb)
                         c_cond = torch.cat(ip_adapter_image_emb_cond, dim=0)
                         c = ImageEmbed(c_cond, c.uncond_emb, True)
