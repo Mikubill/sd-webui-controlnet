@@ -119,16 +119,13 @@ class PlugableIPAdapter(torch.nn.Module):
         self.dtype = dtype
 
         self.ipadapter.to(device, dtype=self.dtype)
-        if getattr(preprocessor_outputs, "bypass_average", False):
-            self.image_emb = preprocessor_outputs
+        if isinstance(preprocessor_outputs, (list, tuple)):
+            preprocessor_outputs = preprocessor_outputs
         else:
-            if isinstance(preprocessor_outputs, (list, tuple)):
-                preprocessor_outputs = preprocessor_outputs
-            else:
-                preprocessor_outputs = [preprocessor_outputs]
-            self.image_emb = ImageEmbed.average_of(
-                *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
-            )
+            preprocessor_outputs = [preprocessor_outputs]
+        self.image_emb = ImageEmbed.average_of(
+            *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
+        )
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         if not self.ipadapter.is_sdxl:
             number = 0  # index of to_kvs
