@@ -232,7 +232,7 @@ class ControlNetUnit:
         - inpaint accepts mask for mask area redraw.
         - ip-adapter accepts mask to ignore part of clip input. (CLIP mask)
         """
-        return "inpaint" in self.module or "ip-adapter" in self.module
+        return "inpaint" in self.module or ("ip-adapter" in self.module and "faceid" not in self.module)
 
 
 def to_base64_nparray(encoding: str):
