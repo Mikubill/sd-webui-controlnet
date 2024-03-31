@@ -222,6 +222,10 @@ class ControlNetUnit:
             "inpaint_crop_input_image",
         ]
 
+    @property
+    def is_animate_diff_batch(self) -> bool:
+        return getattr(self, "animatediff_batch", False)
+
 
 def to_base64_nparray(encoding: str):
     """
