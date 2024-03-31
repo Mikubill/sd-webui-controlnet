@@ -8,8 +8,7 @@ def add_animate_diff_batch_input(
     p: StableDiffusionProcessing, unit: ControlNetUnit
 ) -> ControlNetUnit:
     """AnimateDiff + ControlNet batch processing."""
-    if not unit.is_animate_diff_batch:
-        return unit
+    assert unit.is_animate_diff_batch
 
     batch_parameters = unit.batch_images.split("\n")
     batch_image_dir = batch_parameters[0]

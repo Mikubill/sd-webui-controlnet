@@ -911,7 +911,8 @@ class Script(scripts.Script, metaclass=(
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
-            unit = add_animate_diff_batch_input(p, unit)
+            if unit.is_animate_diff_batch:
+                unit = add_animate_diff_batch_input(p, unit)
             input_image, resize_mode = Script.choose_input_image(p, unit, idx)
             cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
             if isinstance(input_image, list):
