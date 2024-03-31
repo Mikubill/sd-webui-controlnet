@@ -33,6 +33,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         sd_version=StableDiffusionVersion.SD1x,
     ),
     IPAdapterPreset(
+        name="light_v11",
+        module=clip_h,
+        model="ip-adapter_sd15_light_v11",
+        sd_version=StableDiffusionVersion.SD1x,
+    ),
+    IPAdapterPreset(
         name="vit-g",
         module=clip_g,
         model="ip-adapter_sd15_vit-G",
@@ -87,6 +93,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         name="face_id_portrait",
         module=insightface,
         model="ip-adapter-faceid-portrait_sd15",
+        sd_version=StableDiffusionVersion.SD1x,
+    ),
+    IPAdapterPreset(
+        name="face_id_portrait_v11",
+        module=insightface,
+        model="ip-adapter-faceid-portrait-v11_sd15",
         sd_version=StableDiffusionVersion.SD1x,
     ),
     IPAdapterPreset(
