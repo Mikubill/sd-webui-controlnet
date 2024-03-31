@@ -7,7 +7,7 @@ from typing import Optional, Any
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
-from scripts.controlmodel_ipadapter import ImageEmbed
+from scripts.ipadapter.ipadapter_model import ImageEmbed
 from scripts.controlnet_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
 
@@ -416,6 +416,9 @@ class UnetHook(nn.Module):
             raise ValueError('ControlNet failed to use VAE. Please try to add `--no-half-vae`, `--no-half` and remove `--precision full` in launch cmd.')
 
     def guidance_schedule_handler(self, x):
+        if not self.control_params:
+            return
+
         for param in self.control_params:
             current_sampling_percent = (x.sampling_step / x.total_sampling_steps)
             param.guidance_stopped = current_sampling_percent < param.start_guidance_percent or current_sampling_percent > param.stop_guidance_percent
