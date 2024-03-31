@@ -383,7 +383,6 @@ clip_encoder = {
 
 
 def clip(img, res=512, config='clip_vitl', low_vram=False, **kwargs):
-    img = HWC3(img)
     global clip_encoder
     if clip_encoder[config] is None:
         from annotator.clipvision import ClipVisionDetector
