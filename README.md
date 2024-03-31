@@ -19,20 +19,7 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
 
 # Download Models
-
-Right now all the 14 models of ControlNet 1.1 are in the beta test.
-
-Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
-
-You need to download model files ending with ".pth" .
-
-Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". You only need to download "pth" files.
-
-Do not right-click the filenames in HuggingFace website to download. Some users right-clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.
-
-# Download Models for SDXL
-
-See instructions [here](https://github.com/Mikubill/sd-webui-controlnet/discussions/2039).
+You can find all download links here: https://github.com/Mikubill/sd-webui-controlnet/wiki/Model-download.
 
 # Features in ControlNet 1.1
 
