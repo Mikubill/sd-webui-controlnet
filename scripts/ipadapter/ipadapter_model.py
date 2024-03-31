@@ -20,7 +20,6 @@ class ImageEmbed(NamedTuple):
 
     cond_emb: torch.Tensor
     uncond_emb: torch.Tensor
-    bypass_average: bool = False
 
     def eval(self, cond_mark: torch.Tensor) -> torch.Tensor:
         assert cond_mark.ndim == 4
@@ -40,7 +39,7 @@ class ImageEmbed(NamedTuple):
         ) * cond_mark + self.uncond_emb.to(device=device, dtype=dtype) * (1 - cond_mark)
 
     def average_of(*args: List[Tuple[torch.Tensor, torch.Tensor]]) -> "ImageEmbed":
-        conds, unconds, _ = zip(*args)
+        conds, unconds = zip(*args)
 
         def average_tensors(tensors: List[torch.Tensor]) -> torch.Tensor:
             return torch.sum(torch.stack(tensors), dim=0) / len(tensors)
