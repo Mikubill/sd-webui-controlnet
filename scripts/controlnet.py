@@ -647,7 +647,7 @@ class Script(scripts.Script, metaclass=(
                     for idx in range(len(input_image)):
                         while len(image[idx]['mask'].shape) < 3:
                             image[idx]['mask'] = image[idx]['mask'][..., np.newaxis]
-                        if 'inpaint' in unit.module:
+                        if unit.uses_mask:
                             color = HWC3(image[idx]["image"])
                             alpha = image[idx]['mask'][:, :, 0:1]
                             input_image[idx] = np.concatenate([color, alpha], axis=2)
@@ -656,8 +656,8 @@ class Script(scripts.Script, metaclass=(
                 if 'mask' in image and image['mask'] is not None:
                     while len(image['mask'].shape) < 3:
                         image['mask'] = image['mask'][..., np.newaxis]
-                    if 'inpaint' in unit.module:
-                        logger.info("using inpaint as input")
+                    if unit.uses_mask:
+                        logger.info("using mask")
                         color = HWC3(image['image'])
                         alpha = image['mask'][:, :, 0:1]
                         input_image = np.concatenate([color, alpha], axis=2)

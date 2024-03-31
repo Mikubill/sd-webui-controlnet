@@ -226,6 +226,14 @@ class ControlNetUnit:
     def is_animate_diff_batch(self) -> bool:
         return getattr(self, "animatediff_batch", False)
 
+    @property
+    def uses_mask(self) -> bool:
+        """Whether this unit uses mask.
+        - inpaint accepts mask for mask area redraw.
+        - ip-adapter accepts mask to ignore part of clip input. (CLIP mask)
+        """
+        return "inpaint" in self.module or "ip-adapter" in self.module
+
 
 def to_base64_nparray(encoding: str):
     """
