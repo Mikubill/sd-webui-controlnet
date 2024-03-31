@@ -134,13 +134,14 @@ class ClipVisionDetector:
             mask = None
             input_image = cv2.resize(input_image, (224, 224), interpolation=cv2.INTER_AREA)
             if input_image.shape[2] == 4:  # Has alpha channel.
-                mask = 255 - input_image[:, :, 3:4]
+                mask = 255 - input_image[:, :, 3:4]  # Invert mask
                 input_image = input_image[:, :, :3]
             feat = self.processor(images=input_image, return_tensors="pt")
             feat['pixel_values'] = feat['pixel_values'].to(self.device)
             # Apply CLIP mask.
             if mask is not None:
-                feat['pixel_values'] *= rearrange(torch.from_numpy(mask).to(self.device).float() / 255.0, "h w c -> 1 c h w")
+                mask_tensor = torch.from_numpy(mask).to(self.device).float() / 255.0
+                feat['pixel_values'] *= rearrange(mask_tensor, "h w c -> 1 c h w")
             result = self.model(**feat, output_hidden_states=True)
             result['hidden_states'] = [v.to(self.device) for v in result['hidden_states']]
             result = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in result.items()}

@@ -227,12 +227,16 @@ class ControlNetUnit:
         return getattr(self, "animatediff_batch", False)
 
     @property
-    def uses_mask(self) -> bool:
-        """Whether this unit uses mask.
-        - inpaint accepts mask for mask area redraw.
-        - ip-adapter accepts mask to ignore part of clip input. (CLIP mask)
-        """
-        return "inpaint" in self.module or ("ip-adapter" in self.module and "faceid" not in self.module)
+    def uses_clip(self) -> bool:
+        """Whether this unit uses clip preprocessor."""
+        return any((
+            ("ip-adapter" in self.module and "faceid" not in self.module),
+            self.module in ("clip_vision", "revision_clipvision", "revision_ignore_prompt"),
+        ))
+
+    @property
+    def is_inpaint(self) -> bool:
+        return "inpaint" in self.module
 
 
 def to_base64_nparray(encoding: str):
@@ -357,9 +361,9 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             mask = unit['mask']
             del unit['mask']
 
-        if "image_mask" in unit:
-            mask = unit["image_mask"]
-            del unit["image_mask"]
+        if "mask_image" in unit:
+            mask = unit["mask_image"]
+            del unit["mask_image"]
 
         if 'image' in unit and not isinstance(unit['image'], dict):
             unit['image'] = {'image': unit['image'], 'mask': mask} if mask is not None else unit['image'] if unit[
