@@ -9,6 +9,7 @@ from scripts.adapter import PlugableAdapter, Adapter, StyleAdapter, Adapter_ligh
 from scripts.controlnet_lllite import PlugableControlLLLite
 from scripts.cldm import PlugableControlModel
 from scripts.controlnet_sparsectrl import PlugableSparseCtrlModel
+from scripts.ipadapter.ipadapter_model import IPAdapterModel
 from scripts.ipadapter.plugable_ipadapter import PlugableIPAdapter
 from scripts.logging import logger
 from scripts.controlnet_diffusers import convert_from_diffuser_state_dict
@@ -269,8 +270,7 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
         return ControlModel(network, ControlModelType.T2I_Adapter)
 
     if 'ip_adapter' in state_dict:
-        network = PlugableIPAdapter(state_dict, model_path)
-        network.to('cpu')
+        network = PlugableIPAdapter(IPAdapterModel.load(state_dict, model_path))
         return ControlModel(network, ControlModelType.IPAdapter)
 
     if any('lllite' in k for k in state_dict.keys()):
