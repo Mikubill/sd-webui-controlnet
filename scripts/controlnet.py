@@ -24,7 +24,7 @@ from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOpti
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
-from .animate_diff.batch import add_animate_diff_batch_input
+from scripts.animate_diff.batch import add_animate_diff_batch_input
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
 from scripts.infotext import Infotext
