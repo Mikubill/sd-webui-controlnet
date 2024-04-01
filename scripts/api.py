@@ -1,5 +1,7 @@
 from typing import List, Optional
-
+import base64
+import io
+import torch
 import numpy as np
 from fastapi import FastAPI, Body
 from fastapi.exceptions import HTTPException
@@ -34,6 +36,14 @@ def encode_to_base64(image):
 def encode_np_to_base64(image):
     pil = Image.fromarray(image)
     return api.encode_pil_to_base64(pil)
+
+
+def encode_tensor_to_base64(obj: torch.Tensor) -> str:
+    """Serialize the tensor data to base64 string."""
+    buffer = io.BytesIO()
+    torch.save(obj, buffer)
+    buffer.seek(0)  # Rewind the buffer
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def controlnet_api(_: gr.Blocks, app: FastAPI):
@@ -108,6 +118,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if controlnet_module not in cached_cn_preprocessors:
             raise HTTPException(status_code=422, detail="Module not available")
 
+        if controlnet_module in ("clip_vision", "revision_clipvision", "revision_ignore_prompt"):
+            raise HTTPException(status_code=422, detail="Module not supported")
+
         if len(controlnet_input_images) == 0:
             raise HTTPException(status_code=422, detail="No image selected")
 
@@ -139,29 +152,30 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-
-            results.append(
-                processor_module(
-                    img,
-                    res=unit.processor_res,
-                    thr_a=unit.threshold_a,
-                    thr_b=unit.threshold_b,
-                    json_pose_callback=json_acceptor.accept,
-                    low_vram=low_vram,
-                )[0]
+            detected_map, is_image = processor_module(
+                img,
+                res=unit.processor_res,
+                thr_a=unit.threshold_a,
+                thr_b=unit.threshold_b,
+                json_pose_callback=json_acceptor.accept,
+                low_vram=low_vram,
             )
+            results.append(detected_map)
 
             if "openpose" in controlnet_module:
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
-        results64 = list(map(encode_to_base64, results))
-        res = {"images": results64, "info": "Success"}
-        if poses:
-            res["poses"] = poses
-
+        res = {"info": "Success"}
+        if is_image:
+            res["images"] = [encode_to_base64(r) for r in results]
+            if poses:
+                res["poses"] = poses
+        else:
+            res["tensor"] = [encode_tensor_to_base64(r) for r in results]
         return res
+
 
     class Person(BaseModel):
         pose_keypoints_2d: List[float]
