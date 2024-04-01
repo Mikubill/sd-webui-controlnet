@@ -765,7 +765,7 @@ class InsightFaceModel:
 
     def run_model(self, img: np.ndarray, **kwargs) -> Tuple[torch.Tensor, bool]:
         self.load_model()
-        img = HWC3(img)
+        assert img.shape[2] == 3, f"Expect RGB channels, but get {img.shape}"
         faces = self.model.get(img)
         if not faces:
             raise Exception("Insightface: No face found in image.")
