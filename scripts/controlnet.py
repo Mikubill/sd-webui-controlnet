@@ -985,6 +985,7 @@ class Script(scripts.Script, metaclass=(
 
             if unit.ipadapter_input is not None:
                 # Use ipadapter_input from API call.
+                assert control_model_type == ControlModelType.IPAdapter
                 controls = unit.ipadapter_input
                 hr_controls = unit.ipadapter_input
             else:
