@@ -306,6 +306,7 @@ class ControlNetUiGroup(object):
 
         # API-only fields
         self.advanced_weighting = gr.State(None)
+        self.ipadapter_input = gr.State(None)
 
         ControlNetUiGroup.all_ui_groups.append(self)
 

@@ -413,9 +413,6 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
 
             unit["ipadapter_input"] = [decode_base64(b) for b in unit["ipadapter_input"]]
 
-            if unit["image"] is not None:
-                logger.warn(f"ipadapter_input detected in unit. image field will be ignored.")
-
         if 'guess_mode' in unit:
             logger.warning('Guess Mode is removed since 1.1.136. Please use Control Mode instead.')
 
