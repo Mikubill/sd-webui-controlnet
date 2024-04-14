@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
 
 from annotator.util import HWC3
-from typing import Callable, Tuple, Union, List
+from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
