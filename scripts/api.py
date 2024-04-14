@@ -94,10 +94,10 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_module: str = Body("none", title="Controlnet Module"),
         controlnet_input_images: List[str] = Body([], title="Controlnet Input Images"),
         controlnet_processor_res: int = Body(
-            512, title="Controlnet Processor Resolution"
+            -1, title="Controlnet Processor Resolution"
         ),
-        controlnet_threshold_a: float = Body(64, title="Controlnet Threshold a"),
-        controlnet_threshold_b: float = Body(64, title="Controlnet Threshold b"),
+        controlnet_threshold_a: float = Body(-1, title="Controlnet Threshold a"),
+        controlnet_threshold_b: float = Body(-1, title="Controlnet Threshold b"),
         low_vram: bool = Body(False, title="Low vram"),
     ):
         controlnet_module = global_state.reverse_preprocessor_aliases.get(
