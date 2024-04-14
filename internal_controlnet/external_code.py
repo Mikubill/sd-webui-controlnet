@@ -238,6 +238,25 @@ class ControlNetUnit:
     def is_inpaint(self) -> bool:
         return "inpaint" in self.module
 
+    def bound_check_params(self) -> None:
+        """
+        Checks and corrects negative parameters in ControlNetUnit 'unit' in place.
+        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
+        their default values if negative.
+        """
+        cfg = preprocessor_sliders_config.get(global_state.get_module_basename(self.module), [])
+        defaults = {
+            param: cfg_default['value']
+            for param, cfg_default in zip(
+                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
+            if cfg_default is not None
+        }
+        for param, default_value in defaults.items():
+            value = getattr(self, param)
+            if value < 0:
+                setattr(self, param, default_value)
+                logger.warning(f'[{self.module}.{param}] Invalid value({value}), using default value {default_value}.')
+
 
 def to_base64_nparray(encoding: str):
     """

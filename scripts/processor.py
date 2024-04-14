@@ -5,12 +5,11 @@ import torch
 import math
 from dataclasses import dataclass
 from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
-
-from annotator.util import HWC3
 from typing import Callable, Tuple, Union
 
 from modules.safe import Extra
 from modules import devices
+from annotator.util import HWC3
 from scripts.logging import logger
 
 

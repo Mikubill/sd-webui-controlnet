@@ -15,6 +15,7 @@ from modules.api import api
 from scripts import external_code, global_state
 from scripts.processor import preprocessor_filters
 from scripts.logging import logger
+from scripts.external_code import ControlNetUnit
 from annotator.openpose import draw_poses, decode_json_as_poses
 from annotator.openpose.animalpose import draw_animalposes
 
@@ -114,6 +115,14 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module."
         )
 
+        unit = ControlNetUnit(
+            module=controlnet_module,
+            processor_res=controlnet_processor_res,
+            threshold_a=controlnet_threshold_a,
+            threshold_b=controlnet_threshold_b,
+        )
+        unit.bound_check_params()
+
         results = []
         poses = []
 
@@ -134,9 +143,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             results.append(
                 processor_module(
                     img,
-                    res=controlnet_processor_res,
-                    thr_a=controlnet_threshold_a,
-                    thr_b=controlnet_threshold_b,
+                    res=unit.processor_res,
+                    thr_a=unit.threshold_a,
+                    thr_b=unit.threshold_b,
                     json_pose_callback=json_acceptor.accept,
                     low_vram=low_vram,
                 )[0]

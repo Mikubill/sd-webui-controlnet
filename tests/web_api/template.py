@@ -253,7 +253,7 @@ def get_model(model_name: str) -> str:
     r = requests.get(APITestTemplate.BASE_URL + "controlnet/model_list")
     result = r.json()
     if "model_list" not in result:
-        raise ValueError("No model available")
+        raise ValueError(f"No model available\n{result}")
 
     candidates = [
         model for model in result["model_list"] if model_name.lower() in model.lower()

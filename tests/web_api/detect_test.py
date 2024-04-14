@@ -38,7 +38,7 @@ def detect_template(payload, output_name: str, status: int = 200):
 
 # Need to allow detect of CLIP preprocessor result.
 # https://github.com/Mikubill/sd-webui-controlnet/pull/2590
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[clip_vision] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589ADD1210>  
+# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[clip_vision] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589ADD1210>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[revision_clipvision] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AFB00E0>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[revision_ignore_prompt] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AF3C9A0>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[ip-adapter_clip_sd15] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AF5B740>
@@ -47,6 +47,7 @@ def detect_template(payload, output_name: str, status: int = 200):
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[ip-adapter_face_id] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589B0414E0>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[ip-adapter_face_id_plus] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AEE3100>
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[instant_id_face_embedding] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AFF6CF0>
+
 
 # TODO: file issue on these failures.
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[depth_zoe] - assert 500 == 200
@@ -86,4 +87,17 @@ def test_detect_with_invalid_module():
 
 
 def test_detect_with_no_input_images():
-    detect_template({"controlnet_input_images": []}, "invalid module", 422)
+    detect_template({"controlnet_input_images": []}, "no input images", 422)
+
+
+def test_detect_default_param():
+    detect_template(
+        dict(
+            controlnet_input_images=[realistic_girl_face_img],
+            controlnet_module="canny",  # Canny does not require model download.
+            controlnet_threshold_a=-1,
+            controlnet_threshold_b=-1,
+            controlnet_processor_res=-1,
+        ),
+        "default_param",
+    )
