@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from transformers.models.clip.modeling_clip import CLIPVisionModelOutput
 
 from annotator.util import HWC3
-from typing import Callable, Tuple, Union
+from typing import Callable, Tuple, Union, List
 
 from modules.safe import Extra
 from modules import devices
@@ -732,6 +732,17 @@ class InsightFaceModel:
         self.face_analysis_model_name = face_analysis_model_name
         self.antelopev2_installed = False
 
+    @staticmethod
+    def pick_largest_face(faces):
+        if not faces:
+            raise Exception("Insightface: No face found in image.")
+        if len(faces) > 1:
+            logger.warn("Insightface: More than one face is detected in the image. "
+                        "Only the biggest one will be used.")
+        # only use the biggest face
+        face = sorted(faces, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
+        return face
+
     def install_antelopev2(self):
         """insightface's github release on antelopev2 model is down. Downloading
         from huggingface mirror."""
@@ -767,12 +778,8 @@ class InsightFaceModel:
         self.load_model()
         assert img.shape[2] == 3, f"Expect 3 channels, but get {img.shape} channels"
         faces = self.model.get(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        if not faces:
-            raise Exception("Insightface: No face found in image.")
-        if len(faces) > 1:
-            logger.warn("Insightface: More than one face is detected in the image. "
-                        "Only the first one will be used.")
-        return torch.from_numpy(faces[0].normed_embedding).unsqueeze(0), False
+        face = InsightFaceModel.pick_largest_face(faces)
+        return torch.from_numpy(face.normed_embedding).unsqueeze(0), False
 
     def run_model_instant_id(
         self,
@@ -820,14 +827,8 @@ class InsightFaceModel:
 
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img, remove_pad = resize_image_with_pad(img, res)
-        face_info = self.model.get(img)
-        if not face_info:
-            raise Exception("Insightface: No face found in image.")
-        if len(face_info) > 1:
-            logger.warn("Insightface: More than one face is detected in the image. "
-                        "Only the biggest one will be used.")
-        # only use the maximum face
-        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]
+        faces = self.model.get(img)
+        face_info = InsightFaceModel.pick_largest_face(faces)
         if return_keypoints:
             return remove_pad(draw_kps(img, face_info['kps'])), True
         else:
