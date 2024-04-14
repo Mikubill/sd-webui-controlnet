@@ -765,8 +765,8 @@ class InsightFaceModel:
 
     def run_model(self, img: np.ndarray, **kwargs) -> Tuple[torch.Tensor, bool]:
         self.load_model()
-        assert img.shape[2] == 3, f"Expect RGB channels, but get {img.shape}"
-        faces = self.model.get(img)
+        assert img.shape[2] == 3, f"Expect 3 channels, but get {img.shape} channels"
+        faces = self.model.get(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         if not faces:
             raise Exception("Insightface: No face found in image.")
         if len(faces) > 1:
@@ -818,6 +818,7 @@ class InsightFaceModel:
             self.install_antelopev2()
         self.load_model()
 
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img, remove_pad = resize_image_with_pad(img, res)
         face_info = self.model.get(img)
         if not face_info:
