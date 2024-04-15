@@ -215,6 +215,103 @@ def get_pytorch_control(x: np.ndarray) -> torch.Tensor:
     return y
 
 
+def get_control(
+    p: StableDiffusionProcessing,
+    unit: external_code.ControlNetUnit,
+    idx: int,
+    control_model_type: ControlModelType,
+    preprocessor,
+):
+    """Get input for a ControlNet unit."""
+    if unit.is_animate_diff_batch:
+        unit = add_animate_diff_batch_input(p, unit)
+
+    high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
+    h, w, hr_y, hr_x = Script.get_target_dimensions(p)
+    input_image, resize_mode = Script.choose_input_image(p, unit, idx)
+    if isinstance(input_image, list):
+        assert unit.accepts_multiple_inputs() or unit.is_animate_diff_batch
+        input_images = input_image
+    else: # Following operations are only for single input image.
+        input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
+        input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
+        if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+            # inpaint_only+lama is special and required outpaint fix
+            _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
+        input_images = [input_image]
+
+    if unit.pixel_perfect:
+        unit.processor_res = external_code.pixel_perfect_resolution(
+            input_images[0],
+            target_H=h,
+            target_W=w,
+            resize_mode=resize_mode,
+        )
+    # Preprocessor result may depend on numpy random operations, use the
+    # random seed in `StableDiffusionProcessing` to make the
+    # preprocessor result reproducable.
+    # Currently following preprocessors use numpy random:
+    # - shuffle
+    seed = set_numpy_seed(p)
+    logger.debug(f"Use numpy seed {seed}.")
+    logger.info(f"Using preprocessor: {unit.module}")
+    logger.info(f'preprocessor resolution = {unit.processor_res}')
+
+    detected_maps = []
+    def store_detected_map(detected_map, module: str) -> None:
+        if unit.save_detected_map:
+            detected_maps.append((detected_map, module))
+
+    def preprocess_input_image(input_image: np.ndarray):
+        """ Preprocess single input image. """
+        detected_map, is_image = preprocessor(
+            input_image,
+            res=unit.processor_res,
+            thr_a=unit.threshold_a,
+            thr_b=unit.threshold_b,
+            low_vram=(
+                ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
+                shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
+            ),
+        )
+        if high_res_fix:
+            if is_image:
+                hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
+                store_detected_map(hr_detected_map, unit.module)
+            else:
+                hr_control = detected_map
+        else:
+            hr_control = None
+
+        if is_image:
+            control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
+            store_detected_map(detected_map, unit.module)
+        else:
+            control = detected_map
+            store_detected_map(input_image, unit.module)
+
+        if control_model_type == ControlModelType.T2I_StyleAdapter:
+            control = control['last_hidden_state']
+
+        if control_model_type == ControlModelType.ReVision:
+            control = control['image_embeds']
+
+        if is_image and unit.is_animate_diff_batch: # AnimateDiff save VRAM
+            control = control.cpu()
+            if hr_control is not None:
+                hr_control = hr_control.cpu()
+
+        return control, hr_control
+
+    def optional_tqdm(iterable, use_tqdm=unit.is_animate_diff_batch):
+        from tqdm import tqdm
+        return tqdm(iterable) if use_tqdm else iterable
+
+    controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in optional_tqdm(input_images)]))
+    assert len(controls) == len(hr_controls)
+    return controls, hr_controls, detected_maps
+
+
 class Script(scripts.Script, metaclass=(
     utils.TimeMeta if logger.level == logging.DEBUG else type)):
 
@@ -852,7 +949,6 @@ class Script(scripts.Script, metaclass=(
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
-        h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
         for idx, unit in enumerate(self.enabled_units):
             unit.bound_check_params()
@@ -887,92 +983,21 @@ class Script(scripts.Script, metaclass=(
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
-            if unit.is_animate_diff_batch:
-                unit = add_animate_diff_batch_input(p, unit)
-            input_image, resize_mode = Script.choose_input_image(p, unit, idx)
-            cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
-            if isinstance(input_image, list):
-                assert unit.accepts_multiple_inputs() or unit.is_animate_diff_batch
-                input_images = input_image
-            else: # Following operations are only for single input image.
-                input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
-                input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
-                if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
-                    # inpaint_only+lama is special and required outpaint fix
-                    _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
-                input_images = [input_image]
+            if unit.ipadapter_input is not None:
+                # Use ipadapter_input from API call.
+                assert control_model_type == ControlModelType.IPAdapter
+                controls = unit.ipadapter_input
+                hr_controls = unit.ipadapter_input
+            else:
+                controls, hr_controls, additional_maps = get_control(
+                    p, unit, idx, control_model_type, self.preprocessor[unit.module])
+                detected_maps.extend(additional_maps)
 
-            if unit.pixel_perfect:
-                unit.processor_res = external_code.pixel_perfect_resolution(
-                    input_images[0],
-                    target_H=h,
-                    target_W=w,
-                    resize_mode=resize_mode,
-                )
-            # Preprocessor result may depend on numpy random operations, use the
-            # random seed in `StableDiffusionProcessing` to make the
-            # preprocessor result reproducable.
-            # Currently following preprocessors use numpy random:
-            # - shuffle
-            seed = set_numpy_seed(p)
-            logger.debug(f"Use numpy seed {seed}.")
-            logger.info(f"Using preprocessor: {unit.module}")
-            logger.info(f'preprocessor resolution = {unit.processor_res}')
-
-            def store_detected_map(detected_map, module: str) -> None:
-                if unit.save_detected_map:
-                    detected_maps.append((detected_map, module))
-
-            def preprocess_input_image(input_image: np.ndarray):
-                """ Preprocess single input image. """
-                detected_map, is_image = self.preprocessor[unit.module](
-                    input_image,
-                    res=unit.processor_res,
-                    thr_a=unit.threshold_a,
-                    thr_b=unit.threshold_b,
-                    low_vram=(
-                        ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
-                        shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
-                    ),
-                )
-                if high_res_fix:
-                    if is_image:
-                        hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
-                        store_detected_map(hr_detected_map, unit.module)
-                    else:
-                        hr_control = detected_map
-                else:
-                    hr_control = None
-
-                if is_image:
-                    control, detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, h, w)
-                    store_detected_map(detected_map, unit.module)
-                else:
-                    control = detected_map
-                    store_detected_map(input_image, unit.module)
-
-                if control_model_type == ControlModelType.T2I_StyleAdapter:
-                    control = control['last_hidden_state']
-
-                if control_model_type == ControlModelType.ReVision:
-                    control = control['image_embeds']
-
-                if is_image and unit.is_animate_diff_batch: # AnimateDiff save VRAM
-                    control = control.cpu()
-                    if hr_control is not None:
-                        hr_control = hr_control.cpu()
-
-                return control, hr_control
-
-            def optional_tqdm(iterable, use_tqdm=unit.is_animate_diff_batch):
-                from tqdm import tqdm
-                return tqdm(iterable) if use_tqdm else iterable
-
-            controls, hr_controls = list(zip(*[preprocess_input_image(img) for img in optional_tqdm(input_images)]))
             if len(controls) == len(hr_controls) == 1 and control_model_type not in [ControlModelType.SparseCtrl]:
                 control = controls[0]
                 hr_control = hr_controls[0]
             elif unit.is_animate_diff_batch or control_model_type in [ControlModelType.SparseCtrl]:
+                cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
                 def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
                     if unit.accepts_multiple_inputs():
                         ip_adapter_image_emb_cond = []
