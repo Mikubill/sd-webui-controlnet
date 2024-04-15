@@ -248,7 +248,7 @@ def expect_same_image(img1, img2, diff_img_path: str) -> bool:
 
 @contextmanager
 def console_log_context(output_file="output.txt"):
-    log_encoding = "utf-16-le" if APITestTemplate.is_cq_run else "utf-16"
+    log_encoding = "utf-8" if APITestTemplate.is_cq_run else "utf-16"
     class Context:
         def __init__(self, output_file) -> None:
             self.output_file = output_file
