@@ -14,7 +14,7 @@ import time
 from einops import rearrange
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
-from scripts.processor import HWC3, preprocessor_sliders_config
+from scripts.processor import HWC3
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
 from scripts.ipadapter.presets import IPAdapterPreset
@@ -227,7 +227,7 @@ class Script(scripts.Script, metaclass=(
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
-        self.enabled_units = []
+        self.enabled_units: List[external_code.ControlNetUnit] = []
         self.detected_map = []
         self.post_processors = []
         self.noise_modifier = None
@@ -758,30 +758,6 @@ class Script(scripts.Script, metaclass=(
         return input_image
 
     @staticmethod
-    def bound_check_params(unit: external_code.ControlNetUnit) -> None:
-        """
-        Checks and corrects negative parameters in ControlNetUnit 'unit'.
-        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
-        their default values if negative.
-
-        Args:
-            unit (external_code.ControlNetUnit): The ControlNetUnit instance to check.
-        """
-        cfg = preprocessor_sliders_config.get(
-            global_state.get_module_basename(unit.module), [])
-        defaults = {
-            param: cfg_default['value']
-            for param, cfg_default in zip(
-                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
-            if cfg_default is not None
-        }
-        for param, default_value in defaults.items():
-            value = getattr(unit, param)
-            if value < 0:
-                setattr(unit, param, default_value)
-                logger.warning(f'[{unit.module}.{param}] Invalid value({value}), using default value {default_value}.')
-
-    @staticmethod
     def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
         """
         Checks whether the given ControlNet unit has model compatible with the currently
@@ -879,7 +855,7 @@ class Script(scripts.Script, metaclass=(
         h, w, hr_y, hr_x = Script.get_target_dimensions(p)
 
         for idx, unit in enumerate(self.enabled_units):
-            Script.bound_check_params(unit)
+            unit.bound_check_params()
             Script.check_sd_version_compatible(unit)
             if (
                 'inpaint_only' == unit.module and

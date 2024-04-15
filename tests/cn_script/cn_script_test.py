@@ -135,7 +135,7 @@ class TestScript(unittest.TestCase):
                         module=module,
                         **{param: -100},
                     )
-                    Script.bound_check_params(unit)
+                    unit.bound_check_params()
                     if param_required(module, param):
                         self.assertGreaterEqual(getattr(unit, param), 0)
                     else:
