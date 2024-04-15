@@ -564,14 +564,14 @@ class Script(scripts.Script, metaclass=(
         enabled_units = []
         for idx, unit in enumerate(units):
             local_unit = Script.parse_remote_call(p, unit, idx)
+            if not local_unit.enabled:
+                continue
 
             # Consolidate meta preprocessors.
             if local_unit.module == "ip-adapter-auto":
                 local_unit.module = IPAdapterPreset.match_model(local_unit.model).module
                 logger.info(f"ip-adapter-auto => {local_unit.module}")
 
-            if not local_unit.enabled:
-                continue
             if hasattr(local_unit, "unfold_merged"):
                 enabled_units.extend(local_unit.unfold_merged())
             else:
