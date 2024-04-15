@@ -9,6 +9,7 @@ import datetime
 from enum import Enum
 import numpy as np
 import pytest
+import copy
 
 import requests
 from PIL import Image
@@ -243,6 +244,31 @@ def expect_same_image(img1, img2, diff_img_path: str) -> bool:
     matching_pixels = np.isclose(img1, img2, rtol=0.5, atol=1)
     similar_in_general = (matching_pixels.sum() / matching_pixels.size) >= 0.95
     return similar_in_general
+
+
+def match_lines_in_file(filepath, matcher):
+    with open(filepath, "r", encoding="utf-16") as file:
+        for line in file:
+            if matcher(line):
+                yield line
+
+
+def is_in_console_logs(expected_lines: List[str], output_file="output.txt") -> bool:
+    if not os.path.exists(output_file):
+        print(f"{output_file} does not exist")
+        return False
+
+    expected_lines = copy.copy(expected_lines)
+
+    def match_line(line: str) -> bool:
+        for el in expected_lines:
+            if el in line:
+                expected_lines.remove(el)
+                return True
+        return False
+
+    matched_lines = [l for l in match_lines_in_file(output_file, match_line)]
+    return matched_lines == expected_lines
 
 
 def get_model(model_name: str) -> str:

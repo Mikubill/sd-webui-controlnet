@@ -255,7 +255,7 @@ class ControlNetUnit:
             value = getattr(self, param)
             if value < 0:
                 setattr(self, param, default_value)
-                logger.warning(f'[{self.module}.{param}] Invalid value({value}), using default value {default_value}.')
+                logger.info(f'[{self.module}.{param}] Invalid value({value}), using default value {default_value}.')
 
 
 def to_base64_nparray(encoding: str):

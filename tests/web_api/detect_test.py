@@ -8,6 +8,7 @@ from .template import (
     save_base64,
     get_dest_dir,
     disable_in_cq,
+    is_in_console_logs,
 )
 
 
@@ -101,3 +102,8 @@ def test_detect_default_param():
         ),
         "default_param",
     )
+    assert is_in_console_logs([
+        "[canny.processor_res] Invalid value(-1), using default value 512.",
+        "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
+        "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
+    ])
