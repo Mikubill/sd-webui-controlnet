@@ -9,7 +9,6 @@ import datetime
 from enum import Enum
 import numpy as np
 import pytest
-import copy
 from contextlib import contextmanager
 
 import requests
