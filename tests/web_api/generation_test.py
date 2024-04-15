@@ -6,6 +6,7 @@ from .template import (
     mask_img,
     disable_in_cq,
     get_model,
+    console_log_context,
 )
 
 
@@ -81,13 +82,17 @@ def test_preprocessor(gen_type):
 @pytest.mark.parametrize("param_name", ("processor_res", "threshold_a", "threshold_b"))
 @pytest.mark.parametrize("gen_type", ["img2img", "txt2img"])
 def test_invalid_param(gen_type, param_name):
-    assert APITestTemplate(
-        f"test_invalid_param{(gen_type, param_name)}",
-        gen_type,
-        payload_overrides={},
-        unit_overrides={param_name: -1},
-        input_image=girl_img,
-    ).exec()
+    with console_log_context() as log_context:
+        assert APITestTemplate(
+            f"test_invalid_param{(gen_type, param_name)}",
+            gen_type,
+            payload_overrides={},
+            unit_overrides={param_name: -1},
+            input_image=girl_img,
+        ).exec()
+        assert log_context.is_in_console_logs([
+            f"[canny.{param_name}] Invalid value(-1), using default value",
+        ])
 
 
 @pytest.mark.parametrize("save_map", [True, False])
