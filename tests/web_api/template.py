@@ -10,6 +10,7 @@ from enum import Enum
 import numpy as np
 import pytest
 import copy
+from contextlib import contextmanager
 
 import requests
 from PIL import Image
@@ -246,29 +247,28 @@ def expect_same_image(img1, img2, diff_img_path: str) -> bool:
     return similar_in_general
 
 
-def match_lines_in_file(filepath, matcher):
-    with open(filepath, "r", encoding="utf-16") as file:
-        for line in file:
-            if matcher(line):
-                yield line
+@contextmanager
+def console_log_context(output_file="output.txt"):
+    class Context:
+        def __init__(self, output_file) -> None:
+            self.output_file = output_file
+            self.init_line_count = 0
+            with open(self.output_file, "r", encoding="utf-16") as file:
+                for _ in file:
+                    self.init_line_count += 1
 
+        def is_in_console_logs(self, expected_lines: List[str]) -> bool:
+            with open(self.output_file, "r", encoding="utf-16") as file:
+                for i, line in enumerate(file):
+                    if not expected_lines:
+                        break
+                    if i < self.init_line_count:
+                        continue
+                    if expected_lines[0] in line:
+                        expected_lines.pop(0)
+            return len(expected_lines) == 0
 
-def is_in_console_logs(expected_lines: List[str], output_file="output.txt") -> bool:
-    if not os.path.exists(output_file):
-        print(f"{output_file} does not exist")
-        return False
-
-    expected_lines = copy.copy(expected_lines)
-
-    def match_line(line: str) -> bool:
-        for el in expected_lines:
-            if el in line:
-                expected_lines.remove(el)
-                return True
-        return False
-
-    matched_lines = [l for l in match_lines_in_file(output_file, match_line)]
-    return matched_lines == expected_lines
+    yield Context(output_file)
 
 
 def get_model(model_name: str) -> str:

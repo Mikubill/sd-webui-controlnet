@@ -8,7 +8,7 @@ from .template import (
     save_base64,
     get_dest_dir,
     disable_in_cq,
-    is_in_console_logs,
+    console_log_context,
 )
 
 
@@ -92,18 +92,19 @@ def test_detect_with_no_input_images():
 
 
 def test_detect_default_param():
-    detect_template(
-        dict(
-            controlnet_input_images=[realistic_girl_face_img],
-            controlnet_module="canny",  # Canny does not require model download.
-            controlnet_threshold_a=-1,
-            controlnet_threshold_b=-1,
-            controlnet_processor_res=-1,
-        ),
-        "default_param",
-    )
-    assert is_in_console_logs([
-        "[canny.processor_res] Invalid value(-1), using default value 512.",
-        "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
-        "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
-    ])
+    with console_log_context() as log_context:
+        detect_template(
+            dict(
+                controlnet_input_images=[realistic_girl_face_img],
+                controlnet_module="canny",  # Canny does not require model download.
+                controlnet_threshold_a=-1,
+                controlnet_threshold_b=-1,
+                controlnet_processor_res=-1,
+            ),
+            "default_param",
+        )
+        assert log_context.is_in_console_logs([
+            "[canny.processor_res] Invalid value(-1), using default value 512.",
+            "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
+            "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
+        ])
