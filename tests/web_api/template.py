@@ -248,16 +248,17 @@ def expect_same_image(img1, img2, diff_img_path: str) -> bool:
 
 @contextmanager
 def console_log_context(output_file="output.txt"):
+    log_encoding = "utf-16-le" if APITestTemplate.is_cq_run else "utf-16"
     class Context:
         def __init__(self, output_file) -> None:
             self.output_file = output_file
             self.init_line_count = 0
-            with open(self.output_file, "r", encoding="utf-16") as file:
+            with open(self.output_file, "r", encoding=log_encoding) as file:
                 for _ in file:
                     self.init_line_count += 1
 
         def is_in_console_logs(self, expected_lines: List[str]) -> bool:
-            with open(self.output_file, "r", encoding="utf-16") as file:
+            with open(self.output_file, "r", encoding=log_encoding) as file:
                 for i, line in enumerate(file):
                     if not expected_lines:
                         break
