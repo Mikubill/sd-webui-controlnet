@@ -146,9 +146,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
             json_acceptor = JsonAcceptor()
             detected_map, is_image = preprocessor(
                 img,
-                res=unit.processor_res,
-                thr_a=unit.threshold_a,
-                thr_b=unit.threshold_b,
+                resolution=unit.processor_res,
+                slider_1=unit.threshold_a,
+                slider_2=unit.threshold_b,
                 json_pose_callback=json_acceptor.accept,
                 low_vram=low_vram,
             )

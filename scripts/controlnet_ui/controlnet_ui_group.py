@@ -932,9 +932,9 @@ class ControlNetUiGroup(object):
             # This requires changing all callsites though.
             result, is_image = preprocessor(
                 img,
-                res=pres,
-                thr_a=pthr_a,
-                thr_b=pthr_b,
+                resolution=pres,
+                slider_1=pthr_a,
+                slider_2=pthr_b,
                 low_vram=(
                     ("clip" in module or module == "ip-adapter_face_id_plus")
                     and shared.opts.data.get("controlnet_clip_detector_on_cpu", False)

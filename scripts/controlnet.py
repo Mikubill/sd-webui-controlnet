@@ -269,9 +269,9 @@ def get_control(
         """ Preprocess single input image. """
         detected_map, is_image = preprocessor(
             input_image,
-            res=unit.processor_res,
-            thr_a=unit.threshold_a,
-            thr_b=unit.threshold_b,
+            resolution=unit.processor_res,
+            slider_1=unit.threshold_a,
+            slider_2=unit.threshold_b,
             low_vram=(
                 ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
                 shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
