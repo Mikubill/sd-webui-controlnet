@@ -7,8 +7,8 @@ from modules import scripts
 from scripts.infotext import parse_unit, serialize_unit
 from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.logging import logger
-from scripts.processor import preprocessor_filters
 from scripts import external_code
+from scripts.supported_preprocessor import Preprocessor
 
 save_symbol = "\U0001f4be"  # 💾
 delete_symbol = "\U0001f5d1\ufe0f"  # 🗑️
@@ -38,7 +38,7 @@ def infer_control_type(module: str, model: str) -> str:
     def matches_control_type(input_string: str, control_type: str) -> bool:
         return any(t.lower() in input_string for t in control_type.split("/"))
 
-    control_types = preprocessor_filters.keys()
+    control_types = Preprocessor.get_all_preprocessor_tags()
     control_type_candidates = [
         control_type
         for control_type in control_types

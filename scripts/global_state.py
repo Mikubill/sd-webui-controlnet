@@ -10,8 +10,9 @@ import scripts.processor as processor
 from scripts.utils import ndarray_lru_cache
 from scripts.logging import logger
 from scripts.enums import StableDiffusionVersion
+from scripts.supported_preprocessor import Preprocessor
 
-from typing import Dict, Callable, Optional, Tuple, List
+from typing import Dict, Callable, Tuple, List
 
 CN_MODEL_EXTS = [".pt", ".pth", ".ckpt", ".safetensors", ".bin"]
 cn_models_dir = os.path.join(models_path, "ControlNet")
@@ -157,49 +158,31 @@ cn_preprocessor_unloadable = {
     "normal_dsine": unload_normal_dsine,
 }
 
-preprocessor_aliases = {
-    "invert": "invert (from white bg & black line)",
-    "lineart_standard": "lineart_standard (from white bg & black line)",
-    "lineart": "lineart_realistic",
-    "color": "t2ia_color_grid",
-    "clip_vision": "t2ia_style_clipvision",
-    "pidinet_sketch": "t2ia_sketch_pidi",
-    "depth": "depth_midas",
-    "normal_map": "normal_midas",
-    "hed": "softedge_hed",
-    "hed_safe": "softedge_hedsafe",
-    "pidinet": "softedge_pidinet",
-    "pidinet_safe": "softedge_pidisafe",
-    "segmentation": "seg_ufade20k",
-    "oneformer_coco": "seg_ofcoco",
-    "oneformer_ade20k": "seg_ofade20k",
-    "pidinet_scribble": "scribble_pidinet",
-    "inpaint": "inpaint_global_harmonious",
-    "anime_face_segment": "seg_anime_face",
-    "densepose": "densepose (pruple bg & purple torso)",
-    "densepose_parula": "densepose_parula (black bg & blue torso)",
-    "te_hed": "softedge_teed",
-    "ip-adapter_clip_sd15": "ip-adapter_clip_h",
-    "ip-adapter_clip_sdxl": "ip-adapter_clip_g",
-}
-
-# Preprocessor that automatically maps to other preprocessors.
-meta_preprocessors = ["ip-adapter-auto"]
-
-ui_preprocessor_keys = ['none', preprocessor_aliases['invert']]
-ui_preprocessor_keys += meta_preprocessors
-ui_preprocessor_keys += sorted([preprocessor_aliases.get(k, k)
-                                for k in cn_preprocessor_modules.keys()
-                                if preprocessor_aliases.get(k, k) not in ui_preprocessor_keys])
-
-reverse_preprocessor_aliases = {preprocessor_aliases[k]: k for k in preprocessor_aliases.keys()}
-
-
-def get_module_basename(module: Optional[str]) -> str:
-    if module is None:
-        module = 'none'
-    return reverse_preprocessor_aliases.get(module, module)
-
+# preprocessor_aliases = {
+#     "invert": "invert (from white bg & black line)",
+#     "lineart_standard": "lineart_standard (from white bg & black line)",
+#     "lineart": "lineart_realistic",
+#     "color": "t2ia_color_grid",
+#     "clip_vision": "t2ia_style_clipvision",
+#     "pidinet_sketch": "t2ia_sketch_pidi",
+#     "depth": "depth_midas",
+#     "normal_map": "normal_midas",
+#     "hed": "softedge_hed",
+#     "hed_safe": "softedge_hedsafe",
+#     "pidinet": "softedge_pidinet",
+#     "pidinet_safe": "softedge_pidisafe",
+#     "segmentation": "seg_ufade20k",
+#     "oneformer_coco": "seg_ofcoco",
+#     "oneformer_ade20k": "seg_ofade20k",
+#     "pidinet_scribble": "scribble_pidinet",
+#     "inpaint": "inpaint_global_harmonious",
+#     "anime_face_segment": "seg_anime_face",
+#     "densepose": "densepose (pruple bg & purple torso)",
+#     "densepose_parula": "densepose_parula (black bg & blue torso)",
+#     "te_hed": "softedge_teed",
+#     "ip-adapter_clip_sd15": "ip-adapter_clip_h",
+#     "ip-adapter_clip_sdxl": "ip-adapter_clip_g",
+# }
 
 default_detectedmap_dir = os.path.join("detected_maps")
 script_dir = scripts.basedir()
@@ -300,37 +283,17 @@ def select_control_type(
     sd_version: StableDiffusionVersion = StableDiffusionVersion.UNKNOWN,
     cn_models: Dict = cn_models, # Override or testing
 ) -> Tuple[List[str], List[str], str, str]:
-    default_option = processor.preprocessor_filters[control_type]
     pattern = control_type.lower()
-    preprocessor_list = ui_preprocessor_keys
     all_models = list(cn_models.keys())
 
     if pattern == "all":
         return [
-            preprocessor_list,
+            [p.label for p in Preprocessor.get_sorted_preprocessors().values()],
             all_models,
             'none', #default option
             "None"  #default model
         ]
-    filtered_preprocessor_list = [
-        x
-        for x in preprocessor_list
-        if ((
-            pattern in x.lower() or
-            any(a in x.lower() for a in processor.preprocessor_filters_aliases.get(pattern, [])) or
-            x.lower() == "none"
-        ) and (
-            sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(x))
-        ))
-    ]
-    if pattern in ["canny", "lineart", "scribble/sketch", "mlsd"]:
-        filtered_preprocessor_list += [
-            x for x in preprocessor_list if "invert" in x.lower()
-        ]
-    if pattern in ["sparsectrl"]:
-        filtered_preprocessor_list += [
-            x for x in preprocessor_list if "scribble" in x.lower()
-        ]
+
     filtered_model_list = [
         model for model in all_models
         if model.lower() == "none" or
@@ -342,8 +305,6 @@ def select_control_type(
         ))
     ]
     assert len(filtered_model_list) > 0, "'None' model should always be available."
-    if default_option not in filtered_preprocessor_list:
-        default_option = filtered_preprocessor_list[0]
     if len(filtered_model_list) == 1:
         default_model = "None"
     else:
@@ -354,9 +315,9 @@ def select_control_type(
                 break
 
     return (
-        filtered_preprocessor_list,
+        [p.label for p in Preprocessor.get_filtered_preprocessors(control_type)],
         filtered_model_list,
-        default_option,
+        Preprocessor.get_default_preprocessor(control_type).label,
         default_model
     )
 

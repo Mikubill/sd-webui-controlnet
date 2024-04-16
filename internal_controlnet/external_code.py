@@ -13,6 +13,7 @@ from scripts import global_state
 from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
 from scripts.logging import logger
 from scripts.enums import HiResFixOption
+from scripts.supported_preprocessor import Preprocessor, PreprocessorParameter
 
 from modules.api import api
 
@@ -257,18 +258,13 @@ class ControlNetUnit:
         Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
         their default values if negative.
         """
-        cfg = preprocessor_sliders_config.get(global_state.get_module_basename(self.module), [])
-        defaults = {
-            param: cfg_default['value']
-            for param, cfg_default in zip(
-                ("processor_res", 'threshold_a', 'threshold_b'), cfg)
-            if cfg_default is not None
-        }
-        for param, default_value in defaults.items():
+        preprocessor = Preprocessor.get_preprocessor(self.module)
+        for param in ("slider_resolution", "slider_1", "slider_2", "slider_3"):
             value = getattr(self, param)
+            cfg: PreprocessorParameter = getattr(preprocessor, param)
             if value < 0:
-                setattr(self, param, default_value)
-                logger.info(f'[{self.module}.{param}] Invalid value({value}), using default value {default_value}.')
+                setattr(self, param, cfg.value)
+                logger.info(f'[{self.module}.{param}] Invalid value({value}), using default value {cfg.value}.')
 
 
 def to_base64_nparray(encoding: str):
@@ -539,13 +535,10 @@ def get_modules(alias_names: bool = False) -> List[str]:
     Keyword arguments:
     alias_names -- Whether to get the ui alias names instead of internal keys
     """
-
-    modules = list(global_state.cn_preprocessor_modules.keys())
-
-    if alias_names:
-        modules = [global_state.preprocessor_aliases.get(module, module) for module in modules]
-
-    return modules
+    return [
+        (p.label if alias_names else p.name)
+        for p in Preprocessor.get_sorted_preprocessors().values()
+    ]
 
 
 def get_modules_detail(alias_names: bool = False) -> Dict[str, Any]:

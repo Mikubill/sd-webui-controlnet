@@ -24,6 +24,7 @@ from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOpti
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
+from scripts.supported_preprocessor import Preprocessor
 from scripts.animate_diff.batch import add_animate_diff_batch_input
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
@@ -220,7 +221,7 @@ def get_control(
     unit: external_code.ControlNetUnit,
     idx: int,
     control_model_type: ControlModelType,
-    preprocessor,
+    preprocessor: Preprocessor,
 ):
     """Get input for a ControlNet unit."""
     if unit.is_animate_diff_batch:
@@ -320,7 +321,6 @@ class Script(scripts.Script, metaclass=(
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
         self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
@@ -353,7 +353,6 @@ class Script(scripts.Script, metaclass=(
         group = ControlNetUiGroup(
             is_img2img,
             Script.get_default_ui_unit(),
-            self.preprocessor,
             photopea,
         )
         return group, group.render(tabname, elem_id_tabname)
@@ -938,9 +937,6 @@ class Script(scripts.Script, metaclass=(
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             Script.clear_control_model_cache()
 
-        for idx, unit in enumerate(self.enabled_units):
-            unit.module = global_state.get_module_basename(unit.module)
-
         # unload unused preproc
         module_list = [unit.module for unit in self.enabled_units]
         for key in self.unloadable:
@@ -990,7 +986,7 @@ class Script(scripts.Script, metaclass=(
                 hr_controls = unit.ipadapter_input
             else:
                 controls, hr_controls, additional_maps = get_control(
-                    p, unit, idx, control_model_type, self.preprocessor[unit.module])
+                    p, unit, idx, control_model_type, Preprocessor.get_preprocessor(unit.module))
                 detected_maps.extend(additional_maps)
 
             if len(controls) == len(hr_controls) == 1 and control_model_type not in [ControlModelType.SparseCtrl]:
