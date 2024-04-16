@@ -102,8 +102,8 @@ class Preprocessor(ABC):
 
     @classmethod
     def get_sorted_preprocessors(cls) -> List['Preprocessor']:
-        preprocessors = [p for k, p in cls.all_processors.items() if k != "None"]
-        return [cls.all_processors["None"]] + sorted(
+        preprocessors = [p for k, p in cls.all_processors.items() if k != "none"]
+        return [cls.all_processors["none"]] + sorted(
             preprocessors,
             key=lambda x: str(x.sorting_priority).zfill(8) + x.label,
             reverse=True,
@@ -123,7 +123,7 @@ class Preprocessor(ABC):
         return [
             p
             for p in cls.get_sorted_preprocessors()
-            if tag in p.tags or p.label == "None"
+            if tag in p.tags or p.label == "none"
         ]
 
     @classmethod

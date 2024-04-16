@@ -34,8 +34,9 @@ from ...supported_preprocessor import Preprocessor, PreprocessorParameter
 
 
 class LegacyPreprocessor(Preprocessor):
-    def __init__(self, legacy_dict):
-        super().__init__(name=legacy_dict["label"])
+    def __init__(self, name: str, legacy_dict):
+        super().__init__(name)
+        self._label = legacy_dict["label"]
         self.call_function = legacy_dict["call_function"]
         self.unload_function = legacy_dict["unload_function"]
         self.managed_model = legacy_dict["managed_model"]
@@ -122,6 +123,5 @@ class LegacyPreprocessor(Preprocessor):
 
 
 for name, data in legacy_preprocessors.items():
-    p = LegacyPreprocessor(data)
-    p.name = name
+    p = LegacyPreprocessor(name, data)
     Preprocessor.add_supported_preprocessor(p)

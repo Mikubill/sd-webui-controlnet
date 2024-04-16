@@ -158,31 +158,6 @@ cn_preprocessor_unloadable = {
     "normal_dsine": unload_normal_dsine,
 }
 
-# preprocessor_aliases = {
-#     "invert": "invert (from white bg & black line)",
-#     "lineart_standard": "lineart_standard (from white bg & black line)",
-#     "lineart": "lineart_realistic",
-#     "color": "t2ia_color_grid",
-#     "clip_vision": "t2ia_style_clipvision",
-#     "pidinet_sketch": "t2ia_sketch_pidi",
-#     "depth": "depth_midas",
-#     "normal_map": "normal_midas",
-#     "hed": "softedge_hed",
-#     "hed_safe": "softedge_hedsafe",
-#     "pidinet": "softedge_pidinet",
-#     "pidinet_safe": "softedge_pidisafe",
-#     "segmentation": "seg_ufade20k",
-#     "oneformer_coco": "seg_ofcoco",
-#     "oneformer_ade20k": "seg_ofade20k",
-#     "pidinet_scribble": "scribble_pidinet",
-#     "inpaint": "inpaint_global_harmonious",
-#     "anime_face_segment": "seg_anime_face",
-#     "densepose": "densepose (pruple bg & purple torso)",
-#     "densepose_parula": "densepose_parula (black bg & blue torso)",
-#     "te_hed": "softedge_teed",
-#     "ip-adapter_clip_sd15": "ip-adapter_clip_h",
-#     "ip-adapter_clip_sdxl": "ip-adapter_clip_g",
-# }
 
 default_detectedmap_dir = os.path.join("detected_maps")
 script_dir = scripts.basedir()

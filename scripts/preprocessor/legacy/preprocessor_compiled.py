@@ -16,7 +16,7 @@ legacy_preprocessors = {
     #     "priority": 100,
     #     "tags": []
     # },
-    # "invert (from white bg & black line)": {
+    # "invert": {
     #     "label": "invert (from white bg & black line)",
     #     "call_function": invert,
     #     "unload_function": None,
@@ -110,7 +110,7 @@ legacy_preprocessors = {
     #         "Canny"
     #     ]
     # },
-    "densepose (pruple bg & purple torso)": {
+    "densepose": {
         "label": "densepose (pruple bg & purple torso)",
         "call_function": functools.partial(densepose, cmap="viridis"),
         "unload_function": unload_densepose,
@@ -131,7 +131,7 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    "densepose_parula (black bg & blue torso)": {
+    "densepose_parula": {
         "label": "densepose_parula (black bg & blue torso)",
         "call_function": functools.partial(densepose, cmap="parula"),
         "unload_function": unload_densepose,
@@ -255,7 +255,7 @@ legacy_preprocessors = {
             "Depth"
         ]
     },
-    "depth_midas": {
+    "depth": {
         "label": "depth_midas",
         "call_function": midas,
         "unload_function": unload_midas,
@@ -313,7 +313,7 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    "inpaint_global_harmonious": {
+    "inpaint": {
         "label": "inpaint_global_harmonious",
         "call_function": identity,
         "unload_function": None,
@@ -394,7 +394,7 @@ legacy_preprocessors = {
         ]
     },
     "ip-adapter_clip_sd15": {
-        "label": "ip-adapter_clip_sd15",
+        "label": "ip-adapter_clip_h",
         "call_function": functools.partial(clip, config='clip_h'),
         "unload_function": functools.partial(unload_clip, config='clip_h'),
         "managed_model": "unknown",
@@ -410,7 +410,7 @@ legacy_preprocessors = {
         ]
     },
     "ip-adapter_clip_sdxl": {
-        "label": "ip-adapter_clip_sdxl",
+        "label": "ip-adapter_clip_g",
         "call_function": functools.partial(clip, config='clip_g'),
         "unload_function": functools.partial(unload_clip, config='clip_g'),
         "managed_model": "unknown",
@@ -442,7 +442,7 @@ legacy_preprocessors = {
         ]
     },
     "ip-adapter_face_id": {
-        "label": "insight_face_face_id",
+        "label": "ip-adapter_face_id",
         "call_function": g_insight_face_model.run_model,
         "unload_function": None,
         "managed_model": "g_insight_face_model",
@@ -521,7 +521,7 @@ legacy_preprocessors = {
             "Lineart"
         ]
     },
-    "lineart_realistic": {
+    "lineart": {
         "label": "lineart_realistic",
         "call_function": lineart,
         "unload_function": unload_lineart,
@@ -537,7 +537,7 @@ legacy_preprocessors = {
             "Lineart"
         ]
     },
-    "lineart_standard (from white bg & black line)": {
+    "lineart_standard": {
         "label": "lineart_standard (from white bg & black line)",
         "call_function": lineart_standard,
         "unload_function": None,
@@ -634,7 +634,7 @@ legacy_preprocessors = {
             "NormalMap"
         ]
     },
-    "normal_midas": {
+    "normal_map": {
         "label": "normal_midas",
         "call_function": midas_normal,
         "unload_function": unload_midas,
@@ -924,7 +924,7 @@ legacy_preprocessors = {
             "Scribble", "Sketch",
         ]
     },
-    "scribble_pidinet": {
+    "pidinet_scribble": {
         "label": "scribble_pidinet",
         "call_function": scribble_pidinet,
         "unload_function": None,
@@ -966,7 +966,7 @@ legacy_preprocessors = {
     #         "Scribble", "Sketch",
     #     ]
     # },
-    "seg_anime_face": {
+    "anime_face_segment": {
         "label": "seg_anime_face",
         "call_function": anime_face_segment,
         "unload_function": unload_anime_face_segment,
@@ -987,7 +987,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "seg_ofade20k": {
+    "oneformer_ade20k": {
         "label": "seg_ofade20k",
         "call_function": oneformer_ade20k,
         "unload_function": unload_oneformer_ade20k,
@@ -1003,7 +1003,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "seg_ofcoco": {
+    "oneformer_coco": {
         "label": "seg_ofcoco",
         "call_function": oneformer_coco,
         "unload_function": unload_oneformer_coco,
@@ -1019,7 +1019,7 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "seg_ufade20k": {
+    "segmentation": {
         "label": "seg_ufade20k",
         "call_function": uniformer,
         "unload_function": unload_uniformer,
@@ -1056,7 +1056,7 @@ legacy_preprocessors = {
             "Shuffle"
         ]
     },
-    "softedge_hed": {
+    "hed": {
         "label": "softedge_hed",
         "call_function": hed,
         "unload_function": unload_hed,
@@ -1077,7 +1077,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "softedge_hedsafe": {
+    "hed_safe": {
         "label": "softedge_hedsafe",
         "call_function": hed_safe,
         "unload_function": None,
@@ -1098,7 +1098,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "softedge_pidinet": {
+    "pidinet": {
         "label": "softedge_pidinet",
         "call_function": pidinet,
         "unload_function": unload_pidinet,
@@ -1114,7 +1114,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "softedge_pidisafe": {
+    "pidinet_safe": {
         "label": "softedge_pidisafe",
         "call_function": pidinet_safe,
         "unload_function": None,
@@ -1130,7 +1130,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "softedge_teed": {
+    "te_hed": {
         "label": "softedge_teed",
         "call_function": te_hed,
         "unload_function": unload_te_hed,
@@ -1157,7 +1157,7 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "t2ia_color_grid": {
+    "color": {
         "label": "t2ia_color_grid",
         "call_function": color,
         "unload_function": None,
@@ -1178,7 +1178,7 @@ legacy_preprocessors = {
             "T2I-Adapter"
         ]
     },
-    "t2ia_sketch_pidi": {
+    "pidinet_sketch": {
         "label": "t2ia_sketch_pidi",
         "call_function": pidinet_ts,
         "unload_function": None,
@@ -1194,7 +1194,7 @@ legacy_preprocessors = {
             "T2I-Adapter"
         ]
     },
-    "t2ia_style_clipvision": {
+    "clip_vision": {
         "label": "t2ia_style_clipvision",
         "call_function": functools.partial(clip, config='clip_vitl'),
         "unload_function": functools.partial(unload_clip, config='clip_vitl'),

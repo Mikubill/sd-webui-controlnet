@@ -10,7 +10,7 @@ from annotator.util import HWC3
 
 class PreprocessorNone(Preprocessor):
     def __init__(self):
-        super().__init__(name="None")
+        super().__init__(name="none")
         self.sorting_priority = 10
 
     def __call__(
