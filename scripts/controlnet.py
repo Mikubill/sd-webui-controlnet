@@ -267,7 +267,7 @@ def get_control(
 
     def preprocess_input_image(input_image: np.ndarray):
         """ Preprocess single input image. """
-        detected_map, is_image = preprocessor(
+        detected_map = preprocessor(
             input_image,
             resolution=unit.processor_res,
             slider_1=unit.threshold_a,
@@ -277,6 +277,7 @@ def get_control(
                 shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
             ),
         )
+        is_image = preprocessor.returns_image
         if high_res_fix:
             if is_image:
                 hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)

@@ -144,7 +144,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-            detected_map, is_image = preprocessor(
+            detected_map = preprocessor(
                 img,
                 resolution=unit.processor_res,
                 slider_1=unit.threshold_a,
@@ -160,7 +160,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
         res = {"info": "Success"}
-        if is_image:
+        if preprocessor.returns_image:
             res["images"] = [encode_to_base64(r) for r in results]
             if poses:
                 res["poses"] = poses

@@ -375,7 +375,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "Instant-ID"
-        ]
+        ],
+        "returns_image": False,
     },
     "instant_id_face_keypoints": {
         "label": "instant_id_face_keypoints",
@@ -407,7 +408,8 @@ legacy_preprocessors = {
         "priority": 100,
         "tags": [
             "IP-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "ip-adapter_clip_sdxl": {
         "label": "ip-adapter_clip_g",
@@ -423,7 +425,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "IP-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "ip-adapter_clip_sdxl_plus_vith": {
         "label": "ip-adapter_clip_sdxl_plus_vith",
@@ -439,7 +442,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "IP-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "ip-adapter_face_id": {
         "label": "ip-adapter_face_id",
@@ -455,7 +459,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "IP-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "ip-adapter_face_id_plus": {
         "label": "ip-adapter_face_id_plus",
@@ -471,7 +476,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "IP-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "lineart_anime": {
         "label": "lineart_anime",
@@ -880,7 +886,8 @@ legacy_preprocessors = {
         "priority": 100,
         "tags": [
             "Revision"
-        ]
+        ],
+        "returns_image": False,
     },
     "revision_ignore_prompt": {
         "label": "revision_ignore_prompt",
@@ -901,7 +908,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "Revision"
-        ]
+        ],
+        "returns_image": False,
     },
     "scribble_hed": {
         "label": "scribble_hed",
@@ -1208,7 +1216,8 @@ legacy_preprocessors = {
         "priority": 0,
         "tags": [
             "T2I-Adapter"
-        ]
+        ],
+        "returns_image": False,
     },
     "threshold": {
         "label": "threshold",

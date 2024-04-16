@@ -83,6 +83,7 @@ class Preprocessor(ABC):
     slider_1 = PreprocessorParameter(visible=False)
     slider_2 = PreprocessorParameter(visible=False)
     slider_3 = PreprocessorParameter(visible=False)
+    returns_image: bool = True
     show_control_mode = True
     do_not_need_model = False
     sorting_priority = 0  # higher goes to top in the list
