@@ -12,6 +12,9 @@ import gradio as gr
 import time
 
 from einops import rearrange
+
+# Register all model free preprocessors first
+import scripts.preprocessor.model_free_preprocessors as mfp  # noqa
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.processor import HWC3

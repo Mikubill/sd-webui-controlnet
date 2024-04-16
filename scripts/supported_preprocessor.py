@@ -135,7 +135,7 @@ class Preprocessor(ABC):
 
     @classmethod
     def get_default_preprocessor(cls, tag: str) -> Preprocessor:
-        ps = cls.get_filtered_preprocessors(tag)
+        ps = cls.get_filtered_preprocessors(tag).values()
         assert len(ps) > 0
         return ps[0] if len(ps) == 1 else ps[1]
 

@@ -12,6 +12,18 @@ class PreprocessorNone(Preprocessor):
         super().__init__(name="None")
         self.sorting_priority = 10
 
+    def __call__(
+        self,
+        input_image,
+        resolution,
+        slider_1=None,
+        slider_2=None,
+        slider_3=None,
+        input_mask=None,
+        **kwargs
+    ):
+        return input_image
+
 
 class PreprocessorCanny(Preprocessor):
     def __init__(self):

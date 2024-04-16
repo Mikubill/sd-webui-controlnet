@@ -315,7 +315,7 @@ def select_control_type(
                 break
 
     return (
-        [p.label for p in Preprocessor.get_filtered_preprocessors(control_type)],
+        [p.label for p in Preprocessor.get_filtered_preprocessors(control_type).values()],
         filtered_model_list,
         Preprocessor.get_default_preprocessor(control_type).label,
         default_model

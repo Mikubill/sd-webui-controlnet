@@ -786,7 +786,7 @@ class ControlNetUiGroup(object):
 
     def register_build_sliders(self):
         def build_sliders(module: str, pp: bool):
-            preprocessor = global_state.get_preprocessor(module)
+            preprocessor = Preprocessor.get_preprocessor(module)
             slider_resolution_kwargs = preprocessor.slider_resolution.gradio_update_kwargs.copy()
 
             if pp:

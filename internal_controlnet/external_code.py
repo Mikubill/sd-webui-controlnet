@@ -259,12 +259,15 @@ class ControlNetUnit:
         their default values if negative.
         """
         preprocessor = Preprocessor.get_preprocessor(self.module)
-        for param in ("slider_resolution", "slider_1", "slider_2", "slider_3"):
-            value = getattr(self, param)
+        for unit_param, param in zip(
+            ("processor_res", "threshold_a", "threshold_b"),
+            ("slider_resolution", "slider_1", "slider_2"),
+        ):
+            value = getattr(self, unit_param)
             cfg: PreprocessorParameter = getattr(preprocessor, param)
             if value < 0:
-                setattr(self, param, cfg.value)
-                logger.info(f'[{self.module}.{param}] Invalid value({value}), using default value {cfg.value}.')
+                setattr(self, unit_param, cfg.value)
+                logger.info(f'[{self.module}.{unit_param}] Invalid value({value}), using default value {cfg.value}.')
 
 
 def to_base64_nparray(encoding: str):
