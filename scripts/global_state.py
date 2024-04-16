@@ -288,7 +288,7 @@ def select_control_type(
 
     if pattern == "all":
         return [
-            [p.label for p in Preprocessor.get_sorted_preprocessors().values()],
+            [p.label for p in Preprocessor.get_sorted_preprocessors()],
             all_models,
             'none', #default option
             "None"  #default model
@@ -315,7 +315,7 @@ def select_control_type(
                 break
 
     return (
-        [p.label for p in Preprocessor.get_filtered_preprocessors(control_type).values()],
+        [p.label for p in Preprocessor.get_filtered_preprocessors(control_type)],
         filtered_model_list,
         Preprocessor.get_default_preprocessor(control_type).label,
         default_model

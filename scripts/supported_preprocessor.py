@@ -1,7 +1,5 @@
-from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, ClassVar, Dict, Optional
-from collections import OrderedDict
 from dataclasses import dataclass, field
 
 
@@ -83,8 +81,8 @@ class Preprocessor(ABC):
     use_soft_projection_in_hr_fix = False
     expand_mask_when_resize_and_fill = False
 
-    all_processors: ClassVar[Dict[str, Preprocessor]] = {}
-    all_processors_by_name: ClassVar[Dict[str, Preprocessor]] = {}
+    all_processors: ClassVar[Dict[str, 'Preprocessor']] = {}
+    all_processors_by_name: ClassVar[Dict[str, 'Preprocessor']] = {}
 
     @property
     def label(self) -> str:
@@ -92,29 +90,24 @@ class Preprocessor(ABC):
         return self._label if self._label is not None else self.name
 
     @classmethod
-    def add_supported_preprocessor(cls, p: Preprocessor):
+    def add_supported_preprocessor(cls, p: 'Preprocessor'):
         assert p.label not in cls.all_processors, f"{p.label} already registered!"
         cls.all_processors[p.label] = p
         assert p.name not in cls.all_processors_by_name, f"{p.name} already registered!"
         cls.all_processors_by_name[p.name] = p
 
     @classmethod
-    def get_preprocessor(cls, name: str) -> Optional[Preprocessor]:
+    def get_preprocessor(cls, name: str) -> Optional['Preprocessor']:
         return cls.all_processors.get(name, cls.all_processors_by_name.get(name, None))
 
     @classmethod
-    def get_sorted_preprocessors(cls) -> OrderedDict[str, Preprocessor]:
+    def get_sorted_preprocessors(cls) -> List['Preprocessor']:
         preprocessors = [p for k, p in cls.all_processors.items() if k != "None"]
-        preprocessors = sorted(
+        return [cls.all_processors["None"]] + sorted(
             preprocessors,
             key=lambda x: str(x.sorting_priority).zfill(8) + x.label,
             reverse=True,
         )
-        results = OrderedDict()
-        results["None"] = cls.all_processors["None"]
-        for p in preprocessors:
-            results[p.label] = p
-        return results
 
     @classmethod
     def get_all_preprocessor_tags(cls):
@@ -124,18 +117,18 @@ class Preprocessor(ABC):
         return ["All"] + sorted(list(tags))
 
     @classmethod
-    def get_filtered_preprocessors(cls, tag: str) -> Dict[str, Preprocessor]:
+    def get_filtered_preprocessors(cls, tag: str) -> List['Preprocessor']:
         if tag == "All":
             return cls.all_processors
-        return {
-            k: v
-            for k, v in cls.get_sorted_preprocessors().items()
-            if tag in v.tags or k == "None"
-        }
+        return [
+            p
+            for p in cls.get_sorted_preprocessors()
+            if tag in p.tags or p.label == "None"
+        ]
 
     @classmethod
-    def get_default_preprocessor(cls, tag: str) -> Preprocessor:
-        ps = cls.get_filtered_preprocessors(tag).values()
+    def get_default_preprocessor(cls, tag: str) -> 'Preprocessor':
+        ps = cls.get_filtered_preprocessors(tag)
         assert len(ps) > 0
         return ps[0] if len(ps) == 1 else ps[1]
 

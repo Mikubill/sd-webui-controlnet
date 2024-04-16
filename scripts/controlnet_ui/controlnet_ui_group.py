@@ -523,7 +523,7 @@ class ControlNetUiGroup(object):
 
         with gr.Row(elem_classes=["controlnet_preprocessor_model", "controlnet_row"]):
             self.module = gr.Dropdown(
-                [p.label for p in Preprocessor.get_sorted_preprocessors().values()],
+                [p.label for p in Preprocessor.get_sorted_preprocessors()],
                 label="Preprocessor",
                 value=self.default_unit.module,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown",

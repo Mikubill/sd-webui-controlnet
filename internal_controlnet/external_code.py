@@ -540,7 +540,7 @@ def get_modules(alias_names: bool = False) -> List[str]:
     """
     return [
         (p.label if alias_names else p.name)
-        for p in Preprocessor.get_sorted_preprocessors().values()
+        for p in Preprocessor.get_sorted_preprocessors()
     ]
 
 
