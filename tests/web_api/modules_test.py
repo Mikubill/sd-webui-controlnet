@@ -152,7 +152,7 @@ def test_module_list(alias):
     module_list = json_resp["module_list"]
     module_detail: dict = json_resp["module_detail"]
     expected_list = expected_module_alias if alias == "true" else expected_module_names
-    assert set(module_list).issuperset(expected_list)
+    assert set(module_list).issuperset(expected_list), expected_list - set(module_list)
     assert set(module_list) == set(module_detail.keys())
     assert module_detail["canny"] == dict(
         model_free=False,
