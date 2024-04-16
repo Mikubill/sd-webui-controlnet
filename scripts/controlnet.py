@@ -324,7 +324,6 @@ class Script(scripts.Script, metaclass=(
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
         self.enabled_units: List[external_code.ControlNetUnit] = []
@@ -939,12 +938,6 @@ class Script(scripts.Script, metaclass=(
         # cache stuff
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             Script.clear_control_model_cache()
-
-        # unload unused preproc
-        module_list = [unit.module for unit in self.enabled_units]
-        for key in self.unloadable:
-            if key not in module_list:
-                self.unloadable.get(key, lambda:None)()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
