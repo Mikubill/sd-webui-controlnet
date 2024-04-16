@@ -9,7 +9,7 @@ from annotator.annotator_path import models_path
 import torchvision.transforms as transforms
 import dsine.utils.utils as utils
 from dsine.models.dsine import DSINE
-from scripts.processor import resize_image_with_pad
+from scripts.utils import resize_image_with_pad
 
 
 class NormalDsineDetector:

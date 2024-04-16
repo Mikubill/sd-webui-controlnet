@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, ClassVar, Dict, Optional
+from typing import List, ClassVar, Dict, Optional, Set
 from dataclasses import dataclass, field
 
 
@@ -33,6 +33,16 @@ class PreprocessorParameter:
             label=self.label,
             value=self.value,
             visible=self.visible,
+        )
+
+    @property
+    def api_json(self) -> dict:
+        return dict(
+            name=self.label,
+            value=self.value,
+            min=self.minimum,
+            max=self.maximum,
+            step=self.step,
         )
 
 
@@ -81,8 +91,8 @@ class Preprocessor(ABC):
     use_soft_projection_in_hr_fix = False
     expand_mask_when_resize_and_fill = False
 
-    all_processors: ClassVar[Dict[str, 'Preprocessor']] = {}
-    all_processors_by_name: ClassVar[Dict[str, 'Preprocessor']] = {}
+    all_processors: ClassVar[Dict[str, "Preprocessor"]] = {}
+    all_processors_by_name: ClassVar[Dict[str, "Preprocessor"]] = {}
 
     @property
     def label(self) -> str:
@@ -90,18 +100,18 @@ class Preprocessor(ABC):
         return self._label if self._label is not None else self.name
 
     @classmethod
-    def add_supported_preprocessor(cls, p: 'Preprocessor'):
+    def add_supported_preprocessor(cls, p: "Preprocessor"):
         assert p.label not in cls.all_processors, f"{p.label} already registered!"
         cls.all_processors[p.label] = p
         assert p.name not in cls.all_processors_by_name, f"{p.name} already registered!"
         cls.all_processors_by_name[p.name] = p
 
     @classmethod
-    def get_preprocessor(cls, name: str) -> Optional['Preprocessor']:
+    def get_preprocessor(cls, name: str) -> Optional["Preprocessor"]:
         return cls.all_processors.get(name, cls.all_processors_by_name.get(name, None))
 
     @classmethod
-    def get_sorted_preprocessors(cls) -> List['Preprocessor']:
+    def get_sorted_preprocessors(cls) -> List["Preprocessor"]:
         preprocessors = [p for k, p in cls.all_processors.items() if k != "none"]
         return [cls.all_processors["none"]] + sorted(
             preprocessors,
@@ -117,7 +127,7 @@ class Preprocessor(ABC):
         return ["All"] + sorted(list(tags))
 
     @classmethod
-    def get_filtered_preprocessors(cls, tag: str) -> List['Preprocessor']:
+    def get_filtered_preprocessors(cls, tag: str) -> List["Preprocessor"]:
         if tag == "All":
             return cls.all_processors
         return [
@@ -127,10 +137,19 @@ class Preprocessor(ABC):
         ]
 
     @classmethod
-    def get_default_preprocessor(cls, tag: str) -> 'Preprocessor':
+    def get_default_preprocessor(cls, tag: str) -> "Preprocessor":
         ps = cls.get_filtered_preprocessors(tag)
         assert len(ps) > 0
         return ps[0] if len(ps) == 1 else ps[1]
+
+    @classmethod
+    def tag_to_filters(cls, tag: str) -> Set[str]:
+        return {
+            f
+            for p in cls.all_processors.values()
+            if tag in p.tags
+            for f in p.model_filename_filters
+        }
 
     @abstractmethod
     def __call__(

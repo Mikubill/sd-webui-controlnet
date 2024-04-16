@@ -39,7 +39,6 @@ import torch
 
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.preprocessor.legacy.processor import model_free_preprocessors
 from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
 
@@ -953,7 +952,10 @@ class Script(scripts.Script, metaclass=(
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. Falls back to inpaint_global_harmonious.')
                 unit.module = 'inpaint'
 
-            if unit.module in model_free_preprocessors:
+            preprocessor = Preprocessor.get_preprocessor(unit.module)
+            assert preprocessor is not None
+
+            if preprocessor.do_not_need_model:
                 model_net = None
                 if 'reference' in unit.module:
                     control_model_type = ControlModelType.AttentionInjection
@@ -982,7 +984,7 @@ class Script(scripts.Script, metaclass=(
                 hr_controls = unit.ipadapter_input
             else:
                 controls, hr_controls, additional_maps = get_control(
-                    p, unit, idx, control_model_type, Preprocessor.get_preprocessor(unit.module))
+                    p, unit, idx, control_model_type, preprocessor)
                 detected_maps.extend(additional_maps)
 
             if len(controls) == len(hr_controls) == 1 and control_model_type not in [ControlModelType.SparseCtrl]:

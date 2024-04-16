@@ -5,8 +5,6 @@ from collections import OrderedDict
 
 from modules import shared, scripts, sd_models
 from modules.paths import models_path
-from scripts.preprocessor.legacy.processor import *  # noqa: E403
-import scripts.preprocessor.legacy.processor as processor
 from scripts.utils import ndarray_lru_cache
 from scripts.logging import logger
 from scripts.enums import StableDiffusionVersion
@@ -165,7 +163,7 @@ def select_control_type(
         if model.lower() == "none" or
         ((
             pattern in model.lower() or
-            any(a in model.lower() for a in processor.preprocessor_filters_aliases.get(pattern, []))
+            any(a in model.lower() for a in Preprocessor.tag_to_filters(control_type))
         ) and (
             sd_version.is_compatible_with(StableDiffusionVersion.detect_from_model_name(model))
         ))
