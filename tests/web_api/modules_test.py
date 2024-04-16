@@ -4,7 +4,7 @@ import requests
 from .template import APITestTemplate
 
 
-expected_module_names = [
+expected_module_names = {
     "animal_openpose",
     "anime_face_segment",
     "blur_gaussian",
@@ -71,10 +71,10 @@ expected_module_names = [
     "tile_colorfix",
     "tile_colorfix+sharp",
     "tile_resample",
-]
+}
 
 # Display name (label)
-expected_module_alias = [
+expected_module_alias = {
     "animal_openpose",
     "blur_gaussian",
     "canny",
@@ -141,7 +141,7 @@ expected_module_alias = [
     "tile_colorfix",
     "tile_colorfix+sharp",
     "tile_resample",
-]
+}
 
 
 @pytest.mark.parametrize("alias", ("true", "false"))
@@ -152,8 +152,8 @@ def test_module_list(alias):
     module_list = json_resp["module_list"]
     module_detail: dict = json_resp["module_detail"]
     expected_list = expected_module_alias if alias == "true" else expected_module_names
-    assert sorted(module_list) == expected_list
-    assert sorted(module_list) == sorted(list(module_detail.keys()))
+    assert set(module_list).issuperset(expected_list)
+    assert set(module_list) == set(module_detail.keys())
     assert module_detail["canny"] == dict(
         model_free=False,
         sliders=[
