@@ -15,9 +15,10 @@ from einops import rearrange
 
 # Register all model free preprocessors first
 import scripts.preprocessor.model_free_preprocessors as mfp  # noqa
+import scripts.preprocessor.legacy.legacy_preprocessors as lp  # noqa
+from annotator.util import HWC3
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
-from scripts.processor import HWC3
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
 from scripts.ipadapter.presets import IPAdapterPreset
@@ -39,7 +40,7 @@ import torch
 
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import model_free_preprocessors
+from scripts.preprocessor.legacy.processor import model_free_preprocessors
 from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
 

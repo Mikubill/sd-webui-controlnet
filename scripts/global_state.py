@@ -5,8 +5,8 @@ from collections import OrderedDict
 
 from modules import shared, scripts, sd_models
 from modules.paths import models_path
-from scripts.processor import *  # noqa: E403
-import scripts.processor as processor
+from scripts.preprocessor.legacy.processor import *  # noqa: E403
+import scripts.preprocessor.legacy.processor as processor
 from scripts.utils import ndarray_lru_cache
 from scripts.logging import logger
 from scripts.enums import StableDiffusionVersion

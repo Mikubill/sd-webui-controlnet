@@ -12,7 +12,7 @@ from scripts import (
     global_state,
     external_code,
 )
-from scripts.processor import HWC3
+from annotator.util import HWC3
 from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI

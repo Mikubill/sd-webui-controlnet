@@ -10,7 +10,7 @@ import numpy as np
 from modules import scripts, processing, shared
 from modules.safe import unsafe_torch_load
 from scripts import global_state
-from scripts.processor import preprocessor_sliders_config, model_free_preprocessors
+from scripts.preprocessor.legacy.processor import preprocessor_sliders_config, model_free_preprocessors
 from scripts.logging import logger
 from scripts.enums import HiResFixOption
 from scripts.supported_preprocessor import Preprocessor, PreprocessorParameter
