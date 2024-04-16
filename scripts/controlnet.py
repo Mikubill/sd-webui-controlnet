@@ -13,9 +13,8 @@ import time
 
 from einops import rearrange
 
-# Register all model free preprocessors first
-import scripts.preprocessor.model_free_preprocessors as mfp  # noqa
-import scripts.preprocessor.legacy.legacy_preprocessors as lp  # noqa
+# Register all preprocessors.
+import scripts.preprocessor as preprocessor_init  # noqa
 from annotator.util import HWC3
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
