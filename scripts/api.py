@@ -158,7 +158,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
-        global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
         res = {"info": "Success"}
         if preprocessor.returns_image:
             res["images"] = [encode_to_base64(r) for r in results]
