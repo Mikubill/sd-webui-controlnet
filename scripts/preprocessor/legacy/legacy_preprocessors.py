@@ -44,6 +44,7 @@ class LegacyPreprocessor(Preprocessor):
         self.show_control_mode = not legacy_dict["no_control_mode"]
         self.sorting_priority = legacy_dict["priority"]
         self.tags = legacy_dict["tags"]
+        self.returns_image = legacy_dict.get("returns_image", True)
 
         filters_aliases = {
             "instructp2p": ["ip2p"],
