@@ -28,7 +28,7 @@ from scripts.animate_diff.batch import add_animate_diff_batch_input
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
 from scripts.infotext import Infotext
-from scripts.repro import Foo
+from scripts.repro import PreprocessorParameter
 
 import cv2
 import numpy as np

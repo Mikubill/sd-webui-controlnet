@@ -1,5 +1,7 @@
+from __future__ import annotations
 from dataclasses import dataclass
 
+
 @dataclass
-class Foo:
-    bar: str
+class PreprocessorParameter:
+    label: str
