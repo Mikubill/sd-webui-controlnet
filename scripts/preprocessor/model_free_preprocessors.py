@@ -32,15 +32,15 @@ class PreprocessorCanny(Preprocessor):
         self.tags = ["Canny"]
         self.model_filename_filters = ["canny"]
         self.slider_1 = PreprocessorParameter(
-            minimum=0,
-            maximum=256,
+            minimum=1,
+            maximum=255,
             step=1,
             value=100,
             label="Low Threshold",
         )
         self.slider_2 = PreprocessorParameter(
-            minimum=0,
-            maximum=256,
+            minimum=1,
+            maximum=255,
             step=1,
             value=200,
             label="High Threshold",

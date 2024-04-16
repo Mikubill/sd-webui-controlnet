@@ -146,8 +146,25 @@ expected_module_alias = [
 
 @pytest.mark.parametrize("alias", ("true", "false"))
 def test_module_list(alias):
-    module_list = requests.get(
+    json_resp = requests.get(
         APITestTemplate.BASE_URL + f"controlnet/module_list?alias_names={alias}"
-    ).json()["module_list"]
+    ).json()
+    module_list = json_resp["module_list"]
+    module_detail: dict = json_resp["module_detail"]
     expected_list = expected_module_alias if alias == "true" else expected_module_names
     assert sorted(module_list) == expected_list
+    assert sorted(module_list) == sorted(list(module_detail.keys()))
+    assert module_detail["canny"] == dict(
+        model_free=False,
+        sliders=[
+            {
+                "name": "Resolution",
+                "value": 512,
+                "min": 64,
+                "max": 2048,
+                "step": 8,
+            },
+            {"name": "Low Threshold", "value": 100, "min": 1, "max": 255, "step": 1},
+            {"name": "High Threshold", "value": 200, "min": 1, "max": 255, "step": 1},
+        ],
+    )

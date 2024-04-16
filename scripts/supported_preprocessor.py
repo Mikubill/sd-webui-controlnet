@@ -74,7 +74,7 @@ class Preprocessor(ABC):
     model_filename_filters: List[str] = field(default_factory=list)
     slider_resolution = PreprocessorParameter(
         label="Resolution",
-        minimum=128,
+        minimum=64,
         maximum=2048,
         value=512,
         step=8,
