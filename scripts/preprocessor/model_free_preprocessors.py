@@ -1,6 +1,7 @@
 """Preprocessors that do not need to run a torch model."""
 
 import cv2
+import numpy as np
 
 from ..supported_preprocessor import Preprocessor, PreprocessorParameter
 from ..utils import resize_image_with_pad
@@ -114,7 +115,35 @@ class PreprocessorBlurGaussian(Preprocessor):
         return result
 
 
+class PreprocessorScribbleXdog(Preprocessor):
+    def __init__(self):
+        super().__init__(name="scribble_xdog")
+        self.slider_1 = PreprocessorParameter(
+            label="XDoG Threshold", minimum=1, maximum=64, value=32
+        )
+        self.tags = ["Scribble", "Sketch"]
+
+    def __call__(
+        self,
+        input_image,
+        resolution,
+        slider_1=None,
+        slider_2=None,
+        slider_3=None,
+        input_mask=None,
+        **kwargs
+    ):
+        img, remove_pad = resize_image_with_pad(input_image, resolution)
+        g1 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 0.5)
+        g2 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 5.0)
+        dog = (255 - np.min(g2 - g1, axis=2)).clip(0, 255).astype(np.uint8)
+        result = np.zeros_like(img, dtype=np.uint8)
+        result[2 * (255 - dog) > slider_1] = 255
+        return remove_pad(result), True
+
+
 Preprocessor.add_supported_preprocessor(PreprocessorNone())
 Preprocessor.add_supported_preprocessor(PreprocessorCanny())
 Preprocessor.add_supported_preprocessor(PreprocessorInvert())
 Preprocessor.add_supported_preprocessor(PreprocessorBlurGaussian())
+Preprocessor.add_supported_preprocessor(PreprocessorScribbleXdog())

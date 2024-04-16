@@ -65,13 +65,6 @@ def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
     return remove_pad(result), True
 
 
-def scribble_thr(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    result = np.zeros_like(img, dtype=np.uint8)
-    result[np.min(img, axis=2) < 127] = 255
-    return remove_pad(result), True
-
-
 def scribble_xdog(img, res=512, thr_a=32, **kwargs):
     img, remove_pad = resize_image_with_pad(img, res)
     g1 = cv2.GaussianBlur(img.astype(np.float32), (0, 0), 0.5)
