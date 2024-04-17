@@ -14,7 +14,13 @@ except ImportError:
     using_sgm = False
 
 
+# PlugableControlModel is a flexible wrapper around a neural network model (ControlNet) that 
+# allows for dynamic adjustments of memory usage and device placement based on certain conditions.
+# It is a subclass of torch.nn.Module
 class PlugableControlModel(nn.Module):
+    # The constructor for the class. It takes two parameters: config and state_dict.
+    # config is expected to be a dictionary containing configuration parameters.
+    # state_dict is an optional parameter that contains the state dictionary of a pre-trained model.
     def __init__(self, config, state_dict=None):
         super().__init__()
         self.config = config
@@ -59,7 +65,32 @@ class PlugableControlModel(nn.Module):
         return
             
 
+# This ControlNet class represents a neural network model with a configurable architecture, 
+# including input processing blocks, residual blocks, attention mechanisms, and a middle block. 
+# It is designed to process input data along with time-related information and optional hint data, 
+# extract features, and produce output tensors.
 class ControlNet(nn.Module):
+    # The __init__ method initializes the model with various parameters that define its 
+    # architecture and behavior. These parameters include the number of input channels 
+    # (in_channels), model channels (model_channels), hint channels (hint_channels), number 
+    # of residual blocks (num_res_blocks), attention resolutions (attention_resolutions), 
+    # dropout rate (dropout), channel multiplier (channel_mult), dimensions (dims), 
+    # number of classes (num_classes), and various other configuration options.
+    # Inside the constructor:
+    # The time_embed module is created, which consists of two linear layers followed by 
+    # SiLU activation functions. This module is responsible for embedding time-related 
+    # information into the input.
+    # Depending on the value of num_classes, the label_emb module is created. If num_classes 
+    # is an integer, it creates an embedding layer; if it's "continuous," it creates a linear 
+    # layer; if it's "sequential," it creates a sequential module with linear layers.
+    # Input blocks and zero convolution modules are created based on the specified parameters. 
+    # These blocks are used to process input data and extract features.
+    # Residual blocks and attention mechanisms are created based on the specified parameters. 
+    # These blocks enable the model to learn complex patterns and capture long-range dependencies.
+    # A middle block is created, consisting of a sequence of operations including a residual block
+    # and a spatial transformer, followed by another residual block. This block helps the model 
+    # capture intermediate-level features.
+    # Finally, the _feature_size attribute is updated to track the size of the output features.
     def __init__(
         self,
         in_channels,
@@ -283,6 +314,19 @@ class ControlNet(nn.Module):
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
+    #  forward method defines the forward pass of the model.
+    # Input data (x), hint data (hint), timesteps data (timesteps), and context data (context) 
+    # are first cast to the appropriate data type.
+    # Time embeddings are generated using the timestep_embedding function and then passed
+    # through the time_embed module.
+    # The hint data is processed by the input_hint_block module, which consists of a sequence 
+    # of convolutional layers followed by SiLU activations. The processed hint data is added to 
+    # the input data if available.
+    # The input data is passed through the input blocks and zero convolution modules. 
+    # The output of each block is stored in the outs list.
+    # The input data is further processed by the middle block, and the output is appended to the 
+    # outs list.
+    # Finally, the output tensors are cast back to the original data type and returned.
     def forward(self, x, hint, timesteps, context, y=None, **kwargs):
         original_type = x.dtype
 
