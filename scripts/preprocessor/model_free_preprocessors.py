@@ -119,7 +119,11 @@ class PreprocessorScribbleXdog(Preprocessor):
         self.slider_1 = PreprocessorParameter(
             label="XDoG Threshold", minimum=1, maximum=64, value=32
         )
-        self.tags = ["Scribble", "Sketch"]
+        self.tags = [
+            "Scribble",
+            "Sketch",
+            "SparseCtrl",
+        ]
 
     def __call__(
         self,

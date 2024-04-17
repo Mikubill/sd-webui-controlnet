@@ -929,7 +929,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Scribble", "Sketch",
+            "Scribble", "Sketch", "SparseCtrl",
         ]
     },
     "pidinet_scribble": {
@@ -945,7 +945,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 100,
         "tags": [
-            "Scribble", "Sketch",
+            "Scribble", "Sketch", "SparseCtrl",
         ]
     },
     # "scribble_xdog": {
