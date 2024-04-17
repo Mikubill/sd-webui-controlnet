@@ -51,17 +51,9 @@ def resize_image_with_pad(input_image, resolution, skip_hwc3=False):
     return safer_memory(img_padded), remove_pad
 
 
-model_canny = None
-
-
 def canny(img, res=512, thr_a=100, thr_b=200, **kwargs):
-    l, h = thr_a, thr_b  # noqa: E741
     img, remove_pad = resize_image_with_pad(img, res)
-    global model_canny
-    if model_canny is None:
-        from annotator.canny import apply_canny
-        model_canny = apply_canny
-    result = model_canny(img, l, h)
+    result = cv2.Canny(img, thr_a, thr_b)
     return remove_pad(result), True
 
 
