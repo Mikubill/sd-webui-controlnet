@@ -149,7 +149,8 @@ class PreprocessorShuffle(Preprocessor):
         super().__init__(name="shuffle")
         self.tags = ["Shuffle"]
         self.model_shuffle = None
-        self.slider_resolution.visible = False
+        # Fix res to 512.
+        self.slider_resolution = PreprocessorParameter(value=512, visible=False)
 
     def cached_call(self, *args, **kwargs):
         """No cache for shuffle, as each call depends on different numpy seed."""
