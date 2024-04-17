@@ -1048,22 +1048,22 @@ legacy_preprocessors = {
             "Segmentation"
         ]
     },
-    "shuffle": {
-        "label": "shuffle",
-        "call_function": shuffle,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Shuffle"
-        ]
-    },
+    # "shuffle": {
+    #     "label": "shuffle",
+    #     "call_function": shuffle,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Shuffle"
+    #     ]
+    # },
     "hed": {
         "label": "softedge_hed",
         "call_function": hed,

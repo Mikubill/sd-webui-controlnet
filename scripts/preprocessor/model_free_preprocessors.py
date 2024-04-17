@@ -137,7 +137,38 @@ class PreprocessorScribbleXdog(Preprocessor):
         dog = (255 - np.min(g2 - g1, axis=2)).clip(0, 255).astype(np.uint8)
         result = np.zeros_like(img, dtype=np.uint8)
         result[2 * (255 - dog) > slider_1] = 255
-        return remove_pad(result), True
+        return remove_pad(result)
+
+
+class PreprocessorShuffle(Preprocessor):
+    def __init__(self):
+        super().__init__(name="shuffle")
+        self.tags = ["Shuffle"]
+        self.model_shuffle = None
+        self.slider_resolution.visible = False
+
+    def cached_call(self, *args, **kwargs):
+        """No cache for shuffle, as each call depends on different numpy seed."""
+        return self(*args, **kwargs)
+
+    def __call__(
+        self,
+        input_image,
+        resolution,
+        slider_1=None,
+        slider_2=None,
+        slider_3=None,
+        input_mask=None,
+        **kwargs
+    ):
+        img, remove_pad = resize_image_with_pad(input_image, resolution)
+        img = remove_pad(img)
+        if self.model_shuffle is None:
+            from annotator.shuffle import ContentShuffleDetector
+
+            self.model_shuffle = ContentShuffleDetector()
+        result = self.model_shuffle(img)
+        return result
 
 
 Preprocessor.add_supported_preprocessor(PreprocessorNone())
@@ -145,3 +176,4 @@ Preprocessor.add_supported_preprocessor(PreprocessorCanny())
 Preprocessor.add_supported_preprocessor(PreprocessorInvert())
 Preprocessor.add_supported_preprocessor(PreprocessorBlurGaussian())
 Preprocessor.add_supported_preprocessor(PreprocessorScribbleXdog())
+Preprocessor.add_supported_preprocessor(PreprocessorShuffle())

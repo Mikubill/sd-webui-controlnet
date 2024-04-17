@@ -266,7 +266,7 @@ def get_control(
 
     def preprocess_input_image(input_image: np.ndarray):
         """ Preprocess single input image. """
-        detected_map = preprocessor(
+        detected_map = preprocessor.cached_call(
             input_image,
             resolution=unit.processor_res,
             slider_1=unit.threshold_a,

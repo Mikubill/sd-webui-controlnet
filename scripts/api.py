@@ -149,7 +149,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-            detected_map = preprocessor(
+            detected_map = preprocessor.cached_call(
                 img,
                 resolution=unit.processor_res,
                 slider_1=unit.threshold_a,

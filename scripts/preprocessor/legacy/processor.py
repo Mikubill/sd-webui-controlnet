@@ -605,20 +605,6 @@ def unload_oneformer_ade20k():
         model_oneformer_ade20k.unload_model()
 
 
-model_shuffle = None
-
-
-def shuffle(img, res=512, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    img = remove_pad(img)
-    global model_shuffle
-    if model_shuffle is None:
-        from annotator.shuffle import ContentShuffleDetector
-        model_shuffle = ContentShuffleDetector()
-    result = model_shuffle(img)
-    return result, True
-
-
 def recolor_luminance(img, res=512, thr_a=1.0, **kwargs):
     result = cv2.cvtColor(HWC3(img), cv2.COLOR_BGR2LAB)
     result = result[:, :, 0].astype(np.float32) / 255.0

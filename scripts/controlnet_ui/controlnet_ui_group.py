@@ -930,7 +930,7 @@ class ControlNetUiGroup(object):
             # effect.
             # TODO: Maybe we should let `preprocessor` return a Dict to alleviate this issue?
             # This requires changing all callsites though.
-            result = preprocessor(
+            result = preprocessor.cached_call(
                 img,
                 resolution=pres,
                 slider_1=pthr_a,

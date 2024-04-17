@@ -2,6 +2,13 @@ from abc import ABC, abstractmethod
 from typing import List, ClassVar, Dict, Optional, Set
 from dataclasses import dataclass, field
 
+from modules import shared
+from scripts.logging import logger
+from scripts.utils import ndarray_lru_cache
+
+
+CACHE_SIZE = getattr(shared.cmd_opts, "controlnet_preprocessor_cache_size", 0)
+
 
 @dataclass
 class PreprocessorParameter:
@@ -155,6 +162,17 @@ class Preprocessor(ABC):
 
         tag = tag.lower()
         return set([tag] + filters_aliases.get(tag, []))
+
+    @ndarray_lru_cache(max_size=CACHE_SIZE)
+    def cached_call(self, *args, **kwargs):
+        logger.debug(f"Calling preprocessor {self.name} outside of cache.")
+        return self(*args, **kwargs)
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
 
     @abstractmethod
     def __call__(
