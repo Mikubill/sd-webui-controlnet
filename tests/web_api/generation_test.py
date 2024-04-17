@@ -90,9 +90,11 @@ def test_invalid_param(gen_type, param_name):
             unit_overrides={param_name: -1},
             input_image=girl_img,
         ).exec()
-        assert log_context.is_in_console_logs([
-            f"[canny.{param_name}] Invalid value(-1), using default value",
-        ])
+        assert log_context.is_in_console_logs(
+            [
+                f"[canny.{param_name}] Invalid value(-1), using default value",
+            ]
+        )
 
 
 @pytest.mark.parametrize("save_map", [True, False])
@@ -285,3 +287,20 @@ def test_lama_outpaint():
             "resize_mode": "Resize and Fill",  # OUTER_FIT
         },
     ).exec()
+
+
+@disable_in_cq
+def test_ip_adapter_auto():
+    with console_log_context() as log_context:
+        assert APITestTemplate(
+            "txt2img_ip_adapter_auto",
+            "txt2img",
+            payload_overrides={},
+            unit_overrides={
+                "image": girl_img,
+                "model": get_model("ip-adapter_sd15"),
+                "module": "ip-adapter-auto",
+            },
+        ).exec()
+
+        assert log_context.is_in_console_logs(["ip-adapter-auto => ip-adapter_clip_h"])
