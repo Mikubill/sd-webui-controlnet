@@ -877,7 +877,7 @@ class ControlNetUiGroup(object):
             )
 
     def register_run_annotator(self):
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm):
+        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, model: str):
             if image is None:
                 return (
                     gr.update(value=None, visible=True),
@@ -939,9 +939,12 @@ class ControlNetUiGroup(object):
                     ("clip" in module or module == "ip-adapter_face_id_plus")
                     and shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
                 ),
-                json_pose_callback=json_acceptor.accept
-                if is_openpose(module)
-                else None,
+                json_pose_callback=(
+                    json_acceptor.accept
+                    if is_openpose(module)
+                    else None
+                ),
+                model=model,
             )
 
             if not preprocessor.returns_image:
@@ -973,6 +976,7 @@ class ControlNetUiGroup(object):
                 else ControlNetUiGroup.a1111_context.txt2img_h_slider,
                 self.pixel_perfect,
                 self.resize_mode,
+                self.model,
             ],
             outputs=[
                 self.generated_image,

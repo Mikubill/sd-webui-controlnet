@@ -749,7 +749,7 @@ class InsightFaceModel:
 
     def run_model(self, img: np.ndarray, **kwargs) -> Tuple[torch.Tensor, bool]:
         self.load_model()
-        assert img.shape[2] == 3, f"Expect 3 channels, but get {img.shape} channels"
+        img = img[:, :, :3]  # Drop alpha channel if there is one.
         faces = self.model.get(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         face = InsightFaceModel.pick_largest_face(faces)
         return torch.from_numpy(face.normed_embedding).unsqueeze(0), False

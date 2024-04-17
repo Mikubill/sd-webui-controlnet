@@ -112,7 +112,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if preprocessor is None:
             raise HTTPException(status_code=422, detail="Module not available")
 
-        if controlnet_module in ("clip_vision", "revision_clipvision", "revision_ignore_prompt"):
+        if controlnet_module in (
+            "clip_vision",
+            "revision_clipvision",
+            "revision_ignore_prompt",
+            "ip-adapter-auto",
+        ):
             raise HTTPException(status_code=422, detail="Module not supported")
 
         if len(controlnet_input_images) == 0:
@@ -166,7 +171,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         else:
             res["tensor"] = [encode_tensor_to_base64(r) for r in results]
         return res
-
 
     class Person(BaseModel):
         pose_keypoints_2d: List[float]

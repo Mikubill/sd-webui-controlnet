@@ -20,7 +20,6 @@ from scripts import global_state, hook, external_code, batch_hijack, controlnet_
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
-from scripts.ipadapter.presets import IPAdapterPreset
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
@@ -276,6 +275,7 @@ def get_control(
                 ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
                 shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
             ),
+            model=unit.model,
         )
         is_image = preprocessor.returns_image
         if high_res_fix:
@@ -664,11 +664,6 @@ class Script(scripts.Script, metaclass=(
             local_unit = Script.parse_remote_call(p, unit, idx)
             if not local_unit.enabled:
                 continue
-
-            # Consolidate meta preprocessors.
-            if local_unit.module == "ip-adapter-auto":
-                local_unit.module = IPAdapterPreset.match_model(local_unit.model).module
-                logger.info(f"ip-adapter-auto => {local_unit.module}")
 
             if hasattr(local_unit, "unfold_merged"):
                 enabled_units.extend(local_unit.unfold_merged())
