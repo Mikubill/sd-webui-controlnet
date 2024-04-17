@@ -4,8 +4,7 @@ from ..supported_preprocessor import Preprocessor, PreprocessorParameter
 class PreprocessorNormalDsine(Preprocessor):
     def __init__(self):
         super().__init__(name="normal_dsine")
-        self.tags = ["Normal"]
-        self.model_filename_filters = ["normal"]
+        self.tags = ["NormalMap"]
         self.slider_1 = PreprocessorParameter(
             minimum=0,
             maximum=360,

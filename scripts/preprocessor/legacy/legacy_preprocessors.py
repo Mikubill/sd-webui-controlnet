@@ -46,24 +46,8 @@ class LegacyPreprocessor(Preprocessor):
         self.tags = legacy_dict["tags"]
         self.returns_image = legacy_dict.get("returns_image", True)
 
-        filters_aliases = {
-            "instructp2p": ["ip2p"],
-            "segmentation": ["seg"],
-            "normalmap": ["normal"],
-            "t2i-adapter": ["t2i_adapter", "t2iadapter", "t2ia"],
-            "ip-adapter": ["ip_adapter", "ipadapter"],
-            "openpose": ["openpose", "densepose"],
-            "instant-iD": ["instant_id", "instantid"],
-        }
-
         if legacy_dict.get("use_soft_projection_in_hr_fix", False):
             self.use_soft_projection_in_hr_fix = True
-
-        self.model_filename_filters = []
-        for tag in self.tags:
-            tag_lower = tag.lower()
-            self.model_filename_filters.append(tag_lower)
-            self.model_filename_filters += filters_aliases.get(tag_lower, [])
 
         if legacy_dict["resolution"] is None:
             self.resolution = PreprocessorParameter(visible=False)

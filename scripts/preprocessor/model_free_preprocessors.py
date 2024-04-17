@@ -30,7 +30,6 @@ class PreprocessorCanny(Preprocessor):
     def __init__(self):
         super().__init__(name="canny")
         self.tags = ["Canny"]
-        self.model_filename_filters = ["canny"]
         self.slider_1 = PreprocessorParameter(
             minimum=1,
             maximum=255,
@@ -76,7 +75,6 @@ class PreprocessorInvert(Preprocessor):
             "MLSD",
         ]
         self.slider_resolution = PreprocessorParameter(visible=False)
-        self.model_filename_filters = ["canny"]
         self.sorting_priority = 20
 
     def __call__(

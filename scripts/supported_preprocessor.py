@@ -54,7 +54,6 @@ class Preprocessor(ABC):
     Attributes:
         name (str): The name of the preprocessor.
         tags (List[str]): The tags associated with the preprocessor.
-        model_filename_filters (List[str]): The model filename filters for the preprocessor.
         slider_resolution (PreprocessorParameter): The parameter representing the resolution of the slider.
         slider_1 (PreprocessorParameter): The first parameter of the slider.
         slider_2 (PreprocessorParameter): The second parameter of the slider.
@@ -71,7 +70,6 @@ class Preprocessor(ABC):
     name: str
     _label: str = None
     tags: List[str] = field(default_factory=list)
-    model_filename_filters: List[str] = field(default_factory=list)
     slider_resolution = PreprocessorParameter(
         label="Resolution",
         minimum=64,
@@ -145,12 +143,18 @@ class Preprocessor(ABC):
 
     @classmethod
     def tag_to_filters(cls, tag: str) -> Set[str]:
-        return {
-            f
-            for p in cls.all_processors.values()
-            if tag in p.tags
-            for f in p.model_filename_filters
+        filters_aliases = {
+            "instructp2p": ["ip2p"],
+            "segmentation": ["seg"],
+            "normalmap": ["normal"],
+            "t2i-adapter": ["t2i_adapter", "t2iadapter", "t2ia"],
+            "ip-adapter": ["ip_adapter", "ipadapter"],
+            "openpose": ["openpose", "densepose"],
+            "instant-id": ["instant_id", "instantid"],
         }
+
+        tag = tag.lower()
+        return set([tag] + filters_aliases.get(tag, []))
 
     @abstractmethod
     def __call__(
