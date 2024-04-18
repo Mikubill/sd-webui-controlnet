@@ -345,22 +345,22 @@ legacy_preprocessors = {
             "Inpaint"
         ]
     },
-    "inpaint_only+lama": {
-        "label": "inpaint_only+lama",
-        "call_function": lama_inpaint,
-        "unload_function": unload_lama_inpaint,
-        "managed_model": "model_lama",
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Inpaint"
-        ]
-    },
+    # "inpaint_only+lama": {
+    #     "label": "inpaint_only+lama",
+    #     "call_function": lama_inpaint,
+    #     "unload_function": unload_lama_inpaint,
+    #     "managed_model": "model_lama",
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Inpaint"
+    #     ]
+    # },
     "instant_id_face_embedding": {
         "label": "instant_id_face_embedding",
         "call_function": functools.partial(g_insight_face_instant_id_model.run_model_instant_id, return_keypoints=False),
