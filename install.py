@@ -63,6 +63,20 @@ def install_requirements(req_file):
                 )
 
 
+def install_onnxruntime():
+    """
+    Install onnxruntime or onnxruntime-gpu based on the availability of CUDA.
+    onnxruntime and onnxruntime-gpu can not be installed together.
+    """
+    if not launch.is_installed("onnxruntime") and not launch.is_installed("onnxruntime-gpu"):
+        import torch.cuda as cuda # torch import head to improve loading time
+        onnxruntime = 'onnxruntime-gpu' if cuda.is_available() else 'onnxruntime'
+        launch.run_pip(
+            f'install {onnxruntime}',
+            f"sd-webui-controlnet requirement: {onnxruntime}",
+        )
+
+
 def try_install_from_wheel(pkg_name: str, wheel_url: str, version: Optional[str] = None):
     current_version = get_installed_version(pkg_name)
     if current_version is not None:
@@ -140,6 +154,7 @@ def try_remove_legacy_submodule():
 
 
 install_requirements(main_req_file)
+install_onnxruntime()
 try_install_insight_face()
 try_install_from_wheel(
     "handrefinerportable",
