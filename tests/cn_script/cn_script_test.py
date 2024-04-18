@@ -1,4 +1,3 @@
-from typing import Any, Dict, List
 import unittest
 from PIL import Image
 import numpy as np
@@ -8,7 +7,7 @@ import importlib
 utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "utils")
 
 
-from scripts import external_code, processor
+from scripts import external_code
 from scripts.controlnet import prepare_mask, Script, set_numpy_seed
 from modules import processing
 
@@ -121,25 +120,6 @@ class TestScript(unittest.TestCase):
     sample_np_image = np.array(
         [[100, 200, 50], [150, 75, 225], [30, 120, 180]], dtype=np.uint8
     )
-
-    def test_bound_check_params(self):
-        def param_required(module: str, param: str) -> bool:
-            configs = processor.preprocessor_sliders_config[module]
-            config_index = ("processor_res", "threshold_a", "threshold_b").index(param)
-            return config_index < len(configs) and configs[config_index] is not None
-
-        for module in processor.preprocessor_sliders_config.keys():
-            for param in ("processor_res", "threshold_a", "threshold_b"):
-                with self.subTest(param=param, module=module):
-                    unit = external_code.ControlNetUnit(
-                        module=module,
-                        **{param: -100},
-                    )
-                    unit.bound_check_params()
-                    if param_required(module, param):
-                        self.assertGreaterEqual(getattr(unit, param), 0)
-                    else:
-                        self.assertEqual(getattr(unit, param), -100)
 
     def test_choose_input_image(self):
         with self.subTest(name="no image"):

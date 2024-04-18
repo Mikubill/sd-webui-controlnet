@@ -12,18 +12,21 @@ import gradio as gr
 import time
 
 from einops import rearrange
+
+# Register all preprocessors.
+import scripts.preprocessor as preprocessor_init  # noqa
+from annotator.util import HWC3
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
-from scripts.processor import HWC3
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
-from scripts.ipadapter.presets import IPAdapterPreset
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
+from scripts.supported_preprocessor import Preprocessor
 from scripts.animate_diff.batch import add_animate_diff_batch_input
 from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, StableDiffusionProcessing
 from modules.images import save_image
@@ -35,7 +38,6 @@ import torch
 
 from PIL import Image, ImageFilter, ImageOps
 from scripts.lvminthin import lvmin_thin, nake_nms
-from scripts.processor import model_free_preprocessors
 from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
 
@@ -220,7 +222,7 @@ def get_control(
     unit: external_code.ControlNetUnit,
     idx: int,
     control_model_type: ControlModelType,
-    preprocessor,
+    preprocessor: Preprocessor,
 ):
     """Get input for a ControlNet unit."""
     if unit.is_animate_diff_batch:
@@ -264,16 +266,18 @@ def get_control(
 
     def preprocess_input_image(input_image: np.ndarray):
         """ Preprocess single input image. """
-        detected_map, is_image = preprocessor(
+        detected_map = preprocessor.cached_call(
             input_image,
-            res=unit.processor_res,
-            thr_a=unit.threshold_a,
-            thr_b=unit.threshold_b,
+            resolution=unit.processor_res,
+            slider_1=unit.threshold_a,
+            slider_2=unit.threshold_b,
             low_vram=(
                 ("clip" in unit.module or unit.module == "ip-adapter_face_id_plus") and
                 shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
             ),
+            model=unit.model,
         )
+        is_image = preprocessor.returns_image
         if high_res_fix:
             if is_image:
                 hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -320,8 +324,6 @@ class Script(scripts.Script, metaclass=(
     def __init__(self) -> None:
         super().__init__()
         self.latest_network = None
-        self.preprocessor = global_state.cache_preprocessors(global_state.cn_preprocessor_modules)
-        self.unloadable = global_state.cn_preprocessor_unloadable
         self.input_image = None
         self.latest_model_hash = ""
         self.enabled_units: List[external_code.ControlNetUnit] = []
@@ -353,7 +355,6 @@ class Script(scripts.Script, metaclass=(
         group = ControlNetUiGroup(
             is_img2img,
             Script.get_default_ui_unit(),
-            self.preprocessor,
             photopea,
         )
         return group, group.render(tabname, elem_id_tabname)
@@ -664,11 +665,6 @@ class Script(scripts.Script, metaclass=(
             if not local_unit.enabled:
                 continue
 
-            # Consolidate meta preprocessors.
-            if local_unit.module == "ip-adapter-auto":
-                local_unit.module = IPAdapterPreset.match_model(local_unit.model).module
-                logger.info(f"ip-adapter-auto => {local_unit.module}")
-
             if hasattr(local_unit, "unfold_merged"):
                 enabled_units.extend(local_unit.unfold_merged())
             else:
@@ -938,15 +934,6 @@ class Script(scripts.Script, metaclass=(
         if self.latest_model_hash != p.sd_model.sd_model_hash:
             Script.clear_control_model_cache()
 
-        for idx, unit in enumerate(self.enabled_units):
-            unit.module = global_state.get_module_basename(unit.module)
-
-        # unload unused preproc
-        module_list = [unit.module for unit in self.enabled_units]
-        for key in self.unloadable:
-            if key not in module_list:
-                self.unloadable.get(key, lambda:None)()
-
         self.latest_model_hash = p.sd_model.sd_model_hash
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
 
@@ -961,7 +948,10 @@ class Script(scripts.Script, metaclass=(
                 logger.warning('A1111 inpaint and ControlNet inpaint duplicated. Falls back to inpaint_global_harmonious.')
                 unit.module = 'inpaint'
 
-            if unit.module in model_free_preprocessors:
+            preprocessor = Preprocessor.get_preprocessor(unit.module)
+            assert preprocessor is not None
+
+            if preprocessor.do_not_need_model:
                 model_net = None
                 if 'reference' in unit.module:
                     control_model_type = ControlModelType.AttentionInjection
@@ -990,7 +980,7 @@ class Script(scripts.Script, metaclass=(
                 hr_controls = unit.ipadapter_input
             else:
                 controls, hr_controls, additional_maps = get_control(
-                    p, unit, idx, control_model_type, self.preprocessor[unit.module])
+                    p, unit, idx, control_model_type, preprocessor)
                 detected_maps.extend(additional_maps)
 
             if len(controls) == len(hr_controls) == 1 and control_model_type not in [ControlModelType.SparseCtrl]:

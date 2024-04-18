@@ -15,9 +15,9 @@ from modules.api.models import *  # noqa:F403
 from modules.api import api
 
 from scripts import external_code, global_state
-from scripts.processor import preprocessor_filters
 from scripts.logging import logger
 from scripts.external_code import ControlNetUnit
+from scripts.supported_preprocessor import Preprocessor
 from annotator.openpose import draw_poses, decode_json_as_poses
 from annotator.openpose.animalpose import draw_animalposes
 
@@ -87,7 +87,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 control_type: format_control_type(
                     *global_state.select_control_type(control_type)
                 )
-                for control_type in preprocessor_filters.keys()
+                for control_type in Preprocessor.get_all_preprocessor_tags()
             }
         }
 
@@ -95,10 +95,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
     async def settings():
         max_models_num = external_code.get_max_models_num()
         return {"control_net_unit_count": max_models_num}
-
-    cached_cn_preprocessors = global_state.cache_preprocessors(
-        global_state.cn_preprocessor_modules
-    )
 
     @app.post("/controlnet/detect")
     async def detect(
@@ -111,14 +107,17 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         controlnet_threshold_b: float = Body(-1, title="Controlnet Threshold b"),
         low_vram: bool = Body(False, title="Low vram"),
     ):
-        controlnet_module = global_state.reverse_preprocessor_aliases.get(
-            controlnet_module, controlnet_module
-        )
+        preprocessor = Preprocessor.get_preprocessor(controlnet_module)
 
-        if controlnet_module not in cached_cn_preprocessors:
+        if preprocessor is None:
             raise HTTPException(status_code=422, detail="Module not available")
 
-        if controlnet_module in ("clip_vision", "revision_clipvision", "revision_ignore_prompt"):
+        if controlnet_module in (
+            "clip_vision",
+            "revision_clipvision",
+            "revision_ignore_prompt",
+            "ip-adapter-auto",
+        ):
             raise HTTPException(status_code=422, detail="Module not supported")
 
         if len(controlnet_input_images) == 0:
@@ -129,7 +128,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         )
 
         unit = ControlNetUnit(
-            module=controlnet_module,
+            module=preprocessor.label,
             processor_res=controlnet_processor_res,
             threshold_a=controlnet_threshold_a,
             threshold_b=controlnet_threshold_b,
@@ -138,8 +137,6 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
         results = []
         poses = []
-
-        processor_module = cached_cn_preprocessors[controlnet_module]
 
         for input_image in controlnet_input_images:
             img = external_code.to_base64_nparray(input_image)
@@ -152,11 +149,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-            detected_map, is_image = processor_module(
+            detected_map = preprocessor.cached_call(
                 img,
-                res=unit.processor_res,
-                thr_a=unit.threshold_a,
-                thr_b=unit.threshold_b,
+                resolution=unit.processor_res,
+                slider_1=unit.threshold_a,
+                slider_2=unit.threshold_b,
                 json_pose_callback=json_acceptor.accept,
                 low_vram=low_vram,
             )
@@ -166,16 +163,14 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
-        global_state.cn_preprocessor_unloadable.get(controlnet_module, lambda: None)()
         res = {"info": "Success"}
-        if is_image:
+        if preprocessor.returns_image:
             res["images"] = [encode_to_base64(r) for r in results]
             if poses:
                 res["poses"] = poses
         else:
             res["tensor"] = [encode_tensor_to_base64(r) for r in results]
         return res
-
 
     class Person(BaseModel):
         pose_keypoints_2d: List[float]
