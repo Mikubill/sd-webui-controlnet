@@ -103,10 +103,17 @@ def try_install_insight_face():
         and python_version.minor == 10
     ):
         try:
+            current_pydantic_version = get_installed_version('pydantic')
             launch.run_pip(
                 f"install {wheel_url}",
                 "sd-webui-controlnet requirement: insightface",
             )
+            post_install_pydantic_version = get_installed_version('pydantic')
+            if current_pydantic_version and post_install_pydantic_version and current_pydantic_version != post_install_pydantic_version:
+                launch.run_pip(
+                    f"install -U pydantic=={current_pydantic_version}",
+                    f"restore pydantic version to {current_pydantic_version}",
+                )
         except Exception as e:
             print(e)
             print(
