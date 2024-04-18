@@ -286,7 +286,7 @@ def test_lama_outpaint():
             "module": "inpaint_only+lama",
             "resize_mode": "Resize and Fill",  # OUTER_FIT
         },
-    ).exec()
+    ).exec(result_only=False)
 
 
 @disable_in_cq
