@@ -111,6 +111,7 @@ class Preprocessor(ABC):
         cls.all_processors[p.label] = p
         assert p.name not in cls.all_processors_by_name, f"{p.name} already registered!"
         cls.all_processors_by_name[p.name] = p
+        logger.debug(f"{p.name} registered. Total preprocessors ({len(cls.all_processors)}).")
 
     @classmethod
     def get_preprocessor(cls, name: str) -> Optional["Preprocessor"]:
