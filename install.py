@@ -1,5 +1,5 @@
 import launch
-import pkg_resources
+from importlib import metadata
 import sys
 import os
 import shutil
@@ -18,7 +18,7 @@ def comparable_version(version: str) -> Tuple:
 
 def get_installed_version(package: str) -> Optional[str]:
     try:
-        return pkg_resources.get_distribution(package).version
+        return metadata.version(package)
     except Exception:
         return None
 
@@ -61,6 +61,20 @@ def install_requirements(req_file):
                 print(
                     f"Warning: Failed to install {package}, some preprocessors may not work."
                 )
+
+
+def install_onnxruntime():
+    """
+    Install onnxruntime or onnxruntime-gpu based on the availability of CUDA.
+    onnxruntime and onnxruntime-gpu can not be installed together.
+    """
+    if not launch.is_installed("onnxruntime") and not launch.is_installed("onnxruntime-gpu"):
+        import torch.cuda as cuda # torch import head to improve loading time
+        onnxruntime = 'onnxruntime-gpu' if cuda.is_available() else 'onnxruntime'
+        launch.run_pip(
+            f'install {onnxruntime}',
+            f"sd-webui-controlnet requirement: {onnxruntime}",
+        )
 
 
 def try_install_from_wheel(pkg_name: str, wheel_url: str, version: Optional[str] = None):
@@ -133,6 +147,7 @@ def try_remove_legacy_submodule():
 
 
 install_requirements(main_req_file)
+install_onnxruntime()
 try_install_insight_face()
 try_install_from_wheel(
     "handrefinerportable",
