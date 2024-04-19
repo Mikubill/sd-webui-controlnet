@@ -153,15 +153,6 @@ class ControlNetPresetUI(object):
                 logger.error(e)
                 new_control_type = control_type
 
-            if new_control_type != control_type:
-                uigroup.prevent_next_n_module_update += 1
-
-            if preset_unit.module != current_unit.module:
-                uigroup.prevent_next_n_slider_value_update += 1
-
-            if preset_unit.pixel_perfect != current_unit.pixel_perfect:
-                uigroup.prevent_next_n_slider_value_update += 1
-
             return (
                 gr.update(visible=True),
                 gr.update(value=new_control_type),
