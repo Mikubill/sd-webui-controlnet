@@ -195,6 +195,9 @@ class ControlNetUnit:
     # For T2IAdapter
     # - SD1.5: 5 weights (4 encoder block + 1 middle block)
     # - SDXL: 4 weights (3 encoder block + 1 middle block)
+    # For IPAdapter
+    # - SD15: 16 (6 input blocks + 9 output blocks + 1 middle block)
+    # - SDXL: 11 weights (4 input blocks + 6 output blocks + 1 middle block)
     # Note1: Setting advanced weighting will disable `soft_injection`, i.e.
     # It is recommended to set ControlMode = BALANCED when using `advanced_weighting`.
     # Note2: The field `weight` is still used in some places, e.g. reference_only,

@@ -1,4 +1,5 @@
 import torch
+from typing import Union, Dict
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
 
@@ -107,7 +108,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.ipadapter = ipadapter
         self.disable_memory_management = True
         self.dtype = None
-        self.weight = 1.0
+        self.weight: Union[float, Dict[int, float]] = 1.0
         self.cache = None
         self.p_start = 0.0
         self.p_end = 1.0
@@ -230,6 +231,13 @@ class PlugableIPAdapter(torch.nn.Module):
                 )
                 number += 1
 
+    def weight_on_transformer(self, transformer_index: int) -> float:
+        if isinstance(self.weight, dict):
+            return self.weight.get(transformer_index, 0.0)
+        else:
+            assert isinstance(self.weight, (float, int))
+            return self.weight
+
     def call_ip(self, key: str, feat, device):
         if key in self.cache:
             return self.cache[key]
@@ -245,6 +253,7 @@ class PlugableIPAdapter(torch.nn.Module):
             batch_size, sequence_length, inner_dim = x.shape
             h = attn_blk.heads
             head_dim = inner_dim // h
+            weight = self.weight_on_transformer(transformer_index)
 
             current_sampling_percent = getattr(
                 current_model, "current_sampling_percent", 0.5
@@ -252,8 +261,9 @@ class PlugableIPAdapter(torch.nn.Module):
             if (
                 current_sampling_percent < self.p_start
                 or current_sampling_percent > self.p_end
+                or weight == 0.0
             ):
-                return 0
+                return 0.0
 
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
@@ -278,6 +288,6 @@ class PlugableIPAdapter(torch.nn.Module):
             )
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
-            return ip_out * self.weight
+            return ip_out * weight
 
         return forward
