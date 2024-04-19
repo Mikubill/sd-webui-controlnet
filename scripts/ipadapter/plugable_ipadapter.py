@@ -129,8 +129,8 @@ class PlugableIPAdapter(torch.nn.Module):
             *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
         )
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
+        number = 0  # index of to_kvs
         if not self.ipadapter.is_sdxl:
-            number = 0  # index of to_kvs
             for transformer_id in [
                 1,
                 2,
@@ -160,7 +160,6 @@ class PlugableIPAdapter(torch.nn.Module):
                 number += 1
             set_model_attn2_replace(model, self.patch_forward(number), "middle", 0)
         else:
-            number = 0
             for transformer_id in [
                 4,
                 5,
