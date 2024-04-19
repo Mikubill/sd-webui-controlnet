@@ -61,7 +61,13 @@ def hack_blk(block, function, type):
     return
 
 
-def set_model_attn2_replace(model, function, flag, transformer_id):
+def set_model_attn2_replace(
+    model,
+    function,
+    flag,
+    transformer_id: int,
+    transformer_index: int,
+):
     """SD15"""
     from ldm.modules.attention import CrossAttention
 
@@ -70,12 +76,19 @@ def set_model_attn2_replace(model, function, flag, transformer_id):
     return
 
 
-def set_model_patch_replace(model, function, flag, id, transformer_id):
+def set_model_patch_replace(
+    model,
+    function,
+    flag,
+    transformer_id: int,
+    transformer_index: int,
+    block_index: int,
+):
     """SDXL"""
     from sgm.modules.attention import CrossAttention
 
     blk = get_block(model, flag)
-    block = blk[id][1].transformer_blocks[transformer_id].attn2
+    block = blk[transformer_id][1].transformer_blocks[block_index].attn2
     hack_blk(block, function, CrossAttention)
     return
 
@@ -130,6 +143,7 @@ class PlugableIPAdapter(torch.nn.Module):
         )
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         number = 0  # index of to_kvs
+        transformer_index = 0  # index of transformer
         if not self.ipadapter.is_sdxl:
             for transformer_id in [
                 1,
@@ -140,9 +154,14 @@ class PlugableIPAdapter(torch.nn.Module):
                 8,
             ]:  # id of input_blocks that have cross attention
                 set_model_attn2_replace(
-                    model, self.patch_forward(number), "input", transformer_id
+                    model,
+                    self.patch_forward(number),
+                    "input",
+                    transformer_id,
+                    transformer_index,
                 )
                 number += 1
+                transformer_index += 1
             for transformer_id in [
                 3,
                 4,
@@ -155,10 +174,21 @@ class PlugableIPAdapter(torch.nn.Module):
                 11,
             ]:  # id of output_blocks that have cross attention
                 set_model_attn2_replace(
-                    model, self.patch_forward(number), "output", transformer_id
+                    model,
+                    self.patch_forward(number),
+                    "output",
+                    transformer_id,
+                    transformer_index,
                 )
                 number += 1
-            set_model_attn2_replace(model, self.patch_forward(number), "middle", 0)
+                transformer_index += 1
+            set_model_attn2_replace(
+                model,
+                self.patch_forward(number),
+                "middle",
+                transformer_id=0,
+                transformer_index=transformer_index,
+            )
         else:
             for transformer_id in [
                 4,
@@ -175,9 +205,11 @@ class PlugableIPAdapter(torch.nn.Module):
                         self.patch_forward(number),
                         "input",
                         transformer_id,
-                        index,
+                        transformer_index,
+                        block_index=index,
                     )
                     number += 1
+                transformer_index += 1
             for transformer_id in range(
                 6
             ):  # id of output_blocks that have cross attention
@@ -190,12 +222,19 @@ class PlugableIPAdapter(torch.nn.Module):
                         self.patch_forward(number),
                         "output",
                         transformer_id,
-                        index,
+                        transformer_index,
+                        block_index=index,
                     )
                     number += 1
+                transformer_index += 1
             for index in range(10):
                 set_model_patch_replace(
-                    model, self.patch_forward(number), "middle", 0, index
+                    model,
+                    self.patch_forward(number),
+                    "middle",
+                    transformer_id=0,
+                    transformer_index=transformer_index,
+                    block_index=index,
                 )
                 number += 1
 
