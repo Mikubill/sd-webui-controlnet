@@ -1,7 +1,9 @@
+import itertools
 import torch
 from typing import Union, Dict
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
+from ..enums import StableDiffusionVersion, TransformerID
 
 
 def get_block(model, flag):
@@ -64,32 +66,17 @@ def hack_blk(block, function, type):
 
 def set_model_attn2_replace(
     model,
+    target_cls,
     function,
-    flag,
-    transformer_id: int,
+    transformer_id: TransformerID,
 ):
-    """SD15"""
-    from ldm.modules.attention import CrossAttention
-
-    block = get_block(model, flag)[transformer_id][1].transformer_blocks[0].attn2
-    hack_blk(block, function, CrossAttention)
-    return
-
-
-def set_model_patch_replace(
-    model,
-    function,
-    flag,
-    transformer_id: int,
-    block_index: int,
-):
-    """SDXL"""
-    from sgm.modules.attention import CrossAttention
-
-    blk = get_block(model, flag)
-    block = blk[transformer_id][1].transformer_blocks[block_index].attn2
-    hack_blk(block, function, CrossAttention)
-    return
+    block = get_block(model, transformer_id.block_type.value)
+    module = (
+        block[transformer_id.block_id][1]
+        .transformer_blocks[transformer_id.block_index]
+        .attn2
+    )
+    hack_blk(module, function, target_cls)
 
 
 def clear_all_ip_adapter():
@@ -140,96 +127,24 @@ class PlugableIPAdapter(torch.nn.Module):
         self.image_emb = ImageEmbed.average_of(
             *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
         )
-        # From https://github.com/laksjdjf/IPAdapter-ComfyUI
-        number = 0  # index of to_kvs
-        transformer_index = 0  # index of transformer
-        if not self.ipadapter.is_sdxl:
-            for transformer_id in [
-                1,
-                2,
-                4,
-                5,
-                7,
-                8,
-            ]:  # id of input_blocks that have cross attention
-                set_model_attn2_replace(
-                    model,
-                    self.patch_forward(number, transformer_index),
-                    "input",
-                    transformer_id,
-                )
-                number += 1
-                transformer_index += 1
-            for transformer_id in [
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-            ]:  # id of output_blocks that have cross attention
-                set_model_attn2_replace(
-                    model,
-                    self.patch_forward(number, transformer_index),
-                    "output",
-                    transformer_id,
-                )
-                number += 1
-                transformer_index += 1
+
+        if self.ipadapter.is_sdxl:
+            sd_version = StableDiffusionVersion.SDXL
+            from sgm.modules.attention import CrossAttention
+        else:
+            sd_version = StableDiffusionVersion.SD1x
+            from ldm.modules.attention import CrossAttention
+
+        input_ids, output_ids, middle_ids = sd_version.transformer_ids
+        for i, transformer_id in enumerate(
+            itertools.chain(input_ids, output_ids, middle_ids)
+        ):
             set_model_attn2_replace(
                 model,
-                self.patch_forward(number, transformer_index),
-                "middle",
-                transformer_id=0,
+                CrossAttention,
+                self.patch_forward(i, transformer_id.transformer_index),
+                transformer_id,
             )
-        else:
-            for transformer_id in [
-                4,
-                5,
-                7,
-                8,
-            ]:  # id of input_blocks that have cross attention
-                block_indices = (
-                    range(2) if id in [4, 5] else range(10)
-                )  # transformer_depth
-                for index in block_indices:
-                    set_model_patch_replace(
-                        model,
-                        self.patch_forward(number, transformer_index),
-                        "input",
-                        transformer_id,
-                        block_index=index,
-                    )
-                    number += 1
-                transformer_index += 1
-            for transformer_id in range(
-                6
-            ):  # id of output_blocks that have cross attention
-                block_indices = (
-                    range(2) if id in [3, 4, 5] else range(10)
-                )  # transformer_depth
-                for index in block_indices:
-                    set_model_patch_replace(
-                        model,
-                        self.patch_forward(number, transformer_index),
-                        "output",
-                        transformer_id,
-                        block_index=index,
-                    )
-                    number += 1
-                transformer_index += 1
-            for index in range(10):
-                set_model_patch_replace(
-                    model,
-                    self.patch_forward(number, transformer_index),
-                    "middle",
-                    transformer_id=0,
-                    block_index=index,
-                )
-                number += 1
 
     def weight_on_transformer(self, transformer_index: int) -> float:
         if isinstance(self.weight, dict):

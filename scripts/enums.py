@@ -1,5 +1,29 @@
 from enum import Enum
-from typing import Any
+from typing import Any, List, NamedTuple
+from functools import lru_cache
+
+
+class UnetBlockType(Enum):
+    INPUT = "input"
+    OUTPUT = "output"
+    MIDDLE = "middle"
+
+
+class TransformerID(NamedTuple):
+    block_type: UnetBlockType
+    # The id of the block the transformer is in. Not all blocks have cross attn.
+    block_id: int
+    # The index of transformer within the block.
+    # A block can have multiple transformers in SDXL.
+    block_index: int
+    # The call index of transformer if in a single step of diffusion.
+    transformer_index: int
+
+
+class TransformerIDResult(NamedTuple):
+    input_ids: List[TransformerID]
+    output_ids: List[TransformerID]
+    middle_ids: List[TransformerID]
 
 
 class StableDiffusionVersion(Enum):
@@ -39,6 +63,7 @@ class StableDiffusionVersion(Enum):
     def controlnet_layer_num(self) -> int:
         return self.encoder_block_num() + 1
 
+    @property
     def ipadapter_layer_num(self) -> int:
         if self in (
             StableDiffusionVersion.SD1x,
@@ -48,6 +73,67 @@ class StableDiffusionVersion(Enum):
             return 16
         else:
             return 11  # SDXL
+
+    @property
+    @lru_cache(maxsize=None)
+    def transformer_ids(self) -> List[TransformerID]:
+        """id of blocks that have cross attention"""
+        if self in (
+            StableDiffusionVersion.SD1x,
+            StableDiffusionVersion.SD2x,
+            StableDiffusionVersion.UNKNOWN,
+        ):
+            transformer_index = 0
+            input_ids = []
+            for block_id in [1, 2, 4, 5, 7, 8]:
+                input_ids.append(
+                    TransformerID(UnetBlockType.INPUT, block_id, 0, transformer_index)
+                )
+                transformer_index += 1
+            middle_id = TransformerID(UnetBlockType.MIDDLE, 0, 0, transformer_index)
+            transformer_index += 1
+            output_ids = []
+            for block_id in [3, 4, 5, 6, 7, 8, 9, 10, 11]:
+                input_ids.append(
+                    TransformerID(UnetBlockType.OUTPUT, block_id, 0, transformer_index)
+                )
+                transformer_index += 1
+            return TransformerIDResult(input_ids, output_ids, [middle_id])
+        else:
+            # SDXL
+            transformer_index = 0
+            input_ids = []
+            for block_id in [4, 5, 7, 8]:
+                block_indices = (
+                    range(2) if id in [4, 5] else range(10)
+                )  # transformer_depth
+                for index in block_indices:
+                    input_ids.append(
+                        TransformerID(
+                            UnetBlockType.INPUT, block_id, index, transformer_index
+                        )
+                    )
+                transformer_index += 1
+
+            middle_ids = [
+                TransformerID(UnetBlockType.MIDDLE, 0, index, transformer_index)
+                for index in range(10)
+            ]
+            transformer_index += 1
+
+            output_ids = []
+            for block_id in range(6):
+                block_indices = (
+                    range(2) if id in [3, 4, 5] else range(10)
+                )  # transformer_depth
+                for index in block_indices:
+                    output_ids.append(
+                        TransformerID(
+                            UnetBlockType.OUTPUT, block_id, index, transformer_index
+                        )
+                    )
+                transformer_index += 1
+            return TransformerIDResult(input_ids, output_ids, middle_ids)
 
     def is_compatible_with(self, other: "StableDiffusionVersion") -> bool:
         """Incompatible only when one of version is SDXL and other is not."""
