@@ -61,19 +61,21 @@ def hack_blk(block, function, type):
     return
 
 
-def set_model_attn2_replace(model, function, flag, id):
+def set_model_attn2_replace(model, function, flag, transformer_id):
+    """SD15"""
     from ldm.modules.attention import CrossAttention
 
-    block = get_block(model, flag)[id][1].transformer_blocks[0].attn2
+    block = get_block(model, flag)[transformer_id][1].transformer_blocks[0].attn2
     hack_blk(block, function, CrossAttention)
     return
 
 
-def set_model_patch_replace(model, function, flag, id, trans_id):
+def set_model_patch_replace(model, function, flag, id, transformer_id):
+    """SDXL"""
     from sgm.modules.attention import CrossAttention
 
     blk = get_block(model, flag)
-    block = blk[id][1].transformer_blocks[trans_id].attn2
+    block = blk[id][1].transformer_blocks[transformer_id].attn2
     hack_blk(block, function, CrossAttention)
     return
 
@@ -129,7 +131,7 @@ class PlugableIPAdapter(torch.nn.Module):
         # From https://github.com/laksjdjf/IPAdapter-ComfyUI
         if not self.ipadapter.is_sdxl:
             number = 0  # index of to_kvs
-            for id in [
+            for transformer_id in [
                 1,
                 2,
                 4,
@@ -137,9 +139,11 @@ class PlugableIPAdapter(torch.nn.Module):
                 7,
                 8,
             ]:  # id of input_blocks that have cross attention
-                set_model_attn2_replace(model, self.patch_forward(number), "input", id)
+                set_model_attn2_replace(
+                    model, self.patch_forward(number), "input", transformer_id
+                )
                 number += 1
-            for id in [
+            for transformer_id in [
                 3,
                 4,
                 5,
@@ -150,27 +154,44 @@ class PlugableIPAdapter(torch.nn.Module):
                 10,
                 11,
             ]:  # id of output_blocks that have cross attention
-                set_model_attn2_replace(model, self.patch_forward(number), "output", id)
+                set_model_attn2_replace(
+                    model, self.patch_forward(number), "output", transformer_id
+                )
                 number += 1
             set_model_attn2_replace(model, self.patch_forward(number), "middle", 0)
         else:
             number = 0
-            for id in [4, 5, 7, 8]:  # id of input_blocks that have cross attention
+            for transformer_id in [
+                4,
+                5,
+                7,
+                8,
+            ]:  # id of input_blocks that have cross attention
                 block_indices = (
                     range(2) if id in [4, 5] else range(10)
                 )  # transformer_depth
                 for index in block_indices:
                     set_model_patch_replace(
-                        model, self.patch_forward(number), "input", id, index
+                        model,
+                        self.patch_forward(number),
+                        "input",
+                        transformer_id,
+                        index,
                     )
                     number += 1
-            for id in range(6):  # id of output_blocks that have cross attention
+            for transformer_id in range(
+                6
+            ):  # id of output_blocks that have cross attention
                 block_indices = (
                     range(2) if id in [3, 4, 5] else range(10)
                 )  # transformer_depth
                 for index in block_indices:
                     set_model_patch_replace(
-                        model, self.patch_forward(number), "output", id, index
+                        model,
+                        self.patch_forward(number),
+                        "output",
+                        transformer_id,
+                        index,
                     )
                     number += 1
             for index in range(10):
@@ -178,8 +199,6 @@ class PlugableIPAdapter(torch.nn.Module):
                     model, self.patch_forward(number), "middle", 0, index
                 )
                 number += 1
-
-        return
 
     def call_ip(self, key: str, feat, device):
         if key in self.cache:
