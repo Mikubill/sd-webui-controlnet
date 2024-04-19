@@ -66,7 +66,6 @@ def set_model_attn2_replace(
     function,
     flag,
     transformer_id: int,
-    transformer_index: int,
 ):
     """SD15"""
     from ldm.modules.attention import CrossAttention
@@ -81,7 +80,6 @@ def set_model_patch_replace(
     function,
     flag,
     transformer_id: int,
-    transformer_index: int,
     block_index: int,
 ):
     """SDXL"""
@@ -155,10 +153,9 @@ class PlugableIPAdapter(torch.nn.Module):
             ]:  # id of input_blocks that have cross attention
                 set_model_attn2_replace(
                     model,
-                    self.patch_forward(number),
+                    self.patch_forward(number, transformer_index),
                     "input",
                     transformer_id,
-                    transformer_index,
                 )
                 number += 1
                 transformer_index += 1
@@ -175,19 +172,17 @@ class PlugableIPAdapter(torch.nn.Module):
             ]:  # id of output_blocks that have cross attention
                 set_model_attn2_replace(
                     model,
-                    self.patch_forward(number),
+                    self.patch_forward(number, transformer_index),
                     "output",
                     transformer_id,
-                    transformer_index,
                 )
                 number += 1
                 transformer_index += 1
             set_model_attn2_replace(
                 model,
-                self.patch_forward(number),
+                self.patch_forward(number, transformer_index),
                 "middle",
                 transformer_id=0,
-                transformer_index=transformer_index,
             )
         else:
             for transformer_id in [
@@ -202,10 +197,9 @@ class PlugableIPAdapter(torch.nn.Module):
                 for index in block_indices:
                     set_model_patch_replace(
                         model,
-                        self.patch_forward(number),
+                        self.patch_forward(number, transformer_index),
                         "input",
                         transformer_id,
-                        transformer_index,
                         block_index=index,
                     )
                     number += 1
@@ -219,10 +213,9 @@ class PlugableIPAdapter(torch.nn.Module):
                 for index in block_indices:
                     set_model_patch_replace(
                         model,
-                        self.patch_forward(number),
+                        self.patch_forward(number, transformer_index),
                         "output",
                         transformer_id,
-                        transformer_index,
                         block_index=index,
                     )
                     number += 1
@@ -230,10 +223,9 @@ class PlugableIPAdapter(torch.nn.Module):
             for index in range(10):
                 set_model_patch_replace(
                     model,
-                    self.patch_forward(number),
+                    self.patch_forward(number, transformer_index),
                     "middle",
                     transformer_id=0,
-                    transformer_index=transformer_index,
                     block_index=index,
                 )
                 number += 1
@@ -247,7 +239,7 @@ class PlugableIPAdapter(torch.nn.Module):
             return ip
 
     @torch.no_grad()
-    def patch_forward(self, number: int):
+    def patch_forward(self, number: int, transformer_index: int):
         @torch.no_grad()
         def forward(attn_blk, x, q):
             batch_size, sequence_length, inner_dim = x.shape
