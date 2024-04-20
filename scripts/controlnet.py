@@ -1178,6 +1178,7 @@ class Script(scripts.Script, metaclass=(
         for i, param in enumerate(forward_params):
             if param.control_model_type == ControlModelType.IPAdapter:
                 if param.advanced_weighting is not None:
+                    logger.info(f"IP-Adapter using advanced weighting {param.advanced_weighting}")
                     # Convert advanced weighting list to dict
                     weight = {
                         i: w

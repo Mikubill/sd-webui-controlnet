@@ -32,7 +32,9 @@ def _calc_weight(
     is_sdxl = sd_version == StableDiffusionVersion.SDXL
     layers = sd_version.transformer_block_num
     ids: TransformerIDResult = sd_version.transformer_ids
-    block_type = ids.get(idx=t_idx).block_type.value
+    block_type = [i for i in ids.to_list() if i.transformer_index == t_idx][
+        0
+    ].block_type.value
     if weight_type == "normal":
         return weight
     elif weight_type == "ease in":

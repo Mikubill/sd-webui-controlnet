@@ -2,6 +2,7 @@ import gradio as gr
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import io
+import json
 from PIL import Image
 from typing import List
 
@@ -88,6 +89,8 @@ class AdvancedWeightControl:
                         "style transfer",
                         "composition",
                         "strong style transfer",
+                        "style and composition",
+                        "strong style and composition",
                     ],
                     label="Weight Type",
                     value="normal",
@@ -125,9 +128,21 @@ class AdvancedWeightControl:
             outputs=[self.weight_composition],
         )
 
-        def weight_update(weight_type: str, weight: float, weight_composition: float):
+        def update_weight_textbox(
+            weight_type: str, weight: float, weight_composition: float
+        ):
             sd_version = get_sd_version()
             weights = calc_weights(weight_type, weight, sd_version, weight_composition)
+            return gr.update(value=str([round(w, 2) for w in weights]), visible=True)
+
+        def update_plot(weights_string: str):
+            try:
+                weights = json.loads(weights_string)
+                assert isinstance(weights, list)
+            except Exception:
+                return gr.update(visible=False)
+
+            sd_version = get_sd_version()
             weight_plot = plot_weights(
                 weights,
                 get_bar_colors(
@@ -137,27 +152,39 @@ class AdvancedWeightControl:
                     output_color=OUTPUT_BLOCK_COLOR,
                 ),
             )
-            return (
-                gr.update(value=str(weights), visible=True),
-                gr.update(value=weight_plot, visible=True),
-                weights,
-            )
+            return gr.update(value=weight_plot, visible=True)
+
+        def update_advanced_weighting(weights_string: str):
+            try:
+                weights = json.loads(weights_string)
+                assert isinstance(weights, list)
+            except Exception:
+                return None
+            return weights
 
         trigger_inputs = [self.weight_type, weight_input, self.weight_composition]
         for trigger_input in trigger_inputs:
             trigger_input.change(
-                fn=weight_update,
+                fn=update_weight_textbox,
                 inputs=[self.weight_type, weight_input, self.weight_composition],
-                outputs=[
-                    self.weight_editor,
-                    self.weight_plot,
-                    advanced_weighting,
-                ],
-            ).then(
-                fn=lambda x: gr.update(value=x + 1),
-                inputs=[update_unit_counter],
-                outputs=[update_unit_counter],
-            )  # Necessary to flush gr.State change to unit state.
+                outputs=[self.weight_editor],
+            )
+
+        self.weight_editor.change(
+            fn=update_plot,
+            inputs=[self.weight_editor],
+            outputs=[self.weight_plot],
+        )
+
+        self.weight_editor.change(
+            fn=update_advanced_weighting,
+            inputs=[self.weight_editor],
+            outputs=[advanced_weighting],
+        ).then(
+            fn=lambda x: gr.update(value=x + 1),
+            inputs=[update_unit_counter],
+            outputs=[update_unit_counter],
+        )  # Necessary to flush gr.State change to unit state.
 
         # TODO: Expose advanced weighting control for other control types.
         control_type.change(
