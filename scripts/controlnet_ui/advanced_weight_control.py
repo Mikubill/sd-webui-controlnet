@@ -38,7 +38,7 @@ def plot_weights(
 ):
     # Create a bar chart
     plt.figure(figsize=(8, 4))
-    bars = plt.bar(range(len(numbers)), numbers, color=colors)
+    plt.bar(range(len(numbers)), numbers, color=colors)
     plt.xlabel("Transformer Index")
     plt.ylabel("Weight")
     plt.legend(
