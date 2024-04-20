@@ -927,7 +927,7 @@ class Script(scripts.Script, metaclass=(
         logger.info(f"unit_separate = {batch_option_uint_separate}, style_align = {batch_option_style_align}")
 
         detected_maps = []
-        forward_params = []
+        forward_params: List[ControlParams] = []
         post_processors = []
 
         # cache stuff
@@ -1177,10 +1177,21 @@ class Script(scripts.Script, metaclass=(
 
         for i, param in enumerate(forward_params):
             if param.control_model_type == ControlModelType.IPAdapter:
+                if param.advanced_weighting is not None:
+                    logger.info(f"IP-Adapter using advanced weighting {param.advanced_weighting}")
+                    assert len(param.advanced_weighting) == global_state.get_sd_version().transformer_block_num
+                    # Convert advanced weighting list to dict
+                    weight = {
+                        i: w
+                        for i, w in enumerate(param.advanced_weighting)
+                        if w > 0
+                    }
+                else:
+                    weight = param.weight
                 param.control_model.hook(
                     model=unet,
                     preprocessor_outputs=param.hint_cond,
-                    weight=param.weight,
+                    weight=weight,
                     dtype=torch.float32,
                     start=param.start_guidance_percent,
                     end=param.stop_guidance_percent

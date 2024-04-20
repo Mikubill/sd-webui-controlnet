@@ -1,6 +1,9 @@
+import itertools
 import torch
+from typing import Union, Dict
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
+from ..enums import StableDiffusionVersion, TransformerID
 
 
 def get_block(model, flag):
@@ -61,21 +64,19 @@ def hack_blk(block, function, type):
     return
 
 
-def set_model_attn2_replace(model, function, flag, id):
-    from ldm.modules.attention import CrossAttention
-
-    block = get_block(model, flag)[id][1].transformer_blocks[0].attn2
-    hack_blk(block, function, CrossAttention)
-    return
-
-
-def set_model_patch_replace(model, function, flag, id, trans_id):
-    from sgm.modules.attention import CrossAttention
-
-    blk = get_block(model, flag)
-    block = blk[id][1].transformer_blocks[trans_id].attn2
-    hack_blk(block, function, CrossAttention)
-    return
+def set_model_attn2_replace(
+    model,
+    target_cls,
+    function,
+    transformer_id: TransformerID,
+):
+    block = get_block(model, transformer_id.block_type.value)
+    module = (
+        block[transformer_id.block_id][1]
+        .transformer_blocks[transformer_id.block_index]
+        .attn2
+    )
+    hack_blk(module, function, target_cls)
 
 
 def clear_all_ip_adapter():
@@ -94,7 +95,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.ipadapter = ipadapter
         self.disable_memory_management = True
         self.dtype = None
-        self.weight = 1.0
+        self.weight: Union[float, Dict[int, float]] = 1.0
         self.cache = None
         self.p_start = 0.0
         self.p_end = 1.0
@@ -126,60 +127,31 @@ class PlugableIPAdapter(torch.nn.Module):
         self.image_emb = ImageEmbed.average_of(
             *[self.ipadapter.get_image_emb(o) for o in preprocessor_outputs]
         )
-        # From https://github.com/laksjdjf/IPAdapter-ComfyUI
-        if not self.ipadapter.is_sdxl:
-            number = 0  # index of to_kvs
-            for id in [
-                1,
-                2,
-                4,
-                5,
-                7,
-                8,
-            ]:  # id of input_blocks that have cross attention
-                set_model_attn2_replace(model, self.patch_forward(number), "input", id)
-                number += 1
-            for id in [
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-            ]:  # id of output_blocks that have cross attention
-                set_model_attn2_replace(model, self.patch_forward(number), "output", id)
-                number += 1
-            set_model_attn2_replace(model, self.patch_forward(number), "middle", 0)
-        else:
-            number = 0
-            for id in [4, 5, 7, 8]:  # id of input_blocks that have cross attention
-                block_indices = (
-                    range(2) if id in [4, 5] else range(10)
-                )  # transformer_depth
-                for index in block_indices:
-                    set_model_patch_replace(
-                        model, self.patch_forward(number), "input", id, index
-                    )
-                    number += 1
-            for id in range(6):  # id of output_blocks that have cross attention
-                block_indices = (
-                    range(2) if id in [3, 4, 5] else range(10)
-                )  # transformer_depth
-                for index in block_indices:
-                    set_model_patch_replace(
-                        model, self.patch_forward(number), "output", id, index
-                    )
-                    number += 1
-            for index in range(10):
-                set_model_patch_replace(
-                    model, self.patch_forward(number), "middle", 0, index
-                )
-                number += 1
 
-        return
+        if self.ipadapter.is_sdxl:
+            sd_version = StableDiffusionVersion.SDXL
+            from sgm.modules.attention import CrossAttention
+        else:
+            sd_version = StableDiffusionVersion.SD1x
+            from ldm.modules.attention import CrossAttention
+
+        input_ids, output_ids, middle_ids = sd_version.transformer_ids
+        for i, transformer_id in enumerate(
+            itertools.chain(input_ids, output_ids, middle_ids)
+        ):
+            set_model_attn2_replace(
+                model,
+                CrossAttention,
+                self.patch_forward(i, transformer_id.transformer_index),
+                transformer_id,
+            )
+
+    def weight_on_transformer(self, transformer_index: int) -> float:
+        if isinstance(self.weight, dict):
+            return self.weight.get(transformer_index, 0.0)
+        else:
+            assert isinstance(self.weight, (float, int))
+            return self.weight
 
     def call_ip(self, key: str, feat, device):
         if key in self.cache:
@@ -190,12 +162,13 @@ class PlugableIPAdapter(torch.nn.Module):
             return ip
 
     @torch.no_grad()
-    def patch_forward(self, number: int):
+    def patch_forward(self, number: int, transformer_index: int):
         @torch.no_grad()
         def forward(attn_blk, x, q):
             batch_size, sequence_length, inner_dim = x.shape
             h = attn_blk.heads
             head_dim = inner_dim // h
+            weight = self.weight_on_transformer(transformer_index)
 
             current_sampling_percent = getattr(
                 current_model, "current_sampling_percent", 0.5
@@ -203,8 +176,9 @@ class PlugableIPAdapter(torch.nn.Module):
             if (
                 current_sampling_percent < self.p_start
                 or current_sampling_percent > self.p_end
+                or weight == 0.0
             ):
-                return 0
+                return 0.0
 
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
@@ -229,6 +203,6 @@ class PlugableIPAdapter(torch.nn.Module):
             )
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
-            return ip_out * self.weight
+            return ip_out * weight
 
         return forward
