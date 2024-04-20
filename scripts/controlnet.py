@@ -1179,6 +1179,7 @@ class Script(scripts.Script, metaclass=(
             if param.control_model_type == ControlModelType.IPAdapter:
                 if param.advanced_weighting is not None:
                     logger.info(f"IP-Adapter using advanced weighting {param.advanced_weighting}")
+                    assert len(param.advanced_weighting) == global_state.get_sd_version().transformer_block_num
                     # Convert advanced weighting list to dict
                     weight = {
                         i: w
