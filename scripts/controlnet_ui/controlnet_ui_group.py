@@ -18,6 +18,7 @@ from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.controlnet_ui.photopea import Photopea
+from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
 from scripts.enums import InputMode
 from modules import shared
 from modules.ui_components import FormRow
@@ -289,6 +290,7 @@ class ControlNetUiGroup(object):
         self.input_mode = gr.State(InputMode.SIMPLE)
         self.inpaint_crop_input_image = None
         self.hr_option = None
+        self.advanced_weight_control = AdvancedWeightControl()
         self.batch_image_dir_state = None
         self.output_dir_state = None
 
@@ -640,6 +642,8 @@ class ControlNetUiGroup(object):
             visible=False,
         )
 
+        self.advanced_weight_control.render()
+
         self.preset_panel = ControlNetPresetUI(
             id_prefix=f"{elem_id_tabname}_{tabname}_"
         )
@@ -675,6 +679,8 @@ class ControlNetUiGroup(object):
             self.control_mode,
             self.inpaint_crop_input_image,
             self.hr_option,
+            self.save_detected_map,
+            self.advanced_weighting,
         )
 
         unit = gr.State(self.default_unit)
@@ -1255,6 +1261,12 @@ class ControlNetUiGroup(object):
                 getattr(self, key)
                 for key in vars(external_code.ControlNetUnit()).keys()
             ],
+        )
+        self.advanced_weight_control.register_callbacks(
+            self.weight,
+            self.advanced_weighting,
+            self.type_filter,
+            self.update_unit_counter,
         )
         if self.is_img2img:
             self.register_img2img_same_input()

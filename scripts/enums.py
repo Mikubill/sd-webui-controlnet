@@ -25,6 +25,12 @@ class TransformerIDResult(NamedTuple):
     output_ids: List[TransformerID]
     middle_ids: List[TransformerID]
 
+    def get(self, idx: int) -> TransformerID:
+        return (self.input_ids + self.middle_ids + self.output_ids)[idx]
+
+    def to_list(self) -> List[TransformerID]:
+        return self.input_ids + self.middle_ids + self.output_ids
+
 
 class StableDiffusionVersion(Enum):
     """The version family of stable diffusion model."""
@@ -64,7 +70,8 @@ class StableDiffusionVersion(Enum):
         return self.encoder_block_num() + 1
 
     @property
-    def ipadapter_layer_num(self) -> int:
+    def transformer_block_num(self) -> int:
+        """Number of blocks that has cross attn transformers in unet."""
         if self in (
             StableDiffusionVersion.SD1x,
             StableDiffusionVersion.SD2x,
