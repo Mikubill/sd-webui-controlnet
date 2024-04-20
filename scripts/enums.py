@@ -26,10 +26,13 @@ class TransformerIDResult(NamedTuple):
     middle_ids: List[TransformerID]
 
     def get(self, idx: int) -> TransformerID:
-        return (self.input_ids + self.middle_ids + self.output_ids)[idx]
+        return self.to_list()[idx]
 
     def to_list(self) -> List[TransformerID]:
-        return self.input_ids + self.middle_ids + self.output_ids
+        return sorted(
+            self.input_ids + self.output_ids + self.middle_ids,
+            key=lambda i: i.transformer_index,
+        )
 
 
 class StableDiffusionVersion(Enum):
@@ -112,7 +115,7 @@ class StableDiffusionVersion(Enum):
             input_ids = []
             for block_id in [4, 5, 7, 8]:
                 block_indices = (
-                    range(2) if id in [4, 5] else range(10)
+                    range(2) if block_id in [4, 5] else range(10)
                 )  # transformer_depth
                 for index in block_indices:
                     input_ids.append(
@@ -131,7 +134,7 @@ class StableDiffusionVersion(Enum):
             output_ids = []
             for block_id in range(6):
                 block_indices = (
-                    range(2) if id in [3, 4, 5] else range(10)
+                    range(2) if block_id in [3, 4, 5] else range(10)
                 )  # transformer_depth
                 for index in block_indices:
                     output_ids.append(

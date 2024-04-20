@@ -5,7 +5,7 @@ import io
 from PIL import Image
 from typing import List
 
-from scripts.enums import StableDiffusionVersion, UnetBlockType
+from scripts.enums import StableDiffusionVersion
 from scripts.global_state import get_sd_version
 from scripts.ipadapter.weight import calc_weights
 
@@ -18,18 +18,17 @@ OUTPUT_BLOCK_COLOR = "#dc6e55"
 def get_bar_colors(
     sd_version: StableDiffusionVersion, input_color, middle_color, output_color
 ):
-    return [
-        (
-            input_color
-            if transformer_id.block_type == UnetBlockType.INPUT
-            else (
-                middle_color
-                if transformer_id.block_type == UnetBlockType.MIDDLE
-                else output_color
-            )
-        )
-        for transformer_id in sd_version.transformer_ids.to_list()
-    ]
+    middle_block_idx = 4 if sd_version == StableDiffusionVersion.SDXL else 6
+
+    def get_color(idx):
+        if idx < middle_block_idx:
+            return input_color
+        elif idx == middle_block_idx:
+            return middle_color
+        else:
+            return output_color
+
+    return [get_color(i) for i in range(sd_version.transformer_block_num)]
 
 
 def plot_weights(
