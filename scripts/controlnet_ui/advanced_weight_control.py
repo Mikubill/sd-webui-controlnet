@@ -99,7 +99,7 @@ class AdvancedWeightControl:
                     label="Composition Weight",
                     minimum=0,
                     maximum=2.0,
-                    value=0.0,
+                    value=1.0,
                     step=0.01,
                     visible=False,
                 )
@@ -119,6 +119,9 @@ class AdvancedWeightControl:
         control_type: gr.Radio,
         update_unit_counter: gr.Number,
     ):
+        def advanced_weighting_supported(control_type: str) -> bool:
+            return control_type in ("IP-Adapter", "Instant-ID")
+
         self.weight_type.change(
             fn=lambda weight_type: gr.update(
                 visible=weight_type
@@ -129,11 +132,30 @@ class AdvancedWeightControl:
         )
 
         def update_weight_textbox(
-            weight_type: str, weight: float, weight_composition: float
+            control_type: str,
+            weight_type: str,
+            weight: float,
+            weight_composition: float,
         ):
+            if not advanced_weighting_supported(control_type):
+                return gr.update()
+
             sd_version = get_sd_version()
             weights = calc_weights(weight_type, weight, sd_version, weight_composition)
             return gr.update(value=str([round(w, 2) for w in weights]), visible=True)
+
+        trigger_inputs = [self.weight_type, weight_input, self.weight_composition]
+        for trigger_input in trigger_inputs:
+            trigger_input.change(
+                fn=update_weight_textbox,
+                inputs=[
+                    control_type,
+                    self.weight_type,
+                    weight_input,
+                    self.weight_composition,
+                ],
+                outputs=[self.weight_editor],
+            )
 
         def update_plot(weights_string: str):
             try:
@@ -162,14 +184,6 @@ class AdvancedWeightControl:
                 return None
             return weights
 
-        trigger_inputs = [self.weight_type, weight_input, self.weight_composition]
-        for trigger_input in trigger_inputs:
-            trigger_input.change(
-                fn=update_weight_textbox,
-                inputs=[self.weight_type, weight_input, self.weight_composition],
-                outputs=[self.weight_editor],
-            )
-
         self.weight_editor.change(
             fn=update_plot,
             inputs=[self.weight_editor],
@@ -187,8 +201,30 @@ class AdvancedWeightControl:
         )  # Necessary to flush gr.State change to unit state.
 
         # TODO: Expose advanced weighting control for other control types.
+        def control_type_change(control_type: str, old_weights):
+            supported = advanced_weighting_supported(control_type)
+            if supported:
+                return (
+                    gr.update(visible=supported),
+                    old_weights,
+                    gr.update(),
+                    gr.update(),
+                )
+            else:
+                return (
+                    gr.update(visible=supported),
+                    None,
+                    gr.update(visible=False),
+                    gr.update(visible=False),
+                )
+
         control_type.change(
-            fn=lambda t: gr.update(visible=t in ("IP-Adapter", "Instant-ID")),
-            inputs=[control_type],
-            outputs=[self.group],
+            fn=control_type_change,
+            inputs=[control_type, advanced_weighting],
+            outputs=[
+                self.group,
+                advanced_weighting,
+                self.weight_editor,
+                self.weight_plot,
+            ],
         )
