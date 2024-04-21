@@ -57,6 +57,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         sd_version=StableDiffusionVersion.SD1x,
     ),
     IPAdapterPreset(
+        name="plus-composition",
+        module=clip_h,
+        model="ip-adapter_plus_composition_sd15",
+        sd_version=StableDiffusionVersion.SD1x,
+    ),
+    IPAdapterPreset(
         name="plus_face",
         module=clip_h,
         model="ip-adapter-plus-face_sd15",
@@ -117,6 +123,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         name="plus-h",
         module=clip_h,
         model="ip-adapter-plus_sdxl_vit-h",
+        sd_version=StableDiffusionVersion.SDXL,
+    ),
+    IPAdapterPreset(
+        name="plus-composition",
+        module=clip_h,
+        model="ip-adapter_plus_composition_sdxl",
         sd_version=StableDiffusionVersion.SDXL,
     ),
     IPAdapterPreset(
