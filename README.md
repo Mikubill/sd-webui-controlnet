@@ -6,6 +6,14 @@ The WebUI extension for ControlNet and other injection-based SD controls.
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
+# News
+- [2024-04-19] 🔥[v1.1.445] IPAdapter advanced weight [Instant Style] [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2770]
+- [2024-04-17] 🔥[v1.1.444] Marigold depth preprocessor [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2760]
+- [2024-04-15] 🔥ControlNet++ models released [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2778]
+- [2024-04-13] 🔥TTPLanet_SDXL_Controlnet_Tile_Realistic v2 released [[Civitai Page](https://civitai.com/models/330313/ttplanetsdxlcontrolnettilerealistic)]
+- [2024-03-31] 🔥[1.1.443] IP-Adapter CLIP mask and ip-adapter-auto preprocessor [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2723]
+- [2024-03-20] 🔥IPAdapter Composition [[Huggingface Page](https://huggingface.co/ostris/ip-composition-adapter)]
+
 # Installation
 
 1. Open "Extensions" tab.
