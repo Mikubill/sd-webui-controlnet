@@ -419,7 +419,7 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             )
 
         # Parse ipadapter_input
-        if "ipadapter_input" in unit:
+        if "ipadapter_input" in unit and unit["ipadapter_input"] is not None:
 
             def decode_base64(b: str) -> torch.Tensor:
                 decoded_bytes = base64.b64decode(b)
