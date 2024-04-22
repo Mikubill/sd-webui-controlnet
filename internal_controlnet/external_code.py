@@ -204,6 +204,9 @@ class ControlNetUnit:
     # even advanced_weighting is set.
     advanced_weighting: Optional[List[float]] = None
 
+    # The effective region mask that unit's effect should be restricted to.
+    effective_region_mask: Optional[np.ndarray] = None
+
     # The tensor input for ipadapter. When this field is set in the API,
     # the base64string will be interpret by torch.load to reconstruct ipadapter
     # preprocessor output.

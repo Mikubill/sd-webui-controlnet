@@ -1,6 +1,6 @@
 import itertools
 import torch
-from typing import Union, Dict
+from typing import Union, Dict, Optional
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
 from ..enums import StableDiffusionVersion, TransformerID
@@ -99,19 +99,34 @@ class PlugableIPAdapter(torch.nn.Module):
         self.cache = None
         self.p_start = 0.0
         self.p_end = 1.0
+        self.latent_width: int = 0
+        self.latent_height: int = 0
+        self.effective_region_mask = None
 
     def reset(self):
         self.cache = {}
 
     @torch.no_grad()
     def hook(
-        self, model, preprocessor_outputs, weight, start, end, dtype=torch.float32
+        self,
+        model,
+        preprocessor_outputs,
+        weight,
+        start: float,
+        end: float,
+        latent_width: int,
+        latent_height: int,
+        effective_region_mask: Optional[torch.Tensor],
+        dtype=torch.float32,
     ):
         global current_model
         current_model = model
 
         self.p_start = start
         self.p_end = end
+        self.latent_width = latent_width
+        self.latent_height = latent_height
+        self.effective_region_mask = effective_region_mask
 
         self.cache = {}
 
@@ -161,6 +176,25 @@ class PlugableIPAdapter(torch.nn.Module):
             self.cache[key] = ip
             return ip
 
+    def apply_effective_region_mask(self, out: torch.Tensor) -> torch.Tensor:
+        if self.effective_region_mask is None:
+            return out
+
+        _, sequence_length, _ = out.shape
+        factor = sequence_length // (self.latent_width + self.latent_height)
+        assert factor > 0
+        mask_h = self.latent_height * factor
+        mask_w = self.latent_width * factor
+
+        mask = torch.nn.functional.interpolate(
+            self.effective_region_mask.to(out.device).unsqueeze(1),
+            size=(mask_h, mask_w),
+            mode="bilinear",
+        ).squeeze(1)
+        mask = mask.repeat(len(current_model.cond_mark), 1, 1)
+        mask = mask.view(mask.shape[0], -1, 1).repeat(1, 1, out.shape[2])
+        return out * mask
+
     @torch.no_grad()
     def patch_forward(self, number: int, transformer_index: int):
         @torch.no_grad()
@@ -203,6 +237,6 @@ class PlugableIPAdapter(torch.nn.Module):
             )
             ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
 
-            return ip_out * weight
+            return self.apply_effective_region_mask(ip_out * weight)
 
         return forward

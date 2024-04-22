@@ -293,10 +293,11 @@ class ControlNetUiGroup(object):
         self.advanced_weight_control = AdvancedWeightControl()
         self.batch_image_dir_state = None
         self.output_dir_state = None
+        self.advanced_weighting = gr.State(None)
 
         # API-only fields
-        self.advanced_weighting = gr.State(None)
         self.ipadapter_input = gr.State(None)
+        self.effective_region_mask = gr.Image(value=None, visible=False)
 
         ControlNetUiGroup.all_ui_groups.append(self)
 
