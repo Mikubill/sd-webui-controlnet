@@ -16,6 +16,9 @@ class IPAdapterPreset(NamedTuple):
     @staticmethod
     def match_model(model_name: str) -> IPAdapterPreset:
         model_name = model_name.split("[")[0].strip()
+        assert (
+            model_name in _preset_by_model
+        ), f"{model_name} not found in ipadapter presets. Please try manually pick preprocessor."
         return _preset_by_model[model_name]
 
 
@@ -54,6 +57,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         name="plus",
         module=clip_h,
         model="ip-adapter-plus_sd15",
+        sd_version=StableDiffusionVersion.SD1x,
+    ),
+    IPAdapterPreset(
+        name="plus",
+        module=clip_h,
+        model="ip-adapter_sd15_plus",
         sd_version=StableDiffusionVersion.SD1x,
     ),
     IPAdapterPreset(
