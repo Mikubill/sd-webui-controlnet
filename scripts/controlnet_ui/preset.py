@@ -35,23 +35,18 @@ def load_presets(preset_dir: str) -> Dict[str, str]:
 
 
 def infer_control_type(module: str, model: str) -> str:
-    def matches_control_type(input_string: str, control_type: str) -> bool:
-        return any(t.lower() in input_string for t in control_type.split("/"))
-
-    control_types = Preprocessor.get_all_preprocessor_tags()
-    control_type_candidates = [
-        control_type
-        for control_type in control_types
-        if (
-            matches_control_type(module, control_type)
-            or matches_control_type(model, control_type)
-        )
+    p = Preprocessor.get_preprocessor(module)
+    assert p is not None
+    matched_tags = [
+        tag
+        for tag in p.tags
+        if any(f in model.lower() for f in Preprocessor.tag_to_filters(tag))
     ]
-    if len(control_type_candidates) != 1:
+    if len(matched_tags) != 1:
         raise ValueError(
             f"Unable to infer control type from module {module} and model {model}"
         )
-    return control_type_candidates[0]
+    return matched_tags[0]
 
 
 class ControlNetPresetUI(object):
