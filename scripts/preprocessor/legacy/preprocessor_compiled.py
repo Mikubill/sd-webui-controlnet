@@ -29,7 +29,7 @@ legacy_preprocessors = {
     #     "slider_3": None,
     #     "priority": 20,
     #     "tags": [
-    #         "Canny", "Lineart", "Scribble", "Sketch", "MLSD",
+    #         "Canny", "Lineart", "Scribble", "MLSD",
     #     ]
     # },
     "animal_openpose": {
@@ -929,7 +929,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Scribble", "Sketch", "SparseCtrl",
+            "Scribble", "SparseCtrl",
         ]
     },
     "pidinet_scribble": {
@@ -945,7 +945,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 100,
         "tags": [
-            "Scribble", "Sketch", "SparseCtrl",
+            "Scribble", "SparseCtrl",
         ]
     },
     # "scribble_xdog": {
@@ -971,7 +971,7 @@ legacy_preprocessors = {
     #     "slider_3": None,
     #     "priority": 0,
     #     "tags": [
-    #         "Scribble", "Sketch",
+    #         "Scribble",
     #     ]
     # },
     "anime_face_segment": {
