@@ -159,6 +159,8 @@ class Preprocessor(ABC):
             "ip-adapter": ["ip_adapter", "ipadapter"],
             "openpose": ["openpose", "densepose"],
             "instant-id": ["instant_id", "instantid"],
+            "scribble": ["sketch"],
+            "tile": ["blur"],
         }
 
         tag = tag.lower()
