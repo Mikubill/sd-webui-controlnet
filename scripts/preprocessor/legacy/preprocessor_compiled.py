@@ -76,7 +76,7 @@ legacy_preprocessors = {
     #     "slider_3": None,
     #     "priority": 0,
     #     "tags": [
-    #         "Tile", "Blur",
+    #         "Tile",
     #     ]
     # },
     # "canny": {
@@ -1262,7 +1262,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Tile", "Blur",
+            "Tile",
         ]
     },
     "tile_colorfix+sharp": {
@@ -1290,7 +1290,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 0,
         "tags": [
-            "Tile", "Blur",
+            "Tile",
         ]
     },
     "tile_resample": {
@@ -1312,7 +1312,7 @@ legacy_preprocessors = {
         "slider_3": None,
         "priority": 100,
         "tags": [
-            "Tile", "Blur",
+            "Tile",
         ]
     }
 }

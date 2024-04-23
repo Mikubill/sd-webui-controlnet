@@ -95,7 +95,7 @@ class PreprocessorBlurGaussian(Preprocessor):
         self.slider_1 = PreprocessorParameter(
             label="Sigma", minimum=64, maximum=2048, value=512
         )
-        self.tags = ["Tile", "Blur"]
+        self.tags = ["Tile"]
 
     def __call__(
         self,

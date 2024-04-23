@@ -160,6 +160,7 @@ class Preprocessor(ABC):
             "openpose": ["openpose", "densepose"],
             "instant-id": ["instant_id", "instantid"],
             "scribble": ["sketch"],
+            "tile": ["blur"],
         }
 
         tag = tag.lower()
