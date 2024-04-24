@@ -1365,11 +1365,11 @@ def on_ui_settings():
     shared.opts.add_option("control_net_models_path", shared.OptionInfo(
         "", "Extra path to scan for ControlNet models (e.g. training output directory)", section=section))
     shared.opts.add_option("control_net_modules_path", shared.OptionInfo(
-        "", "Path to directory containing annotator model directories (requires restart, overrides corresponding command line flag)", section=section))
+        "", "Path to directory containing annotator model directories (overrides corresponding command line flag)", section=section).needs_reload_ui())
     shared.opts.add_option("control_net_unit_count", shared.OptionInfo(
-        3, "Multi-ControlNet: ControlNet unit number (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
+        3, "Multi-ControlNet: ControlNet unit number", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section).needs_reload_ui())
     shared.opts.add_option("control_net_model_cache_size", shared.OptionInfo(
-        2, "Model cache size (requires restart)", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section))
+        2, "Model cache size", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}, section=section).needs_reload_ui())
     shared.opts.add_option("control_net_inpaint_blur_sigma", shared.OptionInfo(
         7, "ControlNet inpainting Gaussian blur sigma", gr.Slider, {"minimum": 0, "maximum": 64, "step": 1}, section=section))
     shared.opts.add_option("control_net_no_detectmap", shared.OptionInfo(
@@ -1396,6 +1396,9 @@ def on_ui_settings():
     shared.opts.add_option("controlnet_clip_detector_on_cpu", shared.OptionInfo(
         False, "Load CLIP preprocessor model on CPU",
         gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_control_type_dropdown", shared.OptionInfo(
+        False, "Display control type as dropdown",
+        gr.Checkbox, {"interactive": True}, section=section).needs_reload_ui())
 
 
 batch_hijack.instance.do_hijack()

@@ -515,7 +515,7 @@ class ControlNetUiGroup(object):
             )
 
         with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
-            self.type_filter = gr.Radio(
+            self.type_filter = (gr.Dropdown if shared.opts.data.get("controlnet_control_type_dropdown", False) else gr.Radio)(
                 Preprocessor.get_all_preprocessor_tags(),
                 label="Control Type",
                 value="All",
