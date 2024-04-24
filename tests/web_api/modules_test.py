@@ -170,3 +170,37 @@ def test_module_list(alias):
             {"name": "High Threshold", "value": 200, "min": 1, "max": 255, "step": 1},
         ],
     )
+
+
+def test_control_types():
+    json_resp = requests.get(
+        APITestTemplate.BASE_URL + f"controlnet/control_types"
+    ).json()
+    assert "control_types" in json_resp
+    actual_control_types = set(json_resp["control_types"].keys())
+    expected_control_types = {
+        "Canny",
+        "Revision",
+        "Inpaint",
+        "Instant-ID",
+        "InstructP2P",
+        "Shuffle",
+        "Scribble",
+        "SparseCtrl",
+        "MLSD",
+        "OpenPose",
+        "Depth",
+        "All",
+        "Lineart",
+        "SoftEdge",
+        "NormalMap",
+        "IP-Adapter",
+        "Reference",
+        "T2I-Adapter",
+        "Segmentation",
+        "Tile",
+        "Recolor",
+    }
+    assert actual_control_types.issuperset(expected_control_types), (
+        expected_control_types - actual_control_types
+    )
