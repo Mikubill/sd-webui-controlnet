@@ -190,7 +190,12 @@ def safer_memory(x):
     return np.ascontiguousarray(x.copy()).copy()
 
 
-def resize_image_with_pad(img, resolution):
+def resize_image_with_pad(img: np.ndarray, resolution: int):
+    # Convert greyscale image to RGB.
+    if img.ndim == 2:
+        img = img[:, :, None]
+        img = np.concatenate([img, img, img], axis=2)
+
     H_raw, W_raw, _ = img.shape
     k = float(resolution) / float(min(H_raw, W_raw))
     interpolation = cv2.INTER_CUBIC if k > 1 else cv2.INTER_AREA
