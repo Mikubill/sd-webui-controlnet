@@ -71,7 +71,7 @@
                 this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
                 this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
                 this.inputImageContainer = tab.querySelector('.cnet-input-image-group .cnet-image');
-                this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input[type="radio"]');
+                this.controlTypeRadios = tab.querySelectorAll('.controlnet_control_type_filter_group input');
                 this.resizeModeRadios = tab.querySelectorAll('.controlnet_resize_mode_radio input[type="radio"]');
                 this.runPreprocessorButton = tab.querySelector('.cnet-run-preprocessor');
 
@@ -93,6 +93,9 @@
             }
 
             getActiveControlType() {
+                if (this.controlTypeRadios.length == 1) {
+                    return this.controlTypeRadios[0].value;
+                }
                 for (let radio of this.controlTypeRadios) {
                     if (radio.checked) {
                         return radio.value;
@@ -193,6 +196,19 @@
             }
 
             attachControlTypeRadioListener() {
+                if (this.controlTypeRadios.length == 1) {
+                    const input = this.controlTypeRadios[0];
+                    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+                    const tab = this;
+                    Object.defineProperty(input, "value", {
+                        get: desc.get,
+                        set: function(v) {
+                            desc.set.call(this, v);
+                            tab.updateActiveControlType();
+                        }
+                    });
+                    return;
+                }
                 for (const radio of this.controlTypeRadios) {
                     radio.addEventListener('change', () => {
                         this.updateActiveControlType();
