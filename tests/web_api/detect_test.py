@@ -54,8 +54,6 @@ UNSUPPORTED_PREPROCESSORS = {
 }
 
 
-# Need to allow detect of CLIP preprocessor result.
-# https://github.com/Mikubill/sd-webui-controlnet/pull/2590
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[depth_zoe] - assert 500 == 200
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[inpaint_only+lama] - assert 500 == 200
 @disable_in_cq
