@@ -26,30 +26,52 @@ def detect_template(payload, output_name: str, status: int = 200):
         return
 
     resp_json = resp.json()
-    assert "images" in resp_json
-    assert len(resp_json["images"]) == len(payload["controlnet_input_images"])
-    if not APITestTemplate.is_cq_run:
-        for i, img in enumerate(resp_json["images"]):
-            if img == "Detect result is not image":
-                continue
-            dest = get_dest_dir() / f"{output_name}_{i}.png"
-            save_base64(img, dest)
+    if "images" in resp_json:
+        assert len(resp_json["images"]) == len(payload["controlnet_input_images"])
+        if not APITestTemplate.is_cq_run:
+            for i, img in enumerate(resp_json["images"]):
+                if img == "Detect result is not image":
+                    continue
+                dest = get_dest_dir() / f"{output_name}_{i}.png"
+                save_base64(img, dest)
+    elif "tensor" in resp_json:
+        assert len(resp_json["tensor"]) == len(payload["controlnet_input_images"])
+        if not APITestTemplate.is_cq_run:
+            for i, tensor_str in enumerate(resp_json["tensor"]):
+                dest = get_dest_dir() / f"{output_name}_{i}.txt"
+                with open(dest, "w") as f:
+                    f.write(tensor_str)
+    else:
+        assert False, resp_json
     return resp_json
+
+
+UNSUPPORTED_PREPROCESSORS = {
+    "clip_vision",
+    "revision_clipvision",
+    "revision_ignore_prompt",
+    "ip-adapter-auto",
+}
 
 
 # Need to allow detect of CLIP preprocessor result.
 # https://github.com/Mikubill/sd-webui-controlnet/pull/2590
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[clip_vision] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589ADD1210>
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[revision_clipvision] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AFB00E0>
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[revision_ignore_prompt] - PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x000001589AF3C9A0>
-
-
-# TODO: file issue on these failures.
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[depth_zoe] - assert 500 == 200
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[inpaint_only+lama] - assert 500 == 200
 @disable_in_cq
-@pytest.mark.parametrize("module", get_modules())
+@pytest.mark.parametrize(
+    "module", [m for m in get_modules() if m not in UNSUPPORTED_PREPROCESSORS]
+)
 def test_detect_all_modules(module: str):
+    payload = dict(
+        controlnet_input_images=[realistic_girl_face_img],
+        controlnet_module=module,
+    )
+    detect_template(payload, f"detect_{module}")
+
+
+@pytest.mark.parametrize("module", [m for m in UNSUPPORTED_PREPROCESSORS])
+def test_unsupported_modules(module: str):
     payload = dict(
         controlnet_input_images=[realistic_girl_face_img],
         controlnet_module=module,
@@ -97,8 +119,10 @@ def test_detect_default_param():
             ),
             "default_param",
         )
-        assert log_context.is_in_console_logs([
-            "[canny.processor_res] Invalid value(-1), using default value 512.",
-            "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
-            "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
-        ])
+        assert log_context.is_in_console_logs(
+            [
+                "[canny.processor_res] Invalid value(-1), using default value 512.",
+                "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
+                "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
+            ]
+        )
