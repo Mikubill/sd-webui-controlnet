@@ -191,7 +191,7 @@ def safer_memory(x):
 
 
 def resize_image_with_pad(img, resolution):
-    H_raw, W_raw, _ = img.shape
+    H_raw, W_raw = img.shape[0:2]
     k = float(resolution) / float(min(H_raw, W_raw))
     interpolation = cv2.INTER_CUBIC if k > 1 else cv2.INTER_AREA
     H_target = int(np.round(float(H_raw) * k))
