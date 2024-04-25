@@ -406,6 +406,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 100,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],
@@ -423,6 +424,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 0,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],
@@ -440,6 +442,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 0,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],

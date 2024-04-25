@@ -5,6 +5,8 @@ from typing import List
 from .template import (
     APITestTemplate,
     realistic_girl_face_img,
+    girl_img,
+    mask_img,
     save_base64,
     get_dest_dir,
     disable_in_cq,
@@ -53,19 +55,40 @@ UNSUPPORTED_PREPROCESSORS = {
     "ip-adapter-auto",
 }
 
+INPAINT_PREPROCESSORS = {
+    "inpaint_only",
+    "inpaint",
+    "inpaint_only+lama",
+}
+
 
 # FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[depth_zoe] - assert 500 == 200
-# FAILED extensions/sd-webui-controlnet/tests/web_api/detect_test.py::test_detect_all_modules[inpaint_only+lama] - assert 500 == 200
 @disable_in_cq
 @pytest.mark.parametrize(
-    "module", [m for m in get_modules() if m not in UNSUPPORTED_PREPROCESSORS]
+    "module",
+    [
+        m
+        for m in get_modules()
+        if m not in UNSUPPORTED_PREPROCESSORS.union(INPAINT_PREPROCESSORS)
+    ],
 )
 def test_detect_all_modules(module: str):
     payload = dict(
         controlnet_input_images=[realistic_girl_face_img],
-        controlnet_module=module,
+        controlnet_masks=[mask_img],
     )
     detect_template(payload, f"detect_{module}")
+
+
+@disable_in_cq
+@pytest.mark.parametrize("module", [m for m in INPAINT_PREPROCESSORS])
+def test_inpaint_mask(module: str):
+    payload = dict(
+        controlnet_input_images=[girl_img],
+        controlnet_masks=[mask_img],
+        controlnet_module=module,
+    )
+    detect_template(payload, f"detect_inpaint_mask_{module}")
 
 
 @pytest.mark.parametrize("module", [m for m in UNSUPPORTED_PREPROCESSORS])
@@ -75,6 +98,15 @@ def test_unsupported_modules(module: str):
         controlnet_module=module,
     )
     detect_template(payload, f"detect_{module}", status=422)
+
+
+@pytest.mark.parametrize("module", [m for m in INPAINT_PREPROCESSORS])
+def test_mask_error(module: str):
+    payload = dict(
+        controlnet_input_images=[realistic_girl_face_img],
+        controlnet_module=module,
+    )
+    detect_template(payload, f"mask_error_{module}", status=422)
 
 
 def test_detect_simple():

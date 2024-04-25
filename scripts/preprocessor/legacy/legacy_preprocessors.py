@@ -45,6 +45,8 @@ class LegacyPreprocessor(Preprocessor):
         self.sorting_priority = legacy_dict["priority"]
         self.tags = legacy_dict["tags"]
         self.returns_image = legacy_dict.get("returns_image", True)
+        self.accepts_mask = legacy_dict.get("accepts_mask", False)
+        self.requires_mask = legacy_dict.get("requires_mask", False)
 
         if legacy_dict.get("use_soft_projection_in_hr_fix", False):
             self.use_soft_projection_in_hr_fix = True
