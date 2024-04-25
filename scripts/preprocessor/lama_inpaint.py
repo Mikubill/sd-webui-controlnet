@@ -16,6 +16,7 @@ class PreprocessorLamaInpaint(Preprocessor):
         self.requires_mask = True
 
     def get_display_image(self, input_image: np.ndarray, result: np.ndarray):
+        """For lama inpaint, display image should not contain mask."""
         assert result.ndim == 3
         assert result.shape[2] == 4
         return result[:, :, :3]
