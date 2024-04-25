@@ -3,6 +3,8 @@ import requests
 from .template import (
     APITestTemplate,
     realistic_girl_face_img,
+    girl_img,
+    mask_img,
     disable_in_cq,
     get_model,
 )
@@ -33,6 +35,27 @@ def test_ipadapter_clip_api():
     ipadapter_input = resp["tensor"]
     APITestTemplate(
         "test_ipadapter_clip_api",
+        "txt2img",
+        payload_overrides={},
+        unit_overrides={
+            "ipadapter_input": ipadapter_input,
+            "model": get_model("ip-adapter_sd15"),
+        },
+    ).exec()
+
+
+@disable_in_cq
+def test_ipadapter_clip_api_mask():
+    resp = detect_template(
+        dict(
+            controlnet_input_images=[girl_img],
+            controlnet_masks=[mask_img],
+            controlnet_module="ip-adapter_clip_h",
+        )
+    )
+    ipadapter_input = resp["tensor"]
+    APITestTemplate(
+        "test_ipadapter_clip_api_mask",
         "txt2img",
         payload_overrides={},
         unit_overrides={

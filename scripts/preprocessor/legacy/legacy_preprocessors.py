@@ -45,6 +45,8 @@ class LegacyPreprocessor(Preprocessor):
         self.sorting_priority = legacy_dict["priority"]
         self.tags = legacy_dict["tags"]
         self.returns_image = legacy_dict.get("returns_image", True)
+        self.accepts_mask = legacy_dict.get("accepts_mask", False)
+        self.requires_mask = legacy_dict.get("requires_mask", False)
 
         if legacy_dict.get("use_soft_projection_in_hr_fix", False):
             self.use_soft_projection_in_hr_fix = True
@@ -98,7 +100,7 @@ class LegacyPreprocessor(Preprocessor):
             img=input_image, res=resolution, thr_a=slider_1, thr_b=slider_2, **kwargs
         )
 
-        if is_image and "inpaint" not in self.name:
+        if is_image:
             result = HWC3(result)
 
         if self.unload_function is not None:

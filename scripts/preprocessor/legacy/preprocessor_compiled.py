@@ -313,38 +313,38 @@ legacy_preprocessors = {
             "OpenPose"
         ]
     },
-    "inpaint": {
-        "label": "inpaint_global_harmonious",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "Inpaint"
-        ]
-    },
-    "inpaint_only": {
-        "label": "inpaint_only",
-        "call_function": identity,
-        "unload_function": None,
-        "managed_model": None,
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": None,
-        "slider_1": None,
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 100,
-        "tags": [
-            "Inpaint"
-        ]
-    },
+    # "inpaint": {
+    #     "label": "inpaint_global_harmonious",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "Inpaint"
+    #     ]
+    # },
+    # "inpaint_only": {
+    #     "label": "inpaint_only",
+    #     "call_function": identity,
+    #     "unload_function": None,
+    #     "managed_model": None,
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": None,
+    #     "slider_1": None,
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 100,
+    #     "tags": [
+    #         "Inpaint"
+    #     ]
+    # },
     # "inpaint_only+lama": {
     #     "label": "inpaint_only+lama",
     #     "call_function": lama_inpaint,
@@ -406,6 +406,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 100,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],
@@ -423,6 +424,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 0,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],
@@ -440,6 +442,7 @@ legacy_preprocessors = {
         "slider_2": None,
         "slider_3": None,
         "priority": 0,
+        "accepts_mask": True,  # CLIP mask
         "tags": [
             "IP-Adapter"
         ],

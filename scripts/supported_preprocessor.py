@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, ClassVar, Dict, Optional, Set
+from typing import List, ClassVar, Dict, Optional, Set, NamedTuple, Any
 from dataclasses import dataclass, field
+import numpy as np
 
 from modules import shared
 from scripts.logging import logger
@@ -92,6 +93,8 @@ class Preprocessor(ABC):
     show_control_mode = True
     do_not_need_model = False
     sorting_priority = 0  # higher goes to top in the list
+    accepts_mask: bool = False
+    requires_mask: bool = False
     corp_image_with_a1111_mask_when_in_img2img_inpaint_tab = True
     fill_mask_with_one_when_resize_and_fill = False
     use_soft_projection_in_hr_fix = False
@@ -111,7 +114,9 @@ class Preprocessor(ABC):
         cls.all_processors[p.label] = p
         assert p.name not in cls.all_processors_by_name, f"{p.name} already registered!"
         cls.all_processors_by_name[p.name] = p
-        logger.debug(f"{p.name} registered. Total preprocessors ({len(cls.all_processors)}).")
+        logger.debug(
+            f"{p.name} registered. Total preprocessors ({len(cls.all_processors)})."
+        )
 
     @classmethod
     def get_preprocessor(cls, name: str) -> Optional["Preprocessor"]:
@@ -166,8 +171,24 @@ class Preprocessor(ABC):
         tag = tag.lower()
         return set([tag] + filters_aliases.get(tag, []))
 
+    class Result(NamedTuple):
+        value: Any
+        # The display image shown on UI.
+        display_image: np.ndarray
+
+    def get_display_image(self, input_image: np.ndarray, result):
+        return result if self.returns_image else input_image
+
+    def cached_call(self, input_image, *args, **kwargs) -> "Preprocessor.Result":
+        """The function exposed that also returns an image for display."""
+        result = self._cached_call(input_image, *args, **kwargs)
+        return Preprocessor.Result(
+            value=result, display_image=self.get_display_image(input_image, result)
+        )
+
     @ndarray_lru_cache(max_size=CACHE_SIZE)
-    def cached_call(self, *args, **kwargs):
+    def _cached_call(self, *args, **kwargs):
+        """The actual cached function."""
         logger.debug(f"Calling preprocessor {self.name} outside of cache.")
         return self(*args, **kwargs)
 

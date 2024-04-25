@@ -12,6 +12,14 @@ class PreprocessorLamaInpaint(Preprocessor):
         self.returns_image = True
         self.model = None
         self.slider_resolution = PreprocessorParameter(visible=False)
+        self.accepts_mask = True
+        self.requires_mask = True
+
+    def get_display_image(self, input_image: np.ndarray, result: np.ndarray):
+        """For lama inpaint, display image should not contain mask."""
+        assert result.ndim == 3
+        assert result.shape[2] == 4
+        return result[:, :, :3]
 
     def __call__(
         self,
@@ -24,6 +32,7 @@ class PreprocessorLamaInpaint(Preprocessor):
     ):
         img = input_image
         H, W, C = img.shape
+        assert C == 4, "No mask is provided!"
         raw_color = img[:, :, 0:3].copy()
         raw_mask = img[:, :, 3:4].copy()
 
