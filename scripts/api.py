@@ -105,6 +105,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         ),
         controlnet_threshold_a: float = Body(-1, title="Controlnet Threshold a"),
         controlnet_threshold_b: float = Body(-1, title="Controlnet Threshold b"),
+        controlnet_masks: List[str] = Body([], title="Controlnet Masks"),
         low_vram: bool = Body(False, title="Low vram"),
     ):
         preprocessor = Preprocessor.get_preprocessor(controlnet_module)
@@ -123,6 +124,14 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         if len(controlnet_input_images) == 0:
             raise HTTPException(status_code=422, detail="No image selected")
 
+        if preprocessor.requires_mask and len(controlnet_masks) != len(
+            controlnet_input_images
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Preprocessor {controlnet_module} requires `controlnet_masks` param.",
+            )
+
         logger.info(
             f"Detecting {str(len(controlnet_input_images))} images with the {controlnet_module} module."
         )
@@ -135,11 +144,23 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         )
         unit.bound_check_params()
 
-        results = []
+        tensors = []
+        images = []
         poses = []
 
-        for input_image in controlnet_input_images:
+        for i, input_image in enumerate(controlnet_input_images):
             img = external_code.to_base64_nparray(input_image)
+            # Has mask.
+            if i < len(controlnet_masks):
+                if preprocessor.accepts_mask:
+                    mask = external_code.to_base64_nparray(controlnet_masks[i])[
+                        :, :, :1
+                    ]
+                    img = np.concatenate([img, mask], axis=2)
+                else:
+                    logger.warn(
+                        f"Preprocessor {controlnet_module} does not accept mask. Mask ignored"
+                    )
 
             class JsonAcceptor:
                 def __init__(self) -> None:
@@ -149,7 +170,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                     self.value = json_dict
 
             json_acceptor = JsonAcceptor()
-            detected_map = preprocessor.cached_call(
+            result = preprocessor.cached_call(
                 img,
                 resolution=unit.processor_res,
                 slider_1=unit.threshold_a,
@@ -157,19 +178,23 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 json_pose_callback=json_acceptor.accept,
                 low_vram=low_vram,
             )
-            results.append(detected_map)
+            if preprocessor.returns_image:
+                tensors.append(encode_tensor_to_base64(result.value))
+            else:
+                images.append(encode_to_base64(result.display_image))
 
             if "openpose" in controlnet_module:
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
         res = {"info": "Success"}
-        if preprocessor.returns_image:
-            res["images"] = [encode_to_base64(r) for r in results]
-            if poses:
-                res["poses"] = poses
-        else:
-            res["tensor"] = [encode_tensor_to_base64(r) for r in results]
+        if poses:
+            res["poses"] = poses
+        if images:
+            res["images"] = images
+        if tensors:
+            res["tensor"] = tensors
+
         return res
 
     class Person(BaseModel):

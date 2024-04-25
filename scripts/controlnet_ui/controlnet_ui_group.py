@@ -953,13 +953,9 @@ class ControlNetUiGroup(object):
                 model=model,
             )
 
-            if not preprocessor.returns_image:
-                result = img
-
-            result = external_code.visualize_inpaint_mask(result)
             return (
                 # Update to `generated_image`
-                gr.update(value=result, visible=True, interactive=False),
+                gr.update(value=result.display_image, visible=True, interactive=False),
                 # preprocessor_preview
                 gr.update(value=True),
                 # openpose editor

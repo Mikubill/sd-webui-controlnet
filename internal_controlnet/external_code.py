@@ -91,16 +91,6 @@ def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
         return value
 
 
-def visualize_inpaint_mask(img):
-    if img.ndim == 3 and img.shape[2] == 4:
-        result = img.copy()
-        mask = result[:, :, 3]
-        mask = 255 - mask // 2
-        result[:, :, 3] = mask
-        return np.ascontiguousarray(result.copy())
-    return img
-
-
 def pixel_perfect_resolution(
     image: np.ndarray,
     target_H: int,

@@ -98,7 +98,7 @@ class LegacyPreprocessor(Preprocessor):
             img=input_image, res=resolution, thr_a=slider_1, thr_b=slider_2, **kwargs
         )
 
-        if is_image and "inpaint" not in self.name:
+        if is_image:
             result = HWC3(result)
 
         if self.unload_function is not None:
