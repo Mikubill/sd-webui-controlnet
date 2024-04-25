@@ -60,3 +60,7 @@ class PreprocessorInpaintOnly(Preprocessor):
         **kwargs
     ):
         return input_image
+
+
+Preprocessor.add_supported_preprocessor(PreprocessorInpaint())
+Preprocessor.add_supported_preprocessor(PreprocessorInpaintOnly())
