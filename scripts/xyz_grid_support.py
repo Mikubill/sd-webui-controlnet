@@ -7,6 +7,7 @@ try:
     from scripts.global_state import update_cn_models, cn_models_names
     from scripts.external_code import ResizeMode, ControlMode
     from scripts.supported_preprocessor import Preprocessor
+    from scripts.logging import logger
 
 except (ImportError, NameError):
     import_error = True
@@ -310,8 +311,6 @@ class ListParser():
 
 
 def find_module(module_names):
-    if isinstance(module_names, str):
-        module_names = [s.strip() for s in module_names.split(",")]
     for data in scripts.scripts_data:
         if data.script_class.__module__ in module_names and hasattr(data, "module"):
             return data.module
@@ -441,9 +440,11 @@ def add_axis_options(xyz_grid):
 
 
 def run():
-    xyz_grid = find_module("xyz_grid.py, xy_grid.py")
+    xyz_grid = find_module({"xyz_grid.py", "xy_grid.py", "scripts.xyz_grid", "scripts.xy_grid"})
     if xyz_grid:
         add_axis_options(xyz_grid)
+    else:
+        logger.warn("xyz script not found")
 
 
 if not import_error:
