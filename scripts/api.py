@@ -179,9 +179,9 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 low_vram=low_vram,
             )
             if preprocessor.returns_image:
-                tensors.append(encode_tensor_to_base64(result.value))
-            else:
                 images.append(encode_to_base64(result.display_image))
+            else:
+                tensors.append(encode_tensor_to_base64(result.value))
 
             if "openpose" in controlnet_module:
                 assert json_acceptor.value is not None

@@ -55,7 +55,7 @@ def test_ipadapter_clip_api_mask():
     )
     ipadapter_input = resp["tensor"]
     APITestTemplate(
-        "test_ipadapter_clip_api",
+        "test_ipadapter_clip_api_mask",
         "txt2img",
         payload_overrides={},
         unit_overrides={
