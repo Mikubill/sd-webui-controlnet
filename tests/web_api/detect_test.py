@@ -74,7 +74,7 @@ def test_unsupported_modules(module: str):
         controlnet_input_images=[realistic_girl_face_img],
         controlnet_module=module,
     )
-    detect_template(payload, f"detect_{module}")
+    detect_template(payload, f"detect_{module}", status=422)
 
 
 def test_detect_simple():
