@@ -16,7 +16,7 @@ jobs:
         with:
           repository: 'AUTOMATIC1111/stable-diffusion-webui'
           path: 'stable-diffusion-webui'
-          ref: '4afaaf8a020c1df457bcf7250cb1c7f609699fa7'
+          ref: '1c0a0c4c26f78c32095ebc7f8af82f5c04fca8c0'
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
@@ -92,7 +92,7 @@ jobs:
       - name: Run tests
         run: |
           wait-for-it --service 127.0.0.1:7860 -t 600
-          python -m pytest -vv --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
+          python -m pytest -v --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
         working-directory: stable-diffusion-webui
       - name: Kill test server
         if: always()
