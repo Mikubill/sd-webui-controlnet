@@ -3,7 +3,7 @@ import hashlib
 import numpy as np
 import torch.nn as nn
 from functools import partial
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
@@ -226,22 +226,12 @@ class ControlParams:
         if self.effective_region_mask is None:
             return out
 
-        _, sequence_length, _ = out.shape
-        # sequence_length = mask_h * mask_w
-        # sequence_length = (latent_height * factor) * (latent_height * factor)
-        # sequence_length = (latent_height * latent_height) * factor ^ 2
-        factor = math.sqrt(sequence_length / (self.latent_width * self.latent_height))
-        assert factor > 0, f"{factor}, {sequence_length}, {self.latent_width}, {self.latent_height}"
-        mask_h = int(self.latent_height * factor)
-        mask_w = int(self.latent_width * factor)
-
+        B, C, H, W = out.shape
         mask = torch.nn.functional.interpolate(
             self.effective_region_mask.to(out.device),
-            size=(mask_h, mask_w),
+            size=(H, W),
             mode="bilinear",
-        ).squeeze()
-        mask = mask.repeat(len(current_model.cond_mark), 1, 1)
-        mask = mask.view(mask.shape[0], -1, 1).repeat(1, 1, out.shape[2])
+        )
         return out * mask
 
 
@@ -449,7 +439,7 @@ class UnetHook(nn.Module):
             if self.model is not None:
                 self.model.current_sampling_percent = current_sampling_percent
 
-    def hook(self, model, sd_ldm, control_params, process, batch_option_uint_separate=False, batch_option_style_align=False):
+    def hook(self, model, sd_ldm, control_params: List[ControlParams], process, batch_option_uint_separate=False, batch_option_style_align=False):
         self.model = model
         self.sd_ldm = sd_ldm
         self.control_params = control_params
@@ -639,9 +629,6 @@ class UnetHook(nn.Module):
                     if 'mlsd' in param.preprocessor['name']:
                         high_res_fix_forced_soft_injection = True
 
-                # if high_res_fix_forced_soft_injection:
-                #     logger.info('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
-
                 if param.soft_injection or high_res_fix_forced_soft_injection:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
@@ -658,7 +645,11 @@ class UnetHook(nn.Module):
                         logger.warn("Advanced weighting overwrites soft_injection effect.")
                     control_scales = param.advanced_weighting
 
-                control = [c * scale for c, scale in zip(control, control_scales)]
+                control = [
+                    param.apply_effective_region_mask(c * scale)
+                    for c, scale
+                    in zip(control, control_scales)
+                ]
                 if param.global_average_pooling:
                     control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
 
