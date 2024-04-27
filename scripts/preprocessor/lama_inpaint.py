@@ -46,8 +46,6 @@ class PreprocessorLamaInpaint(Preprocessor):
             self.model = LamaInpainting()
         # applied auto inversion
         prd_color = self.model(img_res)
-        self.model.unload_model()
-
         prd_color = remove_pad(prd_color)
         prd_color = cv2.resize(prd_color, (W, H))
 

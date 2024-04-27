@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, ClassVar, Dict, Optional, Set, NamedTuple, Any
 from dataclasses import dataclass, field
 import numpy as np
+import torch
 
 from modules import shared
 from scripts.logging import logger
@@ -99,6 +100,7 @@ class Preprocessor(ABC):
     fill_mask_with_one_when_resize_and_fill = False
     use_soft_projection_in_hr_fix = False
     expand_mask_when_resize_and_fill = False
+    model: Optional[torch.nn.Module] = None
 
     all_processors: ClassVar[Dict[str, "Preprocessor"]] = {}
     all_processors_by_name: ClassVar[Dict[str, "Preprocessor"]] = {}
@@ -171,6 +173,14 @@ class Preprocessor(ABC):
         tag = tag.lower()
         return set([tag] + filters_aliases.get(tag, []))
 
+    @classmethod
+    def unload_unused(cls, active_processors: Set["Preprocessor"]):
+        for p in cls.all_processors.values():
+            if p not in active_processors:
+                success = p.unload()
+                if success:
+                    logger.debug(f"Unload unused preprocessor {p.name}")
+
     class Result(NamedTuple):
         value: Any
         # The display image shown on UI.
@@ -210,3 +220,16 @@ class Preprocessor(ABC):
         **kwargs,
     ):
         pass
+
+    def unload(self):
+        if self.model is not None:
+            if hasattr(self.model, "unload_model"):
+                self.model.unload_model()
+                return True
+
+            if hasattr(self.model, "to"):
+                self.model.to("cpu")
+                return True
+
+            raise Exception(f"Unable to unload model {self.model}")
+        return False

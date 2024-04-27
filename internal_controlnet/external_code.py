@@ -283,6 +283,13 @@ class ControlNetUnit:
                     f"[{self.module}.{unit_param}] Invalid value({value}), using default value {cfg.value}."
                 )
 
+    def get_actual_preprocessor(self) -> Preprocessor:
+        if self.module == "ip-adapter-auto":
+            return Preprocessor.get_preprocessor(self.module).get_preprocessor_by_model(
+                self.model
+            )
+        return Preprocessor.get_preprocessor(self.module)
+
 
 def to_base64_nparray(encoding: str):
     """
