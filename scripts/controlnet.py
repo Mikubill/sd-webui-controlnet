@@ -451,7 +451,7 @@ class Script(scripts.Script, metaclass=(
                 # Falls through to load Controlllite model fresh.
                 # TODO Fix context sharing issue for Controlllite.
                 pass
-            elif not control_model.type.allow_context_sharing():
+            elif not control_model.type.allow_context_sharing:
                 # Creates a shallow-copy of control_model so that configs/inputs
                 # from different units can be bind correctly. While heavy objects
                 # of the underlying nn.Module is not copied.
@@ -981,7 +981,7 @@ class Script(scripts.Script, metaclass=(
                     p.controlnet_control_loras.append(control_lora)
 
             if unit.effective_region_mask is not None:
-                assert control_model_type == ControlModelType.IPAdapter, "Currently `effective_region_mask` is only supported for IPAdapter"
+                assert control_model_type.supports_effective_region_mask, f"`effective_region_mask` not supported for {control_model_type}"
 
             if unit.ipadapter_input is not None:
                 # Use ipadapter_input from API call.
@@ -1075,7 +1075,7 @@ class Script(scripts.Script, metaclass=(
             )
 
             global_average_pooling = (
-                control_model_type.is_controlnet() and
+                control_model_type.is_controlnet and
                 model_net.control_model.global_average_pooling
             )
             control_mode = external_code.control_mode_from_value(unit.control_mode)

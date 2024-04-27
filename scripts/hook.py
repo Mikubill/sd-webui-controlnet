@@ -222,6 +222,28 @@ class ControlParams:
             assert False, "NOTREACHED"
         return control_disabled
 
+    def apply_effective_region_mask(self, out: torch.Tensor) -> torch.Tensor:
+        if self.effective_region_mask is None:
+            return out
+
+        _, sequence_length, _ = out.shape
+        # sequence_length = mask_h * mask_w
+        # sequence_length = (latent_height * factor) * (latent_height * factor)
+        # sequence_length = (latent_height * latent_height) * factor ^ 2
+        factor = math.sqrt(sequence_length / (self.latent_width * self.latent_height))
+        assert factor > 0, f"{factor}, {sequence_length}, {self.latent_width}, {self.latent_height}"
+        mask_h = int(self.latent_height * factor)
+        mask_w = int(self.latent_width * factor)
+
+        mask = torch.nn.functional.interpolate(
+            self.effective_region_mask.to(out.device),
+            size=(mask_h, mask_w),
+            mode="bilinear",
+        ).squeeze()
+        mask = mask.repeat(len(current_model.cond_mark), 1, 1)
+        mask = mask.view(mask.shape[0], -1, 1).repeat(1, 1, out.shape[2])
+        return out * mask
+
 
 def aligned_adding(base, x, require_channel_alignment):
     if isinstance(x, float):
@@ -560,7 +582,7 @@ class UnetHook(nn.Module):
                     continue
 
                 if not (
-                    param.control_model_type.is_controlnet() or
+                    param.control_model_type.is_controlnet or
                     param.control_model_type == ControlModelType.T2I_Adapter
                 ):
                     continue
@@ -569,7 +591,7 @@ class UnetHook(nn.Module):
                 x_in = x
                 control_model = param.control_model.control_model
 
-                if param.control_model_type.is_controlnet():
+                if param.control_model_type.is_controlnet:
                     if x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9:
                         # inpaint_model: 4 data + 4 downscaled image + 1 mask
                         x_in = x[:, :4, ...]
@@ -624,10 +646,10 @@ class UnetHook(nn.Module):
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
-                    elif param.control_model_type.is_controlnet():
+                    elif param.control_model_type.is_controlnet:
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
 
-                if is_sdxl and param.control_model_type.is_controlnet():
+                if is_sdxl and param.control_model_type.is_controlnet:
                     control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
@@ -642,7 +664,7 @@ class UnetHook(nn.Module):
 
                 for idx, item in enumerate(control):
                     target = None
-                    if param.control_model_type.is_controlnet():
+                    if param.control_model_type.is_controlnet:
                         target = total_controlnet_embedding
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         target = total_t2i_adapter_embedding
