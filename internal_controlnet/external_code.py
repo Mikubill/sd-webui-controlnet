@@ -453,6 +453,10 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
                 "Guess Mode is removed since 1.1.136. Please use Control Mode instead."
             )
 
+        for k in unit.keys():
+            if k not in vars(ControlNetUnit):
+                logger.warn(f"Received unrecognized key '{k}' in API.")
+
         unit = ControlNetUnit(
             **{k: v for k, v in unit.items() if k in vars(ControlNetUnit).keys()}
         )
