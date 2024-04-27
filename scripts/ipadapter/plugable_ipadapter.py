@@ -191,8 +191,7 @@ class PlugableIPAdapter(torch.nn.Module):
         mask_w = int(self.latent_width * factor)
 
         mask = torch.nn.functional.interpolate(
-            # [H, W] => [1, 1, H, W]
-            self.effective_region_mask.to(out.device).unsqueeze(0).unsqueeze(0),
+            self.effective_region_mask.to(out.device),
             size=(mask_h, mask_w),
             mode="bilinear",
         ).squeeze()

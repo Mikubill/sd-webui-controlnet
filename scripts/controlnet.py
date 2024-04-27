@@ -1089,8 +1089,7 @@ class Script(scripts.Script, metaclass=(
                 soft_injection=control_mode != external_code.ControlMode.BALANCED,
                 cfg_injection=control_mode == external_code.ControlMode.CONTROL,
                 effective_region_mask=(
-                    # [1, C, H, W] => [H, W]
-                    get_pytorch_control(unit.effective_region_mask)[0][0]
+                    get_pytorch_control(unit.effective_region_mask)[:, 0:1, :, :]
                     if unit.effective_region_mask is not None
                     else None
                 ),
