@@ -172,6 +172,7 @@ class ControlParams:
             cfg_injection,
             hr_option: HiResFixOption = HiResFixOption.BOTH,
             control_context_override: Optional[Any] = None,
+            effective_region_mask: Optional[torch.Tensor] = None,
             **kwargs  # To avoid errors
     ):
         self.control_model = control_model
@@ -187,6 +188,7 @@ class ControlParams:
         self.hr_hint_cond = hr_hint_cond
         self.hr_option = hr_option
         self.control_context_override = control_context_override
+        self.effective_region_mask = effective_region_mask
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None

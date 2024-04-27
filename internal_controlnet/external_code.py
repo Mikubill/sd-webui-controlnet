@@ -204,6 +204,9 @@ class ControlNetUnit:
     # even advanced_weighting is set.
     advanced_weighting: Optional[List[float]] = None
 
+    # The effective region mask that unit's effect should be restricted to.
+    effective_region_mask: Optional[np.ndarray] = None
+
     # The tensor input for ipadapter. When this field is set in the API,
     # the base64string will be interpret by torch.load to reconstruct ipadapter
     # preprocessor output.
@@ -239,6 +242,7 @@ class ControlNetUnit:
             # Note: "inpaint_crop_image" is img2img inpaint only flag, which does not
             # provide much information when restoring the unit.
             "inpaint_crop_input_image",
+            "effective_region_mask",
         ]
 
     @property
@@ -431,6 +435,11 @@ def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNe
             unit["ipadapter_input"] = [
                 decode_base64(b) for b in unit["ipadapter_input"]
             ]
+
+        if unit.get("effective_region_mask", None) is not None:
+            base64img = unit["effective_region_mask"]
+            assert isinstance(base64img, str)
+            unit["effective_region_mask"] = to_base64_nparray(base64img)
 
         if "guess_mode" in unit:
             logger.warning(

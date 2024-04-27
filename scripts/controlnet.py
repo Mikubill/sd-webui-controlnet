@@ -974,6 +974,9 @@ class Script(scripts.Script, metaclass=(
                     bind_control_lora(unet, control_lora)
                     p.controlnet_control_loras.append(control_lora)
 
+            if unit.effective_region_mask is not None:
+                assert control_model_type == ControlModelType.IPAdapter, "Currently `effective_region_mask` is only supported for IPAdapter"
+
             if unit.ipadapter_input is not None:
                 # Use ipadapter_input from API call.
                 assert control_model_type == ControlModelType.IPAdapter
@@ -1085,6 +1088,11 @@ class Script(scripts.Script, metaclass=(
                 hr_option=HiResFixOption.from_value(unit.hr_option) if high_res_fix else HiResFixOption.BOTH,
                 soft_injection=control_mode != external_code.ControlMode.BALANCED,
                 cfg_injection=control_mode == external_code.ControlMode.CONTROL,
+                effective_region_mask=(
+                    get_pytorch_control(unit.effective_region_mask)[:, 0:1, :, :]
+                    if unit.effective_region_mask is not None
+                    else None
+                ),
             )
             forward_params.append(forward_param)
 
@@ -1189,13 +1197,18 @@ class Script(scripts.Script, metaclass=(
                     }
                 else:
                     weight = param.weight
+
+                h, w, hr_y, hr_x = Script.get_target_dimensions(p)
                 param.control_model.hook(
                     model=unet,
                     preprocessor_outputs=param.hint_cond,
                     weight=weight,
                     dtype=torch.float32,
                     start=param.start_guidance_percent,
-                    end=param.stop_guidance_percent
+                    end=param.stop_guidance_percent,
+                    latent_width=w // 8,
+                    latent_height=h // 8,
+                    effective_region_mask=param.effective_region_mask,
                 )
             if param.control_model_type == ControlModelType.Controlllite:
                 param.control_model.hook(
