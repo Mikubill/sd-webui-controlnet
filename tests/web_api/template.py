@@ -77,6 +77,7 @@ mask_left = read_image(resource_dir / "mask_left.png")
 mask_right = read_image(resource_dir / "mask_right.png")
 portrait_imgs = read_image_dir(resource_dir / "portrait")
 realistic_girl_face_img = portrait_imgs[0]
+living_room_img = read_image(resource_dir / "living_room.webp")
 
 
 general_negative_prompt = """

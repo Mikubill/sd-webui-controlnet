@@ -3,7 +3,7 @@ import hashlib
 import numpy as np
 import torch.nn as nn
 from functools import partial
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 from scripts.logging import logger
 from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
@@ -222,6 +222,18 @@ class ControlParams:
             assert False, "NOTREACHED"
         return control_disabled
 
+    def apply_effective_region_mask(self, out: torch.Tensor) -> torch.Tensor:
+        if self.effective_region_mask is None:
+            return out
+
+        B, C, H, W = out.shape
+        mask = torch.nn.functional.interpolate(
+            self.effective_region_mask.to(out.device),
+            size=(H, W),
+            mode="bilinear",
+        )
+        return out * mask
+
 
 def aligned_adding(base, x, require_channel_alignment):
     if isinstance(x, float):
@@ -427,7 +439,7 @@ class UnetHook(nn.Module):
             if self.model is not None:
                 self.model.current_sampling_percent = current_sampling_percent
 
-    def hook(self, model, sd_ldm, control_params, process, batch_option_uint_separate=False, batch_option_style_align=False):
+    def hook(self, model, sd_ldm, control_params: List[ControlParams], process, batch_option_uint_separate=False, batch_option_style_align=False):
         self.model = model
         self.sd_ldm = sd_ldm
         self.control_params = control_params
@@ -560,7 +572,7 @@ class UnetHook(nn.Module):
                     continue
 
                 if not (
-                    param.control_model_type.is_controlnet() or
+                    param.control_model_type.is_controlnet or
                     param.control_model_type == ControlModelType.T2I_Adapter
                 ):
                     continue
@@ -569,7 +581,7 @@ class UnetHook(nn.Module):
                 x_in = x
                 control_model = param.control_model.control_model
 
-                if param.control_model_type.is_controlnet():
+                if param.control_model_type.is_controlnet:
                     if x.shape[1] != control_model.input_blocks[0][0].in_channels and x.shape[1] == 9:
                         # inpaint_model: 4 data + 4 downscaled image + 1 mask
                         x_in = x[:, :4, ...]
@@ -617,17 +629,14 @@ class UnetHook(nn.Module):
                     if 'mlsd' in param.preprocessor['name']:
                         high_res_fix_forced_soft_injection = True
 
-                # if high_res_fix_forced_soft_injection:
-                #     logger.info('[ControlNet] Forced soft_injection in high_res_fix in enabled.')
-
                 if param.soft_injection or high_res_fix_forced_soft_injection:
                     # important! use the soft weights with high-res fix can significantly reduce artifacts.
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         control_scales = [param.weight * x for x in (0.25, 0.62, 0.825, 1.0)]
-                    elif param.control_model_type.is_controlnet():
+                    elif param.control_model_type.is_controlnet:
                         control_scales = [param.weight * (0.825 ** float(12 - i)) for i in range(13)]
 
-                if is_sdxl and param.control_model_type.is_controlnet():
+                if is_sdxl and param.control_model_type.is_controlnet:
                     control_scales = control_scales[:10]
 
                 if param.advanced_weighting is not None:
@@ -636,13 +645,17 @@ class UnetHook(nn.Module):
                         logger.warn("Advanced weighting overwrites soft_injection effect.")
                     control_scales = param.advanced_weighting
 
-                control = [c * scale for c, scale in zip(control, control_scales)]
+                control = [
+                    param.apply_effective_region_mask(c * scale)
+                    for c, scale
+                    in zip(control, control_scales)
+                ]
                 if param.global_average_pooling:
                     control = [torch.mean(c, dim=(2, 3), keepdim=True) for c in control]
 
                 for idx, item in enumerate(control):
                     target = None
-                    if param.control_model_type.is_controlnet():
+                    if param.control_model_type.is_controlnet:
                         target = total_controlnet_embedding
                     if param.control_model_type == ControlModelType.T2I_Adapter:
                         target = total_t2i_adapter_embedding

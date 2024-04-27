@@ -174,6 +174,7 @@ class ControlModelType(Enum):
     InstantID = "InstantID, Qixun Wang"
     SparseCtrl = "SparseCtrl, Yuwei Guo"
 
+    @property
     def is_controlnet(self) -> bool:
         """Returns whether the control model should be treated as ControlNet."""
         return self in (
@@ -182,6 +183,7 @@ class ControlModelType(Enum):
             ControlModelType.InstantID,
         )
 
+    @property
     def allow_context_sharing(self) -> bool:
         """Returns whether this control model type allows the same PlugableControlModel
         object map to multiple ControlNetUnit.
@@ -192,6 +194,17 @@ class ControlModelType(Enum):
         return self not in (
             ControlModelType.IPAdapter,
             ControlModelType.Controlllite,
+        )
+
+    @property
+    def supports_effective_region_mask(self) -> bool:
+        return (
+            self
+            in {
+                ControlModelType.IPAdapter,
+                ControlModelType.T2I_Adapter,
+            }
+            or self.is_controlnet
         )
 
 
