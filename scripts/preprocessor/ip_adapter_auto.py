@@ -11,13 +11,16 @@ class PreprocessorIPAdapterAuto(Preprocessor):
         self.returns_image = False
         self.show_control_mode = False
 
+    @staticmethod
+    def get_preprocessor_by_model(model):
+        module: str = IPAdapterPreset.match_model(model).module
+        return Preprocessor.get_preprocessor(module)
+
     def __call__(self, *args, **kwargs):
         assert "model" in kwargs
         model: str = kwargs["model"]
-        module: str = IPAdapterPreset.match_model(model).module
-        logger.info(f"ip-adapter-auto => {module}")
-
-        p = Preprocessor.get_preprocessor(module)
+        p = PreprocessorIPAdapterAuto.get_preprocessor_by_model(model)
+        logger.info(f"ip-adapter-auto => {p.label}")
         assert p is not None
         return p(*args, **kwargs)
 

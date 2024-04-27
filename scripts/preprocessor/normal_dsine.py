@@ -41,7 +41,6 @@ class PreprocessorNormalDsine(Preprocessor):
             iterations=int(slider_2),
             resulotion=resolution,
         )
-        self.model.unload_model()
         return result
 
 

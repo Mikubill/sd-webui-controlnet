@@ -936,6 +936,12 @@ class Script(scripts.Script, metaclass=(
             Script.clear_control_model_cache()
 
         self.latest_model_hash = p.sd_model.sd_model_hash
+
+        # Unload unused preprocessors
+        Preprocessor.unload_unused(active_processors={
+            unit.get_actual_preprocessor()
+            for unit in self.enabled_units
+        })
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
 
         for idx, unit in enumerate(self.enabled_units):

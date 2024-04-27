@@ -187,6 +187,8 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 assert json_acceptor.value is not None
                 poses.append(json_acceptor.value)
 
+        preprocessor.unload()
+
         res = {"info": "Success"}
         if poses:
             res["poses"] = poses
