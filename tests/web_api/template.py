@@ -73,6 +73,8 @@ def read_image_dir(
 girl_img = read_image(resource_dir / "1girl.png")
 mask_img = read_image(resource_dir / "mask.png")
 mask_small_img = read_image(resource_dir / "mask_small.png")
+mask_left = read_image(resource_dir / "mask_left.png")
+mask_right = read_image(resource_dir / "mask_right.png")
 portrait_imgs = read_image_dir(resource_dir / "portrait")
 realistic_girl_face_img = portrait_imgs[0]
 

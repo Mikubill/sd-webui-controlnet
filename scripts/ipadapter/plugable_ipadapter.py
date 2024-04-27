@@ -1,5 +1,6 @@
 import itertools
 import torch
+import math
 from typing import Union, Dict, Optional
 
 from .ipadapter_model import ImageEmbed, IPAdapterModel
@@ -181,16 +182,20 @@ class PlugableIPAdapter(torch.nn.Module):
             return out
 
         _, sequence_length, _ = out.shape
-        factor = sequence_length // (self.latent_width + self.latent_height)
-        assert factor > 0
-        mask_h = self.latent_height * factor
-        mask_w = self.latent_width * factor
+        # sequence_length = mask_h * mask_w
+        # sequence_length = (latent_height * factor) * (latent_height * factor)
+        # sequence_length = (latent_height * latent_height) * factor ^ 2
+        factor = math.sqrt(sequence_length / (self.latent_width * self.latent_height))
+        assert factor > 0, f"{factor}, {sequence_length}, {self.latent_width}, {self.latent_height}"
+        mask_h = int(self.latent_height * factor)
+        mask_w = int(self.latent_width * factor)
 
         mask = torch.nn.functional.interpolate(
-            self.effective_region_mask.to(out.device).unsqueeze(1),
+            # [H, W] => [1, 1, H, W]
+            self.effective_region_mask.to(out.device).unsqueeze(0).unsqueeze(0),
             size=(mask_h, mask_w),
             mode="bilinear",
-        ).squeeze(1)
+        ).squeeze()
         mask = mask.repeat(len(current_model.cond_mark), 1, 1)
         mask = mask.view(mask.shape[0], -1, 1).repeat(1, 1, out.shape[2])
         return out * mask
