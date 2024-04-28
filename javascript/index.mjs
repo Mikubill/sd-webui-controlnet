@@ -1,6 +1,7 @@
 import { ControlNetUnit } from "./controlnet_unit.mjs";
 import { initControlNetModals } from "./modal.mjs";
 import { OpenposeEditor } from "./openpose_editor.mjs";
+import { loadPhotopea } from "./photopea.mjs";
 
 (function () {
   const cnetAllAccordions = new Set();
@@ -15,6 +16,7 @@ import { OpenposeEditor } from "./openpose_editor.mjs";
         });
 
       initControlNetModals(accordion);
+      loadPhotopea(accordion);
 
       cnetAllAccordions.add(accordion);
     });
