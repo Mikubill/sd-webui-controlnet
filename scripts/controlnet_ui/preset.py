@@ -4,8 +4,8 @@ import gradio as gr
 from typing import Dict, List
 
 from modules import scripts
+from modules.ui_components import ToolButton
 from scripts.infotext import parse_unit, serialize_unit
-from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.logging import logger
 from scripts import external_code
 from scripts.supported_preprocessor import Preprocessor
