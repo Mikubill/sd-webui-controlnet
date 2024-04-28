@@ -180,3 +180,8 @@
     background: var(--background-fill-primary);
     color: var(--block-label-text-color);
 }
+
+.cnet-region-planner .konvajs-content {
+    border: 1px solid var(--button-secondary-border-color);
+    margin: 0 auto;
+}

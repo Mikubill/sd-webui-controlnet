@@ -1,0 +1,1 @@
+"""Try migrate scripts under this module to avoid file namespace pollution under `scripts.`"""
