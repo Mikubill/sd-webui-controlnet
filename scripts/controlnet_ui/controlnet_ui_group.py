@@ -20,7 +20,7 @@ from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
 from scripts.enums import InputMode
 from modules import shared
-from modules.ui_components import FormRow, ToolButton
+from modules.ui_components import FormRow, FormHTML, ToolButton
 
 
 @dataclass
@@ -429,7 +429,7 @@ class ControlNetUiGroup(object):
                     )
 
             with gr.Row(elem_classes="controlnet_image_controls"):
-                gr.HTML(
+                FormHTML(
                     value="<p>Set the preprocessor to [invert] If your image has white background and black lines.</p>",
                     elem_classes="controlnet_invert_warning",
                 )
