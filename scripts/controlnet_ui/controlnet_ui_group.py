@@ -16,12 +16,11 @@ from annotator.util import HWC3
 from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
-from scripts.controlnet_ui.tool_button import ToolButton
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
 from scripts.enums import InputMode
 from modules import shared
-from modules.ui_components import FormRow
+from modules.ui_components import FormRow, ToolButton
 
 
 @dataclass
