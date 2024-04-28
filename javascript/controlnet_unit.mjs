@@ -57,9 +57,13 @@ export class ControlNetUnit {
     this.enabledCheckbox = tab.querySelector('.cnet-unit-enabled input');
     this.inputImage = tab.querySelector('.cnet-input-image-group .cnet-image input[type="file"]');
     this.inputImageContainer = tab.querySelector('.cnet-input-image-group .cnet-image');
+    this.inputImageGroup = tab.querySelector('.cnet-input-image-group');
     this.controlTypeSelector = tab.querySelectorAll('.controlnet_control_type_filter_group input');
     this.resizeModeRadios = tab.querySelectorAll('.controlnet_resize_mode_radio input[type="radio"]');
     this.runPreprocessorButton = tab.querySelector('.cnet-run-preprocessor');
+    this.generatedImageGroup = tab.querySelector('.cnet-generated-image-group');
+    this.poseEditButton = tab.querySelector('.cnet-edit-pose');
+    this.allowPreviewCheckbox = tab.querySelector('.cnet-allow-preview input');
 
     const tabs = tab.parentNode;
     this.tabNav = tabs.querySelector('.tab-nav');

@@ -1,5 +1,6 @@
 import { ControlNetUnit } from "./controlnet_unit.mjs";
 import { initControlNetModals } from "./modal.mjs";
+import { OpenposeEditor } from "./openpose_editor.mjs";
 
 (function () {
   const cnetAllAccordions = new Set();
@@ -8,7 +9,10 @@ import { initControlNetModals } from "./modal.mjs";
       if (cnetAllAccordions.has(accordion)) return;
 
       accordion.querySelectorAll('.cnet-unit-tab')
-        .forEach(tab => new ControlNetUnit(tab, accordion));
+        .forEach(tab => {
+          const unit = new ControlNetUnit(tab, accordion);
+          const openposeEditor = new OpenposeEditor(unit);
+        });
 
       initControlNetModals(accordion);
 
