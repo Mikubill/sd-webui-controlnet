@@ -135,7 +135,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         ] = [],
         use_preview_as_input: bool = False,
         generated_image: Optional[np.ndarray] = None,
-        mask_image: Optional[np.ndarray] = None,
         enabled: bool = True,
         module: Optional[str] = None,
         model: Optional[str] = None,
@@ -149,11 +148,6 @@ class UiControlNetUnit(external_code.ControlNetUnit):
             module = "none"
         else:
             input_image = image
-
-        # Prefer uploaded mask_image over hand-drawn mask.
-        if input_image is not None and mask_image is not None:
-            assert isinstance(input_image, dict)
-            input_image["mask"] = mask_image
 
         if merge_gallery_files and input_mode == InputMode.MERGE:
             input_image = [
@@ -244,7 +238,7 @@ class ControlNetUiGroup(object):
         self.generated_image_group = None
         self.generated_image = None
         self.mask_image_group = None
-        self.mask_image = None
+        self.effective_region_mask = None
         self.batch_tab = None
         self.batch_image_dir = None
         self.merge_tab = None
@@ -296,7 +290,6 @@ class ControlNetUiGroup(object):
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
-        self.effective_region_mask = gr.Image(value=None, visible=False)
 
         ControlNetUiGroup.all_ui_groups.append(self)
 
@@ -369,11 +362,11 @@ class ControlNetUiGroup(object):
                         with gr.Group(
                             visible=False, elem_classes=["cnet-mask-image-group"]
                         ) as self.mask_image_group:
-                            self.mask_image = gr.Image(
+                            self.effective_region_mask = gr.Image(
                                 value=None,
-                                label="Upload Mask",
+                                label="Effective Region Mask",
                                 elem_id=f"{elem_id_tabname}_{tabname}_mask_image",
-                                elem_classes=["cnet-mask-image"],
+                                elem_classes=["cnet-effective-region-mask-image"],
                                 interactive=True,
                             )
 
@@ -481,11 +474,10 @@ class ControlNetUiGroup(object):
                 visible=not self.is_img2img,
             )
             self.mask_upload = gr.Checkbox(
-                label="Mask Upload",
+                label="Effective Region Mask",
                 value=False,
                 elem_classes=["cnet-mask-upload"],
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_mask_upload_checkbox",
-                visible=not self.is_img2img,
             )
             self.use_preview_as_input = gr.Checkbox(
                 label="Preview as Input",
@@ -661,7 +653,6 @@ class ControlNetUiGroup(object):
             self.merge_gallery,
             self.use_preview_as_input,
             self.generated_image,
-            self.mask_image,
             # End of Non-persistent fields.
             self.enabled,
             self.module,
@@ -681,6 +672,7 @@ class ControlNetUiGroup(object):
             self.hr_option,
             self.save_detected_map,
             self.advanced_weighting,
+            self.effective_region_mask,
         )
 
         unit = gr.State(self.default_unit)
@@ -1122,22 +1114,9 @@ class ControlNetUiGroup(object):
                 else (gr.update(visible=True), gr.update())
             ),
             inputs=[self.mask_upload],
-            outputs=[self.mask_image_group, self.mask_image],
+            outputs=[self.mask_image_group, self.effective_region_mask],
             show_progress=False,
         )
-
-        if self.upload_independent_img_in_img2img is not None:
-            self.upload_independent_img_in_img2img.change(
-                fn=lambda checked: (
-                    # Uncheck `upload_mask` when not using independent input.
-                    gr.update(visible=False, value=False)
-                    if not checked
-                    else gr.update(visible=True)
-                ),
-                inputs=[self.upload_independent_img_in_img2img],
-                outputs=[self.mask_upload],
-                show_progress=False,
-            )
 
     def register_sync_batch_dir(self):
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
