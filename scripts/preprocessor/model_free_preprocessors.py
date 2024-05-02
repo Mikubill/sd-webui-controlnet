@@ -93,7 +93,7 @@ class PreprocessorBlurGaussian(Preprocessor):
     def __init__(self):
         super().__init__(name="blur_gaussian")
         self.slider_1 = PreprocessorParameter(
-            label="Sigma", minimum=64, maximum=2048, value=512
+            label="Sigma", minimum=0.01, maximum=64.0, value=9.0
         )
         self.tags = ["Tile"]
 
