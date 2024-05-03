@@ -1,4 +1,3 @@
-import launch
 from importlib import metadata
 import sys
 import os
@@ -6,6 +5,21 @@ import shutil
 import platform
 from pathlib import Path
 from typing import Tuple, Optional
+
+try:
+    import launch
+except ModuleNotFoundError:
+    print("ControlNet cannot resolve the 'launch' module from the webui. Attempting to add the webui path to sys.path.")
+
+    # Add webui to interpreter path
+    webui_path = Path(__file__).parent.parent.parent.absolute().resolve()
+    sys.path.append(str(webui_path))
+
+    try:
+        import launch
+        print("Successfully resolved the 'launch' module.")
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError("Error: Still unable to resolve the 'launch' module after modifying sys.path. Please check the project structure.")
 
 
 repo_root = Path(__file__).parent
