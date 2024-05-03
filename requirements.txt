@@ -6,3 +6,4 @@ addict
 yapf
 albumentations==1.4.3
 matplotlib
+facexlib

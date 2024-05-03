@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from modules import shared
+from modules import shared, devices
 from scripts.logging import logger
 from scripts.utils import ndarray_lru_cache
 
@@ -101,6 +101,7 @@ class Preprocessor(ABC):
     use_soft_projection_in_hr_fix = False
     expand_mask_when_resize_and_fill = False
     model: Optional[torch.nn.Module] = None
+    device = devices.get_device_for("controlnet")
 
     all_processors: ClassVar[Dict[str, "Preprocessor"]] = {}
     all_processors_by_name: ClassVar[Dict[str, "Preprocessor"]] = {}
@@ -183,18 +184,19 @@ class Preprocessor(ABC):
 
     class Result(NamedTuple):
         value: Any
-        # The display image shown on UI.
-        display_image: np.ndarray
-
-    def get_display_image(self, input_image: np.ndarray, result):
-        return result if self.returns_image else input_image
+        # The display images shown on UI.
+        display_images: List[np.ndarray]
 
     def cached_call(self, input_image, *args, **kwargs) -> "Preprocessor.Result":
         """The function exposed that also returns an image for display."""
         result = self._cached_call(input_image, *args, **kwargs)
-        return Preprocessor.Result(
-            value=result, display_image=self.get_display_image(input_image, result)
-        )
+        if isinstance(result, Preprocessor.Result):
+            return result
+        else:
+            return Preprocessor.Result(
+                value=result,
+                display_images=[result if self.returns_image else input_image],
+            )
 
     @ndarray_lru_cache(max_size=CACHE_SIZE)
     def _cached_call(self, *args, **kwargs):

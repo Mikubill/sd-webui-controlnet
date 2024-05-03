@@ -12,6 +12,7 @@ from .image_proj_models import (
     MLPProjModel,
     MLPProjModelFaceId,
     ProjModelFaceIdPlus,
+    PuLIDEncoder,
 )
 
 
@@ -71,6 +72,7 @@ class IPAdapterModel(torch.nn.Module):
         is_faceid: bool,
         is_portrait: bool,
         is_instantid: bool,
+        is_pulid: bool,
         is_v2: bool,
     ):
         super().__init__()
@@ -85,9 +87,12 @@ class IPAdapterModel(torch.nn.Module):
         self.is_v2 = is_v2
         self.is_faceid = is_faceid
         self.is_instantid = is_instantid
+        self.is_pulid = is_pulid
         self.clip_extra_context_tokens = 16 if (self.is_plus or is_portrait) else 4
 
-        if is_instantid:
+        if self.is_pulid:
+            self.image_proj_model = PuLIDEncoder()
+        elif self.is_instantid:
             self.image_proj_model = self.init_proj_instantid()
         elif is_faceid:
             self.image_proj_model = self.init_proj_faceid()
@@ -235,6 +240,19 @@ class IPAdapterModel(torch.nn.Module):
             self.image_proj_model(torch.zeros_like(prompt_image_emb)),
         )
 
+    def _get_image_embeds_pulid(self, pulid_proj_input) -> ImageEmbed:
+        """Get image embeds for pulid."""
+        id_cond = torch.cat(
+            [pulid_proj_input.pulid_proj_input, pulid_proj_input.id_cond_vit], dim=1
+        )
+        return ImageEmbed(
+            self.image_proj_model(id_cond, pulid_proj_input.id_vit_hidden),
+            self.image_proj_model(
+                torch.zeros_like(id_cond),
+                torch.zeros_like(pulid_proj_input.id_vit_hidden),
+            ),
+        )
+
     @staticmethod
     def load(state_dict: dict, model_name: str) -> IPAdapterModel:
         """
@@ -245,6 +263,7 @@ class IPAdapterModel(torch.nn.Module):
         is_v2 = "v2" in model_name
         is_faceid = "faceid" in model_name
         is_instantid = "instant_id" in model_name
+        is_pulid = "pulid" in model_name.lower()
         is_portrait = "portrait" in model_name
         is_full = "proj.3.weight" in state_dict["image_proj"]
         is_plus = (
@@ -291,6 +310,7 @@ class IPAdapterModel(torch.nn.Module):
             is_portrait=is_portrait,
             is_instantid=is_instantid,
             is_v2=is_v2,
+            is_pulid=is_pulid,
         )
 
     def get_image_emb(self, preprocessor_output) -> ImageEmbed:

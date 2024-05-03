@@ -947,7 +947,7 @@ class ControlNetUiGroup(object):
 
             return (
                 # Update to `generated_image`
-                gr.update(value=result.display_image, visible=True, interactive=False),
+                gr.update(value=result.display_images[0], visible=True, interactive=False),
                 # preprocessor_preview
                 gr.update(value=True),
                 # openpose editor

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from ..supported_preprocessor import Preprocessor, PreprocessorParameter
-from ..utils import resize_image_with_pad
+from ..utils import resize_image_with_pad, visualize_inpaint_mask
 
 
 class PreprocessorLamaInpaint(Preprocessor):
@@ -14,12 +14,6 @@ class PreprocessorLamaInpaint(Preprocessor):
         self.slider_resolution = PreprocessorParameter(visible=False)
         self.accepts_mask = True
         self.requires_mask = True
-
-    def get_display_image(self, input_image: np.ndarray, result: np.ndarray):
-        """For lama inpaint, display image should not contain mask."""
-        assert result.ndim == 3
-        assert result.shape[2] == 4
-        return result[:, :, :3]
 
     def __call__(
         self,
@@ -56,7 +50,13 @@ class PreprocessorLamaInpaint(Preprocessor):
         fin_color = fin_color.clip(0, 255).astype(np.uint8)
 
         result = np.concatenate([fin_color, raw_mask], axis=2)
-        return result
+        return Preprocessor.Result(
+            value=result,
+            display_images=[
+                result[:, :, :3],
+                visualize_inpaint_mask(result),
+            ],
+        )
 
 
 Preprocessor.add_supported_preprocessor(PreprocessorLamaInpaint())

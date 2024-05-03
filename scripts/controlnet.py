@@ -279,6 +279,7 @@ def get_control(
         )
         detected_map = result.value
         is_image = preprocessor.returns_image
+        # TODO: Refactor img control detection logic.
         if high_res_fix:
             if is_image:
                 hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -293,7 +294,8 @@ def get_control(
             store_detected_map(detected_map, unit.module)
         else:
             control = detected_map
-            store_detected_map(input_image, unit.module)
+            for image in result.display_images:
+                store_detected_map(image, unit.module)
 
         if control_model_type == ControlModelType.T2I_StyleAdapter:
             control = control['last_hidden_state']

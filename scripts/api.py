@@ -179,7 +179,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 low_vram=low_vram,
             )
             if preprocessor.returns_image:
-                images.append(encode_to_base64(result.display_image))
+                images.append(encode_to_base64(result.display_images[0]))
             else:
                 tensors.append(encode_tensor_to_base64(result.value))
 
