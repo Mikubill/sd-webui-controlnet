@@ -166,6 +166,12 @@ ipadapter_presets: List[IPAdapterPreset] = [
         model="ip-adapter-faceid-portrait_sdxl",
         sd_version=StableDiffusionVersion.SDXL,
     ),
+    IPAdapterPreset(
+        name="pulid",
+        module="ip-adapter_pulid",
+        model="ip-adapter_pulid_sdxl_fp16",
+        sd_version=StableDiffusionVersion.SDXL,
+    ),
 ]
 
 _preset_by_model = {p.model: p for p in ipadapter_presets}

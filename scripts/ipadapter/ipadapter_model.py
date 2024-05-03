@@ -243,13 +243,28 @@ class IPAdapterModel(torch.nn.Module):
     def _get_image_embeds_pulid(self, pulid_proj_input) -> ImageEmbed:
         """Get image embeds for pulid."""
         id_cond = torch.cat(
-            [pulid_proj_input.pulid_proj_input, pulid_proj_input.id_cond_vit], dim=1
+            [
+                pulid_proj_input.id_ante_embedding.to(
+                    device=self.device, dtype=torch.float32
+                ),
+                pulid_proj_input.id_cond_vit.to(
+                    device=self.device, dtype=torch.float32
+                ),
+            ],
+            dim=-1,
         )
+        id_vit_hidden = [
+            t.to(device=self.device, dtype=torch.float32)
+            for t in pulid_proj_input.id_vit_hidden
+        ]
         return ImageEmbed(
-            self.image_proj_model(id_cond, pulid_proj_input.id_vit_hidden),
+            self.image_proj_model(
+                id_cond,
+                id_vit_hidden,
+            ),
             self.image_proj_model(
                 torch.zeros_like(id_cond),
-                torch.zeros_like(pulid_proj_input.id_vit_hidden),
+                [torch.zeros_like(t) for t in id_vit_hidden],
             ),
         )
 
@@ -275,8 +290,8 @@ class IPAdapterModel(torch.nn.Module):
         sdxl = cross_attention_dim == 2048
         sdxl_plus = sdxl and is_plus
 
-        if is_instantid:
-            # InstantID does not use clip embedding.
+        if is_instantid or is_pulid:
+            # InstantID/PuLID does not use clip embedding.
             clip_embeddings_dim = None
         elif is_faceid:
             if is_plus:
@@ -314,7 +329,9 @@ class IPAdapterModel(torch.nn.Module):
         )
 
     def get_image_emb(self, preprocessor_output) -> ImageEmbed:
-        if self.is_instantid:
+        if self.is_pulid:
+            return self._get_image_embeds_pulid(preprocessor_output)
+        elif self.is_instantid:
             return self._get_image_embeds_instantid(preprocessor_output)
         elif self.is_faceid and self.is_plus:
             # Note: FaceID plus uses both face_embed and clip_embed.

@@ -3,7 +3,8 @@
 import torch
 import cv2
 import numpy as np
-from typing import NamedTuple, Optional
+from typing import Optional, List
+from dataclasses import dataclass
 from facexlib.parsing import init_parsing_model
 from facexlib.utils.face_restoration_helper import FaceRestoreHelper
 from torchvision.transforms.functional import normalize
@@ -91,10 +92,11 @@ class PreprocessorFaceXLib(Preprocessor):
             return tensor2npimg(face_features_image)
 
 
-class PuLIDProjInput(NamedTuple):
+@dataclass
+class PuLIDProjInput:
     id_ante_embedding: torch.Tensor
     id_cond_vit: torch.Tensor
-    id_vit_hidden: torch.Tensor
+    id_vit_hidden: List[torch.Tensor]
 
 
 class PreprocessorPuLID(Preprocessor):
@@ -127,6 +129,9 @@ class PreprocessorPuLID(Preprocessor):
         **kwargs
     ) -> Preprocessor.Result:
         id_ante_embedding = self.insightface_antelopev2_detect(input_image)
+        if id_ante_embedding.ndim == 1:
+            id_ante_embedding = id_ante_embedding.unsqueeze(0)
+
         face_features_image = self.facexlib_detect(input_image)
         evaclip_preprocessor = Preprocessor.get_preprocessor("EVA02-CLIP-L-14-336")
         assert (
