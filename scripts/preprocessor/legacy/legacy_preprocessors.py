@@ -93,7 +93,7 @@ class LegacyPreprocessor(Preprocessor):
     def __call__(
         self,
         input_image,
-        resolution,
+        resolution=512,
         slider_1=None,
         slider_2=None,
         slider_3=None,
