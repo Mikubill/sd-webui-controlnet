@@ -19,6 +19,7 @@ from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
 from scripts.enums import (
+    InputMode,
     HiResFixOption,
     PuLIDMode,
     ControlMode,
