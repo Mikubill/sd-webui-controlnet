@@ -11,7 +11,7 @@ from modules import scripts, processing, shared
 from modules.safe import unsafe_torch_load
 from scripts import global_state
 from scripts.logging import logger
-from scripts.enums import HiResFixOption
+from scripts.enums import HiResFixOption, PuLIDMode
 from scripts.supported_preprocessor import Preprocessor, PreprocessorParameter
 
 from modules.api import api
@@ -207,6 +207,10 @@ class ControlNetUnit:
     # The effective region mask that unit's effect should be restricted to.
     effective_region_mask: Optional[np.ndarray] = None
 
+    # The weight mode for PuLID.
+    # https://github.com/ToTheBeginning/PuLID
+    pulid_mode: PuLIDMode = PuLIDMode.FIDELITY
+
     # The tensor input for ipadapter. When this field is set in the API,
     # the base64string will be interpret by torch.load to reconstruct ipadapter
     # preprocessor output.
@@ -243,6 +247,7 @@ class ControlNetUnit:
             # provide much information when restoring the unit.
             "inpaint_crop_input_image",
             "effective_region_mask",
+            "pulid_mode",
         ]
 
     @property

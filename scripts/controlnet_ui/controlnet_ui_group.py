@@ -18,7 +18,7 @@ from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
-from scripts.enums import InputMode
+from scripts.enums import InputMode, PuLIDMode
 from modules import shared
 from modules.ui_components import FormRow, FormHTML, ToolButton
 
@@ -287,6 +287,7 @@ class ControlNetUiGroup(object):
         self.batch_image_dir_state = None
         self.output_dir_state = None
         self.advanced_weighting = gr.State(None)
+        self.pulid_mode = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
@@ -626,6 +627,15 @@ class ControlNetUiGroup(object):
             visible=False,
         )
 
+        self.pulid_mode = gr.Radio(
+            choices=[e.value for e in PuLIDMode],
+            value=self.default_unit.pulid_mode.value,
+            label="PuLID Mode",
+            elem_id=f"{elem_id_tabname}_{tabname}_controlnet_pulid_mode_radio",
+            elem_classes="controlnet_pulid_mode_radio",
+            visible=False,
+        )
+
         self.loopback = gr.Checkbox(
             label="[Batch Loopback] Automatically send generated images to this ControlNet unit in batch generation",
             value=self.default_unit.loopback,
@@ -673,6 +683,7 @@ class ControlNetUiGroup(object):
             self.save_detected_map,
             self.advanced_weighting,
             self.effective_region_mask,
+            self.pulid_mode,
         )
 
         unit = gr.State(self.default_unit)
@@ -1118,6 +1129,14 @@ class ControlNetUiGroup(object):
             show_progress=False,
         )
 
+    def register_shift_pulid_mode(self):
+        self.model.change(
+            fn=lambda model: gr.update(visible="pulid" in model.lower()),
+            inputs=[self.model],
+            outputs=[self.pulid_mode],
+            show_progress=False,
+        )
+
     def register_sync_batch_dir(self):
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
             if batch_dir:
@@ -1220,6 +1239,7 @@ class ControlNetUiGroup(object):
         self.register_build_sliders()
         self.register_shift_preview()
         self.register_shift_upload_mask()
+        self.register_shift_pulid_mode()
         self.register_create_canvas()
         self.register_clear_preview()
         self.register_multi_images_upload()

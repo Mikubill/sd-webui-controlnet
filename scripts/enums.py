@@ -2,6 +2,8 @@ from enum import Enum
 from typing import Any, List, NamedTuple
 from functools import lru_cache
 
+from colorama import Style
+
 
 class UnetBlockType(Enum):
     INPUT = "input"
@@ -247,3 +249,8 @@ class InputMode(Enum):
     # Input is a directory. 1 generation. Each generation takes N input image
     # from the directory.
     MERGE = "merge"
+
+
+class PuLIDMode(Enum):
+    FIDELITY = "Fidelity"
+    STYLE = "Extremely style"
