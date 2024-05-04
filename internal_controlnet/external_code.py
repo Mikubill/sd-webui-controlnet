@@ -226,11 +226,13 @@ class ControlNetUnit:
     def accepts_multiple_inputs(self) -> bool:
         """This unit can accept multiple input images."""
         return self.module in (
+            "ip-adapter-auto",
             "ip-adapter_clip_sdxl",
             "ip-adapter_clip_sdxl_plus_vith",
             "ip-adapter_clip_sd15",
             "ip-adapter_face_id",
             "ip-adapter_face_id_plus",
+            "ip-adapter_pulid",
             "instant_id_face_embedding",
         )
 
