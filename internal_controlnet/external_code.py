@@ -1,7 +1,6 @@
 import base64
 import io
 from dataclasses import dataclass
-from enum import Enum
 from copy import copy
 from typing import List, Any, Optional, Union, Tuple, Dict
 import torch
