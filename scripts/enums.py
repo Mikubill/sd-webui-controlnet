@@ -2,8 +2,6 @@ from enum import Enum
 from typing import Any, List, NamedTuple
 from functools import lru_cache
 
-from colorama import Style
-
 
 class UnetBlockType(Enum):
     INPUT = "input"
