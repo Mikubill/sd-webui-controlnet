@@ -10,7 +10,7 @@ from facexlib.utils.face_restoration_helper import FaceRestoreHelper
 from torchvision.transforms.functional import normalize
 
 from ..supported_preprocessor import Preprocessor, PreprocessorParameter
-from scripts.utils import npimg2tensor, tensor2npimg
+from scripts.utils import npimg2tensor, tensor2npimg, resize_image_with_pad
 
 
 def to_gray(img):
@@ -43,11 +43,13 @@ class PreprocessorFaceXLib(Preprocessor):
         self.model.face_det.to(device=self.device)
         return self.model
 
-    def unload(self):
+    def unload(self) -> bool:
         """@Override"""
         if self.model is not None:
             self.model.face_parse.to(device="cpu")
             self.model.face_det.to(device="cpu")
+            return True
+        return False
 
     def __call__(
         self,
@@ -66,6 +68,7 @@ class PreprocessorFaceXLib(Preprocessor):
         """
         self.load_model()
         self.model.clean_all()
+        input_image, _ = resize_image_with_pad(input_image, resolution)
         # using facexlib to detect and align face
         image_bgr = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
         self.model.read_image(image_bgr)
@@ -107,6 +110,11 @@ class PreprocessorPuLID(Preprocessor):
         self.tags = ["IP-Adapter"]
         self.slider_resolution = PreprocessorParameter(visible=False)
         self.returns_image = False
+        self.preprocessors_deps = [
+            "facexlib",
+            "instant_id_face_embedding",
+            "EVA02-CLIP-L-14-336",
+        ]
 
     def facexlib_detect(self, input_image: np.ndarray) -> torch.Tensor:
         facexlib_preprocessor = Preprocessor.get_preprocessor("facexlib")
@@ -117,6 +125,13 @@ class PreprocessorPuLID(Preprocessor):
             "instant_id_face_embedding"
         )
         return antelopev2_preprocessor(input_image)
+
+    def unload(self) -> bool:
+        unloaded = False
+        for p_name in self.preprocessors_deps:
+            p = Preprocessor.get_preprocessor(p_name)
+            unloaded = unloaded or p.unload()
+        return unloaded
 
     def __call__(
         self,
