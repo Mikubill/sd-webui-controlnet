@@ -252,3 +252,37 @@ class InputMode(Enum):
 class PuLIDMode(Enum):
     FIDELITY = "Fidelity"
     STYLE = "Extremely style"
+
+
+class ControlMode(Enum):
+    """
+    The improved guess mode.
+    """
+
+    BALANCED = "Balanced"
+    PROMPT = "My prompt is more important"
+    CONTROL = "ControlNet is more important"
+
+
+class BatchOption(Enum):
+    DEFAULT = "All ControlNet units for all images in a batch"
+    SEPARATE = "Each ControlNet unit for each image in a batch"
+
+
+class ResizeMode(Enum):
+    """
+    Resize modes for ControlNet input images.
+    """
+
+    RESIZE = "Just Resize"
+    INNER_FIT = "Crop and Resize"
+    OUTER_FIT = "Resize and Fill"
+
+    def int_value(self):
+        if self == ResizeMode.RESIZE:
+            return 0
+        elif self == ResizeMode.INNER_FIT:
+            return 1
+        elif self == ResizeMode.OUTER_FIT:
+            return 2
+        assert False, "NOTREACHED"

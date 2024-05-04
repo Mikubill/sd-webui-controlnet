@@ -17,14 +17,21 @@ from einops import rearrange
 import scripts.preprocessor as preprocessor_init  # noqa
 from annotator.util import HWC3
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
-from internal_controlnet.external_code import ControlMode
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
 from scripts.ipadapter.pulid_attn import PULID_SETTING_FIDELITY, PULID_SETTING_STYLE
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
-from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption, PuLIDMode
+from scripts.enums import (
+    ControlModelType,
+    StableDiffusionVersion,
+    HiResFixOption,
+    PuLIDMode,
+    ControlMode,
+    BatchOption,
+    ResizeMode,
+)
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
@@ -239,7 +246,7 @@ def get_control(
     else: # Following operations are only for single input image.
         input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
         input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
-        if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:
+        if unit.module == 'inpaint_only+lama' and resize_mode == ResizeMode.OUTER_FIT:
             # inpaint_only+lama is special and required outpaint fix
             _, input_image = Script.detectmap_proc(input_image, unit.module, resize_mode, hr_y, hr_x)
         input_images = [input_image]
@@ -335,7 +342,7 @@ class Script(scripts.Script, metaclass=(
         self.detected_map = []
         self.post_processors = []
         self.noise_modifier = None
-        self.ui_batch_option_state = [external_code.BatchOption.DEFAULT.value, False]
+        self.ui_batch_option_state = [BatchOption.DEFAULT.value, False]
         batch_hijack.instance.process_batch_callbacks.append(self.batch_tab_process)
         batch_hijack.instance.process_batch_each_callbacks.append(self.batch_tab_process_each)
         batch_hijack.instance.postprocess_batch_each_callbacks.insert(0, self.batch_tab_postprocess_each)
@@ -366,8 +373,8 @@ class Script(scripts.Script, metaclass=(
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
         batch_option = gr.Radio(
-            choices=[e.value for e in external_code.BatchOption],
-            value=external_code.BatchOption.DEFAULT.value,
+            choices=[e.value for e in BatchOption],
+            value=BatchOption.DEFAULT.value,
             label="Batch Option",
             elem_id=f"{elem_id_tabname}_controlnet_batch_option_radio",
             elem_classes="controlnet_batch_option_radio",
@@ -616,7 +623,7 @@ class Script(scripts.Script, metaclass=(
 
             return y
 
-        if resize_mode == external_code.ResizeMode.RESIZE:
+        if resize_mode == ResizeMode.RESIZE:
             detected_map = high_quality_resize(detected_map, (w, h))
             detected_map = safe_numpy(detected_map)
             return get_pytorch_control(detected_map), detected_map
@@ -629,7 +636,7 @@ class Script(scripts.Script, metaclass=(
 
         safeint = lambda x: int(np.round(x))
 
-        if resize_mode == external_code.ResizeMode.OUTER_FIT:
+        if resize_mode == ResizeMode.OUTER_FIT:
             k = min(k0, k1)
             borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
             high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
@@ -683,7 +690,7 @@ class Script(scripts.Script, metaclass=(
             p: processing.StableDiffusionProcessing,
             unit: external_code.ControlNetUnit,
             idx: int
-        ) -> Tuple[np.ndarray, external_code.ResizeMode]:
+        ) -> Tuple[np.ndarray, ResizeMode]:
         """ Choose input image from following sources with descending priority:
          - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
          - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
@@ -805,7 +812,7 @@ class Script(scripts.Script, metaclass=(
         p: StableDiffusionProcessing,
         unit: external_code.ControlNetUnit,
         input_image: np.ndarray,
-        resize_mode: external_code.ResizeMode,
+        resize_mode: ResizeMode,
     ) -> np.ndarray:
         """
         Crop ControlNet input image based on A1111 inpaint mask given.
@@ -847,7 +854,7 @@ class Script(scripts.Script, metaclass=(
 
             input_image = [x.crop(crop_region) for x in input_image]
             input_image = [
-                images.resize_image(external_code.ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height)
+                images.resize_image(ResizeMode.OUTER_FIT.int_value(), x, p.width, p.height)
                 for x in input_image
             ]
 
@@ -922,7 +929,7 @@ class Script(scripts.Script, metaclass=(
         if not batch_hijack.instance.is_batch:
             self.enabled_units = Script.get_enabled_units(p)
 
-        batch_option_uint_separate = self.ui_batch_option_state[0] == external_code.BatchOption.SEPARATE.value
+        batch_option_uint_separate = self.ui_batch_option_state[0] == BatchOption.SEPARATE.value
         batch_option_style_align = self.ui_batch_option_state[1]
 
         if len(self.enabled_units) == 0 and not batch_option_style_align:

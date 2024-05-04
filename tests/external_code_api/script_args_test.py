@@ -4,6 +4,7 @@ utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'u
 
 
 from scripts import external_code
+from scripts.enums import ControlMode
 
 
 class TestGetAllUnitsFrom(unittest.TestCase):
@@ -15,7 +16,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
             "resize_mode": 1,
             "low_vram": False,
             "processor_res": 64,
-            "control_mode": external_code.ControlMode.BALANCED.value,
+            "control_mode": ControlMode.BALANCED.value,
         }
         self.object_unit = external_code.ControlNetUnit(**self.control_unit)
 
