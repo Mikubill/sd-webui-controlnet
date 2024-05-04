@@ -17,12 +17,14 @@ from einops import rearrange
 import scripts.preprocessor as preprocessor_init  # noqa
 from annotator.util import HWC3
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
+from internal_controlnet.external_code import ControlMode
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.controlnet_lllite import clear_all_lllite
 from scripts.ipadapter.plugable_ipadapter import ImageEmbed, clear_all_ip_adapter
+from scripts.ipadapter.pulid_attn import PULID_SETTING_FIDELITY, PULID_SETTING_STYLE
 from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
-from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
+from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption, PuLIDMode
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
@@ -279,6 +281,7 @@ def get_control(
         )
         detected_map = result.value
         is_image = preprocessor.returns_image
+        # TODO: Refactor img control detection logic.
         if high_res_fix:
             if is_image:
                 hr_control, hr_detected_map = Script.detectmap_proc(detected_map, unit.module, resize_mode, hr_y, hr_x)
@@ -293,7 +296,8 @@ def get_control(
             store_detected_map(detected_map, unit.module)
         else:
             control = detected_map
-            store_detected_map(input_image, unit.module)
+            for image in result.display_images:
+                store_detected_map(image, unit.module)
 
         if control_model_type == ControlModelType.T2I_StyleAdapter:
             control = control['last_hidden_state']
@@ -1092,8 +1096,8 @@ class Script(scripts.Script, metaclass=(
                 global_average_pooling=global_average_pooling,
                 hr_hint_cond=hr_control,
                 hr_option=HiResFixOption.from_value(unit.hr_option) if high_res_fix else HiResFixOption.BOTH,
-                soft_injection=control_mode != external_code.ControlMode.BALANCED,
-                cfg_injection=control_mode == external_code.ControlMode.CONTROL,
+                soft_injection=control_mode != ControlMode.BALANCED,
+                cfg_injection=control_mode == ControlMode.CONTROL,
                 effective_region_mask=(
                     get_pytorch_control(unit.effective_region_mask)[:, 0:1, :, :]
                     if unit.effective_region_mask is not None
@@ -1190,7 +1194,7 @@ class Script(scripts.Script, metaclass=(
 
         is_low_vram = any(unit.low_vram for unit in self.enabled_units)
 
-        for i, param in enumerate(forward_params):
+        for i, (param, unit) in enumerate(zip(forward_params, self.enabled_units)):
             if param.control_model_type == ControlModelType.IPAdapter:
                 if param.advanced_weighting is not None:
                     logger.info(f"IP-Adapter using advanced weighting {param.advanced_weighting}")
@@ -1205,6 +1209,13 @@ class Script(scripts.Script, metaclass=(
                     weight = param.weight
 
                 h, w, hr_y, hr_x = Script.get_target_dimensions(p)
+                pulid_mode = PuLIDMode(unit.pulid_mode)
+                if pulid_mode == PuLIDMode.STYLE:
+                    pulid_attn_setting = PULID_SETTING_STYLE
+                else:
+                    assert pulid_mode == PuLIDMode.FIDELITY
+                    pulid_attn_setting = PULID_SETTING_FIDELITY
+
                 param.control_model.hook(
                     model=unet,
                     preprocessor_outputs=param.hint_cond,
@@ -1215,6 +1226,7 @@ class Script(scripts.Script, metaclass=(
                     latent_width=w // 8,
                     latent_height=h // 8,
                     effective_region_mask=param.effective_region_mask,
+                    pulid_attn_setting=pulid_attn_setting,
                 )
             if param.control_model_type == ControlModelType.Controlllite:
                 param.control_model.hook(

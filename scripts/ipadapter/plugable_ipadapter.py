@@ -1,8 +1,9 @@
 import itertools
 import torch
 import math
-from typing import Union, Dict, Optional
+from typing import Union, Dict, Optional, Callable
 
+from .pulid_attn import PuLIDAttnSetting
 from .ipadapter_model import ImageEmbed, IPAdapterModel
 from ..enums import StableDiffusionVersion, TransformerID
 
@@ -93,7 +94,7 @@ def clear_all_ip_adapter():
 class PlugableIPAdapter(torch.nn.Module):
     def __init__(self, ipadapter: IPAdapterModel):
         super().__init__()
-        self.ipadapter = ipadapter
+        self.ipadapter: IPAdapterModel = ipadapter
         self.disable_memory_management = True
         self.dtype = None
         self.weight: Union[float, Dict[int, float]] = 1.0
@@ -103,6 +104,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.latent_width: int = 0
         self.latent_height: int = 0
         self.effective_region_mask = None
+        self.pulid_attn_setting: Optional[PuLIDAttnSetting] = None
 
     def reset(self):
         self.cache = {}
@@ -118,6 +120,7 @@ class PlugableIPAdapter(torch.nn.Module):
         latent_width: int,
         latent_height: int,
         effective_region_mask: Optional[torch.Tensor],
+        pulid_attn_setting: Optional[PuLIDAttnSetting] = None,
         dtype=torch.float32,
     ):
         global current_model
@@ -128,6 +131,7 @@ class PlugableIPAdapter(torch.nn.Module):
         self.latent_width = latent_width
         self.latent_height = latent_height
         self.effective_region_mask = effective_region_mask
+        self.pulid_attn_setting = pulid_attn_setting
 
         self.cache = {}
 
@@ -186,7 +190,9 @@ class PlugableIPAdapter(torch.nn.Module):
         # sequence_length = (latent_height * factor) * (latent_height * factor)
         # sequence_length = (latent_height * latent_height) * factor ^ 2
         factor = math.sqrt(sequence_length / (self.latent_width * self.latent_height))
-        assert factor > 0, f"{factor}, {sequence_length}, {self.latent_width}, {self.latent_height}"
+        assert (
+            factor > 0
+        ), f"{factor}, {sequence_length}, {self.latent_width}, {self.latent_height}"
         mask_h = int(self.latent_height * factor)
         mask_w = int(self.latent_width * factor)
 
@@ -198,6 +204,71 @@ class PlugableIPAdapter(torch.nn.Module):
         mask = mask.repeat(len(current_model.cond_mark), 1, 1)
         mask = mask.view(mask.shape[0], -1, 1).repeat(1, 1, out.shape[2])
         return out * mask
+
+    def attn_eval(
+        self,
+        hidden_states: torch.Tensor,
+        query: torch.Tensor,
+        cond_uncond_image_emb: torch.Tensor,
+        attn_heads: int,
+        head_dim: int,
+        emb_to_k: Callable[[torch.Tensor], torch.Tensor],
+        emb_to_v: Callable[[torch.Tensor], torch.Tensor],
+    ):
+        if self.ipadapter.is_pulid:
+            assert self.pulid_attn_setting is not None
+            return self.pulid_attn_setting.eval(
+                hidden_states,
+                query,
+                cond_uncond_image_emb,
+                attn_heads,
+                head_dim,
+                emb_to_k,
+                emb_to_v,
+            )
+        else:
+            return self._attn_eval_ipadapter(
+                hidden_states,
+                query,
+                cond_uncond_image_emb,
+                attn_heads,
+                head_dim,
+                emb_to_k,
+                emb_to_v,
+            )
+
+    def _attn_eval_ipadapter(
+        self,
+        hidden_states: torch.Tensor,
+        query: torch.Tensor,
+        cond_uncond_image_emb: torch.Tensor,
+        attn_heads: int,
+        head_dim: int,
+        emb_to_k: Callable[[torch.Tensor], torch.Tensor],
+        emb_to_v: Callable[[torch.Tensor], torch.Tensor],
+    ):
+        assert hidden_states.ndim == 3
+        batch_size, sequence_length, inner_dim = hidden_states.shape
+        ip_k = emb_to_k(cond_uncond_image_emb)
+        ip_v = emb_to_v(cond_uncond_image_emb)
+
+        ip_k, ip_v = map(
+            lambda t: t.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2),
+            (ip_k, ip_v),
+        )
+        assert ip_k.dtype == ip_v.dtype
+
+        # On MacOS, q can be float16 instead of float32.
+        # https://github.com/Mikubill/sd-webui-controlnet/issues/2208
+        if query.dtype != ip_k.dtype:
+            ip_k = ip_k.to(dtype=query.dtype)
+            ip_v = ip_v.to(dtype=query.dtype)
+
+        ip_out = torch.nn.functional.scaled_dot_product_attention(
+            query, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False
+        )
+        ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, attn_heads * head_dim)
+        return ip_out
 
     @torch.no_grad()
     def patch_forward(self, number: int, transformer_index: int):
@@ -220,27 +291,15 @@ class PlugableIPAdapter(torch.nn.Module):
 
             k_key = f"{number * 2 + 1}_to_k_ip"
             v_key = f"{number * 2 + 1}_to_v_ip"
-            cond_uncond_image_emb = self.image_emb.eval(current_model.cond_mark)
-            ip_k = self.call_ip(k_key, cond_uncond_image_emb, device=q.device)
-            ip_v = self.call_ip(v_key, cond_uncond_image_emb, device=q.device)
-
-            ip_k, ip_v = map(
-                lambda t: t.view(batch_size, -1, h, head_dim).transpose(1, 2),
-                (ip_k, ip_v),
+            ip_out = self.attn_eval(
+                hidden_states=x,
+                query=q,
+                cond_uncond_image_emb=self.image_emb.eval(current_model.cond_mark),
+                attn_heads=h,
+                head_dim=head_dim,
+                emb_to_k=lambda emb: self.call_ip(k_key, emb, device=q.device),
+                emb_to_v=lambda emb: self.call_ip(v_key, emb, device=q.device),
             )
-            assert ip_k.dtype == ip_v.dtype
-
-            # On MacOS, q can be float16 instead of float32.
-            # https://github.com/Mikubill/sd-webui-controlnet/issues/2208
-            if q.dtype != ip_k.dtype:
-                ip_k = ip_k.to(dtype=q.dtype)
-                ip_v = ip_v.to(dtype=q.dtype)
-
-            ip_out = torch.nn.functional.scaled_dot_product_attention(
-                q, ip_k, ip_v, attn_mask=None, dropout_p=0.0, is_causal=False
-            )
-            ip_out = ip_out.transpose(1, 2).reshape(batch_size, -1, h * head_dim)
-
             return self.apply_effective_region_mask(ip_out * weight)
 
         return forward

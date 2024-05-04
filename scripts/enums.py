@@ -247,3 +247,8 @@ class InputMode(Enum):
     # Input is a directory. 1 generation. Each generation takes N input image
     # from the directory.
     MERGE = "merge"
+
+
+class PuLIDMode(Enum):
+    FIDELITY = "Fidelity"
+    STYLE = "Extremely style"

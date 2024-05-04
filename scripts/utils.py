@@ -1,3 +1,4 @@
+from einops import rearrange
 import torch
 import os
 import functools
@@ -105,8 +106,9 @@ def timer_decorator(func):
 
 
 class TimeMeta(type):
-    """ Metaclass to record execution time on all methods of the
-    child class. """
+    """Metaclass to record execution time on all methods of the
+    child class."""
+
     def __new__(cls, name, bases, attrs):
         for attr_name, attr_value in attrs.items():
             if callable(attr_value):
@@ -161,7 +163,9 @@ def read_image(img_path: str) -> str:
     return encoded_image
 
 
-def read_image_dir(img_dir: str, suffixes=('.png', '.jpg', '.jpeg', '.webp')) -> List[str]:
+def read_image_dir(
+    img_dir: str, suffixes=(".png", ".jpg", ".jpeg", ".webp")
+) -> List[str]:
     """Try read all images in given img_dir."""
     images = []
     for filename in os.listdir(img_dir):
@@ -175,7 +179,7 @@ def read_image_dir(img_dir: str, suffixes=('.png', '.jpg', '.jpeg', '.webp')) ->
 
 
 def align_dim_latent(x: int) -> int:
-    """ Align the pixel dimension (w/h) to latent dimension.
+    """Align the pixel dimension (w/h) to latent dimension.
     Stable diffusion 1:8 ratio for latent/pixel, i.e.,
     1 latent unit == 8 pixel unit."""
     return (x // 8) * 8
@@ -203,9 +207,34 @@ def resize_image_with_pad(img: np.ndarray, resolution: int):
     W_target = int(np.round(float(W_raw) * k))
     img = cv2.resize(img, (W_target, H_target), interpolation=interpolation)
     H_pad, W_pad = pad64(H_target), pad64(W_target)
-    img_padded = np.pad(img, [[0, H_pad], [0, W_pad], [0, 0]], mode='edge')
+    img_padded = np.pad(img, [[0, H_pad], [0, W_pad], [0, 0]], mode="edge")
 
     def remove_pad(x):
         return safer_memory(x[:H_target, :W_target])
 
     return safer_memory(img_padded), remove_pad
+
+
+def npimg2tensor(img: np.ndarray) -> torch.Tensor:
+    """Convert numpy img ([H, W, C]) to tensor ([1, C, H, W])"""
+    return rearrange(torch.from_numpy(img).float() / 255.0, "h w c -> 1 c h w")
+
+
+def tensor2npimg(t: torch.Tensor) -> np.ndarray:
+    """Convert tensor ([1, C, H, W]) to numpy RGB img ([H, W, C])"""
+    return (
+        (rearrange(t, "1 c h w -> h w c") * 255.0)
+        .to(dtype=torch.uint8)
+        .cpu()
+        .numpy()
+    )
+
+
+def visualize_inpaint_mask(img):
+    if img.ndim == 3 and img.shape[2] == 4:
+        result = img.copy()
+        mask = result[:, :, 3]
+        mask = 255 - mask // 2
+        result[:, :, 3] = mask
+        return np.ascontiguousarray(result.copy())
+    return img
