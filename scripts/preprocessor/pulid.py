@@ -130,7 +130,8 @@ class PreprocessorPuLID(Preprocessor):
         unloaded = False
         for p_name in self.preprocessors_deps:
             p = Preprocessor.get_preprocessor(p_name)
-            unloaded = unloaded or p.unload()
+            if p is not None:
+                unloaded = unloaded or p.unload()
         return unloaded
 
     def __call__(
