@@ -1209,7 +1209,7 @@ class Script(scripts.Script, metaclass=(
                     weight = param.weight
 
                 h, w, hr_y, hr_x = Script.get_target_dimensions(p)
-                pulid_mode = PuLIDMode(unit.pulid_mode)
+                pulid_mode = PuLIDMode(unit.pulid_mode) if isinstance(unit.pulid_mode, str) else unit.pulid_mode
                 if pulid_mode == PuLIDMode.STYLE:
                     pulid_attn_setting = PULID_SETTING_STYLE
                 else:
