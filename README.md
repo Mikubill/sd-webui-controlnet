@@ -7,6 +7,8 @@ The WebUI extension for ControlNet and other injection-based SD controls.
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
 
 # News
+
+- [2024-05-04] 🔥[v1.1.447] PuLID [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2841]
 - [2024-04-30] 🔥[v1.1.446] Effective region mask supported for ControlNet/IPAdapter [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2831]
 - [2024-04-27] 🔥ControlNet-lllite Normal Dsine released [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2813]
 - [2024-04-19] 🔥[v1.1.445] IPAdapter advanced weight [Instant Style] [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2770]
