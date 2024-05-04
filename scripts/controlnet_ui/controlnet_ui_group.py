@@ -18,7 +18,13 @@ from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
-from scripts.enums import InputMode, PuLIDMode
+from scripts.enums import (
+    InputMode,
+    HiResFixOption,
+    PuLIDMode,
+    ControlMode,
+    ResizeMode,
+)
 from modules import shared
 from modules.ui_components import FormRow, FormHTML, ToolButton
 
@@ -602,7 +608,7 @@ class ControlNetUiGroup(object):
             )
 
         self.control_mode = gr.Radio(
-            choices=[e.value for e in external_code.ControlMode],
+            choices=[e.value for e in ControlMode],
             value=self.default_unit.control_mode.value,
             label="Control Mode",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_control_mode_radio",
@@ -610,7 +616,7 @@ class ControlNetUiGroup(object):
         )
 
         self.resize_mode = gr.Radio(
-            choices=[e.value for e in external_code.ResizeMode],
+            choices=[e.value for e in ResizeMode],
             value=self.default_unit.resize_mode.value,
             label="Resize Mode",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio",
@@ -619,7 +625,7 @@ class ControlNetUiGroup(object):
         )
 
         self.hr_option = gr.Radio(
-            choices=[e.value for e in external_code.HiResFixOption],
+            choices=[e.value for e in HiResFixOption],
             value=self.default_unit.hr_option.value,
             label="Hires-Fix Option",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_hr_option_radio",

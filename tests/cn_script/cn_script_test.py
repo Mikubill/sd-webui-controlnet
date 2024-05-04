@@ -8,6 +8,7 @@ utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "u
 
 
 from scripts import external_code
+from scripts.enums import ResizeMode
 from scripts.controlnet import prepare_mask, Script, set_numpy_seed
 from modules import processing
 
@@ -134,30 +135,30 @@ class TestScript(unittest.TestCase):
             _, resize_mode = Script.choose_input_image(
                 p=MockImg2ImgProcessing(
                     init_images=[TestScript.sample_np_image],
-                    resize_mode=external_code.ResizeMode.OUTER_FIT,
+                    resize_mode=ResizeMode.OUTER_FIT,
                 ),
                 unit=external_code.ControlNetUnit(
                     image=TestScript.sample_base64_image,
                     module="none",
-                    resize_mode=external_code.ResizeMode.INNER_FIT,
+                    resize_mode=ResizeMode.INNER_FIT,
                 ),
                 idx=0,
             )
-            self.assertEqual(resize_mode, external_code.ResizeMode.INNER_FIT)
+            self.assertEqual(resize_mode, ResizeMode.INNER_FIT)
 
         with self.subTest(name="A1111 input"):
             _, resize_mode = Script.choose_input_image(
                 p=MockImg2ImgProcessing(
                     init_images=[TestScript.sample_np_image],
-                    resize_mode=external_code.ResizeMode.OUTER_FIT,
+                    resize_mode=ResizeMode.OUTER_FIT,
                 ),
                 unit=external_code.ControlNetUnit(
                     module="none",
-                    resize_mode=external_code.ResizeMode.INNER_FIT,
+                    resize_mode=ResizeMode.INNER_FIT,
                 ),
                 idx=0,
             )
-            self.assertEqual(resize_mode, external_code.ResizeMode.OUTER_FIT)
+            self.assertEqual(resize_mode, ResizeMode.OUTER_FIT)
 
 
 if __name__ == "__main__":
