@@ -171,7 +171,7 @@ def test_reference():
             "model": "None",
         },
         input_image=girl_img,
-    ).exec()
+    ).exec(result_only=False)
 
 
 def test_advanced_weighting():

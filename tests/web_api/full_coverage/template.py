@@ -177,8 +177,8 @@ default_unit = {
     "pixel_perfect": True,
     "processor_res": 512,
     "resize_mode": 1,
-    "threshold_a": 64,
-    "threshold_b": 64,
+    "threshold_a": -1,
+    "threshold_b": -1,
     "weight": 1,
 }
 
