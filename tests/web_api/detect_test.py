@@ -75,7 +75,7 @@ INPAINT_PREPROCESSORS = {
 def test_detect_all_modules(module: str):
     payload = dict(
         controlnet_input_images=[realistic_girl_face_img],
-        controlnet_masks=[mask_img],
+        controlnet_module=module,
     )
     detect_template(payload, f"detect_{module}")
 
