@@ -10,6 +10,7 @@ from copy import copy
 from scripts import external_code
 from scripts import controlnet
 from scripts.enums import ResizeMode
+from internal_controlnet.external_code import ControlNetUnit
 from modules import scripts, ui, shared
 
 
@@ -49,7 +50,7 @@ class TestExternalCodeWorking(unittest.TestCase):
 
     def test_empty_resizes_extra_args(self):
         extra_models = 1
-        self.cn_units = [external_code.ControlNetUnit()] * (self.max_models + extra_models)
+        self.cn_units = [ControlNetUnit()] * (self.max_models + extra_models)
         self.assert_update_in_place_ok()
 
 
@@ -57,7 +58,7 @@ class TestControlNetUnitConversion(unittest.TestCase):
     def setUp(self):
         self.dummy_image = 'base64...'
         self.input = {}
-        self.expected = external_code.ControlNetUnit()
+        self.expected = ControlNetUnit()
 
     def assert_converts_to_expected(self):
         self.assertEqual(vars(external_code.to_processing_unit(self.input)), vars(self.expected))
@@ -69,14 +70,14 @@ class TestControlNetUnitConversion(unittest.TestCase):
         self.input = {
             'image': self.dummy_image
         }
-        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
+        self.expected = ControlNetUnit(image=self.dummy_image)
         self.assert_converts_to_expected()
 
     def test_image_alias_works(self):
         self.input = {
             'input_image': self.dummy_image
         }
-        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
+        self.expected = ControlNetUnit(image=self.dummy_image)
         self.assert_converts_to_expected()
 
     def test_masked_image_works(self):
@@ -84,14 +85,14 @@ class TestControlNetUnitConversion(unittest.TestCase):
             'image': self.dummy_image,
             'mask': self.dummy_image,
         }
-        self.expected = external_code.ControlNetUnit(image={'image': self.dummy_image, 'mask': self.dummy_image})
+        self.expected = ControlNetUnit(image={'image': self.dummy_image, 'mask': self.dummy_image})
         self.assert_converts_to_expected()
 
 
 class TestControlNetUnitImageToDict(unittest.TestCase):
     def setUp(self):
         self.dummy_image = utils.readImage("test/test_files/img2img_basic.png")
-        self.input = external_code.ControlNetUnit()
+        self.input = ControlNetUnit()
         self.expected_image = external_code.to_base64_nparray(self.dummy_image)
         self.expected_mask = external_code.to_base64_nparray(self.dummy_image)
 
@@ -143,7 +144,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
         self.assertListEqual(external_code.get_all_units_from([True]), [])
 
     def test_inheritance(self):
-        class Foo(external_code.ControlNetUnit):
+        class Foo(ControlNetUnit):
             def __init__(self):
                 super().__init__(self)
                 self.bar = 'a'
@@ -154,14 +155,14 @@ class TestGetAllUnitsFrom(unittest.TestCase):
     def test_dict(self):
         units = external_code.get_all_units_from([{}])
         self.assertGreater(len(units), 0)
-        self.assertIsInstance(units[0], external_code.ControlNetUnit)
+        self.assertIsInstance(units[0], ControlNetUnit)
 
     def test_unitlike(self):
         class Foo(object):
             """ bar """
 
         foo = Foo()
-        for key in vars(external_code.ControlNetUnit()).keys():
+        for key in vars(ControlNetUnit()).keys():
             setattr(foo, key, True)
         setattr(foo, 'bar', False)
         self.assertListEqual(external_code.get_all_units_from([foo]), [foo])

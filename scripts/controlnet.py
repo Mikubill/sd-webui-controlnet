@@ -16,6 +16,7 @@ from einops import rearrange
 # Register all preprocessors.
 import scripts.preprocessor as preprocessor_init  # noqa
 from annotator.util import HWC3
+from internal_controlnet.external_code import ControlNetUnit
 from scripts import global_state, hook, external_code, batch_hijack, controlnet_version, utils
 from scripts.controlnet_lora import bind_control_lora, unbind_control_lora
 from scripts.controlnet_lllite import clear_all_lllite
@@ -228,7 +229,7 @@ def get_pytorch_control(x: np.ndarray) -> torch.Tensor:
 
 def get_control(
     p: StableDiffusionProcessing,
-    unit: external_code.ControlNetUnit,
+    unit: ControlNetUnit,
     idx: int,
     control_model_type: ControlModelType,
     preprocessor: Preprocessor,
@@ -338,7 +339,7 @@ class Script(scripts.Script, metaclass=(
         self.latest_network = None
         self.input_image = None
         self.latest_model_hash = ""
-        self.enabled_units: List[external_code.ControlNetUnit] = []
+        self.enabled_units: List[ControlNetUnit] = []
         self.detected_map = []
         self.post_processors = []
         self.noise_modifier = None
@@ -356,7 +357,7 @@ class Script(scripts.Script, metaclass=(
 
     @staticmethod
     def get_default_ui_unit(is_ui=True):
-        cls = UiControlNetUnit if is_ui else external_code.ControlNetUnit
+        cls = UiControlNetUnit if is_ui else ControlNetUnit
         return cls(
             enabled=False,
             module="none",
@@ -527,7 +528,7 @@ class Script(scripts.Script, metaclass=(
         return attribute_value if attribute_value is not None else default
 
     @staticmethod
-    def parse_remote_call(p, unit: external_code.ControlNetUnit, idx):
+    def parse_remote_call(p, unit: ControlNetUnit, idx):
         selector = Script.get_remote_call
 
         unit.enabled = selector(p, "control_net_enabled", unit.enabled, idx, strict=True)
@@ -688,7 +689,7 @@ class Script(scripts.Script, metaclass=(
     @staticmethod
     def choose_input_image(
             p: processing.StableDiffusionProcessing,
-            unit: external_code.ControlNetUnit,
+            unit: ControlNetUnit,
             idx: int
         ) -> Tuple[np.ndarray, ResizeMode]:
         """ Choose input image from following sources with descending priority:
@@ -701,7 +702,7 @@ class Script(scripts.Script, metaclass=(
             - The input image in ndarray form.
             - The resize mode.
         """
-        def parse_unit_image(unit: external_code.ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+        def parse_unit_image(unit: ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
             unit_has_multiple_images = (
                 isinstance(unit.image, list) and
                 len(unit.image) > 0 and
@@ -810,7 +811,7 @@ class Script(scripts.Script, metaclass=(
     @staticmethod
     def try_crop_image_with_a1111_mask(
         p: StableDiffusionProcessing,
-        unit: external_code.ControlNetUnit,
+        unit: ControlNetUnit,
         input_image: np.ndarray,
         resize_mode: ResizeMode,
     ) -> np.ndarray:
@@ -863,7 +864,7 @@ class Script(scripts.Script, metaclass=(
         return input_image
 
     @staticmethod
-    def check_sd_version_compatible(unit: external_code.ControlNetUnit) -> None:
+    def check_sd_version_compatible(unit: ControlNetUnit) -> None:
         """
         Checks whether the given ControlNet unit has model compatible with the currently
         active sd model. An exception is thrown if ControlNet unit is detected to be

@@ -10,6 +10,7 @@ utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "u
 from scripts import external_code
 from scripts.enums import ResizeMode
 from scripts.controlnet import prepare_mask, Script, set_numpy_seed
+from internal_controlnet.external_code import ControlNetUnit
 from modules import processing
 
 
@@ -127,7 +128,7 @@ class TestScript(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Script.choose_input_image(
                     p=processing.StableDiffusionProcessing(),
-                    unit=external_code.ControlNetUnit(),
+                    unit=ControlNetUnit(),
                     idx=0,
                 )
 
@@ -137,7 +138,7 @@ class TestScript(unittest.TestCase):
                     init_images=[TestScript.sample_np_image],
                     resize_mode=ResizeMode.OUTER_FIT,
                 ),
-                unit=external_code.ControlNetUnit(
+                unit=ControlNetUnit(
                     image=TestScript.sample_base64_image,
                     module="none",
                     resize_mode=ResizeMode.INNER_FIT,
@@ -152,7 +153,7 @@ class TestScript(unittest.TestCase):
                     init_images=[TestScript.sample_np_image],
                     resize_mode=ResizeMode.OUTER_FIT,
                 ),
-                unit=external_code.ControlNetUnit(
+                unit=ControlNetUnit(
                     module="none",
                     resize_mode=ResizeMode.INNER_FIT,
                 ),
