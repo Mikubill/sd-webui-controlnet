@@ -6,6 +6,7 @@ utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'u
 
 
 from modules import processing, scripts, shared
+from internal_controlnet.external_code import ControlNetUnit
 from scripts import controlnet, external_code, batch_hijack
 
 
@@ -73,15 +74,15 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
         self.assertEqual(is_batch, False)
 
     def test_get_cn_batches__1_simple(self):
-        self.p.script_args.append(external_code.ControlNetUnit(image=get_dummy_image()))
+        self.p.script_args.append(ControlNetUnit(image=get_dummy_image()))
         self.assert_get_cn_batches_works([
             [self.p.script_args[0].image],
         ])
 
     def test_get_cn_batches__2_simples(self):
         self.p.script_args.extend([
-            external_code.ControlNetUnit(image=get_dummy_image(0)),
-            external_code.ControlNetUnit(image=get_dummy_image(1)),
+            ControlNetUnit(image=get_dummy_image(0)),
+            ControlNetUnit(image=get_dummy_image(1)),
         ])
         self.assert_get_cn_batches_works([
             [get_dummy_image(0)],
@@ -135,7 +136,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
 
     def test_get_cn_batches__2_mixed(self):
         self.p.script_args.extend([
-            external_code.ControlNetUnit(image=get_dummy_image(0)),
+            ControlNetUnit(image=get_dummy_image(0)),
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
                 batch_images=[
@@ -157,7 +158,7 @@ class TestGetControlNetBatchesWorks(unittest.TestCase):
 
     def test_get_cn_batches__3_mixed(self):
         self.p.script_args.extend([
-            external_code.ControlNetUnit(image=get_dummy_image(0)),
+            ControlNetUnit(image=get_dummy_image(0)),
             controlnet.UiControlNetUnit(
                 input_mode=batch_hijack.InputMode.BATCH,
                 batch_images=[
@@ -242,8 +243,8 @@ class TestProcessImagesPatchWorks(unittest.TestCase):
 
     def test_process_images__only_simple_units__forwards(self):
         self.p.script_args = [
-            external_code.ControlNetUnit(image=get_dummy_image()),
-            external_code.ControlNetUnit(image=get_dummy_image()),
+            ControlNetUnit(image=get_dummy_image()),
+            ControlNetUnit(image=get_dummy_image()),
         ]
         self.assert_process_images_hijack_called(batch_count=0)
 

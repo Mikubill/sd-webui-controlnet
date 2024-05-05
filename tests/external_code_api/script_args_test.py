@@ -5,6 +5,7 @@ utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'u
 
 from scripts import external_code
 from scripts.enums import ControlMode
+from internal_controlnet.external_code import ControlNetUnit
 
 
 class TestGetAllUnitsFrom(unittest.TestCase):
@@ -18,7 +19,7 @@ class TestGetAllUnitsFrom(unittest.TestCase):
             "processor_res": 64,
             "control_mode": ControlMode.BALANCED.value,
         }
-        self.object_unit = external_code.ControlNetUnit(**self.control_unit)
+        self.object_unit = ControlNetUnit(**self.control_unit)
 
     def test_empty_converts(self):
         script_args = []

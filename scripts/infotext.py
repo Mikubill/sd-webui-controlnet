@@ -4,7 +4,7 @@ import gradio as gr
 
 from modules.processing import StableDiffusionProcessing
 
-from scripts import external_code
+from internal_controlnet.external_code import ControlNetUnit
 from scripts.logging import logger
 
 
@@ -28,12 +28,12 @@ def parse_value(value: str) -> Union[str, float, int, bool]:
             return value  # Plain string.
 
 
-def serialize_unit(unit: external_code.ControlNetUnit) -> str:
-    excluded_fields = external_code.ControlNetUnit.infotext_excluded_fields()
+def serialize_unit(unit: ControlNetUnit) -> str:
+    excluded_fields = ControlNetUnit.infotext_excluded_fields()
 
     log_value = {
         field_to_displaytext(field): getattr(unit, field)
-        for field in vars(external_code.ControlNetUnit()).keys()
+        for field in vars(ControlNetUnit()).keys()
         if field not in excluded_fields and getattr(unit, field) != -1
         # Note: exclude hidden slider values.
     }
@@ -44,8 +44,8 @@ def serialize_unit(unit: external_code.ControlNetUnit) -> str:
     return ", ".join(f"{field}: {value}" for field, value in log_value.items())
 
 
-def parse_unit(text: str) -> external_code.ControlNetUnit:
-    return external_code.ControlNetUnit(
+def parse_unit(text: str) -> ControlNetUnit:
+    return ControlNetUnit(
         enabled=True,
         **{
             displaytext_to_field(key): parse_value(value)
@@ -74,7 +74,7 @@ class Infotext(object):
                      iocomponents.
         """
         unit_prefix = Infotext.unit_prefix(unit_index)
-        for field in vars(external_code.ControlNetUnit()).keys():
+        for field in vars(ControlNetUnit()).keys():
             # Exclude image for infotext.
             if field == "image":
                 continue
@@ -88,7 +88,7 @@ class Infotext(object):
 
     @staticmethod
     def write_infotext(
-        units: List[external_code.ControlNetUnit], p: StableDiffusionProcessing
+        units: List[ControlNetUnit], p: StableDiffusionProcessing
     ):
         """Write infotext to `p`."""
         p.extra_generation_params.update(

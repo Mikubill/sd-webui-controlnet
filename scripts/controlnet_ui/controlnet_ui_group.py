@@ -13,6 +13,7 @@ from scripts import (
     external_code,
 )
 from annotator.util import HWC3
+from internal_controlnet.external_code import ControlNetUnit
 from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
 from scripts.controlnet_ui.preset import ControlNetPresetUI
@@ -127,7 +128,7 @@ class A1111Context:
             )
 
 
-class UiControlNetUnit(external_code.ControlNetUnit):
+class UiControlNetUnit(ControlNetUnit):
     """The data class that stores all states of a ControlNetUnit."""
 
     def __init__(
@@ -167,7 +168,7 @@ class UiControlNetUnit(external_code.ControlNetUnit):
         self.output_dir = output_dir
         self.loopback = loopback
 
-    def unfold_merged(self) -> List[external_code.ControlNetUnit]:
+    def unfold_merged(self) -> List[ControlNetUnit]:
         """Unfolds a merged unit to multiple units. Keeps the unit merged for
         preprocessors that can accept multiple input images.
         """
@@ -220,7 +221,7 @@ class ControlNetUiGroup(object):
     def __init__(
         self,
         is_img2img: bool,
-        default_unit: external_code.ControlNetUnit,
+        default_unit: ControlNetUnit,
         photopea: Optional[Photopea],
     ):
         # Whether callbacks have been registered.
@@ -1260,7 +1261,7 @@ class ControlNetUiGroup(object):
             self.type_filter,
             *[
                 getattr(self, key)
-                for key in vars(external_code.ControlNetUnit()).keys()
+                for key in vars(ControlNetUnit()).keys()
             ],
         )
         self.advanced_weight_control.register_callbacks(
