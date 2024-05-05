@@ -5,7 +5,6 @@ import gradio as gr
 from modules.processing import StableDiffusionProcessing
 
 from internal_controlnet.external_code import ControlNetUnit
-from scripts import external_code
 from scripts.logging import logger
 
 

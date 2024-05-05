@@ -8,7 +8,6 @@ from modules.ui_components import ToolButton
 from internal_controlnet.external_code import ControlNetUnit
 from scripts.infotext import parse_unit, serialize_unit
 from scripts.logging import logger
-from scripts import external_code
 from scripts.supported_preprocessor import Preprocessor
 
 save_symbol = "\U0001f4be"  # 💾
