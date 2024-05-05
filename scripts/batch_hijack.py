@@ -1,5 +1,4 @@
 import os
-from copy import copy
 from typing import Tuple, List
 
 from modules import img2img, processing, shared, script_callbacks
@@ -194,7 +193,7 @@ def unhijack_function(module, name, new_name):
 
 def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
     units = external_code.get_all_units_in_processing(p)
-    units = [copy(unit) for unit in units if getattr(unit, 'enabled', False)]
+    units = [unit.copy() for unit in units if getattr(unit, 'enabled', False)]
     any_unit_is_batch = False
     output_dir = ''
     input_file_names = []

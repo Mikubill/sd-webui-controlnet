@@ -4,10 +4,9 @@ import os
 import logging
 from collections import OrderedDict
 from copy import copy, deepcopy
-from typing import Dict, Optional, Tuple, List, Union
+from typing import Dict, Optional, Tuple, List
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
-from modules.api.api import decode_base64_to_image
 import gradio as gr
 import time
 
@@ -26,6 +25,7 @@ from scripts.utils import load_state_dict, get_unique_axis0, align_dim_latent
 from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import (
     ControlModelType,
+    InputMode,
     StableDiffusionVersion,
     HiResFixOption,
     PuLIDMode,
@@ -33,7 +33,7 @@ from scripts.enums import (
     BatchOption,
     ResizeMode,
 )
-from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
+from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.logging import logger
 from scripts.supported_preprocessor import Preprocessor
@@ -99,44 +99,6 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 
 global_state.update_cn_models()
-
-
-def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
-    if image is None:
-        return None
-
-    if isinstance(image, (tuple, list)):
-        image = {'image': image[0], 'mask': image[1]}
-    elif not isinstance(image, dict):
-        image = {'image': image, 'mask': None}
-    else:  # type(image) is dict
-        # copy to enable modifying the dict and prevent response serialization error
-        image = dict(image)
-
-    if isinstance(image['image'], str):
-        if os.path.exists(image['image']):
-            image['image'] = np.array(Image.open(image['image'])).astype('uint8')
-        elif image['image']:
-            image['image'] = external_code.to_base64_nparray(image['image'])
-        else:
-            image['image'] = None
-
-    # If there is no image, return image with None image and None mask
-    if image['image'] is None:
-        image['mask'] = None
-        return image
-
-    if 'mask' not in image or image['mask'] is None:
-        image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
-    elif isinstance(image['mask'], str):
-        if os.path.exists(image['mask']):
-            image['mask'] = np.array(Image.open(image['mask']).convert("RGB")).astype('uint8')
-        elif image['mask']:
-            image['mask'] = external_code.to_base64_nparray(image['mask'])
-        else:
-            image['mask'] = np.zeros_like(image['image'], dtype=np.uint8)
-
-    return image
 
 
 def prepare_mask(
@@ -242,7 +204,7 @@ def get_control(
     h, w, hr_y, hr_x = Script.get_target_dimensions(p)
     input_image, resize_mode = Script.choose_input_image(p, unit, idx)
     if isinstance(input_image, list):
-        assert unit.accepts_multiple_inputs() or unit.is_animate_diff_batch
+        assert unit.accepts_multiple_inputs or unit.is_animate_diff_batch
         input_images = input_image
     else: # Following operations are only for single input image.
         input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
@@ -355,21 +317,8 @@ class Script(scripts.Script, metaclass=(
     def show(self, is_img2img):
         return scripts.AlwaysVisible
 
-    @staticmethod
-    def get_default_ui_unit(is_ui=True):
-        cls = UiControlNetUnit if is_ui else ControlNetUnit
-        return cls(
-            enabled=False,
-            module="none",
-            model="None"
-        )
-
     def uigroup(self, tabname: str, is_img2img: bool, elem_id_tabname: str, photopea: Optional[Photopea]) -> Tuple[ControlNetUiGroup, gr.State]:
-        group = ControlNetUiGroup(
-            is_img2img,
-            Script.get_default_ui_unit(),
-            photopea,
-        )
+        group = ControlNetUiGroup(is_img2img, photopea)
         return group, group.render(tabname, elem_id_tabname)
 
     def ui_batch_options(self, is_img2img: bool, elem_id_tabname: str):
@@ -665,10 +614,31 @@ class Script(scripts.Script, metaclass=(
 
     @staticmethod
     def get_enabled_units(p):
+        def unfold_merged(unit: ControlNetUnit) -> List[ControlNetUnit]:
+            """Unfolds a merged unit to multiple units. Keeps the unit merged for
+            preprocessors that can accept multiple input images.
+            """
+            if unit.input_mode != InputMode.MERGE:
+                return [unit]
+
+            if unit.accepts_multiple_inputs:
+                unit.input_mode = InputMode.SIMPLE
+                return [unit]
+
+            assert isinstance(unit.image, list)
+            result = []
+            for image in unit.image:
+                u = unit.copy()
+                u.image = [image]
+                u.input_mode = InputMode.SIMPLE
+                u.weight = unit.weight / len(unit.image)
+                result.append(u)
+            return result
+
         units = external_code.get_all_units_in_processing(p)
         if len(units) == 0:
             # fill a null group
-            remote_unit = Script.parse_remote_call(p, Script.get_default_ui_unit(), 0)
+            remote_unit = Script.parse_remote_call(p, ControlNetUnit(), 0)
             if remote_unit.enabled:
                 units.append(remote_unit)
 
@@ -678,10 +648,10 @@ class Script(scripts.Script, metaclass=(
             if not local_unit.enabled:
                 continue
 
-            if hasattr(local_unit, "unfold_merged"):
-                enabled_units.extend(local_unit.unfold_merged())
+            if hasattr(local_unit, "input_mode"):
+                enabled_units.extend(unfold_merged(local_unit))
             else:
-                enabled_units.append(copy(local_unit))
+                enabled_units.append(local_unit)
 
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
@@ -695,43 +665,20 @@ class Script(scripts.Script, metaclass=(
         """ Choose input image from following sources with descending priority:
          - p.image_control: [Deprecated] Lagacy way to pass image to controlnet.
          - p.control_net_input_image: [Deprecated] Lagacy way to pass image to controlnet.
-         - unit.image: ControlNet tab input image.
-         - p.init_images: A1111 img2img tab input image.
+         - unit.image: ControlNet unit input image.
+         - p.init_images: A1111 img2img input image.
 
         Returns:
             - The input image in ndarray form.
             - The resize mode.
         """
-        def parse_unit_image(unit: ControlNetUnit) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
-            unit_has_multiple_images = (
-                isinstance(unit.image, list) and
-                len(unit.image) > 0 and
-                "image" in unit.image[0]
-            )
-            if unit_has_multiple_images:
-                return [
-                    d
-                    for img in unit.image
-                    for d in (image_dict_from_any(img),)
-                    if d is not None
-                ]
-            return image_dict_from_any(unit.image)
-
-        def decode_image(img) -> np.ndarray:
-            """Need to check the image for API compatibility."""
-            if isinstance(img, str):
-                return np.asarray(decode_base64_to_image(image['image']))
-            else:
-                assert isinstance(img, np.ndarray)
-                return img
-
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
-        image = parse_unit_image(unit)
+        image = unit.image
         a1111_image = getattr(p, "init_images", [None])[0]
 
-        resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
+        resize_mode = unit.resize_mode
 
         if batch_hijack.instance.is_batch and p_image_control is not None:
             logger.warning("Warn: Using legacy field 'p.image_control'.")
@@ -744,42 +691,18 @@ class Script(scripts.Script, metaclass=(
                 input_image = np.concatenate([color, alpha], axis=2)
             else:
                 input_image = HWC3(np.asarray(p_input_image))
-        elif image:
-            if isinstance(image, list):
-                # Add mask logic if later there is a processor that accepts mask
-                # on multiple inputs.
-                input_image = [HWC3(decode_image(img['image'])) for img in image]
-                if unit.is_animate_diff_batch and len(image) > 0 and 'mask' in image[0] and image[0]['mask'] is not None:
-                    for idx in range(len(input_image)):
-                        while len(image[idx]['mask'].shape) < 3:
-                            image[idx]['mask'] = image[idx]['mask'][..., np.newaxis]
-                        if unit.is_inpaint or unit.uses_clip:
-                            color = HWC3(image[idx]["image"])
-                            alpha = image[idx]['mask'][:, :, 0:1]
-                            input_image[idx] = np.concatenate([color, alpha], axis=2)
+        elif image is not None:
+            assert isinstance(image, list)
+            # Inpaint mask or CLIP mask.
+            if unit.is_inpaint or unit.uses_clip:
+                # RGBA
+                input_image = image
             else:
-                input_image = HWC3(decode_image(image['image']))
-                if 'mask' in image and image['mask'] is not None:
-                    while len(image['mask'].shape) < 3:
-                        image['mask'] = image['mask'][..., np.newaxis]
-                    if unit.is_inpaint or unit.uses_clip:
-                        logger.info("using mask")
-                        color = HWC3(image['image'])
-                        alpha = image['mask'][:, :, 0:1]
-                        input_image = np.concatenate([color, alpha], axis=2)
-                    elif (
-                        not shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) and
-                        # There is wield gradio issue that would produce mask that is
-                        # not pure color when no scribble is made on canvas.
-                        # See https://github.com/Mikubill/sd-webui-controlnet/issues/1638.
-                        not (
-                            (image['mask'][:, :, 0] <= 5).all() or
-                            (image['mask'][:, :, 0] >= 250).all()
-                        )
-                    ):
-                        logger.info("using mask as input")
-                        input_image = HWC3(image['mask'][:, :, 0])
-                        unit.module = 'none'  # Always use black bg and white line
+                # RGB
+                input_image = [img[:, :, :3] for img in image]
+
+            if len(input_image) == 1:
+                input_image = input_image[0]
         elif a1111_image is not None:
             input_image = HWC3(np.asarray(a1111_image))
             a1111_i2i_resize_mode = getattr(p, "resize_mode", None)
@@ -957,7 +880,6 @@ class Script(scripts.Script, metaclass=(
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
 
         for idx, unit in enumerate(self.enabled_units):
-            unit.bound_check_params()
             Script.check_sd_version_compatible(unit)
             if (
                 'inpaint_only' == unit.module and
@@ -1011,7 +933,7 @@ class Script(scripts.Script, metaclass=(
             elif unit.is_animate_diff_batch or control_model_type in [ControlModelType.SparseCtrl]:
                 cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
                 def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
-                    if unit.accepts_multiple_inputs():
+                    if unit.accepts_multiple_inputs:
                         ip_adapter_image_emb_cond = []
                         model_net.ipadapter.image_proj_model.to(torch.float32) # noqa
                         for c in cc:
@@ -1038,7 +960,7 @@ class Script(scripts.Script, metaclass=(
                                 for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
                                     logger.info(f"\t{frame_idx}: {frame_path}")
                             c = SparseCtrl.create_cond_mask(cn_ad_keyframe_idx, c, p.batch_size).cpu()
-                        elif unit.accepts_multiple_inputs():
+                        elif unit.accepts_multiple_inputs:
                             # ip-adapter should do prompt travel
                             logger.info("IP-Adapter: control prompts will be traveled in the following way:")
                             for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
@@ -1067,7 +989,7 @@ class Script(scripts.Script, metaclass=(
                             c_full[cn_ad_keyframe_idx] = c
                             c = c_full
                     # handle batch condition and unconditional
-                    if shared.opts.batch_cond_uncond and not unit.accepts_multiple_inputs():
+                    if shared.opts.batch_cond_uncond and not unit.accepts_multiple_inputs:
                         c = torch.cat([c, c], dim=0)
                     return c
 
@@ -1090,7 +1012,6 @@ class Script(scripts.Script, metaclass=(
                 control_model_type.is_controlnet and
                 model_net.control_model.global_average_pooling
             )
-            control_mode = external_code.control_mode_from_value(unit.control_mode)
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
@@ -1103,9 +1024,9 @@ class Script(scripts.Script, metaclass=(
                 control_model_type=control_model_type,
                 global_average_pooling=global_average_pooling,
                 hr_hint_cond=hr_control,
-                hr_option=HiResFixOption.from_value(unit.hr_option) if high_res_fix else HiResFixOption.BOTH,
-                soft_injection=control_mode != ControlMode.BALANCED,
-                cfg_injection=control_mode == ControlMode.CONTROL,
+                hr_option=unit.hr_option if high_res_fix else HiResFixOption.BOTH,
+                soft_injection=unit.control_mode != ControlMode.BALANCED,
+                cfg_injection=unit.control_mode == ControlMode.CONTROL,
                 effective_region_mask=(
                     get_pytorch_control(unit.effective_region_mask)[:, 0:1, :, :]
                     if unit.effective_region_mask is not None
@@ -1217,16 +1138,10 @@ class Script(scripts.Script, metaclass=(
                     weight = param.weight
 
                 h, w, hr_y, hr_x = Script.get_target_dimensions(p)
-                # TODO: Fix all enum issue
-                if unit.pulid_mode == "PuLIDMode.FIDELITY":
-                    pulid_mode = PuLIDMode.FIDELITY
-                else:
-                    pulid_mode = PuLIDMode(unit.pulid_mode)
-
-                if pulid_mode == PuLIDMode.STYLE:
+                if unit.pulid_mode == PuLIDMode.STYLE:
                     pulid_attn_setting = PULID_SETTING_STYLE
                 else:
-                    assert pulid_mode == PuLIDMode.FIDELITY
+                    assert unit.pulid_mode == PuLIDMode.FIDELITY
                     pulid_attn_setting = PULID_SETTING_FIDELITY
 
                 param.control_model.hook(
@@ -1377,18 +1292,18 @@ class Script(scripts.Script, metaclass=(
             unit.batch_images = iter([batch[unit_i] for batch in batches])
 
     def batch_tab_process_each(self, p, *args, **kwargs):
-        for unit_i, unit in enumerate(self.enabled_units):
+        for unit in self.enabled_units:
             if getattr(unit, 'loopback', False) and batch_hijack.instance.batch_index > 0:
                 continue
 
-            unit.image = next(unit.batch_images)
+            unit.set_batch_image(next(unit.batch_images))
 
     def batch_tab_postprocess_each(self, p, processed, *args, **kwargs):
         for unit_i, unit in enumerate(self.enabled_units):
             if getattr(unit, 'loopback', False):
                 output_images = getattr(processed, 'images', [])[processed.index_of_first_image:]
                 if output_images:
-                    unit.image = np.array(output_images[0])
+                    unit.set_batch_image(np.array(output_images[0]))
                 else:
                     logger.warning(f'Warning: No loopback image found for controlnet unit {unit_i}. Using control map from last batch iteration instead')
 

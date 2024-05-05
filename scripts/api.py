@@ -137,12 +137,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         )
 
         unit = ControlNetUnit(
+            enabled=True,
             module=preprocessor.label,
             processor_res=controlnet_processor_res,
             threshold_a=controlnet_threshold_a,
             threshold_b=controlnet_threshold_b,
         )
-        unit.bound_check_params()
 
         tensors = []
         images = []
