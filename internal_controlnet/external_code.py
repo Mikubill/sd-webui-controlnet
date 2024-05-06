@@ -7,7 +7,11 @@ from modules.api import api
 from .args import ControlNetUnit
 from scripts import global_state
 from scripts.logging import logger
-from scripts.enums import ResizeMode
+from scripts.enums import (
+    ResizeMode,
+    BatchOption,  # noqa: F401
+    ControlMode,  # noqa: F401
+)
 from scripts.supported_preprocessor import (
     Preprocessor,
     PreprocessorParameter,  # noqa: F401
