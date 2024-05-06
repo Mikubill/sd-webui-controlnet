@@ -168,7 +168,7 @@ def get_all_units_from(script_args: List[Any]) -> List[ControlNetUnit]:
         )
 
     all_units = [
-        ControlNetUnit.from_dict(script_arg)
+        to_processing_unit(script_arg)
         for script_arg in script_args
         if is_controlnet_unit(script_arg)
     ]
@@ -199,7 +199,7 @@ def get_single_unit_from(
     i = 0
     while i < len(script_args) and index >= 0:
         if index == 0 and script_args[i] is not None:
-            return ControlNetUnit.from_dict(script_args[i])
+            return to_processing_unit(script_args[i])
         i += 1
 
         index -= 1
@@ -214,6 +214,17 @@ def get_max_models_num():
 
     max_models_num = shared.opts.data.get("control_net_unit_count", 3)
     return max_models_num
+
+
+def to_processing_unit(unit: Union[Dict, ControlNetUnit]) -> ControlNetUnit:
+    """
+    Convert different types to processing unit.
+    """
+    if isinstance(unit, dict):
+        return ControlNetUnit.from_dict(unit)
+
+    assert isinstance(unit, ControlNetUnit)
+    return unit
 
 
 def update_cn_script_in_processing(

@@ -127,7 +127,7 @@ class A1111Context:
             )
 
 
-def create_ui_unit_dict(
+def create_ui_unit(
     input_mode: InputMode = InputMode.SIMPLE,
     batch_images: Optional[Any] = None,
     output_dir: str = "",
@@ -136,7 +136,7 @@ def create_ui_unit_dict(
     use_preview_as_input: bool = False,
     generated_image: Optional[np.ndarray] = None,
     *args,
-) -> dict:
+) -> ControlNetUnit:
     unit_dict = {
         k: v
         for k, v in zip(
@@ -159,7 +159,7 @@ def create_ui_unit_dict(
         ]
 
     unit_dict["image"] = input_image
-    return unit_dict
+    return ControlNetUnit.from_dict(unit_dict)
 
 
 class ControlNetUiGroup(object):
@@ -665,13 +665,13 @@ class ControlNetUiGroup(object):
             self.pulid_mode,
         )
 
-        unit = gr.State({})
+        unit = gr.State(ControlNetUnit())
         (
             ControlNetUiGroup.a1111_context.img2img_submit_button
             if self.is_img2img
             else ControlNetUiGroup.a1111_context.txt2img_submit_button
         ).click(
-            fn=create_ui_unit_dict,
+            fn=create_ui_unit,
             inputs=list(unit_args),
             outputs=unit,
             queue=False,
