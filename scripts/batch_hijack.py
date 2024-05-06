@@ -1,10 +1,10 @@
 import os
-from copy import copy
 from typing import Tuple, List
 
 from modules import img2img, processing, shared, script_callbacks
 from scripts import external_code
 from scripts.enums import InputMode
+from scripts.logging import logger
 
 class BatchHijack:
     def __init__(self):
@@ -194,7 +194,7 @@ def unhijack_function(module, name, new_name):
 
 def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
     units = external_code.get_all_units_in_processing(p)
-    units = [copy(unit) for unit in units if getattr(unit, 'enabled', False)]
+    units = [unit.copy() for unit in units if getattr(unit, 'enabled', False)]
     any_unit_is_batch = False
     output_dir = ''
     input_file_names = []
@@ -222,6 +222,8 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
             else:
                 batches[i].append(unit.image)
 
+    if any_unit_is_batch:
+        logger.info(f"Batch enabled ({len(batches)})")
     return any_unit_is_batch, batches, output_dir, input_file_names
 
 

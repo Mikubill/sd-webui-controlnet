@@ -7,7 +7,6 @@ import importlib
 utils = importlib.import_module("extensions.sd-webui-controlnet.tests.utils", "utils")
 
 
-from scripts import external_code
 from scripts.enums import ResizeMode
 from scripts.controlnet import prepare_mask, Script, set_numpy_seed
 from internal_controlnet.external_code import ControlNetUnit
@@ -119,9 +118,7 @@ class TestScript(unittest.TestCase):
         "AAAAAAAAAAAAAAAAAAAAAAAA/wZOlAAB5tU+nAAAAABJRU5ErkJggg=="
     )
 
-    sample_np_image = np.array(
-        [[100, 200, 50], [150, 75, 225], [30, 120, 180]], dtype=np.uint8
-    )
+    sample_np_image = np.zeros(shape=[8, 8, 3], dtype=np.uint8)
 
     def test_choose_input_image(self):
         with self.subTest(name="no image"):
@@ -139,7 +136,7 @@ class TestScript(unittest.TestCase):
                     resize_mode=ResizeMode.OUTER_FIT,
                 ),
                 unit=ControlNetUnit(
-                    image=TestScript.sample_base64_image,
+                    image=TestScript.sample_np_image,
                     module="none",
                     resize_mode=ResizeMode.INNER_FIT,
                 ),
