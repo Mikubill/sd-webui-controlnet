@@ -99,6 +99,7 @@ def swap_img2img_pipeline(p: processing.StableDiffusionProcessingImg2Img):
 
 
 global_state.update_cn_models()
+logger.info(f"ControlNet {controlnet_version.version_flag}")
 
 
 def prepare_mask(
