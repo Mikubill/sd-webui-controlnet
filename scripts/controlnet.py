@@ -647,11 +647,7 @@ class Script(scripts.Script, metaclass=(
             local_unit = Script.parse_remote_call(p, unit, idx)
             if not local_unit.enabled:
                 continue
-
-            if hasattr(local_unit, "input_mode"):
-                enabled_units.extend(unfold_merged(local_unit))
-            else:
-                enabled_units.append(local_unit)
+            enabled_units.extend(unfold_merged(local_unit))
 
         Infotext.write_infotext(enabled_units, p)
         return enabled_units
