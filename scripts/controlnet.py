@@ -668,6 +668,17 @@ class Script(scripts.Script, metaclass=(
             - The input image in ndarray form.
             - The resize mode.
         """
+        def from_rgba_to_input(img: np.ndarray) -> np.ndarray:
+            if (
+                shared.opts.data.get("controlnet_ignore_noninpaint_mask", False) or
+                (img[:, :, 3] <= 5).all() or
+                (img[:, :, 3] >= 250).all()
+            ):
+                # Take RGB
+                return img[:, :, :3]
+            logger.info("Canvas scribble mode. Using mask scribble as input.")
+            return HWC3(img[:, :, 3])
+
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
@@ -695,7 +706,7 @@ class Script(scripts.Script, metaclass=(
                 input_image = image
             else:
                 # RGB
-                input_image = [img[:, :, :3] for img in image]
+                input_image = [from_rgba_to_input(img) for img in image]
 
             if len(input_image) == 1:
                 input_image = input_image[0]
