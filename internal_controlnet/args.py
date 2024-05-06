@@ -330,6 +330,7 @@ class ControlNetUnit(BaseModel):
 
         UI:
         - image = {"image": np_image, "mask": np_image,}
+        - image = np_image, mask = np_image
         """
         init_image = self.image
         init_mask = self.mask
@@ -357,7 +358,7 @@ class ControlNetUnit(BaseModel):
         elif isinstance(init_image, dict):
             # {"image": ..., "mask": ...}
             images = [init_image]
-        elif isinstance(init_image, str):
+        elif isinstance(init_image, (str, np.ndarray)):
             # image = base64image, mask = base64image
             images = [
                 {

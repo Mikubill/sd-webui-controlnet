@@ -106,6 +106,7 @@ def test_model_valid(set_cls_funcs):
         dict(image=dict(image=img1, mask=img2)),
         # 2D mask should be accepted.
         dict(image=dict(image=img1, mask=mask_2d)),
+        dict(image=img1, mask=mask_2d),
     ],
 )
 def test_valid_image_formats(set_cls_funcs, d):
