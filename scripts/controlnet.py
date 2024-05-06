@@ -675,7 +675,7 @@ class Script(scripts.Script, metaclass=(
         # 4 input image sources.
         p_image_control = getattr(p, "image_control", None)
         p_input_image = Script.get_remote_call(p, "control_net_input_image", None, idx)
-        image = unit.image
+        image = unit.get_input_images_rgba()
         a1111_image = getattr(p, "init_images", [None])[0]
 
         resize_mode = unit.resize_mode
@@ -1296,14 +1296,14 @@ class Script(scripts.Script, metaclass=(
             if getattr(unit, 'loopback', False) and batch_hijack.instance.batch_index > 0:
                 continue
 
-            unit.set_batch_image(next(unit.batch_images))
+            unit.image = next(unit.batch_images)
 
     def batch_tab_postprocess_each(self, p, processed, *args, **kwargs):
         for unit_i, unit in enumerate(self.enabled_units):
             if getattr(unit, 'loopback', False):
                 output_images = getattr(processed, 'images', [])[processed.index_of_first_image:]
                 if output_images:
-                    unit.set_batch_image(np.array(output_images[0]))
+                    unit.image = np.array(output_images[0])
                 else:
                     logger.warning(f'Warning: No loopback image found for controlnet unit {unit_i}. Using control map from last batch iteration instead')
 

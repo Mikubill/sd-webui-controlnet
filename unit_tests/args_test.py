@@ -109,7 +109,8 @@ def test_model_valid(set_cls_funcs):
     ],
 )
 def test_valid_image_formats(set_cls_funcs, d):
-    ControlNetUnit.from_dict(d)
+    unit = ControlNetUnit.from_dict(d)
+    unit.get_input_images_rgba()
 
 
 @pytest.mark.parametrize(
@@ -122,14 +123,27 @@ def test_valid_image_formats(set_cls_funcs, d):
         dict(image=[]),
         dict(image=[{"mask": "b64img1"}]),
         dict(image=None, mask="b64img2"),
-        dict(image="b64img1", mask="b64img1", mask_image="b64img1"),
         # image & mask have different H x W
         dict(image="b64img1", mask="b64mask_diff"),
     ],
 )
 def test_invalid_image_formats(set_cls_funcs, d):
+    # Setting field will be fine.
+    unit = ControlNetUnit.from_dict(d)
+    # Error on eval.
     with pytest.raises((ValueError, AssertionError)):
-        ControlNetUnit.from_dict(d)
+        unit.get_input_images_rgba()
+
+
+def test_mask_alias_conflict():
+    with pytest.raises((ValueError, AssertionError)):
+        ControlNetUnit.from_dict(
+            dict(
+                image="b64img1",
+                mask="b64img1",
+                mask_image="b64img1",
+            )
+        ),
 
 
 def test_resize_mode():

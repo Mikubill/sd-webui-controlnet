@@ -90,46 +90,9 @@ class ControlNetUnit(BaseModel):
         return value
 
     weight: Annotated[float, Field(ge=0.0, le=2.0)] = 1.0
-    # RGBA images with potentially different size.
-    # Why we cannot have [B, H, W, C=4] here is that calculation of final
-    # resolution requires generation target's dimensions.
-    image: Optional[List[np.ndarray]] = None
 
-    @validator("image", always=True, pre=True)
-    def check_image(cls, value):
-        if value is None:
-            return None
-
-        if isinstance(value, np.ndarray):
-            # Backward compatible with original init method.
-            value = [value]
-
-        if not isinstance(value, list):
-            raise ValueError("image should be a list")
-
-        for img in value:
-            if not isinstance(img, np.ndarray):
-                raise ValueError("image is not np array!")
-            if img.ndim != 3:
-                raise ValueError("image should have 3 dim (H, W, C).")
-            if img.shape[2] != 4:
-                raise ValueError("image should have 4 channels (RGBA).")
-        return value
-
-    def set_batch_image(self, batch_image: Any):
-        if isinstance(batch_image, list):
-            assert all(isinstance(img, np.ndarray) for img in batch_image)
-            self.image = batch_image
-        elif isinstance(batch_image, np.ndarray):
-            assert batch_image.ndim == 4, batch_image.shape
-            self.image = [batch_image]
-        else:
-            self.image = [
-                self.combine_image_and_mask(
-                    self.parse_image(batch_image),
-                    np_mask=None,
-                )
-            ]
+    # The image to be used for this ControlNetUnit.
+    image: Optional[Any] = None
 
     resize_mode: ResizeMode = ResizeMode.INNER_FIT
     low_vram: bool = False
@@ -241,6 +204,9 @@ class ControlNetUnit(BaseModel):
         assert result, "input cannot be empty"
         return result
 
+    # The mask to be used on top of the image.
+    mask: Optional[Any] = None
+
     @property
     def accepts_multiple_inputs(self) -> bool:
         """This unit can accept multiple input images."""
@@ -348,9 +314,12 @@ class ControlNetUnit(BaseModel):
             values["mask"] = mask_image
         return values
 
-    @classmethod
-    def parse_image_formats(cls, values: dict) -> dict:
+    def get_input_images_rgba(self) -> Optional[List[np.ndarray]]:
         """
+        RGBA images with potentially different size.
+        Why we cannot have [B, H, W, C=4] here is that calculation of final
+        resolution requires generation target's dimensions.
+
         Parse image with following formats.
         API
         - image = {"image": base64image, "mask": base64image,}
@@ -362,12 +331,12 @@ class ControlNetUnit(BaseModel):
         UI:
         - image = {"image": np_image, "mask": np_image,}
         """
-        init_image = values.get("image")
-        init_mask = values.get("mask")
+        init_image = self.image
+        init_mask = self.mask
 
         if init_image is None:
             assert init_mask is None
-            return values
+            return None
 
         if isinstance(init_image, (list, tuple)):
             if not init_image:
@@ -406,19 +375,17 @@ class ControlNetUnit(BaseModel):
             mask = image_dict.get("mask")
             assert image is not None
 
-            np_image = cls.parse_image(image)
-            np_mask = cls.parse_image(mask) if mask is not None else None
-            np_images.append(cls.combine_image_and_mask(np_image, np_mask))  # [H, W, 4]
+            np_image = self.parse_image(image)
+            np_mask = self.parse_image(mask) if mask is not None else None
+            np_images.append(self.combine_image_and_mask(np_image, np_mask))  # [H, W, 4]
 
-        values["image"] = np_images
-        return values
+        return np_images
 
     @classmethod
     def from_dict(cls, values: dict) -> ControlNetUnit:
         values = copy(values)
         values = cls.legacy_field_alias(values)
         values = cls.mask_alias(values)
-        values = cls.parse_image_formats(values)
         return ControlNetUnit(**values)
 
     @classmethod
