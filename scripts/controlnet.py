@@ -166,10 +166,6 @@ def get_control(
         assert unit.accepts_multiple_inputs or unit.is_animate_diff_batch
         input_images = input_image
     else: # Following operations are only for single input image.
-        if unit.resize_to_effective_region:
-            assert unit.effective_region_mask is not None
-            input_image = resize_and_pad(input_image, unit.effective_region_mask)
-
         input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
         input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
         if unit.module == 'inpaint_only+lama' and resize_mode == ResizeMode.OUTER_FIT:

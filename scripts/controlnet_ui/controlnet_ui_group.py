@@ -266,7 +266,6 @@ class ControlNetUiGroup(object):
         self.advanced_weighting = gr.State(None)
         self.pulid_mode = None
         self.effective_region_mask = None
-        self.resize_to_effective_region = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
@@ -474,12 +473,6 @@ class ControlNetUiGroup(object):
                 elem_classes=["cnet-preview-as-input"],
                 visible=False,
             )
-            self.resize_to_effective_region = gr.Checkbox(
-                label="Resize to effective region",
-                value=False,
-                elem_classes=["cnet-resize-to-effective-region"],
-                visible=True,
-            )
 
         with gr.Row(elem_classes="controlnet_img2img_options"):
             if self.is_img2img:
@@ -677,11 +670,7 @@ class ControlNetUiGroup(object):
             self.save_detected_map,
             self.advanced_weighting,
             self.effective_region_mask,
-<<<<<<< HEAD
             self.pulid_mode,
-=======
-            self.resize_to_effective_region,
->>>>>>> 0365a14 (Plumbing)
         )
 
         unit = gr.State(ControlNetUnit())
