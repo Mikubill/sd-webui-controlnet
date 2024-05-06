@@ -1,58 +1,11 @@
-from typing import List, Tuple, Union
-
+from typing import List, Tuple
+from enum import Enum
 import gradio as gr
 
 from modules.processing import StableDiffusionProcessing
 
-from scripts import external_code
+from internal_controlnet.external_code import ControlNetUnit
 from scripts.logging import logger
-
-
-def field_to_displaytext(fieldname: str) -> str:
-    return " ".join([word.capitalize() for word in fieldname.split("_")])
-
-
-def displaytext_to_field(text: str) -> str:
-    return "_".join([word.lower() for word in text.split(" ")])
-
-
-def parse_value(value: str) -> Union[str, float, int, bool]:
-    if value in ("True", "False"):
-        return value == "True"
-    try:
-        return int(value)
-    except ValueError:
-        try:
-            return float(value)
-        except ValueError:
-            return value  # Plain string.
-
-
-def serialize_unit(unit: external_code.ControlNetUnit) -> str:
-    excluded_fields = external_code.ControlNetUnit.infotext_excluded_fields()
-
-    log_value = {
-        field_to_displaytext(field): getattr(unit, field)
-        for field in vars(external_code.ControlNetUnit()).keys()
-        if field not in excluded_fields and getattr(unit, field) != -1
-        # Note: exclude hidden slider values.
-    }
-    if not all("," not in str(v) and ":" not in str(v) for v in log_value.values()):
-        logger.error(f"Unexpected tokens encountered:\n{log_value}")
-        return ""
-
-    return ", ".join(f"{field}: {value}" for field, value in log_value.items())
-
-
-def parse_unit(text: str) -> external_code.ControlNetUnit:
-    return external_code.ControlNetUnit(
-        enabled=True,
-        **{
-            displaytext_to_field(key): parse_value(value)
-            for item in text.split(",")
-            for (key, value) in (item.strip().split(": "),)
-        },
-    )
 
 
 class Infotext(object):
@@ -74,11 +27,7 @@ class Infotext(object):
                      iocomponents.
         """
         unit_prefix = Infotext.unit_prefix(unit_index)
-        for field in vars(external_code.ControlNetUnit()).keys():
-            # Exclude image for infotext.
-            if field == "image":
-                continue
-
+        for field in ControlNetUnit.infotext_fields():
             # Every field in ControlNetUnit should have a cooresponding
             # IOComponent in ControlNetUiGroup.
             io_component = getattr(uigroup, field)
@@ -87,13 +36,11 @@ class Infotext(object):
             self.paste_field_names.append(component_locator)
 
     @staticmethod
-    def write_infotext(
-        units: List[external_code.ControlNetUnit], p: StableDiffusionProcessing
-    ):
+    def write_infotext(units: List[ControlNetUnit], p: StableDiffusionProcessing):
         """Write infotext to `p`."""
         p.extra_generation_params.update(
             {
-                Infotext.unit_prefix(i): serialize_unit(unit)
+                Infotext.unit_prefix(i): unit.serialize()
                 for i, unit in enumerate(units)
                 if unit.enabled
             }
@@ -109,14 +56,19 @@ class Infotext(object):
 
             assert isinstance(v, str), f"Expect string but got {v}."
             try:
-                for field, value in vars(parse_unit(v)).items():
-                    if field == "image":
+                for field, value in vars(ControlNetUnit.parse(v)).items():
+                    if field not in ControlNetUnit.infotext_fields():
                         continue
                     if value is None:
-                        logger.debug(f"InfoText: Skipping {field} because value is None.")
+                        logger.debug(
+                            f"InfoText: Skipping {field} because value is None."
+                        )
                         continue
 
                     component_locator = f"{k} {field}"
+                    if isinstance(value, Enum):
+                        value = value.value
+
                     updates[component_locator] = value
                     logger.debug(f"InfoText: Setting {component_locator} = {value}")
             except Exception as e:

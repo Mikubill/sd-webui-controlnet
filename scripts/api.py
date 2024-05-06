@@ -137,12 +137,12 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
         )
 
         unit = ControlNetUnit(
+            enabled=True,
             module=preprocessor.label,
             processor_res=controlnet_processor_res,
             threshold_a=controlnet_threshold_a,
             threshold_b=controlnet_threshold_b,
         )
-        unit.bound_check_params()
 
         tensors = []
         images = []
@@ -179,7 +179,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 low_vram=low_vram,
             )
             if preprocessor.returns_image:
-                images.append(encode_to_base64(result.display_image))
+                images.append(encode_to_base64(result.display_images[0]))
             else:
                 tensors.append(encode_tensor_to_base64(result.value))
 

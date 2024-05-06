@@ -1,8 +1,4 @@
-from scripts.logging import logger
-
-version_flag = 'v1.1.445'
-
-logger.info(f"ControlNet {version_flag}")
+version_flag = 'v1.1.448'
 # A smart trick to know if user has updated as well as if user has restarted terminal.
 # Note that in "controlnet.py" we do NOT use "importlib.reload" to reload this "controlnet_version.py"
 # This means if user did not completely restart terminal, the "version_flag" will be the previous version.

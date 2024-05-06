@@ -75,7 +75,7 @@ INPAINT_PREPROCESSORS = {
 def test_detect_all_modules(module: str):
     payload = dict(
         controlnet_input_images=[realistic_girl_face_img],
-        controlnet_masks=[mask_img],
+        controlnet_module=module,
     )
     detect_template(payload, f"detect_{module}")
 
@@ -143,16 +143,16 @@ def test_detect_default_param():
             dict(
                 controlnet_input_images=[realistic_girl_face_img],
                 controlnet_module="canny",  # Canny does not require model download.
-                controlnet_threshold_a=-1,
-                controlnet_threshold_b=-1,
-                controlnet_processor_res=-1,
+                controlnet_threshold_a=-100,
+                controlnet_threshold_b=-100,
+                controlnet_processor_res=-100,
             ),
             "default_param",
         )
         assert log_context.is_in_console_logs(
             [
-                "[canny.processor_res] Invalid value(-1), using default value 512.",
-                "[canny.threshold_a] Invalid value(-1.0), using default value 100.",
-                "[canny.threshold_b] Invalid value(-1.0), using default value 200.",
+                "[canny.processor_res] Invalid value(-100), using default value 512.",
+                "[canny.threshold_a] Invalid value(-100.0), using default value 100.",
+                "[canny.threshold_b] Invalid value(-100.0), using default value 200.",
             ]
         )

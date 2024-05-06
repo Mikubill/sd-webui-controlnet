@@ -1,16 +1,5 @@
-import numpy as np
-
+from scripts.utils import visualize_inpaint_mask
 from ..supported_preprocessor import Preprocessor, PreprocessorParameter
-
-
-def visualize_inpaint_mask(img):
-    if img.ndim == 3 and img.shape[2] == 4:
-        result = img.copy()
-        mask = result[:, :, 3]
-        mask = 255 - mask // 2
-        result[:, :, 3] = mask
-        return np.ascontiguousarray(result.copy())
-    return img
 
 
 class PreprocessorInpaint(Preprocessor):
@@ -23,9 +12,6 @@ class PreprocessorInpaint(Preprocessor):
         self.accepts_mask = True
         self.requires_mask = True
 
-    def get_display_image(self, input_image: np.ndarray, result):
-        return visualize_inpaint_mask(result)
-
     def __call__(
         self,
         input_image,
@@ -35,7 +21,10 @@ class PreprocessorInpaint(Preprocessor):
         slider_3=None,
         **kwargs
     ):
-        return input_image
+        return Preprocessor.Result(
+            value=input_image,
+            display_images=visualize_inpaint_mask(input_image)[None, :, :, :],
+        )
 
 
 class PreprocessorInpaintOnly(Preprocessor):
@@ -47,9 +36,6 @@ class PreprocessorInpaintOnly(Preprocessor):
         self.accepts_mask = True
         self.requires_mask = True
 
-    def get_display_image(self, input_image: np.ndarray, result):
-        return visualize_inpaint_mask(result)
-
     def __call__(
         self,
         input_image,
@@ -59,7 +45,10 @@ class PreprocessorInpaintOnly(Preprocessor):
         slider_3=None,
         **kwargs
     ):
-        return input_image
+        return Preprocessor.Result(
+            value=input_image,
+            display_images=visualize_inpaint_mask(input_image)[None, :, :, :],
+        )
 
 
 Preprocessor.add_supported_preprocessor(PreprocessorInpaint())

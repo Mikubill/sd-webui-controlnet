@@ -295,15 +295,15 @@ def get_model(model_name: str) -> str:
 
 
 default_unit = {
-    "control_mode": 0,
+    "control_mode": "Balanced",
     "enabled": True,
     "guidance_end": 1,
     "guidance_start": 0,
     "pixel_perfect": True,
     "processor_res": 512,
-    "resize_mode": 1,
-    "threshold_a": 64,
-    "threshold_b": 64,
+    "resize_mode": "Crop and Resize",
+    "threshold_a": -1,
+    "threshold_b": -1,
     "weight": 1,
     "module": "canny",
     "model": get_model("sd15_canny"),

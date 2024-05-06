@@ -87,12 +87,13 @@ def test_invalid_param(gen_type, param_name):
             f"test_invalid_param{(gen_type, param_name)}",
             gen_type,
             payload_overrides={},
-            unit_overrides={param_name: -1},
+            unit_overrides={param_name: -100},
             input_image=girl_img,
         ).exec()
+        number = "-100" if param_name == "processor_res" else "-100.0"
         assert log_context.is_in_console_logs(
             [
-                f"[canny.{param_name}] Invalid value(-1), using default value",
+                f"[canny.{param_name}] Invalid value({number}), using default value",
             ]
         )
 
@@ -171,7 +172,7 @@ def test_reference():
             "model": "None",
         },
         input_image=girl_img,
-    ).exec()
+    ).exec(result_only=False)
 
 
 def test_advanced_weighting():
@@ -192,7 +193,7 @@ def test_hr_option():
             "enable_hr": True,
             "denoising_strength": 0.75,
         },
-        unit_overrides={"hr_option": "HiResFixOption.BOTH"},
+        unit_overrides={"hr_option": "Both"},
         input_image=girl_img,
     ).exec(expected_output_num=3)
 
@@ -203,7 +204,7 @@ def test_hr_option_default():
         "test_hr_option_default",
         "txt2img",
         payload_overrides={"enable_hr": False},
-        unit_overrides={"hr_option": "HiResFixOption.BOTH"},
+        unit_overrides={"hr_option": "Both"},
         input_image=girl_img,
     ).exec(expected_output_num=2)
 

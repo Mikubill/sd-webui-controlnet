@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List, NamedTuple
+from typing import List, NamedTuple
 from functools import lru_cache
 
 
@@ -224,19 +224,6 @@ class HiResFixOption(Enum):
     LOW_RES_ONLY = "Low res only"
     HIGH_RES_ONLY = "High res only"
 
-    @staticmethod
-    def from_value(value: Any) -> "HiResFixOption":
-        if isinstance(value, str) and value.startswith("HiResFixOption."):
-            _, field = value.split(".")
-            return getattr(HiResFixOption, field)
-        if isinstance(value, str):
-            return HiResFixOption(value)
-        elif isinstance(value, int):
-            return [x for x in HiResFixOption][value]
-        else:
-            assert isinstance(value, HiResFixOption)
-            return value
-
 
 class InputMode(Enum):
     # Single image to a single ControlNet unit.
@@ -247,3 +234,42 @@ class InputMode(Enum):
     # Input is a directory. 1 generation. Each generation takes N input image
     # from the directory.
     MERGE = "merge"
+
+
+class PuLIDMode(Enum):
+    FIDELITY = "Fidelity"
+    STYLE = "Extremely style"
+
+
+class ControlMode(Enum):
+    """
+    The improved guess mode.
+    """
+
+    BALANCED = "Balanced"
+    PROMPT = "My prompt is more important"
+    CONTROL = "ControlNet is more important"
+
+
+class BatchOption(Enum):
+    DEFAULT = "All ControlNet units for all images in a batch"
+    SEPARATE = "Each ControlNet unit for each image in a batch"
+
+
+class ResizeMode(Enum):
+    """
+    Resize modes for ControlNet input images.
+    """
+
+    RESIZE = "Just Resize"
+    INNER_FIT = "Crop and Resize"
+    OUTER_FIT = "Resize and Fill"
+
+    def int_value(self):
+        if self == ResizeMode.RESIZE:
+            return 0
+        elif self == ResizeMode.INNER_FIT:
+            return 1
+        elif self == ResizeMode.OUTER_FIT:
+            return 2
+        assert False, "NOTREACHED"

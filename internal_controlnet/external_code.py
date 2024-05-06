@@ -1,58 +1,30 @@
-import base64
-import io
-from dataclasses import dataclass
-from enum import Enum
 from copy import copy
 from typing import List, Any, Optional, Union, Tuple, Dict
-import torch
 import numpy as np
 
 from modules import scripts, processing, shared
-from modules.safe import unsafe_torch_load
+from modules.api import api
+from .args import ControlNetUnit
 from scripts import global_state
 from scripts.logging import logger
-from scripts.enums import HiResFixOption
-from scripts.supported_preprocessor import Preprocessor, PreprocessorParameter
+from scripts.enums import (
+    ResizeMode,
+    BatchOption,  # noqa: F401
+    ControlMode,  # noqa: F401
+)
+from scripts.supported_preprocessor import (
+    Preprocessor,
+    PreprocessorParameter,  # noqa: F401
+)
 
-from modules.api import api
+import torch
+import base64
+import io
+from modules.safe import unsafe_torch_load
 
 
 def get_api_version() -> int:
-    return 2
-
-
-class ControlMode(Enum):
-    """
-    The improved guess mode.
-    """
-
-    BALANCED = "Balanced"
-    PROMPT = "My prompt is more important"
-    CONTROL = "ControlNet is more important"
-
-
-class BatchOption(Enum):
-    DEFAULT = "All ControlNet units for all images in a batch"
-    SEPARATE = "Each ControlNet unit for each image in a batch"
-
-
-class ResizeMode(Enum):
-    """
-    Resize modes for ControlNet input images.
-    """
-
-    RESIZE = "Just Resize"
-    INNER_FIT = "Crop and Resize"
-    OUTER_FIT = "Resize and Fill"
-
-    def int_value(self):
-        if self == ResizeMode.RESIZE:
-            return 0
-        elif self == ResizeMode.INNER_FIT:
-            return 1
-        elif self == ResizeMode.OUTER_FIT:
-            return 2
-        assert False, "NOTREACHED"
+    return 3
 
 
 resize_mode_aliases = {
@@ -78,15 +50,6 @@ def resize_mode_from_value(value: Union[str, int, ResizeMode]) -> ResizeMode:
             return ResizeMode.RESIZE
 
         return [e for e in ResizeMode][value]
-    else:
-        return value
-
-
-def control_mode_from_value(value: Union[str, int, ControlMode]) -> ControlMode:
-    if isinstance(value, str):
-        return ControlMode(value)
-    elif isinstance(value, int):
-        return [e for e in ControlMode][value]
     else:
         return value
 
@@ -152,146 +115,7 @@ def pixel_perfect_resolution(
     return int(np.round(estimation))
 
 
-InputImage = Union[np.ndarray, str]
-InputImage = Union[Dict[str, InputImage], Tuple[InputImage, InputImage], InputImage]
-
-
-@dataclass
-class ControlNetUnit:
-    """
-    Represents an entire ControlNet processing unit.
-    """
-
-    enabled: bool = True
-    module: str = "none"
-    model: str = "None"
-    weight: float = 1.0
-    image: Optional[Union[InputImage, List[InputImage]]] = None
-    resize_mode: Union[ResizeMode, int, str] = ResizeMode.INNER_FIT
-    low_vram: bool = False
-    processor_res: int = -1
-    threshold_a: float = -1
-    threshold_b: float = -1
-    guidance_start: float = 0.0
-    guidance_end: float = 1.0
-    pixel_perfect: bool = False
-    control_mode: Union[ControlMode, int, str] = ControlMode.BALANCED
-    # Whether to crop input image based on A1111 img2img mask. This flag is only used when `inpaint area`
-    # in A1111 is set to `Only masked`. In API, this correspond to `inpaint_full_res = True`.
-    inpaint_crop_input_image: bool = True
-    # If hires fix is enabled in A1111, how should this ControlNet unit be applied.
-    # The value is ignored if the generation is not using hires fix.
-    hr_option: Union[HiResFixOption, int, str] = HiResFixOption.BOTH
-
-    # Whether save the detected map of this unit. Setting this option to False prevents saving the
-    # detected map or sending detected map along with generated images via API.
-    # Currently the option is only accessible in API calls.
-    save_detected_map: bool = True
-
-    # Weight for each layer of ControlNet params.
-    # For ControlNet:
-    # - SD1.5: 13 weights (4 encoder block * 3 + 1 middle block)
-    # - SDXL: 10 weights (3 encoder block * 3 + 1 middle block)
-    # For T2IAdapter
-    # - SD1.5: 5 weights (4 encoder block + 1 middle block)
-    # - SDXL: 4 weights (3 encoder block + 1 middle block)
-    # For IPAdapter
-    # - SD15: 16 (6 input blocks + 9 output blocks + 1 middle block)
-    # - SDXL: 11 weights (4 input blocks + 6 output blocks + 1 middle block)
-    # Note1: Setting advanced weighting will disable `soft_injection`, i.e.
-    # It is recommended to set ControlMode = BALANCED when using `advanced_weighting`.
-    # Note2: The field `weight` is still used in some places, e.g. reference_only,
-    # even advanced_weighting is set.
-    advanced_weighting: Optional[List[float]] = None
-
-    # The effective region mask that unit's effect should be restricted to.
-    effective_region_mask: Optional[np.ndarray] = None
-
-    # The tensor input for ipadapter. When this field is set in the API,
-    # the base64string will be interpret by torch.load to reconstruct ipadapter
-    # preprocessor output.
-    # Currently the option is only accessible in API calls.
-    ipadapter_input: Optional[List[Any]] = None
-
-    def __eq__(self, other):
-        if not isinstance(other, ControlNetUnit):
-            return False
-
-        return vars(self) == vars(other)
-
-    def accepts_multiple_inputs(self) -> bool:
-        """This unit can accept multiple input images."""
-        return self.module in (
-            "ip-adapter_clip_sdxl",
-            "ip-adapter_clip_sdxl_plus_vith",
-            "ip-adapter_clip_sd15",
-            "ip-adapter_face_id",
-            "ip-adapter_face_id_plus",
-            "instant_id_face_embedding",
-        )
-
-    @staticmethod
-    def infotext_excluded_fields() -> List[str]:
-        return [
-            "image",
-            "enabled",
-            # API-only fields.
-            "advanced_weighting",
-            "ipadapter_input",
-            # End of API-only fields.
-            # Note: "inpaint_crop_image" is img2img inpaint only flag, which does not
-            # provide much information when restoring the unit.
-            "inpaint_crop_input_image",
-            "effective_region_mask",
-        ]
-
-    @property
-    def is_animate_diff_batch(self) -> bool:
-        return getattr(self, "animatediff_batch", False)
-
-    @property
-    def uses_clip(self) -> bool:
-        """Whether this unit uses clip preprocessor."""
-        return any(
-            (
-                ("ip-adapter" in self.module and "face_id" not in self.module),
-                self.module
-                in ("clip_vision", "revision_clipvision", "revision_ignore_prompt"),
-            )
-        )
-
-    @property
-    def is_inpaint(self) -> bool:
-        return "inpaint" in self.module
-
-    def bound_check_params(self) -> None:
-        """
-        Checks and corrects negative parameters in ControlNetUnit 'unit' in place.
-        Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
-        their default values if negative.
-        """
-        preprocessor = Preprocessor.get_preprocessor(self.module)
-        for unit_param, param in zip(
-            ("processor_res", "threshold_a", "threshold_b"),
-            ("slider_resolution", "slider_1", "slider_2"),
-        ):
-            value = getattr(self, unit_param)
-            cfg: PreprocessorParameter = getattr(preprocessor, param)
-            if value < 0:
-                setattr(self, unit_param, cfg.value)
-                logger.info(
-                    f"[{self.module}.{unit_param}] Invalid value({value}), using default value {cfg.value}."
-                )
-
-    def get_actual_preprocessor(self) -> Preprocessor:
-        if self.module == "ip-adapter-auto":
-            return Preprocessor.get_preprocessor(self.module).get_preprocessor_by_model(
-                self.model
-            )
-        return Preprocessor.get_preprocessor(self.module)
-
-
-def to_base64_nparray(encoding: str):
+def to_base64_nparray(encoding: str) -> np.ndarray:
     """
     Convert a base64 image into the image type the extension uses
     """
@@ -396,73 +220,14 @@ def get_max_models_num():
     return max_models_num
 
 
-def to_processing_unit(unit: Union[Dict[str, Any], ControlNetUnit]) -> ControlNetUnit:
+def to_processing_unit(unit: Union[Dict, ControlNetUnit]) -> ControlNetUnit:
     """
     Convert different types to processing unit.
-    If `unit` is a dict, alternative keys are supported. See `ext_compat_keys` in implementation for details.
     """
-
-    ext_compat_keys = {
-        "guessmode": "guess_mode",
-        "guidance": "guidance_end",
-        "lowvram": "low_vram",
-        "input_image": "image",
-    }
-
     if isinstance(unit, dict):
-        unit = {ext_compat_keys.get(k, k): v for k, v in unit.items()}
+        return ControlNetUnit.from_dict(unit)
 
-        # Handle mask
-        mask = None
-        if "mask" in unit:
-            mask = unit["mask"]
-            del unit["mask"]
-
-        if "mask_image" in unit:
-            mask = unit["mask_image"]
-            del unit["mask_image"]
-
-        if "image" in unit and not isinstance(unit["image"], dict):
-            unit["image"] = (
-                {"image": unit["image"], "mask": mask}
-                if mask is not None
-                else unit["image"] if unit["image"] else None
-            )
-
-        # Parse ipadapter_input
-        if "ipadapter_input" in unit and unit["ipadapter_input"] is not None:
-
-            def decode_base64(b: str) -> torch.Tensor:
-                decoded_bytes = base64.b64decode(b)
-                return unsafe_torch_load(io.BytesIO(decoded_bytes))
-
-            if isinstance(unit["ipadapter_input"], str):
-                unit["ipadapter_input"] = [unit["ipadapter_input"]]
-
-            unit["ipadapter_input"] = [
-                decode_base64(b) for b in unit["ipadapter_input"]
-            ]
-
-        if unit.get("effective_region_mask", None) is not None:
-            base64img = unit["effective_region_mask"]
-            assert isinstance(base64img, str)
-            unit["effective_region_mask"] = to_base64_nparray(base64img)
-
-        if "guess_mode" in unit:
-            logger.warning(
-                "Guess Mode is removed since 1.1.136. Please use Control Mode instead."
-            )
-
-        for k in unit.keys():
-            if k not in vars(ControlNetUnit):
-                logger.warn(f"Received unrecognized key '{k}' in API.")
-
-        unit = ControlNetUnit(
-            **{k: v for k, v in unit.items() if k in vars(ControlNetUnit).keys()}
-        )
-
-    # temporary, check #602
-    # assert isinstance(unit, ControlNetUnit), f'bad argument to controlnet extension: {unit}\nexpected Union[dict[str, Any], ControlNetUnit]'
+    assert isinstance(unit, ControlNetUnit)
     return unit
 
 
@@ -649,3 +414,23 @@ def is_cn_script(script: scripts.Script) -> bool:
     """
 
     return script.title().lower() == "controlnet"
+
+
+# TODO: Add model constraint
+ControlNetUnit.cls_match_model = lambda model: True
+ControlNetUnit.cls_match_module = (
+    lambda module: Preprocessor.get_preprocessor(module) is not None
+)
+ControlNetUnit.cls_get_preprocessor = Preprocessor.get_preprocessor
+ControlNetUnit.cls_decode_base64 = to_base64_nparray
+
+
+def decode_base64(b: str) -> torch.Tensor:
+    decoded_bytes = base64.b64decode(b)
+    return unsafe_torch_load(io.BytesIO(decoded_bytes))
+
+
+ControlNetUnit.cls_torch_load_base64 = decode_base64
+ControlNetUnit.cls_logger = logger
+
+logger.debug("ControlNetUnit initialized")

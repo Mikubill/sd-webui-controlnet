@@ -94,6 +94,10 @@ jobs:
           wait-for-it --service 127.0.0.1:7860 -t 600
           python -m pytest -v --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
         working-directory: stable-diffusion-webui
+      - name: Run unit tests
+        run: |
+          python -m pytest -v ./unit_tests/
+        working-directory: stable-diffusion-webui/extensions/sd-webui-controlnet/
       - name: Kill test server
         if: always()
         run: curl -vv -XPOST http://127.0.0.1:7860/sdapi/v1/server-stop && sleep 10

@@ -1,8 +1,8 @@
 import json
 import gradio as gr
 import functools
-from copy import copy
-from typing import List, Optional, Union, Dict, Tuple, Literal
+import itertools
+from typing import List, Optional, Union, Dict, Tuple, Literal, Any
 from dataclasses import dataclass
 import numpy as np
 
@@ -13,12 +13,18 @@ from scripts import (
     external_code,
 )
 from annotator.util import HWC3
+from internal_controlnet.external_code import ControlNetUnit
 from scripts.logging import logger
 from scripts.controlnet_ui.openpose_editor import OpenposeEditor
-from scripts.controlnet_ui.preset import ControlNetPresetUI
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.advanced_weight_control import AdvancedWeightControl
-from scripts.enums import InputMode
+from scripts.enums import (
+    InputMode,
+    HiResFixOption,
+    PuLIDMode,
+    ControlMode,
+    ResizeMode,
+)
 from modules import shared
 from modules.ui_components import FormRow, FormHTML, ToolButton
 
@@ -121,72 +127,39 @@ class A1111Context:
             )
 
 
-class UiControlNetUnit(external_code.ControlNetUnit):
-    """The data class that stores all states of a ControlNetUnit."""
+def create_ui_unit(
+    input_mode: InputMode = InputMode.SIMPLE,
+    batch_images: Optional[Any] = None,
+    output_dir: str = "",
+    loopback: bool = False,
+    merge_gallery_files: List[Dict[Union[Literal["name"], Literal["data"]], str]] = [],
+    use_preview_as_input: bool = False,
+    generated_image: Optional[np.ndarray] = None,
+    *args,
+) -> ControlNetUnit:
+    unit_dict = {
+        k: v
+        for k, v in zip(
+            vars(ControlNetUnit()).keys(),
+            itertools.chain(
+                [True, input_mode, batch_images, output_dir, loopback], args
+            ),
+        )
+    }
 
-    def __init__(
-        self,
-        input_mode: InputMode = InputMode.SIMPLE,
-        batch_images: Optional[Union[str, List[external_code.InputImage]]] = None,
-        output_dir: str = "",
-        loopback: bool = False,
-        merge_gallery_files: List[
-            Dict[Union[Literal["name"], Literal["data"]], str]
-        ] = [],
-        use_preview_as_input: bool = False,
-        generated_image: Optional[np.ndarray] = None,
-        mask_image: Optional[np.ndarray] = None,
-        enabled: bool = True,
-        module: Optional[str] = None,
-        model: Optional[str] = None,
-        weight: float = 1.0,
-        image: Optional[Dict[str, np.ndarray]] = None,
-        *args,
-        **kwargs,
-    ):
-        if use_preview_as_input and generated_image is not None:
-            input_image = generated_image
-            module = "none"
-        else:
-            input_image = image
+    if use_preview_as_input and generated_image is not None:
+        input_image = generated_image
+        unit_dict["module"] = "none"
+    else:
+        input_image = unit_dict["image"]
 
-        # Prefer uploaded mask_image over hand-drawn mask.
-        if input_image is not None and mask_image is not None:
-            assert isinstance(input_image, dict)
-            input_image["mask"] = mask_image
+    if merge_gallery_files and input_mode == InputMode.MERGE:
+        input_image = [
+            {"image": read_image(file["name"])} for file in merge_gallery_files
+        ]
 
-        if merge_gallery_files and input_mode == InputMode.MERGE:
-            input_image = [
-                {"image": read_image(file["name"])} for file in merge_gallery_files
-            ]
-
-        super().__init__(enabled, module, model, weight, input_image, *args, **kwargs)
-        self.is_ui = True
-        self.input_mode = input_mode
-        self.batch_images = batch_images
-        self.output_dir = output_dir
-        self.loopback = loopback
-
-    def unfold_merged(self) -> List[external_code.ControlNetUnit]:
-        """Unfolds a merged unit to multiple units. Keeps the unit merged for
-        preprocessors that can accept multiple input images.
-        """
-        if self.input_mode != InputMode.MERGE:
-            return [copy(self)]
-
-        if self.accepts_multiple_inputs():
-            self.input_mode = InputMode.SIMPLE
-            return [copy(self)]
-
-        assert isinstance(self.image, list)
-        result = []
-        for image in self.image:
-            unit = copy(self)
-            unit.image = image["image"]
-            unit.input_mode = InputMode.SIMPLE
-            unit.weight = self.weight / len(self.image)
-            result.append(unit)
-        return result
+    unit_dict["image"] = input_image
+    return ControlNetUnit.from_dict(unit_dict)
 
 
 class ControlNetUiGroup(object):
@@ -220,7 +193,6 @@ class ControlNetUiGroup(object):
     def __init__(
         self,
         is_img2img: bool,
-        default_unit: external_code.ControlNetUnit,
         photopea: Optional[Photopea],
     ):
         # Whether callbacks have been registered.
@@ -229,13 +201,13 @@ class ControlNetUiGroup(object):
         self.ui_initialized: bool = False
 
         self.is_img2img = is_img2img
-        self.default_unit = default_unit
+        self.default_unit = ControlNetUnit()
         self.photopea = photopea
         self.webcam_enabled = False
         self.webcam_mirrored = False
 
         # Note: All gradio elements declared in `render` will be defined as member variable.
-        # Update counter to trigger a force update of UiControlNetUnit.
+        # Update counter to trigger a force update of ControlNetUnit.
         # This is useful when a field with no event subscriber available changes.
         # e.g. gr.Gallery, gr.State, etc.
         self.update_unit_counter = None
@@ -244,7 +216,7 @@ class ControlNetUiGroup(object):
         self.generated_image_group = None
         self.generated_image = None
         self.mask_image_group = None
-        self.mask_image = None
+        self.effective_region_mask = None
         self.batch_tab = None
         self.batch_image_dir = None
         self.merge_tab = None
@@ -282,7 +254,6 @@ class ControlNetUiGroup(object):
         self.loopback = None
         self.use_preview_as_input = None
         self.openpose_editor = None
-        self.preset_panel = None
         self.upload_independent_img_in_img2img = None
         self.image_upload_panel = None
         self.save_detected_map = None
@@ -293,10 +264,10 @@ class ControlNetUiGroup(object):
         self.batch_image_dir_state = None
         self.output_dir_state = None
         self.advanced_weighting = gr.State(None)
+        self.pulid_mode = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
-        self.effective_region_mask = gr.Image(value=None, visible=False)
 
         ControlNetUiGroup.all_ui_groups.append(self)
 
@@ -329,11 +300,13 @@ class ControlNetUiGroup(object):
                                 tool="sketch",
                                 elem_id=f"{elem_id_tabname}_{tabname}_input_image",
                                 elem_classes=["cnet-image"],
-                                brush_color=shared.opts.img2img_inpaint_mask_brush_color
-                                if hasattr(
-                                    shared.opts, "img2img_inpaint_mask_brush_color"
-                                )
-                                else None,
+                                brush_color=(
+                                    shared.opts.img2img_inpaint_mask_brush_color
+                                    if hasattr(
+                                        shared.opts, "img2img_inpaint_mask_brush_color"
+                                    )
+                                    else None
+                                ),
                             )
                             self.image.preprocess = functools.partial(
                                 svg_preprocess, preprocess=self.image.preprocess
@@ -369,11 +342,11 @@ class ControlNetUiGroup(object):
                         with gr.Group(
                             visible=False, elem_classes=["cnet-mask-image-group"]
                         ) as self.mask_image_group:
-                            self.mask_image = gr.Image(
+                            self.effective_region_mask = gr.Image(
                                 value=None,
-                                label="Upload Mask",
+                                label="Effective Region Mask",
                                 elem_id=f"{elem_id_tabname}_{tabname}_mask_image",
-                                elem_classes=["cnet-mask-image"],
+                                elem_classes=["cnet-effective-region-mask-image"],
                                 interactive=True,
                             )
 
@@ -481,11 +454,10 @@ class ControlNetUiGroup(object):
                 visible=not self.is_img2img,
             )
             self.mask_upload = gr.Checkbox(
-                label="Mask Upload",
+                label="Effective Region Mask",
                 value=False,
                 elem_classes=["cnet-mask-upload"],
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_mask_upload_checkbox",
-                visible=not self.is_img2img,
             )
             self.use_preview_as_input = gr.Checkbox(
                 label="Preview as Input",
@@ -515,7 +487,11 @@ class ControlNetUiGroup(object):
             )
 
         with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
-            self.type_filter = (gr.Dropdown if shared.opts.data.get("controlnet_control_type_dropdown", False) else gr.Radio)(
+            self.type_filter = (
+                gr.Dropdown
+                if shared.opts.data.get("controlnet_control_type_dropdown", False)
+                else gr.Radio
+            )(
                 Preprocessor.get_all_preprocessor_tags(),
                 label="Control Type",
                 value="All",
@@ -609,7 +585,7 @@ class ControlNetUiGroup(object):
             )
 
         self.control_mode = gr.Radio(
-            choices=[e.value for e in external_code.ControlMode],
+            choices=[e.value for e in ControlMode],
             value=self.default_unit.control_mode.value,
             label="Control Mode",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_control_mode_radio",
@@ -617,7 +593,7 @@ class ControlNetUiGroup(object):
         )
 
         self.resize_mode = gr.Radio(
-            choices=[e.value for e in external_code.ResizeMode],
+            choices=[e.value for e in ResizeMode],
             value=self.default_unit.resize_mode.value,
             label="Resize Mode",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_resize_mode_radio",
@@ -626,7 +602,7 @@ class ControlNetUiGroup(object):
         )
 
         self.hr_option = gr.Radio(
-            choices=[e.value for e in external_code.HiResFixOption],
+            choices=[e.value for e in HiResFixOption],
             value=self.default_unit.hr_option.value,
             label="Hires-Fix Option",
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_hr_option_radio",
@@ -634,19 +610,24 @@ class ControlNetUiGroup(object):
             visible=False,
         )
 
+        self.pulid_mode = gr.Radio(
+            choices=[e.value for e in PuLIDMode],
+            value=self.default_unit.pulid_mode.value,
+            label="PuLID Mode",
+            elem_id=f"{elem_id_tabname}_{tabname}_controlnet_pulid_mode_radio",
+            elem_classes="controlnet_pulid_mode_radio",
+            visible=False,
+        )
+
         self.loopback = gr.Checkbox(
             label="[Batch Loopback] Automatically send generated images to this ControlNet unit in batch generation",
-            value=self.default_unit.loopback,
+            value=False,
             elem_id=f"{elem_id_tabname}_{tabname}_controlnet_automatically_send_generated_images_checkbox",
             elem_classes="controlnet_loopback_checkbox",
             visible=False,
         )
 
         self.advanced_weight_control.render()
-
-        self.preset_panel = ControlNetPresetUI(
-            id_prefix=f"{elem_id_tabname}_{tabname}_"
-        )
 
         self.batch_image_dir_state = gr.State("")
         self.output_dir_state = gr.State("")
@@ -661,7 +642,6 @@ class ControlNetUiGroup(object):
             self.merge_gallery,
             self.use_preview_as_input,
             self.generated_image,
-            self.mask_image,
             # End of Non-persistent fields.
             self.enabled,
             self.module,
@@ -681,34 +661,17 @@ class ControlNetUiGroup(object):
             self.hr_option,
             self.save_detected_map,
             self.advanced_weighting,
+            self.effective_region_mask,
+            self.pulid_mode,
         )
 
-        unit = gr.State(self.default_unit)
-        for comp in unit_args + (self.update_unit_counter,):
-            event_subscribers = []
-            if hasattr(comp, "edit"):
-                event_subscribers.append(comp.edit)
-            elif hasattr(comp, "click"):
-                event_subscribers.append(comp.click)
-            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
-                event_subscribers.append(comp.release)
-            elif hasattr(comp, "change"):
-                event_subscribers.append(comp.change)
-
-            if hasattr(comp, "clear"):
-                event_subscribers.append(comp.clear)
-
-            for event_subscriber in event_subscribers:
-                event_subscriber(
-                    fn=UiControlNetUnit, inputs=list(unit_args), outputs=unit
-                )
-
+        unit = gr.State(ControlNetUnit())
         (
             ControlNetUiGroup.a1111_context.img2img_submit_button
             if self.is_img2img
             else ControlNetUiGroup.a1111_context.txt2img_submit_button
         ).click(
-            fn=UiControlNetUnit,
+            fn=create_ui_unit,
             inputs=list(unit_args),
             outputs=unit,
             queue=False,
@@ -793,10 +756,12 @@ class ControlNetUiGroup(object):
     def register_build_sliders(self):
         def build_sliders(module: str, pp: bool):
             preprocessor = Preprocessor.get_preprocessor(module)
-            slider_resolution_kwargs = preprocessor.slider_resolution.gradio_update_kwargs.copy()
+            slider_resolution_kwargs = (
+                preprocessor.slider_resolution.gradio_update_kwargs.copy()
+            )
 
             if pp:
-                slider_resolution_kwargs['visible'] = False
+                slider_resolution_kwargs["visible"] = False
 
             grs = [
                 gr.update(**slider_resolution_kwargs),
@@ -842,9 +807,7 @@ class ControlNetUiGroup(object):
                 gr.Dropdown.update(
                     value=default_option, choices=filtered_preprocessor_list
                 ),
-                gr.Dropdown.update(
-                    value=default_model, choices=filtered_model_list
-                ),
+                gr.Dropdown.update(value=default_model, choices=filtered_model_list),
             ]
 
         self.type_filter.change(
@@ -883,7 +846,9 @@ class ControlNetUiGroup(object):
             )
 
     def register_run_annotator(self):
-        def run_annotator(image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, model: str):
+        def run_annotator(
+            image, module, pres, pthr_a, pthr_b, t2i_w, t2i_h, pp, rm, model: str
+        ):
             if image is None:
                 return (
                     gr.update(value=None, visible=True),
@@ -946,16 +911,16 @@ class ControlNetUiGroup(object):
                     and shared.opts.data.get("controlnet_clip_detector_on_cpu", False)
                 ),
                 json_pose_callback=(
-                    json_acceptor.accept
-                    if is_openpose(module)
-                    else None
+                    json_acceptor.accept if is_openpose(module) else None
                 ),
                 model=model,
             )
 
             return (
                 # Update to `generated_image`
-                gr.update(value=result.display_image, visible=True, interactive=False),
+                gr.update(
+                    value=result.display_images[0], visible=True, interactive=False
+                ),
                 # preprocessor_preview
                 gr.update(value=True),
                 # openpose editor
@@ -970,12 +935,16 @@ class ControlNetUiGroup(object):
                 self.processor_res,
                 self.threshold_a,
                 self.threshold_b,
-                ControlNetUiGroup.a1111_context.img2img_w_slider
-                if self.is_img2img
-                else ControlNetUiGroup.a1111_context.txt2img_w_slider,
-                ControlNetUiGroup.a1111_context.img2img_h_slider
-                if self.is_img2img
-                else ControlNetUiGroup.a1111_context.txt2img_h_slider,
+                (
+                    ControlNetUiGroup.a1111_context.img2img_w_slider
+                    if self.is_img2img
+                    else ControlNetUiGroup.a1111_context.txt2img_w_slider
+                ),
+                (
+                    ControlNetUiGroup.a1111_context.img2img_h_slider
+                    if self.is_img2img
+                    else ControlNetUiGroup.a1111_context.txt2img_h_slider
+                ),
                 self.pixel_perfect,
                 self.resize_mode,
                 self.model,
@@ -1122,22 +1091,17 @@ class ControlNetUiGroup(object):
                 else (gr.update(visible=True), gr.update())
             ),
             inputs=[self.mask_upload],
-            outputs=[self.mask_image_group, self.mask_image],
+            outputs=[self.mask_image_group, self.effective_region_mask],
             show_progress=False,
         )
 
-        if self.upload_independent_img_in_img2img is not None:
-            self.upload_independent_img_in_img2img.change(
-                fn=lambda checked: (
-                    # Uncheck `upload_mask` when not using independent input.
-                    gr.update(visible=False, value=False)
-                    if not checked
-                    else gr.update(visible=True)
-                ),
-                inputs=[self.upload_independent_img_in_img2img],
-                outputs=[self.mask_upload],
-                show_progress=False,
-            )
+    def register_shift_pulid_mode(self):
+        self.model.change(
+            fn=lambda model: gr.update(visible="pulid" in model.lower()),
+            inputs=[self.model],
+            outputs=[self.pulid_mode],
+            show_progress=False,
+        )
 
     def register_sync_batch_dir(self):
         def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
@@ -1241,6 +1205,7 @@ class ControlNetUiGroup(object):
         self.register_build_sliders()
         self.register_shift_preview()
         self.register_shift_upload_mask()
+        self.register_shift_pulid_mode()
         self.register_create_canvas()
         self.register_clear_preview()
         self.register_multi_images_upload()
@@ -1250,14 +1215,6 @@ class ControlNetUiGroup(object):
             self.model,
         )
         assert self.type_filter is not None
-        self.preset_panel.register_callbacks(
-            self,
-            self.type_filter,
-            *[
-                getattr(self, key)
-                for key in vars(external_code.ControlNetUnit()).keys()
-            ],
-        )
         self.advanced_weight_control.register_callbacks(
             self.weight,
             self.advanced_weighting,

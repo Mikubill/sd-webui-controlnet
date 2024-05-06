@@ -9,6 +9,8 @@ utils = importlib.import_module('extensions.sd-webui-controlnet.tests.utils', 'u
 from copy import copy
 from scripts import external_code
 from scripts import controlnet
+from scripts.enums import ResizeMode
+from internal_controlnet.external_code import ControlNetUnit
 from modules import scripts, ui, shared
 
 
@@ -48,79 +50,15 @@ class TestExternalCodeWorking(unittest.TestCase):
 
     def test_empty_resizes_extra_args(self):
         extra_models = 1
-        self.cn_units = [external_code.ControlNetUnit()] * (self.max_models + extra_models)
+        self.cn_units = [ControlNetUnit()] * (self.max_models + extra_models)
         self.assert_update_in_place_ok()
-
-
-class TestControlNetUnitConversion(unittest.TestCase):
-    def setUp(self):
-        self.dummy_image = 'base64...'
-        self.input = {}
-        self.expected = external_code.ControlNetUnit()
-
-    def assert_converts_to_expected(self):
-        self.assertEqual(vars(external_code.to_processing_unit(self.input)), vars(self.expected))
-
-    def test_empty_dict_works(self):
-        self.assert_converts_to_expected()
-
-    def test_image_works(self):
-        self.input = {
-            'image': self.dummy_image
-        }
-        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
-        self.assert_converts_to_expected()
-
-    def test_image_alias_works(self):
-        self.input = {
-            'input_image': self.dummy_image
-        }
-        self.expected = external_code.ControlNetUnit(image=self.dummy_image)
-        self.assert_converts_to_expected()
-
-    def test_masked_image_works(self):
-        self.input = {
-            'image': self.dummy_image,
-            'mask': self.dummy_image,
-        }
-        self.expected = external_code.ControlNetUnit(image={'image': self.dummy_image, 'mask': self.dummy_image})
-        self.assert_converts_to_expected()
-
-
-class TestControlNetUnitImageToDict(unittest.TestCase):
-    def setUp(self):
-        self.dummy_image = utils.readImage("test/test_files/img2img_basic.png")
-        self.input = external_code.ControlNetUnit()
-        self.expected_image = external_code.to_base64_nparray(self.dummy_image)
-        self.expected_mask = external_code.to_base64_nparray(self.dummy_image)
-
-    def assert_dict_is_valid(self):
-        actual_dict = controlnet.image_dict_from_any(self.input.image)
-        self.assertEqual(actual_dict['image'].tolist(), self.expected_image.tolist())
-        self.assertEqual(actual_dict['mask'].tolist(), self.expected_mask.tolist())
-
-    def test_none(self):
-        self.assertEqual(controlnet.image_dict_from_any(self.input.image), None)
-
-    def test_image_without_mask(self):
-        self.input.image = self.dummy_image
-        self.expected_mask = np.zeros_like(self.expected_image, dtype=np.uint8)
-        self.assert_dict_is_valid()
-
-    def test_masked_image_tuple(self):
-        self.input.image = (self.dummy_image, self.dummy_image,)
-        self.assert_dict_is_valid()
-
-    def test_masked_image_dict(self):
-        self.input.image = {'image': self.dummy_image, 'mask': self.dummy_image}
-        self.assert_dict_is_valid()
 
 
 class TestPixelPerfectResolution(unittest.TestCase):
     def test_outer_fit(self):
         image = np.zeros((100, 100, 3))
         target_H, target_W = 50, 100
-        resize_mode = external_code.ResizeMode.OUTER_FIT
+        resize_mode = ResizeMode.OUTER_FIT
         result = external_code.pixel_perfect_resolution(image, target_H, target_W, resize_mode)
         expected = 50  # manually computed expected result
         self.assertEqual(result, expected)
@@ -128,42 +66,10 @@ class TestPixelPerfectResolution(unittest.TestCase):
     def test_inner_fit(self):
         image = np.zeros((100, 100, 3))
         target_H, target_W = 50, 100
-        resize_mode = external_code.ResizeMode.INNER_FIT
+        resize_mode = ResizeMode.INNER_FIT
         result = external_code.pixel_perfect_resolution(image, target_H, target_W, resize_mode)
         expected = 100  # manually computed expected result
         self.assertEqual(result, expected)
-
-
-class TestGetAllUnitsFrom(unittest.TestCase):
-    def test_none(self):
-        self.assertListEqual(external_code.get_all_units_from([None]), [])
-
-    def test_bool(self):
-        self.assertListEqual(external_code.get_all_units_from([True]), [])
-
-    def test_inheritance(self):
-        class Foo(external_code.ControlNetUnit):
-            def __init__(self):
-                super().__init__(self)
-                self.bar = 'a'
-        
-        foo = Foo()
-        self.assertListEqual(external_code.get_all_units_from([foo]), [foo])
-
-    def test_dict(self):
-        units = external_code.get_all_units_from([{}])
-        self.assertGreater(len(units), 0)
-        self.assertIsInstance(units[0], external_code.ControlNetUnit)
-
-    def test_unitlike(self):
-        class Foo(object):
-            """ bar """
-
-        foo = Foo()
-        for key in vars(external_code.ControlNetUnit()).keys():
-            setattr(foo, key, True)
-        setattr(foo, 'bar', False)
-        self.assertListEqual(external_code.get_all_units_from([foo]), [foo])
 
 
 if __name__ == '__main__':
