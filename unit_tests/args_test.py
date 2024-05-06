@@ -109,6 +109,7 @@ def test_model_valid(set_cls_funcs):
     ],
 )
 def test_valid_image_formats(set_cls_funcs, d):
+    ControlNetUnit(**d)
     unit = ControlNetUnit.from_dict(d)
     unit.get_input_images_rgba()
 
@@ -129,6 +130,7 @@ def test_valid_image_formats(set_cls_funcs, d):
 )
 def test_invalid_image_formats(set_cls_funcs, d):
     # Setting field will be fine.
+    ControlNetUnit(**d)
     unit = ControlNetUnit.from_dict(d)
     # Error on eval.
     with pytest.raises((ValueError, AssertionError)):
