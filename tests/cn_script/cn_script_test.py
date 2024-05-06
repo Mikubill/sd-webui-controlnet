@@ -118,7 +118,7 @@ class TestScript(unittest.TestCase):
         "AAAAAAAAAAAAAAAAAAAAAAAA/wZOlAAB5tU+nAAAAABJRU5ErkJggg=="
     )
 
-    sample_np_image = np.zeros(shape=[8, 8, 4], dtype=np.uint8)
+    sample_np_image = np.zeros(shape=[8, 8, 3], dtype=np.uint8)
 
     def test_choose_input_image(self):
         with self.subTest(name="no image"):
