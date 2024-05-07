@@ -292,7 +292,7 @@ class ControlNetUnit(BaseModel):
         for alias, key in ext_compat_keys.items():
             if alias in values:
                 assert key not in values, f"Conflict of field '{alias}' and '{key}'"
-                values[key] = alias
+                values[key] = values[alias]
                 cls.cls_logger.warn(
                     f"Deprecated alias '{alias}' detected. This field will be removed on 2024-06-01"
                     f"Please use '{key}' instead."
