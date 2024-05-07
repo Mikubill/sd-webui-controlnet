@@ -95,6 +95,20 @@ class ControlNetUnit(BaseModel):
     image: Optional[Any] = None
 
     resize_mode: ResizeMode = ResizeMode.INNER_FIT
+
+    @validator("resize_mode", always=True, pre=True)
+    def check_resize_mode(cls, value) -> ResizeMode:
+        resize_mode_aliases = {
+            "Inner Fit (Scale to Fit)": "Crop and Resize",
+            "Outer Fit (Shrink to Fit)": "Resize and Fill",
+            "Scale to Fit (Inner Fit)": "Crop and Resize",
+            "Envelope (Outer Fit)": "Resize and Fill",
+        }
+        if isinstance(value, str):
+            return ResizeMode(resize_mode_aliases.get(value, value))
+        assert isinstance(value, ResizeMode)
+        return value
+
     low_vram: bool = False
     processor_res: int = -1
     threshold_a: float = -1
@@ -378,7 +392,9 @@ class ControlNetUnit(BaseModel):
 
             np_image = self.parse_image(image)
             np_mask = self.parse_image(mask) if mask is not None else None
-            np_images.append(self.combine_image_and_mask(np_image, np_mask))  # [H, W, 4]
+            np_images.append(
+                self.combine_image_and_mask(np_image, np_mask)
+            )  # [H, W, 4]
 
         return np_images
 

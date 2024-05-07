@@ -151,6 +151,9 @@ def test_mask_alias_conflict():
 
 def test_resize_mode():
     ControlNetUnit(resize_mode="Just Resize")
+    # Alias should also work. For deforum
+    # See https://github.com/deforum-art/sd-webui-deforum/blob/322426851408ebca2cd49492bfeb1ec86e1dc869/scripts/deforum_helpers/deforum_controlnet.py#L150
+    ControlNetUnit(resize_mode="Inner Fit (Scale to Fit)")
 
 
 def test_weight():
