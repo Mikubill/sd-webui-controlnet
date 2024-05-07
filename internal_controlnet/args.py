@@ -221,6 +221,9 @@ class ControlNetUnit(BaseModel):
     # The mask to be used on top of the image.
     mask: Optional[Any] = None
 
+    # Backward compatible with animatediff impl.
+    batch_mask_dir: Optional[str] = None
+
     @property
     def accepts_multiple_inputs(self) -> bool:
         """This unit can accept multiple input images."""
