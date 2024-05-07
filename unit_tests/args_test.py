@@ -239,3 +239,7 @@ def test_infotext_parsing():
         pixel_perfect=True,
         control_mode="Balanced",
     ) == ControlNetUnit.parse(infotext)
+
+
+def test_alias():
+    ControlNetUnit.from_dict({"lowvram": True})
