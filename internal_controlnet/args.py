@@ -226,6 +226,8 @@ class ControlNetUnit(BaseModel):
     # TODO: Find a better way in AnimateDiff to deal with these extra fields.
     batch_mask_dir: Optional[str] = None
     animatediff_batch: bool = False
+    batch_modifiers: list = []
+    batch_image_files: list = []
 
     @property
     def accepts_multiple_inputs(self) -> bool:
