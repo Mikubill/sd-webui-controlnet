@@ -755,7 +755,7 @@ class Script(scripts.Script, metaclass=(
         # based on `extra_generation_params` these scripts attach on `p`, and subject to change
         # in the future.
         # TODO: Change this to a more robust condition once A1111 offers a way to verify script name.
-        is_upscale_script = any("upscale" in k.lower() for k in getattr(p, "extra_generation_params", {}).keys())
+        is_upscale_script = any("upscale" in k.lower() and "Hires" not in k for k in getattr(p, "extra_generation_params", {}).keys())
         logger.debug(f"is_upscale_script={is_upscale_script}")
         # Note: `inpaint_full_res` is "inpaint area" on UI. The flag is `True` when "Only masked"
         # option is selected.
