@@ -221,8 +221,10 @@ class ControlNetUnit(BaseModel):
     # The mask to be used on top of the image.
     mask: Optional[Any] = None
 
-    # Backward compatible with animatediff impl.
+    # AnimateDiff compatibility fields.
+    # TODO: Find a better way in AnimateDiff to deal with these extra fields.
     batch_mask_dir: Optional[str] = None
+    animatediff_batch: bool = False
 
     @property
     def accepts_multiple_inputs(self) -> bool:
