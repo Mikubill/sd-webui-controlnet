@@ -16,6 +16,7 @@ from scripts.enums import (
     HiResFixOption,
     PuLIDMode,
 )
+from annotator.util import HWC3
 
 
 def _unimplemented_func(*args, **kwargs):
@@ -279,9 +280,11 @@ class ControlNetUnit(BaseModel):
         else:
             raise ValueError(f"Unrecognized image format {image}.")
 
-        # [H, W] => [H, W, 3]
-        if np_image.ndim == 2:
-            np_image = np.stack([np_image, np_image, np_image], axis=-1)
+        # Convert following image shapes to shape [H, W, C=3].
+        # - [H, W]
+        # - [H, W, 1]
+        # - [H, W, 4]
+        np_image = HWC3(np_image)
         assert np_image.ndim == 3
         assert np_image.shape[2] == 3
         return np_image
