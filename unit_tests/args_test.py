@@ -10,7 +10,7 @@ H = W = 128
 img1 = np.ones(shape=[H, W, 3], dtype=np.uint8)
 img2 = np.ones(shape=[H, W, 3], dtype=np.uint8) * 2
 mask_diff = np.ones(shape=[H - 1, W - 1, 3], dtype=np.uint8) * 2
-mask_2d = np.ones(shape=[H, W])
+mask_2d = np.ones(shape=[H, W], dtype=np.uint8)
 img_bad_channel = np.ones(shape=[H, W, 2], dtype=np.uint8) * 2
 img_bad_dim = np.ones(shape=[1, H, W, 3], dtype=np.uint8) * 2
 ui_img_diff = np.ones(shape=[H - 1, W - 1, 4], dtype=np.uint8) * 2
@@ -104,9 +104,12 @@ def test_model_valid(set_cls_funcs):
         # UI
         dict(image=dict(image=img1)),
         dict(image=dict(image=img1, mask=img2)),
-        # 2D mask should be accepted.
+        # Grey-scale mask/image should be accepted.
         dict(image=dict(image=img1, mask=mask_2d)),
         dict(image=img1, mask=mask_2d),
+        dict(image=np.zeros(shape=[H, W, 1], dtype=np.uint8)),
+        # RGBA image input should be accepted.
+        dict(image=np.zeros(shape=[H, W, 4], dtype=np.uint8)),
     ],
 )
 def test_valid_image_formats(set_cls_funcs, d):
