@@ -339,17 +339,6 @@ class ControlNetUiGroup(object):
                                     elem_classes=["cnet-close-preview"],
                                 )
 
-                        with gr.Group(
-                            visible=False, elem_classes=["cnet-mask-image-group"]
-                        ) as self.mask_image_group:
-                            self.effective_region_mask = gr.Image(
-                                value=None,
-                                label="Effective Region Mask",
-                                elem_id=f"{elem_id_tabname}_{tabname}_mask_image",
-                                elem_classes=["cnet-effective-region-mask-image"],
-                                interactive=True,
-                            )
-
                 with gr.Tab(label="Batch") as self.batch_tab:
                     self.batch_image_dir = gr.Textbox(
                         label="Input Directory",
@@ -368,6 +357,18 @@ class ControlNetUiGroup(object):
                             file_count="multiple",
                         )
                         self.merge_clear_button = gr.Button("Clear Images")
+
+                # Note: effective region mask works with all 3 input types.
+                with gr.Group(
+                    visible=False, elem_classes=["cnet-mask-image-group"]
+                ) as self.mask_image_group:
+                    self.effective_region_mask = gr.Image(
+                        value=None,
+                        label="Effective Region Mask",
+                        elem_id=f"{elem_id_tabname}_{tabname}_mask_image",
+                        elem_classes=["cnet-effective-region-mask-image"],
+                        interactive=True,
+                    )
 
             if self.photopea:
                 self.photopea.attach_photopea_output(self.generated_image)
