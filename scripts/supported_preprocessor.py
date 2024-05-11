@@ -176,7 +176,21 @@ class Preprocessor(ABC):
 
     @classmethod
     def unload_unused(cls, active_processors: Set["Preprocessor"]):
+        # Prevent unloading for following preprocessors.
+        # https://github.com/Mikubill/sd-webui-controlnet/issues/2862
+        # TODO: Investigate proper way to unload PuLID.
+        # Current unloading method will cause VRAM leak. It is suspected
+        # the current unload method causes new model to load each time
+        # preprocessor is called.
+        prevent_unload = [
+            "EVA02-CLIP-L-14-336",
+            "facexlib",
+            "ip-adapter_pulid",
+        ]
         for p in cls.all_processors.values():
+            if p.label in prevent_unload:
+                continue
+
             if p not in active_processors:
                 success = p.unload()
                 if success:
