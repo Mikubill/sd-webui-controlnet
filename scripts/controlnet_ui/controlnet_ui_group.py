@@ -667,6 +667,29 @@ class ControlNetUiGroup(object):
         )
 
         unit = gr.State(ControlNetUnit())
+
+        # It is necessary to update unit state actively to avoid potential
+        # flaky racing issue.
+        # https://github.com/Mikubill/sd-webui-controlnet/issues/2875
+        for comp in unit_args + (self.update_unit_counter,):
+            event_subscribers = []
+            if hasattr(comp, "edit"):
+                event_subscribers.append(comp.edit)
+            elif hasattr(comp, "click"):
+                event_subscribers.append(comp.click)
+            elif isinstance(comp, gr.Slider) and hasattr(comp, "release"):
+                event_subscribers.append(comp.release)
+            elif hasattr(comp, "change"):
+                event_subscribers.append(comp.change)
+
+            if hasattr(comp, "clear"):
+                event_subscribers.append(comp.clear)
+
+            for event_subscriber in event_subscribers:
+                event_subscriber(
+                    fn=create_ui_unit, inputs=list(unit_args), outputs=unit
+                )
+
         (
             ControlNetUiGroup.a1111_context.img2img_submit_button
             if self.is_img2img
