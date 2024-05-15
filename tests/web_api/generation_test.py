@@ -2,6 +2,7 @@ import pytest
 
 from .template import (
     APITestTemplate,
+    portrait_imgs,
     girl_img,
     mask_img,
     disable_in_cq,
@@ -305,3 +306,22 @@ def test_ip_adapter_auto():
         ).exec()
 
         assert log_context.is_in_console_logs(["ip-adapter-auto => ip-adapter_clip_h"])
+
+
+@disable_in_cq
+@pytest.mark.parametrize("img_index", [i for i, _ in enumerate(portrait_imgs)])
+def test_pulid(img_index: int):
+    """PuLID should not memory leak."""
+    assert APITestTemplate(
+        f"txt2img_pulid_{img_index}",
+        "txt2img",
+        payload_overrides={
+            "width": 768,
+            "height": 768,
+        },
+        unit_overrides={
+            "image": portrait_imgs[img_index],
+            "model": get_model("ip-adapter_pulid_sdxl_fp16"),
+            "module": "ip-adapter_pulid",
+        },
+    ).exec()
