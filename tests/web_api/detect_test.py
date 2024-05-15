@@ -5,6 +5,7 @@ from typing import List
 from .template import (
     APITestTemplate,
     realistic_girl_face_img,
+    portrait_imgs,
     girl_img,
     mask_img,
     save_base64,
@@ -89,6 +90,17 @@ def test_inpaint_mask(module: str):
         controlnet_module=module,
     )
     detect_template(payload, f"detect_inpaint_mask_{module}")
+
+
+@disable_in_cq
+@pytest.mark.parametrize("img_index", [i for i, _ in enumerate(portrait_imgs)])
+def test_pulid(img_index: int):
+    """PuLID preprocessor should not memory leak."""
+    payload = dict(
+        controlnet_input_images=[portrait_imgs[img_index]],
+        controlnet_module="ip-adapter_pulid",
+    )
+    detect_template(payload, f"detect_pulid_{img_index}")
 
 
 @pytest.mark.parametrize("module", [m for m in UNSUPPORTED_PREPROCESSORS])
