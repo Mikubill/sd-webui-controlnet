@@ -1,5 +1,6 @@
 # https://github.com/ToTheBeginning/PuLID
 
+import gc
 import torch
 import cv2
 import numpy as np
@@ -110,7 +111,7 @@ class PreprocessorPuLID(Preprocessor):
         self.tags = ["IP-Adapter"]
         self.slider_resolution = PreprocessorParameter(visible=False)
         self.returns_image = False
-        self.preprocessors_deps = [
+        self.preprocessor_deps = [
             "facexlib",
             "instant_id_face_embedding",
             "EVA02-CLIP-L-14-336",
@@ -128,7 +129,7 @@ class PreprocessorPuLID(Preprocessor):
 
     def unload(self) -> bool:
         unloaded = False
-        for p_name in self.preprocessors_deps:
+        for p_name in self.preprocessor_deps:
             p = Preprocessor.get_preprocessor(p_name)
             if p is not None:
                 unloaded = unloaded or p.unload()
@@ -154,6 +155,12 @@ class PreprocessorPuLID(Preprocessor):
             evaclip_preprocessor is not None
         ), "EVA02-CLIP-L-14-336 preprocessor not found! Please install sd-webui-controlnet-evaclip"
         r = evaclip_preprocessor(face_features_image)
+
+        # Free memory
+        # This is necessary as facexlib and evaclip both seem to
+        # not properly free memory on themselves.
+        gc.collect()
+        torch.cuda.empty_cache()
 
         return Preprocessor.Result(
             value=PuLIDProjInput(

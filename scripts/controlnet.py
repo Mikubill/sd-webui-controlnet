@@ -882,8 +882,9 @@ class Script(scripts.Script, metaclass=(
 
         # Unload unused preprocessors
         Preprocessor.unload_unused(active_processors={
-            unit.get_actual_preprocessor()
+            p
             for unit in self.enabled_units
+            for p in unit.get_actual_preprocessors()
         })
         high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
 
