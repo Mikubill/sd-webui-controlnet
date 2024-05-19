@@ -1141,33 +1141,33 @@ legacy_preprocessors = {
             "SoftEdge"
         ]
     },
-    "te_hed": {
-        "label": "softedge_teed",
-        "call_function": te_hed,
-        "unload_function": unload_te_hed,
-        "managed_model": "model_te_hed",
-        "model_free": False,
-        "no_control_mode": False,
-        "resolution": {
-            "label": "Resolution",
-            "value": 512,
-            "minimum": 64,
-            "maximum": 2048
-        },
-        "slider_1": {
-            "label": "Safe Steps",
-            "minimum": 0,
-            "maximum": 10,
-            "value": 2,
-            "step": 1
-        },
-        "slider_2": None,
-        "slider_3": None,
-        "priority": 0,
-        "tags": [
-            "SoftEdge"
-        ]
-    },
+    # "te_hed": {
+    #     "label": "softedge_teed",
+    #     "call_function": te_hed,
+    #     "unload_function": unload_te_hed,
+    #     "managed_model": "model_te_hed",
+    #     "model_free": False,
+    #     "no_control_mode": False,
+    #     "resolution": {
+    #         "label": "Resolution",
+    #         "value": 512,
+    #         "minimum": 64,
+    #         "maximum": 2048
+    #     },
+    #     "slider_1": {
+    #         "label": "Safe Steps",
+    #         "minimum": 0,
+    #         "maximum": 10,
+    #         "value": 2,
+    #         "step": 1
+    #     },
+    #     "slider_2": None,
+    #     "slider_3": None,
+    #     "priority": 0,
+    #     "tags": [
+    #         "SoftEdge"
+    #     ]
+    # },
     "color": {
         "label": "t2ia_color_grid",
         "call_function": color,

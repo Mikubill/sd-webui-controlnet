@@ -625,21 +625,6 @@ def unload_densepose():
     from annotator.densepose import unload_model
     unload_model()
 
-model_te_hed = None
-
-def te_hed(img, res=512, thr_a=2, **kwargs):
-    img, remove_pad = resize_image_with_pad(img, res)
-    global model_te_hed
-    if model_te_hed is None:
-        from annotator.teed import TEEDDector
-        model_te_hed = TEEDDector()
-    result = model_te_hed(img, safe_steps=int(thr_a))
-    return remove_pad(result), True
-
-def unload_te_hed():
-    if model_te_hed is not None:
-        model_te_hed.unload_model()
-
 class InsightFaceModel:
     def __init__(self, face_analysis_model_name: str = "buffalo_l"):
         self.model = None
