@@ -1,3 +1,4 @@
+from .teed import *
 from .pulid import *
 from .inpaint import *
 from .lama_inpaint import *
