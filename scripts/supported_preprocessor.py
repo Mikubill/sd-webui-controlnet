@@ -102,6 +102,7 @@ class Preprocessor(ABC):
     expand_mask_when_resize_and_fill = False
     model: Optional[torch.nn.Module] = None
     device = devices.get_device_for("controlnet")
+    preprocessor_deps: List[str] = field(default_factory=list)
 
     all_processors: ClassVar[Dict[str, "Preprocessor"]] = {}
     all_processors_by_name: ClassVar[Dict[str, "Preprocessor"]] = {}
@@ -176,21 +177,10 @@ class Preprocessor(ABC):
 
     @classmethod
     def unload_unused(cls, active_processors: Set["Preprocessor"]):
-        # Prevent unloading for following preprocessors.
-        # https://github.com/Mikubill/sd-webui-controlnet/issues/2862
-        # TODO: Investigate proper way to unload PuLID.
-        # Current unloading method will cause VRAM leak. It is suspected
-        # the current unload method causes new model to load each time
-        # preprocessor is called.
-        prevent_unload = [
-            "EVA02-CLIP-L-14-336",
-            "facexlib",
-            "ip-adapter_pulid",
-        ]
+        logger.debug(
+            f"Unload unused preprocessors. Active: {[p.name for p in active_processors]}"
+        )
         for p in cls.all_processors.values():
-            if p.label in prevent_unload:
-                continue
-
             if p not in active_processors:
                 success = p.unload()
                 if success:
