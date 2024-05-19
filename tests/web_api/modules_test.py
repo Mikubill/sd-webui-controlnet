@@ -67,7 +67,7 @@ expected_module_names = {
     "scribble_xdog",
     "segmentation",
     "shuffle",
-    "te_hed",
+    "softedge_teed",
     "threshold",
     "tile_colorfix",
     "tile_colorfix+sharp",
