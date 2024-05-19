@@ -471,3 +471,7 @@ class ControlNetUnit(BaseModel):
                 for (key, value) in (item.strip().split(": "),)
             },
         )
+
+    def __copy__(self) -> ControlNetUnit:
+        """Override the behavior on `copy.copy` calls."""
+        return self.copy()
