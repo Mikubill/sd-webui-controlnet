@@ -666,7 +666,7 @@ class ControlNetUiGroup(object):
             self.pulid_mode,
         )
 
-        unit = gr.State(ControlNetUnit(enabled=False))
+        unit = gr.State(ControlNetUnit())
 
         # It is necessary to update unit state actively to avoid potential
         # flaky racing issue.

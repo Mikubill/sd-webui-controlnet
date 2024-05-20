@@ -310,7 +310,6 @@ def test_ip_adapter_auto():
 
 @disable_in_cq
 @pytest.mark.parametrize("img_index", [i for i, _ in enumerate(portrait_imgs)])
-@pytest.mark.skip(reason="test is for SDXL only")
 def test_pulid(img_index: int):
     """PuLID should not memory leak."""
     assert APITestTemplate(
