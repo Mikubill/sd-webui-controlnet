@@ -73,7 +73,7 @@ class ControlNetUnit(BaseModel):
     loopback: bool = False
 
     # General fields.
-    enabled: bool = False
+    enabled: bool = True
     module: str = "none"
 
     @validator("module", always=True, pre=True)
