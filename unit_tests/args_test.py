@@ -1,6 +1,7 @@
 import pytest
 import torch
 import numpy as np
+from copy import copy
 from dataclasses import dataclass
 
 from internal_controlnet.args import ControlNetUnit
@@ -249,3 +250,11 @@ def test_infotext_parsing():
 
 def test_alias():
     ControlNetUnit.from_dict({"lowvram": True})
+
+
+def test_copy():
+    unit1 = ControlNetUnit(enabled=True, module="none")
+    unit2 = copy(unit1)
+    unit2.enabled = False
+    assert unit1.enabled
+    assert not unit2.enabled
