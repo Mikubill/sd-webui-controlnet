@@ -66,7 +66,7 @@ img2img_payload = {
         "ControlNet": {
             "args": [
                 {
-                    "control_mode": 0,
+                    "control_mode": "Balanced",
                     "enabled": True,
                     "guidance_end": 1,
                     "guidance_start": 0,
@@ -75,7 +75,7 @@ img2img_payload = {
                     "module": "inpaint_only",
                     "pixel_perfect": True,
                     "processor_res": 512,
-                    "resize_mode": 1,
+                    "resize_mode": "Crop and Resize",
                     "threshold_a": 64,
                     "threshold_b": 64,
                     "weight": 1,
