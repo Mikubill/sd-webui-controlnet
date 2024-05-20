@@ -94,6 +94,7 @@ def test_inpaint_mask(module: str):
 
 @disable_in_cq
 @pytest.mark.parametrize("img_index", [i for i, _ in enumerate(portrait_imgs)])
+@pytest.mark.skip(reason="test is for SDXL only")
 def test_pulid(img_index: int):
     """PuLID preprocessor should not memory leak."""
     payload = dict(
