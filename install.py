@@ -51,6 +51,16 @@ def install_requirements(req_file):
                             f"install -U {package}",
                             f"sd-webui-controlnet requirement: changing {package_name} version from {installed_version} to {package_version}",
                         )
+                elif "<=" in package:
+                    package_name, package_version = package.split("<=")
+                    installed_version = get_installed_version(package_name)
+                    if not installed_version or comparable_version(
+                        installed_version
+                    ) > comparable_version(package_version):
+                        launch.run_pip(
+                            f"install {package_name}=={package_version}",
+                            f"sd-webui-controlnet requirement: changing {package_name} version from {installed_version} to {package_version}",
+                        )
                 elif not launch.is_installed(extract_base_package(package)):
                     launch.run_pip(
                         f"install {package}",
