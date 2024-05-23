@@ -228,6 +228,7 @@ class ControlNetUnit(BaseModel):
     animatediff_batch: bool = False
     batch_modifiers: list = []
     batch_image_files: list = []
+    batch_keyframe_idx: Optional[str|list] = None
 
     @property
     def accepts_multiple_inputs(self) -> bool:
