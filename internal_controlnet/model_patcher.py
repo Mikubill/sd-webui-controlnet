@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from enum import Enum
 from typing import (
+    Any,
     Callable,
     Dict,
     Generic,
@@ -21,6 +22,22 @@ from typing import (
 import torch
 import logging
 from pydantic import BaseModel, Field, validator
+
+
+def set_attr(obj, attr, value):
+    attrs = attr.split(".")
+    for name in attrs[:-1]:
+        obj = getattr(obj, name)
+    prev = getattr(obj, attrs[-1])
+    setattr(obj, attrs[-1], value)
+    return prev
+
+
+def get_attr(obj, attr):
+    attrs = attr.split(".")
+    for name in attrs:
+        obj = getattr(obj, name)
+    return obj
 
 
 def module_size(module: torch.nn.Module) -> int:
@@ -111,6 +128,10 @@ class WeightPatch(BaseModel):
             elif self.patch_type == PatchType.LORA:
                 assert isinstance(self.weight, LoRAWeight)
                 return self._patch_lora(model_weight)
+            else:
+                raise NotImplementedError(
+                    f"Patch type {self.patch_type} is not implemented."
+                )
         except ValueError as e:
             logging.error("ERROR {} {} {}".format(self.patch_type, key, e))
             return model_weight
@@ -267,374 +288,82 @@ class ModelPatcher(BaseModel, Generic[ModelType]):
             }
         )
 
-    def get_module(self, key: str) -> torch.nn.Module:
-        pass
+    def to(
+        self,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ):
+        self.model.to(device, dtype)
+        self.current_device = device
+
+    def get_attr(self, key: str) -> Optional[Any]:
+        return get_attr(self.model, key)
+
+    def set_attr(self, key: str, value: Any) -> Any:
+        return set_attr(self.model, key, value)
+
+    def set_attr_param(self, attr, value):
+        return self.set_attr(attr, torch.nn.Parameter(value, requires_grad=False))
+
+    def copy_to_param(self, attr, value):
+        """inplace update tensor instead of replacing it"""
+        attrs = attr.split(".")
+        obj = self.model
+        for name in attrs[:-1]:
+            obj = getattr(obj, name)
+        prev = getattr(obj, attrs[-1])
+        prev.data.copy_(value)
 
     def add_module_patch(self, key: str, module_patch: ModulePatch) -> bool:
-        pass
+        target_module = self.get_attr(key)
+        if target_module is None:
+            return False
 
-    def patch_weight_to_device(self, key, device_to=None):
-        if key not in self.patches:
-            return
+        self.module_patches[key].append(module_patch)
+        return True
 
-        weight = comfy.utils.get_attr(self.model, key)
+    def _patch_modules(self):
+        for key, module_patches in self.module_patches.items():
+            old_module = self.get_attr(key)
+            self._module_backup[key] = old_module
+            for module_patch in module_patches:
+                self.set_attr(key, module_patch.apply_func(old_module))
 
-        inplace_update = self.weight_inplace_update
+    def _patch_weights(self):
+        for key, weight_patches in self.weight_patches.items():
+            assert key in self.model_keys, f"Key {key} not found in model."
+            old_weight = self.get_attr(key)
+            self._weight_backup[key] = old_weight
 
-        if key not in self.backup:
-            self.backup[key] = weight.to(
-                device=self.offload_device, copy=inplace_update
-            )
-
-        if device_to is not None:
-            temp_weight = self.cls_cast_to_device(
-                weight, device_to, torch.float32, copy=True
-            )
-        else:
-            temp_weight = weight.to(torch.float32, copy=True)
-        out_weight = self.calculate_weight(self.patches[key], temp_weight, key).to(
-            weight.dtype
-        )
-        if inplace_update:
-            comfy.utils.copy_to_param(self.model, key, out_weight)
-        else:
-            comfy.utils.set_attr_param(self.model, key, out_weight)
-
-    def patch_model(self, device_to=None, patch_weights=True):
-        for k in self.object_patches:
-            old = comfy.utils.set_attr(self.model, k, self.object_patches[k])
-            if k not in self.object_patches_backup:
-                self.object_patches_backup[k] = old
-
-        if patch_weights:
-            model_sd = self.model_state_dict()
-            for key in self.patches:
-                if key not in model_sd:
-                    logging.warning(
-                        "could not patch. key doesn't exist in model: {}".format(key)
-                    )
-                    continue
-
-                self.patch_weight_to_device(key, device_to)
-
-            if device_to is not None:
-                self.model.to(device_to)
-                self.current_device = device_to
-
-        return self.model
-
-    def patch_model_lowvram(
-        self, device_to=None, lowvram_model_memory=0, force_patch_weights=False
-    ):
-        self.patch_model(device_to, patch_weights=False)
-
-        logging.info(
-            "loading in lowvram mode {}".format(lowvram_model_memory / (1024 * 1024))
-        )
-
-        class LowVramPatch:
-            def __init__(self, key, model_patcher):
-                self.key = key
-                self.model_patcher = model_patcher
-
-            def __call__(self, weight):
-                return self.model_patcher.calculate_weight(
-                    self.model_patcher.patches[self.key], weight, self.key
-                )
-
-        mem_counter = 0
-        patch_counter = 0
-        for n, m in self.model.named_modules():
-            lowvram_weight = False
-            if hasattr(m, "comfy_cast_weights"):
-                module_mem = comfy.model_management.module_size(m)
-                if mem_counter + module_mem >= lowvram_model_memory:
-                    lowvram_weight = True
-
-            weight_key = "{}.weight".format(n)
-            bias_key = "{}.bias".format(n)
-
-            if lowvram_weight:
-                if weight_key in self.patches:
-                    if force_patch_weights:
-                        self.patch_weight_to_device(weight_key)
-                    else:
-                        m.weight_function = LowVramPatch(weight_key, self)
-                        patch_counter += 1
-                if bias_key in self.patches:
-                    if force_patch_weights:
-                        self.patch_weight_to_device(bias_key)
-                    else:
-                        m.bias_function = LowVramPatch(bias_key, self)
-                        patch_counter += 1
-
-                m.prev_comfy_cast_weights = m.comfy_cast_weights
-                m.comfy_cast_weights = True
-            else:
-                if hasattr(m, "weight"):
-                    self.patch_weight_to_device(weight_key, device_to)
-                    self.patch_weight_to_device(bias_key, device_to)
-                    m.to(device_to)
-                    mem_counter += comfy.model_management.module_size(m)
-                    logging.debug("lowvram: loaded module regularly {}".format(m))
-
-        self.model_lowvram = True
-        self.lowvram_patch_counter = patch_counter
-        return self.model
-
-    def calculate_weight(self, patches, weight, key):
-        for p in patches:
-            alpha = p[0]
-            v = p[1]
-            strength_model = p[2]
-
-            if strength_model != 1.0:
-                weight *= strength_model
-
-            if isinstance(v, list):
-                v = (self.calculate_weight(v[1:], v[0].clone(), key),)
-
-            if len(v) == 1:
-                patch_type = "diff"
-            elif len(v) == 2:
-                patch_type = v[0]
-                v = v[1]
-
-            if patch_type == "diff":
-                w1 = v[0]
-                if alpha != 0.0:
-                    if w1.shape != weight.shape:
-                        logging.warning(
-                            "WARNING SHAPE MISMATCH {} WEIGHT NOT MERGED {} != {}".format(
-                                key, w1.shape, weight.shape
-                            )
-                        )
-                    else:
-                        weight += alpha * self.cls_cast_to_device(
-                            w1, weight.device, weight.dtype
-                        )
-            elif patch_type == "lora":  # lora/locon
-                mat1 = self.cls_cast_to_device(v[0], weight.device, torch.float32)
-                mat2 = self.cls_cast_to_device(v[1], weight.device, torch.float32)
-                dora_scale = v[4]
-                if v[2] is not None:
-                    alpha *= v[2] / mat2.shape[0]
-                if v[3] is not None:
-                    # locon mid weights, hopefully the math is fine because I didn't properly test it
-                    mat3 = self.cls_cast_to_device(v[3], weight.device, torch.float32)
-                    final_shape = [
-                        mat2.shape[1],
-                        mat2.shape[0],
-                        mat3.shape[2],
-                        mat3.shape[3],
-                    ]
-                    mat2 = (
-                        torch.mm(
-                            mat2.transpose(0, 1).flatten(start_dim=1),
-                            mat3.transpose(0, 1).flatten(start_dim=1),
-                        )
-                        .reshape(final_shape)
-                        .transpose(0, 1)
-                    )
-                try:
-                    weight += (
-                        (
-                            alpha
-                            * torch.mm(
-                                mat1.flatten(start_dim=1), mat2.flatten(start_dim=1)
-                            )
-                        )
-                        .reshape(weight.shape)
-                        .type(weight.dtype)
-                    )
-                    if dora_scale is not None:
-                        weight = apply_weight_decompose(
-                            self.cls_cast_to_device(
-                                dora_scale, weight.device, torch.float32
-                            ),
-                            weight,
-                        )
-                except Exception as e:
-                    logging.error("ERROR {} {} {}".format(patch_type, key, e))
-            elif patch_type == "lokr":
-                w1 = v[0]
-                w2 = v[1]
-                w1_a = v[3]
-                w1_b = v[4]
-                w2_a = v[5]
-                w2_b = v[6]
-                t2 = v[7]
-                dora_scale = v[8]
-                dim = None
-
-                if w1 is None:
-                    dim = w1_b.shape[0]
-                    w1 = torch.mm(
-                        self.cls_cast_to_device(w1_a, weight.device, torch.float32),
-                        self.cls_cast_to_device(w1_b, weight.device, torch.float32),
-                    )
-                else:
-                    w1 = self.cls_cast_to_device(w1, weight.device, torch.float32)
-
-                if w2 is None:
-                    dim = w2_b.shape[0]
-                    if t2 is None:
-                        w2 = torch.mm(
-                            self.cls_cast_to_device(w2_a, weight.device, torch.float32),
-                            self.cls_cast_to_device(w2_b, weight.device, torch.float32),
-                        )
-                    else:
-                        w2 = torch.einsum(
-                            "i j k l, j r, i p -> p r k l",
-                            self.cls_cast_to_device(t2, weight.device, torch.float32),
-                            self.cls_cast_to_device(w2_b, weight.device, torch.float32),
-                            self.cls_cast_to_device(w2_a, weight.device, torch.float32),
-                        )
-                else:
-                    w2 = self.cls_cast_to_device(w2, weight.device, torch.float32)
-
-                if len(w2.shape) == 4:
-                    w1 = w1.unsqueeze(2).unsqueeze(2)
-                if v[2] is not None and dim is not None:
-                    alpha *= v[2] / dim
-
-                try:
-                    weight += alpha * torch.kron(w1, w2).reshape(weight.shape).type(
-                        weight.dtype
-                    )
-                    if dora_scale is not None:
-                        weight = apply_weight_decompose(
-                            self.cls_cast_to_device(
-                                dora_scale, weight.device, torch.float32
-                            ),
-                            weight,
-                        )
-                except Exception as e:
-                    logging.error("ERROR {} {} {}".format(patch_type, key, e))
-            elif patch_type == "loha":
-                w1a = v[0]
-                w1b = v[1]
-                if v[2] is not None:
-                    alpha *= v[2] / w1b.shape[0]
-                w2a = v[3]
-                w2b = v[4]
-                dora_scale = v[7]
-                if v[5] is not None:  # cp decomposition
-                    t1 = v[5]
-                    t2 = v[6]
-                    m1 = torch.einsum(
-                        "i j k l, j r, i p -> p r k l",
-                        self.cls_cast_to_device(t1, weight.device, torch.float32),
-                        self.cls_cast_to_device(w1b, weight.device, torch.float32),
-                        self.cls_cast_to_device(w1a, weight.device, torch.float32),
-                    )
-
-                    m2 = torch.einsum(
-                        "i j k l, j r, i p -> p r k l",
-                        self.cls_cast_to_device(t2, weight.device, torch.float32),
-                        self.cls_cast_to_device(w2b, weight.device, torch.float32),
-                        self.cls_cast_to_device(w2a, weight.device, torch.float32),
-                    )
-                else:
-                    m1 = torch.mm(
-                        self.cls_cast_to_device(w1a, weight.device, torch.float32),
-                        self.cls_cast_to_device(w1b, weight.device, torch.float32),
-                    )
-                    m2 = torch.mm(
-                        self.cls_cast_to_device(w2a, weight.device, torch.float32),
-                        self.cls_cast_to_device(w2b, weight.device, torch.float32),
-                    )
-
-                try:
-                    weight += (alpha * m1 * m2).reshape(weight.shape).type(weight.dtype)
-                    if dora_scale is not None:
-                        weight = apply_weight_decompose(
-                            self.cls_cast_to_device(
-                                dora_scale, weight.device, torch.float32
-                            ),
-                            weight,
-                        )
-                except Exception as e:
-                    logging.error("ERROR {} {} {}".format(patch_type, key, e))
-            elif patch_type == "glora":
-                if v[4] is not None:
-                    alpha *= v[4] / v[0].shape[0]
-
-                dora_scale = v[5]
-
-                a1 = self.cls_cast_to_device(
-                    v[0].flatten(start_dim=1), weight.device, torch.float32
-                )
-                a2 = self.cls_cast_to_device(
-                    v[1].flatten(start_dim=1), weight.device, torch.float32
-                )
-                b1 = self.cls_cast_to_device(
-                    v[2].flatten(start_dim=1), weight.device, torch.float32
-                )
-                b2 = self.cls_cast_to_device(
-                    v[3].flatten(start_dim=1), weight.device, torch.float32
-                )
-
-                try:
-                    weight += (
-                        (
-                            (
-                                torch.mm(b2, b1)
-                                + torch.mm(
-                                    torch.mm(weight.flatten(start_dim=1), a2), a1
-                                )
-                            )
-                            * alpha
-                        )
-                        .reshape(weight.shape)
-                        .type(weight.dtype)
-                    )
-                    if dora_scale is not None:
-                        weight = apply_weight_decompose(
-                            self.cls_cast_to_device(
-                                dora_scale, weight.device, torch.float32
-                            ),
-                            weight,
-                        )
-                except Exception as e:
-                    logging.error("ERROR {} {} {}".format(patch_type, key, e))
-            else:
-                logging.warning(
-                    "patch type not recognized {} {}".format(patch_type, key)
-                )
-
-        return weight
-
-    def unpatch_model(self, device_to=None, unpatch_weights=True):
-        if unpatch_weights:
-            if self.model_lowvram:
-                for m in self.model.modules():
-                    if hasattr(m, "prev_comfy_cast_weights"):
-                        m.comfy_cast_weights = m.prev_comfy_cast_weights
-                        del m.prev_comfy_cast_weights
-                    m.weight_function = None
-                    m.bias_function = None
-
-                self.model_lowvram = False
-                self.lowvram_patch_counter = 0
-
-            keys = list(self.backup.keys())
+            new_weight = old_weight
+            for weight_patch in weight_patches:
+                new_weight = weight_patch.apply(new_weight, key)
 
             if self.weight_inplace_update:
-                for k in keys:
-                    comfy.utils.copy_to_param(self.model, k, self.backup[k])
+                self.set_attr_param(key, new_weight)
             else:
-                for k in keys:
-                    comfy.utils.set_attr_param(self.model, k, self.backup[k])
+                self.copy_to_param(key, new_weight)
 
-            self.backup.clear()
+    def patch_model(self, patch_weights: bool = True):
+        self._patch_modules()
+        if patch_weights:
+            self._patch_weights()
+        return self.model
 
-            if device_to is not None:
-                self.model.to(device_to)
-                self.current_device = device_to
+    def _unpatch_weights(self):
+        for k, v in self._weight_backup.items():
+            if self.weight_inplace_update:
+                self.copy_to_param(k, v)
+            else:
+                self.set_attr_param(k, v)
+        self._weight_backup.clear()
 
-        keys = list(self.object_patches_backup.keys())
-        for k in keys:
-            comfy.utils.set_attr(self.model, k, self.object_patches_backup[k])
+    def _unpatch_modules(self):
+        for k, v in self._module_backup.items():
+            self.set_attr(k, v)
+        self._module_backup.clear()
 
-        self.object_patches_backup.clear()
+    def unpatch_model(self, unpatch_weights=True):
+        if unpatch_weights:
+            self._unpatch_weights()
+        self._unpatch_modules()
