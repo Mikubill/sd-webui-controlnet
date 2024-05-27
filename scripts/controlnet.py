@@ -948,7 +948,7 @@ class Script(scripts.Script, metaclass=(
             elif unit.is_animate_diff_batch or control_model_type in [ControlModelType.SparseCtrl]:
                 cn_ad_keyframe_idx = getattr(unit, "batch_keyframe_idx", None)
                 def ad_process_control(cc: List[torch.Tensor], cn_ad_keyframe_idx=cn_ad_keyframe_idx):
-                    if unit.accepts_multiple_inputs:
+                    if unit.is_ipadapter:
                         ip_adapter_image_emb_cond = []
                         model_net.ipadapter.image_proj_model.to(torch.float32) # noqa
                         for c in cc:
@@ -975,7 +975,7 @@ class Script(scripts.Script, metaclass=(
                                 for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):
                                     logger.info(f"\t{frame_idx}: {frame_path}")
                             c = SparseCtrl.create_cond_mask(cn_ad_keyframe_idx, c, p.batch_size).cpu()
-                        elif unit.accepts_multiple_inputs:
+                        elif unit.is_ipadapter:
                             # ip-adapter should do prompt travel
                             logger.info("IP-Adapter: control prompts will be traveled in the following way:")
                             for frame_idx, frame_path in zip(unit.batch_keyframe_idx, unit.batch_image_files):

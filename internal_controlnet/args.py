@@ -228,21 +228,12 @@ class ControlNetUnit(BaseModel):
     animatediff_batch: bool = False
     batch_modifiers: list = []
     batch_image_files: list = []
-    batch_keyframe_idx: Optional[str|list] = None
+    batch_keyframe_idx: Optional[str | list] = None
 
     @property
     def accepts_multiple_inputs(self) -> bool:
         """This unit can accept multiple input images."""
-        return self.module in (
-            "ip-adapter-auto",
-            "ip-adapter_clip_sdxl",
-            "ip-adapter_clip_sdxl_plus_vith",
-            "ip-adapter_clip_sd15",
-            "ip-adapter_face_id",
-            "ip-adapter_face_id_plus",
-            "ip-adapter_pulid",
-            "instant_id_face_embedding",
-        )
+        return self.is_ipadapter
 
     @property
     def is_animate_diff_batch(self) -> bool:
@@ -262,6 +253,13 @@ class ControlNetUnit(BaseModel):
     @property
     def is_inpaint(self) -> bool:
         return "inpaint" in self.module
+
+    @property
+    def is_ipadapter(self) -> bool:
+        p = ControlNetUnit.cls_get_preprocessor(self.module)
+        if p is None:
+            return False
+        return "IP-Adapter" in p.tags
 
     def get_actual_preprocessors(self) -> List[Any]:
         p = ControlNetUnit.cls_get_preprocessor(self.module)
