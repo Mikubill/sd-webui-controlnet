@@ -17,7 +17,6 @@ from scripts.enums import (
     PuLIDMode,
 )
 from annotator.util import HWC3
-from scripts.supported_preprocessor import Preprocessor
 
 
 def _unimplemented_func(*args, **kwargs):
@@ -257,7 +256,7 @@ class ControlNetUnit(BaseModel):
 
     @property
     def is_ipadapter(self) -> bool:
-        p = Preprocessor.get_preprocessor(self.module)
+        p = ControlNetUnit.cls_get_preprocessor(self.module)
         if p is None:
             return False
         return "IP-Adapter" in p.tags
