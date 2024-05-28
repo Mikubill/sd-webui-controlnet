@@ -226,8 +226,8 @@ class ControlNetUnit(BaseModel):
     # TODO: Find a better way in AnimateDiff to deal with these extra fields.
     batch_mask_dir: Optional[str] = None
     animatediff_batch: bool = False
-    batch_modifiers: list = []
-    batch_image_files: list = []
+    batch_modifiers: list = Field(default_factory=list)
+    batch_image_files: list = Field(default_factory=list)
     batch_keyframe_idx: Optional[str | list] = None
 
     @property
