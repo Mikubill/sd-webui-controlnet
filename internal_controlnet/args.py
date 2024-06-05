@@ -207,10 +207,10 @@ class ControlNetUnit(BaseModel):
     # the base64string will be interpret by torch.load to reconstruct ipadapter
     # preprocessor output.
     # Currently the option is only accessible in API calls.
-    ipadapter_input: Optional[List[torch.Tensor]] = None
+    ipadapter_input: Optional[List[Any]] = None
 
     @validator("ipadapter_input", pre=True)
-    def parse_ipadapter_input(cls, value) -> Optional[List[torch.Tensor]]:
+    def parse_ipadapter_input(cls, value) -> Optional[List[Any]]:
         if value is None:
             return None
         if isinstance(value, str):
