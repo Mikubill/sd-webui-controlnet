@@ -78,16 +78,21 @@ def install_onnxruntime():
     Install onnxruntime or onnxruntime-gpu based on the availability of CUDA.
     onnxruntime and onnxruntime-gpu can not be installed together.
     """
-    if not launch.is_installed("onnxruntime") and not launch.is_installed("onnxruntime-gpu"):
-        import torch.cuda as cuda # torch import head to improve loading time
-        onnxruntime = 'onnxruntime-gpu' if cuda.is_available() else 'onnxruntime'
+    if not launch.is_installed("onnxruntime") and not launch.is_installed(
+        "onnxruntime-gpu"
+    ):
+        import torch.cuda as cuda  # torch import head to improve loading time
+
+        onnxruntime = "onnxruntime-gpu" if cuda.is_available() else "onnxruntime"
         launch.run_pip(
-            f'install {onnxruntime}',
+            f"install {onnxruntime}",
             f"sd-webui-controlnet requirement: {onnxruntime}",
         )
 
 
-def try_install_from_wheel(pkg_name: str, wheel_url: str, version: Optional[str] = None):
+def try_install_from_wheel(
+    pkg_name: str, wheel_url: str, version: Optional[str] = None
+):
     current_version = get_installed_version(pkg_name)
     if current_version is not None:
         # No version requirement.
@@ -115,7 +120,7 @@ def try_install_insight_face():
         return
 
     default_win_wheel = "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl"
-    wheel_url = os.environ.get("INSIGHTFACE_WHEEL", default_win_wheel)
+    wheel_url = get_wheel_override("INSIGHTFACE_WHEEL", default_win_wheel)
 
     system = platform.system().lower()
     architecture = platform.machine().lower()
@@ -156,12 +161,26 @@ def try_remove_legacy_submodule():
             )
 
 
+def get_wheel_override(pkg_name: str, default_url: str) -> str:
+    if pkg_name in os.environ:
+        print(
+            f"""
+[WARNING] Using wheel override for {pkg_name}: {os.environ[pkg_name]}
+The environment variable is meant to be used by Chinese users who have trouble accessing github.
+This mechanism can be leveraged to install a custom wheel for any package. If you notice any suspicious behavior,
+please report it to developers at https://github.com/Mikubill/sd-webui-controlnet/issues.
+"""
+        )
+        return os.environ[pkg_name]
+    return default_url
+
+
 install_requirements(main_req_file)
 install_onnxruntime()
 try_install_insight_face()
 try_install_from_wheel(
     "handrefinerportable",
-    wheel_url=os.environ.get(
+    wheel_url=get_wheel_override(
         "HANDREFINER_WHEEL",
         "https://github.com/huchenlei/HandRefinerPortable/releases/download/v1.0.1/handrefinerportable-2024.2.12.0-py2.py3-none-any.whl",
     ),
@@ -169,7 +188,7 @@ try_install_from_wheel(
 )
 try_install_from_wheel(
     "depth_anything",
-    wheel_url=os.environ.get(
+    wheel_url=get_wheel_override(
         "DEPTH_ANYTHING_WHEEL",
         "https://github.com/huchenlei/Depth-Anything/releases/download/v1.0.0/depth_anything-2024.1.22.0-py2.py3-none-any.whl",
     ),
@@ -177,7 +196,7 @@ try_install_from_wheel(
 
 try_install_from_wheel(
     "dsine",
-    wheel_url=os.environ.get(
+    wheel_url=get_wheel_override(
         "DSINE_WHEEL",
         "https://github.com/sdbds/DSINE/releases/download/1.0.2/dsine-2024.3.23-py3-none-any.whl",
     ),
