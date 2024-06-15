@@ -50,7 +50,7 @@ class DepthAnythingDetector:
             "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth",
         )
         model_path = load_model(
-            "depth_anything_vitl14.pth", remote_url=remote_url, model_dir=self.model_dir
+            "depth_anything_v2_vitl.pth", remote_url=remote_url, model_dir=self.model_dir
         )
         self.model.load_state_dict(torch.load(model_path))
 
