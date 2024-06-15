@@ -47,7 +47,7 @@ class DepthAnythingDetector:
         )
         remote_url = os.environ.get(
             "CONTROLNET_DEPTH_ANYTHING_MODEL_URL",
-            "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitl14.pth",
+            "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth",
         )
         model_path = load_model(
             "depth_anything_vitl14.pth", remote_url=remote_url, model_dir=self.model_dir
