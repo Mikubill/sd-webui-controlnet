@@ -73,7 +73,7 @@ class DepthAnythingDetector:
         if colored:
             return cv2.applyColorMap(depth, cv2.COLORMAP_INFERNO)[:, :, ::-1]
         else:
-            return depth
+            return np.repeat(depth[..., np.newaxis], 3, axis=-1)
 
     def unload_model(self):
         self.model.to("cpu")
