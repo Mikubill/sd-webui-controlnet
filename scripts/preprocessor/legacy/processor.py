@@ -189,6 +189,25 @@ def unload_depth_anything():
         model_depth_anything.unload_model()
 
 
+model_depth_anything_v2 = None
+
+
+def depth_anything_v2(img, res:int = 512, colored:bool = True, **kwargs):
+    img, remove_pad = resize_image_with_pad(img, res)
+    global model_depth_anything_v2
+    if model_depth_anything_v2 is None:
+        with Extra(torch_handler):
+            from annotator.depth_anything_v2 import DepthAnythingV2Detector
+            device = devices.get_device_for("controlnet")
+            model_depth_anything_v2 = DepthAnythingV2Detector(device)
+    return remove_pad(model_depth_anything_v2(img, colored=colored)), True
+
+
+def unload_depth_anything_v2():
+    if model_depth_anything_v2 is not None:
+        model_depth_anything_v2.unload_model()
+
+
 model_midas = None
 
 

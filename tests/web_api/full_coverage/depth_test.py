@@ -18,6 +18,7 @@ general_depth_modules = [
     "depth_leres",
     "depth_leres++",
     "depth_anything",
+    "depth_anything_v2",
 ]
 hand_refiner_module = "depth_hand_refiner"
 
