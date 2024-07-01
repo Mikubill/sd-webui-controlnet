@@ -168,6 +168,22 @@ legacy_preprocessors = {
             "Depth"
         ]
     },
+    "depth_anything_v2": {
+        "label": "depth_anything_v2",
+        "call_function": functools.partial(depth_anything_v2, colored=False),
+        "unload_function": unload_depth_anything_v2,
+        "managed_model": "model_depth_anything_v2",
+        "model_free": False,
+        "no_control_mode": False,
+        "resolution": None,
+        "slider_1": None,
+        "slider_2": None,
+        "slider_3": None,
+        "priority": 0,
+        "tags": [
+            "Depth"
+        ]
+    },
     "depth_hand_refiner": {
         "label": "depth_hand_refiner",
         "call_function": g_hand_refiner_model.run_model,
