@@ -167,11 +167,20 @@ try_install_from_wheel(
     ),
     version="2024.2.12.0",
 )
+
 try_install_from_wheel(
     "depth_anything",
     wheel_url=os.environ.get(
         "DEPTH_ANYTHING_WHEEL",
         "https://github.com/huchenlei/Depth-Anything/releases/download/v1.0.0/depth_anything-2024.1.22.0-py2.py3-none-any.whl",
+    ),
+)
+
+try_install_from_wheel(
+    "depth_anything_v2",
+    wheel_url=os.environ.get(
+        "DEPTH_ANYTHING_V2_WHEEL",
+        "https://github.com/MackinationsAi/UDAV2-ControlNet/releases/download/v1.0.0/depth_anything_v2-2024.7.1.0-py2.py3-none-any.whl",
     ),
 )
 
