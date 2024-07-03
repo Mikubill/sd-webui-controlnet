@@ -45,7 +45,7 @@ class DepthAnythingV2Detector:
         )
         remote_url = os.environ.get(
             "CONTROLNET_DEPTH_ANYTHING_V2_MODEL_URL",
-            "https://huggingface.co/MackinationsAi/Depth-Anything-V2_Safetensors/blob/main/depth_anything_v2_vitl.safetensors",
+            "https://huggingface.co/MackinationsAi/Depth-Anything-V2_Safetensors/resolve/main/depth_anything_v2_vitl.safetensors",
         )
         model_path = load_model(
             "depth_anything_v2_vitl.safetensors", remote_url=remote_url, model_dir=self.model_dir
