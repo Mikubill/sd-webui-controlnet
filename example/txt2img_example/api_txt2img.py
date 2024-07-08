@@ -37,14 +37,14 @@ class ControlnetRequest:
                             "model": "canny",
                             "weight": 1.0,
                             "image": self.read_image(),
-                            "resize_mode": 1,
+                            "resize_mode": "Crop and Resize",
                             "lowvram": False,
                             "processor_res": 64,
                             "threshold_a": 64,
                             "threshold_b": 64,
                             "guidance_start": 0.0,
                             "guidance_end": 1.0,
-                            "control_mode": 0,
+                            "control_mode": "Balanced",
                             "pixel_perfect": False
                         }
                     ]
@@ -73,5 +73,5 @@ if __name__ == '__main__':
 
     result = output['images'][0]
 
-    image = Image.open(io.BytesIO(base64.b64decode(result.split(",", 1)[0])))
+    image = Image.open(io.BytesIO(base64.b64decode(result)))
     image.show()

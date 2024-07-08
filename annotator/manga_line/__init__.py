@@ -215,7 +215,7 @@ class MangaLineExtration:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/erika.pth"
         modelpath = os.path.join(self.model_dir, "erika.pth")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
+            from scripts.utils import load_file_from_url
             load_file_from_url(remote_model_path, model_dir=self.model_dir)
         #norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
         net = res_skip()

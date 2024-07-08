@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 from collections import OrderedDict
 
-from omegaconf import OmegaConf
 from copy import deepcopy
-from modules import devices, lowvram, shared, scripts
+from modules import devices
 cond_cast_unet = getattr(devices, 'cond_cast_unet', lambda x: x)
 
 
@@ -137,7 +136,7 @@ class ResnetBlock(nn.Module):
     def __init__(self, in_c, out_c, down, ksize=3, sk=False, use_conv=True):
         super().__init__()
         ps = ksize//2
-        if in_c != out_c or sk==False:
+        if in_c != out_c or sk is False:
             self.in_conv = nn.Conv2d(in_c, out_c, ksize, 1, ps)
         else:
             # print('n_in')
@@ -145,57 +144,17 @@ class ResnetBlock(nn.Module):
         self.block1 = nn.Conv2d(out_c, out_c, 3, 1, 1)
         self.act = nn.ReLU()
         self.block2 = nn.Conv2d(out_c, out_c, ksize, 1, ps)
-        if sk==False:
-            self.skep = nn.Conv2d(in_c, out_c, ksize, 1, ps)
-        else:
-            # print('n_sk')
-            self.skep = None
-
-        self.down = down
-        if self.down == True:
-            self.down_opt = Downsample(in_c, use_conv=use_conv)
-
-    def forward(self, x):
-        if self.down == True:
-            x = self.down_opt(x)
-        if self.in_conv is not None: # edit
-            h = self.in_conv(x)
-            # x = self.in_conv(x)
-        # else:
-        #     x = x
-
-        h = self.block1(h)
-        h = self.act(h)
-        h = self.block2(h)
-        if self.skep is not None:
-            return h + self.skep(x)
-        else:
-            return h + x
-
-
-class ResnetBlock(nn.Module):
-    def __init__(self, in_c, out_c, down, ksize=3, sk=False, use_conv=True):
-        super().__init__()
-        ps = ksize//2
-        if in_c != out_c or sk==False:
-            self.in_conv = nn.Conv2d(in_c, out_c, ksize, 1, ps)
-        else:
-            # print('n_in')
-            self.in_conv = None
-        self.block1 = nn.Conv2d(out_c, out_c, 3, 1, 1)
-        self.act = nn.ReLU()
-        self.block2 = nn.Conv2d(out_c, out_c, ksize, 1, ps)
-        if sk==False:
+        if sk is False:
             self.skep = nn.Conv2d(in_c, out_c, ksize, 1, ps)
         else:
             self.skep = None
 
         self.down = down
-        if self.down == True:
+        if self.down is True:
             self.down_opt = Downsample(in_c, use_conv=use_conv)
 
     def forward(self, x):
-        if self.down == True:
+        if self.down is True:
             x = self.down_opt(x)
         if self.in_conv is not None: # edit
             x = self.in_conv(x)
@@ -374,11 +333,11 @@ class extractor(nn.Module):
         self.body = nn.Sequential(*self.body)
         self.out_conv = nn.Conv2d(inter_c, out_c, 1, 1, 0)
         self.down = down
-        if self.down == True:
+        if self.down is True:
             self.down_opt = Downsample(in_c, use_conv=False)
 
     def forward(self, x):
-        if self.down == True:
+        if self.down is True:
             x = self.down_opt(x)
         x = self.in_conv(x)
         x = self.body(x)

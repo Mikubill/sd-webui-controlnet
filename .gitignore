@@ -173,7 +173,18 @@ annotator/downloads/
 # test results and expectations
 web_tests/results/
 web_tests/expectations/
+tests/web_api/full_coverage/results/
+tests/web_api/full_coverage/expectations/
+tests/web_api/results/
+tests/web_api/expectations/
+
 *_diff.png
 
 # Presets
 presets/
+
+# Ignore existing dir of hand refiner if exists.
+annotator/hand_refiner_portable
+
+# Ruff linter cache dir
+.ruff_cache/

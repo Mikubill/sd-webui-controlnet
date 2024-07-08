@@ -3,7 +3,7 @@ import json
 import numpy as np
 import math
 import time
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
 import matplotlib
 import torch

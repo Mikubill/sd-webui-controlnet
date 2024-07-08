@@ -1,10 +1,23 @@
 # ControlNet for Stable Diffusion WebUI
 
 The WebUI extension for ControlNet and other injection-based SD controls.
-
-![image](https://github.com/Mikubill/sd-webui-controlnet/assets/19834515/00787fd1-1bc5-4b90-9a23-9683f8458b85)
+![image](https://github.com/Mikubill/sd-webui-controlnet/assets/20929282/261f9a50-ba9c-472f-b398-fced61929c4a)
 
 This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui), allows the Web UI to add [ControlNet](https://github.com/lllyasviel/ControlNet) to the original Stable Diffusion model to generate images. The addition is on-the-fly, the merging is not required.
+
+# News
+
+- [2024-07-01] 🔥[v1.1.452] Depth Anything V2 - UDAV2 depth Preprocessor [Pull thread: https://github.com/Mikubill/sd-webui-controlnet/pull/2969]
+- [2024-05-19] 🔥[v1.1.449] Anyline Preprocessor & MistoLine SDXL model [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2907]
+- [2024-05-04] 🔥[v1.1.447] PuLID [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2841]
+- [2024-04-30] 🔥[v1.1.446] Effective region mask supported for ControlNet/IPAdapter [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2831]
+- [2024-04-27] 🔥ControlNet-lllite Normal Dsine released [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2813]
+- [2024-04-19] 🔥[v1.1.445] IPAdapter advanced weight [Instant Style] [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2770]
+- [2024-04-17] 🔥[v1.1.444] Marigold depth preprocessor [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2760]
+- [2024-04-15] 🔥ControlNet++ models released [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2778]
+- [2024-04-13] 🔥TTPLanet_SDXL_Controlnet_Tile_Realistic v2 released [[Civitai Page](https://civitai.com/models/330313/ttplanetsdxlcontrolnettilerealistic)]
+- [2024-03-31] 🔥[v1.1.443] IP-Adapter CLIP mask and ip-adapter-auto preprocessor [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2723]
+- [2024-03-20] 🔥IPAdapter Composition [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2781]
 
 # Installation
 
@@ -19,20 +32,7 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
 
 # Download Models
-
-Right now all the 14 models of ControlNet 1.1 are in the beta test.
-
-Download the models from ControlNet 1.1: https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main
-
-You need to download model files ending with ".pth" .
-
-Put models in your "stable-diffusion-webui\extensions\sd-webui-controlnet\models". You only need to download "pth" files.
-
-Do not right-click the filenames in HuggingFace website to download. Some users right-clicked those HuggingFace HTML websites and saved those HTML pages as PTH/YAML files. They are not downloading correct files. Instead, please click the small download arrow “↓” icon in HuggingFace to download.
-
-# Download Models for SDXL
-
-See instructions [here](https://github.com/Mikubill/sd-webui-controlnet/discussions/2039).
+You can find all download links here: https://github.com/Mikubill/sd-webui-controlnet/wiki/Model-download.
 
 # Features in ControlNet 1.1
 
@@ -101,7 +101,7 @@ This method is similar to inpaint-based reference but it does not make your imag
 
 Many professional A1111 users know a trick to diffuse image with references by inpaint. For example, if you have a 512x512 image of a dog, and want to generate another 512x512 image with the same dog, some users will connect the 512x512 dog image and a 512x512 blank image into a 1024x512 image, send to inpaint, and mask out the blank 512x512 part to diffuse a dog with similar appearance. However, that method is usually not very satisfying since images are connected and many distortions will appear.
 
-This `reference-only` ControlNet can directly link the attention layers of your SD to any independent images, so that your SD will read arbitary images for reference. You need at least ControlNet 1.1.153 to use it.
+This `reference-only` ControlNet can directly link the attention layers of your SD to any independent images, so that your SD will read arbitrary images for reference. You need at least ControlNet 1.1.153 to use it.
 
 To use, just select `reference-only` as preprocessor and put an image. Your SD will just use the image as reference.
 
@@ -205,7 +205,7 @@ Note that this feature is only available in the gradio user interface. Call the 
 
 This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
 
-To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/api_txt2img.ipynb).
+To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/txt2img_example/api_txt2img.py).
 
 To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
@@ -219,6 +219,7 @@ This extension adds these command line arguments to the webui:
     --no-half-controlnet                                                                       load controlnet models in full precision
     --controlnet-preprocessor-cache-size                                                       Cache size for controlnet preprocessor results
     --controlnet-loglevel                                                                      Log level for the controlnet extension
+    --controlnet-tracemalloc                                                                   Enable malloc memory tracing
 ```
 
 # MacOS Support

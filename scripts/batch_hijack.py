@@ -1,11 +1,10 @@
 import os
-from copy import copy
-from enum import Enum
 from typing import Tuple, List
 
 from modules import img2img, processing, shared, script_callbacks
 from scripts import external_code
-
+from scripts.enums import InputMode
+from scripts.logging import logger
 
 class BatchHijack:
     def __init__(self):
@@ -20,6 +19,16 @@ class BatchHijack:
         self.postprocess_batch_callbacks = [self.on_postprocess_batch]
 
     def img2img_process_batch_hijack(self, p, *args, **kwargs):
+        try:
+            from scripts.animatediff_utils import get_animatediff_arg
+            ad_params = get_animatediff_arg(p)
+            if ad_params and ad_params.enable:
+                ad_params.is_i2i_batch = True
+                from scripts.animatediff_i2ibatch import animatediff_i2i_batch
+                return animatediff_i2i_batch(p, *args, **kwargs)
+        except ImportError:
+            pass
+
         cn_is_batch, batches, output_dir, _ = get_cn_batches(p)
         if not cn_is_batch:
             return getattr(img2img, '__controlnet_original_process_batch')(p, *args, **kwargs)
@@ -32,6 +41,14 @@ class BatchHijack:
             self.dispatch_callbacks(self.postprocess_batch_callbacks, p)
 
     def processing_process_images_hijack(self, p, *args, **kwargs):
+        try:
+            from scripts.animatediff_utils import get_animatediff_arg
+            ad_params = get_animatediff_arg(p)
+            if ad_params and ad_params.enable:
+                return getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
+        except ImportError:
+            pass
+
         if self.is_batch:
             # we are in img2img batch tab, do a single batch iteration
             return self.process_images_cn_batch(p, *args, **kwargs)
@@ -175,14 +192,9 @@ def unhijack_function(module, name, new_name):
         delattr(module, new_name)
 
 
-class InputMode(Enum):
-    SIMPLE = "simple"
-    BATCH = "batch"
-
-
 def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[List[str]], str, List[str]]:
     units = external_code.get_all_units_in_processing(p)
-    units = [copy(unit) for unit in units if getattr(unit, 'enabled', False)]
+    units = [unit.copy() for unit in units if getattr(unit, 'enabled', False)]
     any_unit_is_batch = False
     output_dir = ''
     input_file_names = []
@@ -204,11 +216,14 @@ def get_cn_batches(p: processing.StableDiffusionProcessing) -> Tuple[bool, List[
     batches = [[] for _ in range(cn_batch_size)]
     for i in range(cn_batch_size):
         for unit in units:
-            if getattr(unit, 'input_mode', InputMode.SIMPLE) == InputMode.SIMPLE:
-                batches[i].append(unit.image)
-            else:
+            input_mode = getattr(unit, 'input_mode', InputMode.SIMPLE)
+            if input_mode == InputMode.BATCH:
                 batches[i].append(unit.batch_images[i])
+            else:
+                batches[i].append(unit.image)
 
+    if any_unit_is_batch:
+        logger.info(f"Batch enabled ({len(batches)})")
     return any_unit_is_batch, batches, output_dir, input_file_names
 
 

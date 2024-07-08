@@ -147,7 +147,7 @@ def find_download_model(checkpoint, remote_path):
     if os.path.exists(old_modelpath):
         modelpath = old_modelpath
     elif not os.path.exists(modelpath):
-        from basicsr.utils.download_util import load_file_from_url
+        from scripts.utils import load_file_from_url
         load_file_from_url(remote_path, model_dir=modeldir)
         
     return modelpath
