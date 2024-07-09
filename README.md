@@ -7,6 +7,7 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 
 # News
 
+- [2024-07-09] 🔥[v1.1.454] ControlNet union model support [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2989]
 - [2024-07-01] 🔥[v1.1.452] Depth Anything V2 - UDAV2 depth Preprocessor [Pull thread: https://github.com/Mikubill/sd-webui-controlnet/pull/2969]
 - [2024-05-19] 🔥[v1.1.449] Anyline Preprocessor & MistoLine SDXL model [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2907]
 - [2024-05-04] 🔥[v1.1.447] PuLID [Discussion thread: https://github.com/Mikubill/sd-webui-controlnet/discussions/2841]
