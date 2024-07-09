@@ -6,7 +6,12 @@ from functools import partial
 from typing import Optional, Any, List
 
 from scripts.logging import logger
-from scripts.enums import ControlModelType, AutoMachine, HiResFixOption
+from scripts.enums import (
+    ControlModelType,
+    AutoMachine,
+    HiResFixOption,
+    ControlNetUnionControlType,
+)
 from scripts.ipadapter.ipadapter_model import ImageEmbed
 from scripts.controlnet_sparsectrl import SparseCtrl
 from modules import devices, lowvram, shared, scripts
@@ -173,6 +178,7 @@ class ControlParams:
             hr_option: HiResFixOption = HiResFixOption.BOTH,
             control_context_override: Optional[Any] = None,
             effective_region_mask: Optional[torch.Tensor] = None,
+            union_control_types: List[ControlNetUnionControlType] = None,
             **kwargs  # To avoid errors
     ):
         self.control_model = control_model
@@ -189,6 +195,7 @@ class ControlParams:
         self.hr_option = hr_option
         self.control_context_override = control_context_override
         self.effective_region_mask = effective_region_mask
+        self.union_control_types = union_control_types or []
         self.used_hint_cond = None
         self.used_hint_cond_latent = None
         self.used_hint_inpaint_hijack = None
@@ -608,7 +615,15 @@ class UnetHook(nn.Module):
                     hint=hint,
                     timesteps=timesteps,
                     context=controlnet_context,
-                    y=y
+                    y=y,
+                    control_type=(
+                        [
+                            t.int_value()
+                            for t in param.union_control_types
+                        ]
+                        if param.control_model_type == ControlModelType.ControlNetUnion
+                        else None
+                    ),
                 )
 
                 if is_sdxl:

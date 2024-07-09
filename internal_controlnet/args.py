@@ -15,6 +15,7 @@ from scripts.enums import (
     ControlMode,
     HiResFixOption,
     PuLIDMode,
+    ControlNetUnionControlType,
 )
 from annotator.util import HWC3
 
@@ -201,6 +202,11 @@ class ControlNetUnit(BaseModel):
     # The weight mode for PuLID.
     # https://github.com/ToTheBeginning/PuLID
     pulid_mode: PuLIDMode = PuLIDMode.FIDELITY
+
+    # ControlNet control type for ControlNet union model.
+    # https://github.com/xinsir6/ControlNetPlus/tree/main
+    # The value of this field is only used when the model is ControlNetUnion.
+    union_control_type: ControlNetUnionControlType = ControlNetUnionControlType.UNKNOWN
 
     # ------- API only fields -------
     # The tensor input for ipadapter. When this field is set in the API,

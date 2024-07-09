@@ -24,6 +24,7 @@ from scripts.enums import (
     PuLIDMode,
     ControlMode,
     ResizeMode,
+    ControlNetUnionControlType,
 )
 from modules import shared
 from modules.ui_components import FormRow, FormHTML, ToolButton
@@ -265,6 +266,7 @@ class ControlNetUiGroup(object):
         self.output_dir_state = None
         self.advanced_weighting = gr.State(None)
         self.pulid_mode = None
+        self.union_control_type = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
@@ -487,6 +489,13 @@ class ControlNetUiGroup(object):
                 visible=False,
             )
 
+        with gr.Row():
+            self.union_control_type = gr.Textbox(
+                label="Union Control Type",
+                value=ControlNetUnionControlType.UNKNOWN.value,
+                visible=False,
+            )
+
         with gr.Row(elem_classes=["controlnet_control_type", "controlnet_row"]):
             self.type_filter = (
                 gr.Dropdown
@@ -664,6 +673,7 @@ class ControlNetUiGroup(object):
             self.advanced_weighting,
             self.effective_region_mask,
             self.pulid_mode,
+            self.union_control_type,
         )
 
         unit = gr.State(ControlNetUnit())
@@ -838,6 +848,19 @@ class ControlNetUiGroup(object):
             fn=filter_selected,
             inputs=[self.type_filter],
             outputs=[self.module, self.model],
+            show_progress=False,
+        )
+
+    def register_union_control_type(self):
+        def filter_selected(k: str):
+            control_type = ControlNetUnionControlType.from_str(k)
+            logger.debug(f"Switch to union control type {control_type}")
+            return gr.update(value=control_type.value)
+
+        self.type_filter.change(
+            fn=filter_selected,
+            inputs=[self.type_filter],
+            outputs=[self.union_control_type],
             show_progress=False,
         )
 
@@ -1227,6 +1250,7 @@ class ControlNetUiGroup(object):
         self.register_webcam_mirror_toggle()
         self.register_refresh_all_models()
         self.register_build_sliders()
+        self.register_union_control_type()
         self.register_shift_preview()
         self.register_shift_upload_mask()
         self.register_shift_pulid_mode()

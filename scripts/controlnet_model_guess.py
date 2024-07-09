@@ -221,14 +221,25 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
                 final_state_dict[key] = p_new
             state_dict = final_state_dict
 
+        if "control_add_embedding.linear_1.bias" in state_dict: # Controlnet Union
+            config["union_controlnet"] = True
+            final_state_dict = {}
+            for k in list(state_dict.keys()):
+                new_k = k.replace('.attn.in_proj_', '.attn.in_proj.')
+                final_state_dict[new_k] = state_dict.pop(k)
+            state_dict = final_state_dict
+
+            control_model_type = ControlModelType.ControlNetUnion
+        elif "instant_id" in model_path.lower():
+            control_model_type = ControlModelType.InstantID
+        else:
+            control_model_type = ControlModelType.ControlNet
+
         config['use_fp16'] = devices.dtype_unet == torch.float16
 
         network = PlugableControlModel(config, state_dict)
         network.to(devices.dtype_unet)
-        if "instant_id" in model_path.lower():
-            control_model_type = ControlModelType.InstantID
-        else:
-            control_model_type = ControlModelType.ControlNet
+
         return ControlModel(network, control_model_type)
 
     if 'conv_in.weight' in state_dict:

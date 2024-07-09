@@ -1027,6 +1027,10 @@ class Script(scripts.Script, metaclass=(
                 control_model_type.is_controlnet and
                 model_net.control_model.global_average_pooling
             )
+
+            if control_model_type == ControlModelType.ControlNetUnion:
+                logger.info(f"ControlNetUnion control type: {unit.union_control_type}")
+
             forward_param = ControlParams(
                 control_model=model_net,
                 preprocessor=preprocessor_dict,
@@ -1047,6 +1051,8 @@ class Script(scripts.Script, metaclass=(
                     if unit.effective_region_mask is not None
                     else None
                 ),
+                # TODO: Implement merge of units with the same union model.
+                union_control_types=[unit.union_control_type],
             )
             forward_params.append(forward_param)
 

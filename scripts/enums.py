@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum
 from typing import List, NamedTuple
 from functools import lru_cache
@@ -173,6 +174,7 @@ class ControlModelType(Enum):
     Controlllite = "Controlllite, Kohya"
     InstantID = "InstantID, Qixun Wang"
     SparseCtrl = "SparseCtrl, Yuwei Guo"
+    ControlNetUnion = "ControlNetUnion, xinsir6"
 
     @property
     def is_controlnet(self) -> bool:
@@ -181,6 +183,7 @@ class ControlModelType(Enum):
             ControlModelType.ControlNet,
             ControlModelType.ControlLoRA,
             ControlModelType.InstantID,
+            ControlModelType.ControlNetUnion,
         )
 
     @property
@@ -273,3 +276,61 @@ class ResizeMode(Enum):
         elif self == ResizeMode.OUTER_FIT:
             return 2
         assert False, "NOTREACHED"
+
+
+class ControlNetUnionControlType(Enum):
+    """
+    ControlNet control type for ControlNet union model.
+    https://github.com/xinsir6/ControlNetPlus/tree/main
+    """
+
+    OPENPOSE = "OpenPose"
+    DEPTH = "Depth"
+    # hed/pidi/scribble/ted
+    SOFT_EDGE = "Soft Edge"
+    # canny/lineart/anime_lineart/mlsd
+    HARD_EDGE = "Hard Edge"
+    NORMAL_MAP = "Normal Map"
+    SEGMENTATION = "Segmentation"
+
+    UNKNOWN = "Unknown"
+
+    @staticmethod
+    def all_tags() -> List[str]:
+        """ Tags can be handled by union ControlNet """
+        return [
+            "openpose",
+            "depth",
+            "softedge",
+            "scribble",
+            "canny",
+            "lineart",
+            "mlsd",
+            "normalmap",
+            "segmentation",
+        ]
+
+    @staticmethod
+    def from_str(s: str) -> ControlNetUnionControlType:
+        s = s.lower()
+
+        if s == "openpose":
+            return ControlNetUnionControlType.OPENPOSE
+        elif s == "depth":
+            return ControlNetUnionControlType.DEPTH
+        elif s in ["scribble", "softedge"]:
+            return ControlNetUnionControlType.SOFT_EDGE
+        elif s in ["canny", "lineart", "mlsd"]:
+            return ControlNetUnionControlType.HARD_EDGE
+        elif s == "normalmap":
+            return ControlNetUnionControlType.NORMAL_MAP
+        elif s == "segmentation":
+            return ControlNetUnionControlType.SEGMENTATION
+
+        return ControlNetUnionControlType.UNKNOWN
+
+    def int_value(self) -> int:
+        if self == ControlNetUnionControlType.UNKNOWN:
+            raise ValueError("Unknown control type cannot be encoded.")
+
+        return list(ControlNetUnionControlType).index(self)

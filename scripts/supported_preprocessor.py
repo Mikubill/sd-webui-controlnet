@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from modules import shared, devices
+from scripts.enums import ControlNetUnionControlType
 from scripts.logging import logger
 from scripts.utils import ndarray_lru_cache
 
@@ -173,7 +174,8 @@ class Preprocessor(ABC):
         }
 
         tag = tag.lower()
-        return set([tag] + filters_aliases.get(tag, []))
+        union_tags = ["union"] if tag in ControlNetUnionControlType.all_tags() else []
+        return set([tag] + filters_aliases.get(tag, []) + union_tags)
 
     @classmethod
     def unload_unused(cls, active_processors: Set["Preprocessor"]):

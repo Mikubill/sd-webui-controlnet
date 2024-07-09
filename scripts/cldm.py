@@ -1,8 +1,9 @@
+from typing import List
 import torch
 import torch.nn as nn
 
 from modules import devices
-
+from scripts.controlnet_core.controlnet_union import ControlAddEmbedding, ResBlockUnionControlnet
 
 try:
     from sgm.modules.diffusionmodules.openaimodel import conv_nd, linear, zero_module, timestep_embedding, \
@@ -26,7 +27,7 @@ class PlugableControlModel(nn.Module):
 
     def reset(self):
         pass
-            
+
     def forward(self, *args, **kwargs):
         return self.control_model(*args, **kwargs)
 
@@ -57,7 +58,7 @@ class PlugableControlModel(nn.Module):
     def fullvram(self):
         self.to(devices.get_device_for("controlnet"))
         return
-            
+
 
 class ControlNet(nn.Module):
     def __init__(
@@ -90,6 +91,7 @@ class ControlNet(nn.Module):
         use_linear_in_transformer=False,
         adm_in_channels=None,
         transformer_depth_middle=None,
+        union_controlnet=False,
         device=None,
         global_average_pooling=False,
     ):
@@ -280,10 +282,74 @@ class ControlNet(nn.Module):
         self.middle_block_out = self.make_zero_conv(ch)
         self._feature_size += ch
 
+        if union_controlnet:
+            self.num_control_type = 6
+            num_trans_channel = 320
+            num_trans_head = 8
+            num_trans_layer = 1
+            num_proj_channel = 320
+            self.task_embedding = nn.Parameter(torch.empty(
+                self.num_control_type, num_trans_channel, dtype=self.dtype, device=device
+            ))
+
+            self.transformer_layes = nn.Sequential(*[
+                ResBlockUnionControlnet(
+                    num_trans_channel, num_trans_head, dtype=self.dtype, device=device
+                )
+                for _ in range(num_trans_layer)
+            ])
+            self.spatial_ch_projs = nn.Linear(
+                num_trans_channel, num_proj_channel, dtype=self.dtype, device=device
+            )
+
+            control_add_embed_dim = 256
+            self.control_add_embedding = ControlAddEmbedding(
+                control_add_embed_dim, time_embed_dim, self.num_control_type,
+                dtype=self.dtype, device=device
+            )
+        else:
+            self.task_embedding = None
+            self.control_add_embedding = None
+
+    def union_controlnet_merge(
+        self,
+        hint: torch.Tensor,
+        control_type: List[int],
+        emb: torch.Tensor,
+        context: torch.Tensor
+    ):
+        """ Note: control_type is a list of enum values. The length of the list
+        is the number of control images."""
+        # Equivalent to: https://github.com/xinsir6/ControlNetPlus/tree/main
+        inputs = []
+        condition_list = []
+
+        for idx in range(min(1, len(control_type))):
+            controlnet_cond = self.input_hint_block(hint[idx], emb, context)
+            feat_seq = torch.mean(controlnet_cond, dim=(2, 3))
+            if idx < len(control_type):
+                feat_seq += self.task_embedding[control_type[idx]]
+
+            inputs.append(feat_seq.unsqueeze(1))
+            condition_list.append(controlnet_cond)
+
+        x = torch.cat(inputs, dim=1)
+        x = self.transformer_layes(x)
+        controlnet_cond_fuser = None
+        for idx in range(len(control_type)):
+            alpha = self.spatial_ch_projs(x[:, idx])
+            alpha = alpha.unsqueeze(-1).unsqueeze(-1)
+            o = condition_list[idx] + alpha
+            if controlnet_cond_fuser is None:
+                controlnet_cond_fuser = o
+            else:
+                controlnet_cond_fuser += o
+        return controlnet_cond_fuser
+
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
-    def forward(self, x, hint, timesteps, context, y=None, **kwargs):
+    def forward(self, x, hint, timesteps, context, y=None, control_type: List[int] = None, **kwargs):
         original_type = x.dtype
 
         x = x.to(self.dtype)
@@ -297,7 +363,19 @@ class ControlNet(nn.Module):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False).to(self.dtype)
         emb = self.time_embed(t_emb)
 
-        guided_hint = self.input_hint_block(hint, emb, context)
+        guided_hint = None
+        if self.control_add_embedding is not None:
+            assert control_type is not None
+
+            emb += self.control_add_embedding(control_type, emb.dtype, emb.device)
+            if len(control_type) > 0:
+                if len(hint.shape) < 5:
+                    hint = hint.unsqueeze(dim=0)
+                guided_hint = self.union_controlnet_merge(hint, control_type, emb, context)
+
+        if guided_hint is None:
+            guided_hint = self.input_hint_block(hint, emb, context)
+
         outs = []
 
         if self.num_classes is not None:
