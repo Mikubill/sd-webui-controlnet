@@ -1047,6 +1047,7 @@ class Script(scripts.Script, metaclass=(
                     if unit.effective_region_mask is not None
                     else None
                 ),
+                union_control_types=[unit.union_control_type],
             )
             forward_params.append(forward_param)
 
