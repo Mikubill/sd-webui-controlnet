@@ -296,6 +296,21 @@ class ControlNetUnionControlType(Enum):
     UNKNOWN = "Unknown"
 
     @staticmethod
+    def all_tags() -> List[str]:
+        """ Tags can be handled by union ControlNet """
+        return [
+            "openpose",
+            "depth",
+            "softedge",
+            "scribble",
+            "canny",
+            "lineart",
+            "mlsd",
+            "normalmap",
+            "segmentation",
+        ]
+
+    @staticmethod
     def from_str(s: str) -> ControlNetUnionControlType:
         s = s.lower()
 

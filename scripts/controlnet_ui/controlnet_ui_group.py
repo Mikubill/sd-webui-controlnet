@@ -5,6 +5,7 @@ import itertools
 from typing import List, Optional, Union, Dict, Tuple, Literal, Any
 from dataclasses import dataclass
 import numpy as np
+from scipy.__config__ import show
 
 from scripts.supported_preprocessor import Preprocessor
 from scripts.utils import svg_preprocess, read_image
@@ -266,7 +267,7 @@ class ControlNetUiGroup(object):
         self.output_dir_state = None
         self.advanced_weighting = gr.State(None)
         self.pulid_mode = None
-        self.union_control_type = gr.State(ControlNetUnionControlType.UNKNOWN)
+        self.union_control_type = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
@@ -486,6 +487,13 @@ class ControlNetUiGroup(object):
                 label="Crop input image based on A1111 mask",
                 value=False,
                 elem_classes=["cnet-crop-input-image"],
+                visible=False,
+            )
+
+        with gr.Row():
+            self.union_control_type = gr.Textbox(
+                label="Union Control Type",
+                value=ControlNetUnionControlType.UNKNOWN.value,
                 visible=False,
             )
 
@@ -848,7 +856,7 @@ class ControlNetUiGroup(object):
         def filter_selected(k: str):
             control_type = ControlNetUnionControlType.from_str(k)
             logger.debug(f"Switch to union control type {control_type}")
-            return control_type
+            return gr.update(value=control_type.value)
 
         self.type_filter.change(
             fn=filter_selected,
