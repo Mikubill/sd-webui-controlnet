@@ -1,6 +1,6 @@
 from __future__ import annotations
 from enum import Enum
-from typing import List, NamedTuple, Set
+from typing import List, NamedTuple
 from functools import lru_cache
 
 

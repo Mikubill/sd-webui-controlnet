@@ -5,7 +5,6 @@ import itertools
 from typing import List, Optional, Union, Dict, Tuple, Literal, Any
 from dataclasses import dataclass
 import numpy as np
-from scipy.__config__ import show
 
 from scripts.supported_preprocessor import Preprocessor
 from scripts.utils import svg_preprocess, read_image
