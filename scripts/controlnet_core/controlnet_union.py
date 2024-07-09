@@ -4,29 +4,13 @@ import torch.nn as nn
 
 try:
     from sgm.modules.diffusionmodules.openaimodel import (
-        conv_nd,
-        linear,
-        zero_module,
         timestep_embedding,
-        TimestepEmbedSequential,
-        ResBlock,
-        Downsample,
-        SpatialTransformer,
-        exists,
     )
 
     using_sgm = True
 except ImportError:
     from ldm.modules.diffusionmodules.openaimodel import (
-        conv_nd,
-        linear,
-        zero_module,
         timestep_embedding,
-        TimestepEmbedSequential,
-        ResBlock,
-        Downsample,
-        SpatialTransformer,
-        exists,
     )
 
     using_sgm = False
@@ -86,9 +70,7 @@ class OptimizedAttention(nn.Module):
         self.heads = nhead
         self.c = c
 
-        self.in_proj = nn.Linear(
-            c, c * 3, bias=True, dtype=dtype, device=device
-        )
+        self.in_proj = nn.Linear(c, c * 3, bias=True, dtype=dtype, device=device)
         self.out_proj = nn.Linear(c, c, bias=True, dtype=dtype, device=device)
 
     def forward(self, x):
