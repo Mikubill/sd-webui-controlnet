@@ -620,6 +620,7 @@ class UnetHook(nn.Module):
                         [
                             t.int_value()
                             for t in param.union_control_types
+                            if t != ControlNetUnionControlType.UNKNOWN
                         ]
                         if param.control_model_type == ControlModelType.ControlNetUnion
                         else None
