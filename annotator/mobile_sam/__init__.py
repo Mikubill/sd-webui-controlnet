@@ -19,12 +19,8 @@ class SamDetector_Aux(SamDetector):
     def __init__(self, mask_generator: SamAutomaticMaskGenerator):
         super().__init__(mask_generator)
 
-        self.device = devices.device
-        self.model = SamDetector_Aux().to(self.device).eval()
-        self.from_pretrained(model_type="vit_t")
-
     @classmethod
-    def from_pretrained(cls, model_type="vit_t"):
+    def from_pretrained(cls):
         """
         Possible model_type : vit_h, vit_l, vit_b, vit_t
         download weights from https://huggingface.co/dhkim2810/MobileSAM
@@ -35,9 +31,12 @@ class SamDetector_Aux(SamDetector):
         )
         model_path = load_model(
             "mobile_sam.pt", remote_url=remote_url, model_dir=cls.model_dir
-        ) 
+        )
 
-        sam = sam_model_registry[model_type](checkpoint=model_path)
+        sam = sam_model_registry["vit_t"](checkpoint=model_path)
+
+        cls.device = devices.device
+        cls.model = SamDetector_Aux().to(cls.device).eval()
 
         mask_generator = SamAutomaticMaskGenerator(sam)
 

@@ -19,7 +19,7 @@ class PreprocessorMobileSam(Preprocessor):
     ):
         img, remove_pad = resize_image_with_pad(input_image, resolution)
         if self.model is None:
-            self.model = SamDetector_Aux()
+            self.model = SamDetector_Aux.from_pretrained()
 
         result = self.model(img, detect_resolution=resolution, image_resolution=resolution)
         return remove_pad(result)
