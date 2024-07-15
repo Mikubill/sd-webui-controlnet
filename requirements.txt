@@ -9,4 +9,4 @@ matplotlib
 facexlib
 timm<=0.9.5
 pydantic<=1.10.17
-controlnet_aux
+controlnet_aux>=0.0.9
