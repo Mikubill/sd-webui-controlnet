@@ -1,6 +1,5 @@
 from annotator.mobile_sam import SamDetector_Aux
 from scripts.supported_preprocessor import Preprocessor
-from scripts.utils import resize_image_with_pad
 
 class PreprocessorMobileSam(Preprocessor):
     def __init__(self):
@@ -17,7 +16,6 @@ class PreprocessorMobileSam(Preprocessor):
         slider_3=None,
         **kwargs
     ):
-        #img, remove_pad = resize_image_with_pad(input_image, resolution)
         if self.model is None:
             self.model = SamDetector_Aux.from_pretrained()
 
