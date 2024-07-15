@@ -16,8 +16,10 @@ class SamDetector_Aux(SamDetector):
 
     model_dir = os.path.join(models_path, "mobile_sam")
 
-    def __init__(self, mask_generator: SamAutomaticMaskGenerator):
+    def __init__(self, mask_generator: SamAutomaticMaskGenerator, sam):
         super().__init__(mask_generator)
+        self.device = devices.device
+        self.model = sam.to(self.device).eval()
 
     @classmethod
     def from_pretrained(cls):
@@ -35,13 +37,13 @@ class SamDetector_Aux(SamDetector):
 
         sam = sam_model_registry["vit_t"](checkpoint=model_path)
 
-        cls.device = devices.device
-        cls.model = SamDetector_Aux().to(cls.device).eval()
+        cls.model = sam.to(devices.device).eval()
 
-        mask_generator = SamAutomaticMaskGenerator(sam)
+        mask_generator = SamAutomaticMaskGenerator(cls.model)
 
-        return cls(mask_generator)
+        return cls(mask_generator, sam)
 
-    def __call__(self, input_image: Union[np.ndarray, Image.Image]=None, detect_resolution=512, image_resolution=512, output_type="pil", **kwargs) -> np.ndarray:
+    def __call__(self, input_image: Union[np.ndarray, Image.Image]=None, detect_resolution=512, image_resolution=512, output_type="cv2", **kwargs) -> np.ndarray:
         self.model.to(self.device)
-        super().__call__(image=input_image, detect_resolution=detect_resolution, image_resolution=image_resolution, output_type=output_type, **kwargs)
+        image = super().__call__(input_image=input_image, detect_resolution=detect_resolution, image_resolution=image_resolution, output_type=output_type, **kwargs)
+        return np.array(image).astype(np.uint8)

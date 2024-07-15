@@ -17,11 +17,11 @@ class PreprocessorMobileSam(Preprocessor):
         slider_3=None,
         **kwargs
     ):
-        img, remove_pad = resize_image_with_pad(input_image, resolution)
+        #img, remove_pad = resize_image_with_pad(input_image, resolution)
         if self.model is None:
             self.model = SamDetector_Aux.from_pretrained()
 
-        result = self.model(img, detect_resolution=resolution, image_resolution=resolution)
-        return remove_pad(result)
+        result = self.model(input_image, detect_resolution=resolution, image_resolution=resolution, output_type="cv2")
+        return result
     
 Preprocessor.add_supported_preprocessor(PreprocessorMobileSam())
