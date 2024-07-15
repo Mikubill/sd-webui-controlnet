@@ -91,7 +91,7 @@ class ControlNet(nn.Module):
         use_linear_in_transformer=False,
         adm_in_channels=None,
         transformer_depth_middle=None,
-        union_controlnet=False,
+        union_controlnet_num_control_type=None,
         device=None,
         global_average_pooling=False,
     ):
@@ -282,8 +282,8 @@ class ControlNet(nn.Module):
         self.middle_block_out = self.make_zero_conv(ch)
         self._feature_size += ch
 
-        if union_controlnet:
-            self.num_control_type = 6
+        if union_controlnet_num_control_type is not None:
+            self.num_control_type = union_controlnet_num_control_type
             num_trans_channel = 320
             num_trans_head = 8
             num_trans_layer = 1

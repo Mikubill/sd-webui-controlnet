@@ -222,7 +222,7 @@ def build_model_by_guess(state_dict, unet, model_path: str) -> ControlModel:
             state_dict = final_state_dict
 
         if "control_add_embedding.linear_1.bias" in state_dict: # Controlnet Union
-            config["union_controlnet"] = True
+            config["union_controlnet_num_control_type"] = state_dict["task_embedding"].shape[0]
             final_state_dict = {}
             for k in list(state_dict.keys()):
                 new_k = k.replace('.attn.in_proj_', '.attn.in_proj.')
