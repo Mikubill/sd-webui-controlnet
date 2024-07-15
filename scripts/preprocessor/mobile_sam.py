@@ -1,8 +1,5 @@
-import numpy as np
-from skimage import morphology
-
 from annotator.mobile_sam import SamDetector_Aux
-from scripts.supported_preprocessor import Preprocessor, PreprocessorParameter
+from scripts.supported_preprocessor import Preprocessor
 from scripts.utils import resize_image_with_pad
 
 class PreprocessorMobileSam(Preprocessor):
