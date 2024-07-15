@@ -310,6 +310,8 @@ class ControlNetUnionControlType(Enum):
             "mlsd",
             "normalmap",
             "segmentation",
+            "inpaint",
+            "tile",
         ]
 
     @staticmethod
