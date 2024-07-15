@@ -292,6 +292,8 @@ class ControlNetUnionControlType(Enum):
     HARD_EDGE = "Hard Edge"
     NORMAL_MAP = "Normal Map"
     SEGMENTATION = "Segmentation"
+    TILE = "Tile"
+    INPAINT = "Inpaint"
 
     UNKNOWN = "Unknown"
 
@@ -308,6 +310,8 @@ class ControlNetUnionControlType(Enum):
             "mlsd",
             "normalmap",
             "segmentation",
+            "inpaint",
+            "tile",
         ]
 
     @staticmethod
@@ -326,6 +330,10 @@ class ControlNetUnionControlType(Enum):
             return ControlNetUnionControlType.NORMAL_MAP
         elif s == "segmentation":
             return ControlNetUnionControlType.SEGMENTATION
+        elif s in ["tile", "blur"]:
+            return ControlNetUnionControlType.TILE
+        elif s == "inpaint":
+            return ControlNetUnionControlType.INPAINT
 
         return ControlNetUnionControlType.UNKNOWN
 
