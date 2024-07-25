@@ -5,15 +5,12 @@ import os
 import shutil
 import platform
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional
+from packaging.version import parse
 
 
 repo_root = Path(__file__).parent
 main_req_file = repo_root / "requirements.txt"
-
-
-def comparable_version(version: str) -> Tuple:
-    return tuple(version.split("."))
 
 
 def get_installed_version(package: str) -> Optional[str]:
@@ -44,9 +41,9 @@ def install_requirements(req_file):
                 elif ">=" in package:
                     package_name, package_version = package.split(">=")
                     installed_version = get_installed_version(package_name)
-                    if not installed_version or comparable_version(
+                    if not installed_version or parse(
                         installed_version
-                    ) < comparable_version(package_version):
+                    ) < parse(package_version):
                         launch.run_pip(
                             f'install -U "{package}"',
                             f"sd-webui-controlnet requirement: changing {package_name} version from {installed_version} to {package_version}",
@@ -54,9 +51,9 @@ def install_requirements(req_file):
                 elif "<=" in package:
                     package_name, package_version = package.split("<=")
                     installed_version = get_installed_version(package_name)
-                    if not installed_version or comparable_version(
+                    if not installed_version or parse(
                         installed_version
-                    ) > comparable_version(package_version):
+                    ) > parse(package_version):
                         launch.run_pip(
                             f'install "{package_name}=={package_version}"',
                             f"sd-webui-controlnet requirement: changing {package_name} version from {installed_version} to {package_version}",
@@ -94,7 +91,7 @@ def try_install_from_wheel(pkg_name: str, wheel_url: str, version: Optional[str]
         if version is None:
             return
         # Version requirement already satisfied.
-        if comparable_version(current_version) >= comparable_version(version):
+        if parse(current_version) >= parse(version):
             return
 
     try:
