@@ -1,6 +1,7 @@
 from .teed import *
 from .pulid import *
 from .inpaint import *
+from .inpaint_promax import *
 from .lama_inpaint import *
 from .ip_adapter_auto import *
 from .normal_dsine import *
