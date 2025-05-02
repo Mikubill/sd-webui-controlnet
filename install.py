@@ -110,19 +110,19 @@ def try_install_insight_face():
     in principle. Here the solution is to download a precompiled wheel."""
     if get_installed_version("insightface") is not None:
         return
-
-    default_win_wheel = "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl"
+    win_wheels = {
+        (3, 9): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp39-cp39-win_amd64.whl",
+        (3, 10): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl",
+        (3, 11): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp311-cp311-win_amd64.whl",
+        (3, 12): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp312-cp312-win_amd64.whl",
+    }
+    default_win_wheel = win_wheels.get((sys.version_info.major, sys.version_info.minor))
     wheel_url = os.environ.get("INSIGHTFACE_WHEEL", default_win_wheel)
 
     system = platform.system().lower()
     architecture = platform.machine().lower()
-    python_version = sys.version_info
-    if wheel_url != default_win_wheel or (
-        system == "windows"
-        and "amd64" in architecture
-        and python_version.major == 3
-        and python_version.minor == 10
-    ):
+
+    if wheel_url is not None and wheel_url != default_win_wheel or (system == "windows" and "amd64" in architecture):
         try:
             launch.run_pip(
                 f"install {wheel_url}",

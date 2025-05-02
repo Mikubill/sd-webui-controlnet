@@ -108,13 +108,13 @@ jobs:
           python -m coverage html -i
         working-directory: stable-diffusion-webui
       - name: Upload main app output
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: output
           path: stable-diffusion-webui/output.txt
       - name: Upload coverage HTML
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: htmlcov
