@@ -823,10 +823,10 @@ class ControlNetUiGroup(object):
             self.control_mode,
         ]
         self.module.change(
-            build_sliders, inputs=inputs, outputs=outputs, show_progress=False
+            build_sliders, inputs=inputs, outputs=outputs, show_progress=False, queue=False
         )
         self.pixel_perfect.change(
-            build_sliders, inputs=inputs, outputs=outputs, show_progress=False
+            build_sliders, inputs=inputs, outputs=outputs, show_progress=False, queue=False
         )
 
         def filter_selected(k: str):
@@ -1029,6 +1029,7 @@ class ControlNetUiGroup(object):
                 self.openpose_editor.modal,
             ],
             show_progress=False,
+            queue=False,
         )
 
     def register_create_canvas(self):
@@ -1126,6 +1127,7 @@ class ControlNetUiGroup(object):
             inputs=[ControlNetUiGroup.a1111_context.txt2img_enable_hr],
             outputs=[self.hr_option],
             show_progress=False,
+            queue=False,
         )
 
     def register_shift_upload_mask(self):
@@ -1140,6 +1142,7 @@ class ControlNetUiGroup(object):
             inputs=[self.mask_upload],
             outputs=[self.mask_image_group, self.effective_region_mask],
             show_progress=False,
+            queue=False,
         )
 
     def register_shift_pulid_mode(self):
@@ -1148,6 +1151,7 @@ class ControlNetUiGroup(object):
             inputs=[self.model],
             outputs=[self.pulid_mode],
             show_progress=False,
+            queue=False,
         )
 
     def register_sync_batch_dir(self):
@@ -1172,14 +1176,12 @@ class ControlNetUiGroup(object):
                 fn=determine_batch_dir,
                 inputs=batch_dirs,
                 outputs=[self.batch_image_dir_state],
-                queue=False,
             )
 
         ControlNetUiGroup.a1111_context.img2img_batch_output_dir.blur(
             fn=lambda a: a,
             inputs=[ControlNetUiGroup.a1111_context.img2img_batch_output_dir],
             outputs=[self.output_dir_state],
-            queue=False,
         )
 
     def register_clear_preview(self):
