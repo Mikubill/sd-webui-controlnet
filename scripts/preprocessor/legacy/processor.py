@@ -687,7 +687,7 @@ class InsightFaceModel:
             from annotator.annotator_path import models_path
             self.model = FaceAnalysis(
                 name=self.face_analysis_model_name,
-                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                providers=['CUDAExecutionProvider', 'ROCMExecutionProvider', 'CPUExecutionProvider'],
                 root=os.path.join(models_path, "insightface"),
             )
             self.model.prepare(ctx_id=0, det_size=(640, 640))
