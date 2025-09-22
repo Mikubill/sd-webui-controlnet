@@ -6,7 +6,7 @@
 
 2. [Run inference on ONNX-model by using TensorFlow](#run-inference-on-onnx-model-by-using-tensorflow)
 
-3. [Make ONNX model from downloaded Pytorch model file](#make-onnx-model-from-downloaded-pytorch-model-file)
+3. [Make ONNX model from downloaded PyTorch model file](#make-onnx-model-from-downloaded-pytorch-model-file)
 
 
 ### Run inference on TensorFlow-model by using TensorFlow
@@ -85,7 +85,7 @@ pip install onnxruntime==1.5.2
 
 
 
-### Make ONNX model from downloaded Pytorch model file
+### Make ONNX model from downloaded PyTorch model file
 
 1) Download the model weights [model-f6b98070.pt](https://github.com/isl-org/MiDaS/releases/download/v2_1/model-f6b98070.pt) and place the
 file in the root folder.
