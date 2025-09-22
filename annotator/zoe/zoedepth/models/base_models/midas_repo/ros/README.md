@@ -14,7 +14,7 @@ MiDaS is a neural network to compute depth from a single image.
 * input from `image_topic`: `sensor_msgs/Image` - `RGB8` image with any shape
 * output to `midas_topic`: `sensor_msgs/Image` - `TYPE_32FC1` inverse relative depth maps in range [0 - 255] with original size and channels=1
 
-### Install Dependecies
+### Install Dependencies
 
 * install ROS Melodic for Ubuntu 17.10 / 18.04:
 ```bash
@@ -103,7 +103,7 @@ cp src/additions/do_catkin_make.sh ./do_catkin_make.sh
 
 None of Train/Valid/Test subsets of datasets (DIW, Eth3d, Sintel, Kitti, NyuDepthV2, TUM) were not involved in Training or Fine Tuning.
 
-### Inference speed (FPS) on nVidia GPU
+### Inference speed (FPS) on NVIDIA GPU
 
 Inference speed excluding pre and post processing, batch=1, **Frames Per Second** (the higher - the better):
 
@@ -111,7 +111,7 @@ Inference speed excluding pre and post processing, batch=1, **Frames Per Second*
 |---|---|---|
 | MiDaS v2 small 384x384 | 1.6 | 117 |
 | MiDaS v2.1 small 256x256 | 8.1 | 232 |
-| SpeedUp, X times | **5x** | **2x** |
+| Speedup, x times | **5x** | **2x** |
 
 ### Citation
 

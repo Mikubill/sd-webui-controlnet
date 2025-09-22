@@ -23,14 +23,14 @@ This extension is for AUTOMATIC1111's [Stable Diffusion web UI](https://github.c
 # Installation
 
 1. Open "Extensions" tab.
-2. Open "Install from URL" tab in the tab.
+2. Open the "Install from URL" tab.
 3. Enter `https://github.com/Mikubill/sd-webui-controlnet.git` to "URL for extension's git repository".
 4. Press "Install" button.
 5. Wait for 5 seconds, and you will see the message "Installed into stable-diffusion-webui\extensions\sd-webui-controlnet. Use Installed tab to restart".
 6. Go to "Installed" tab, click "Check for updates", and then click "Apply and restart UI". (The next time you can also use these buttons to update ControlNet.)
-7. Completely restart A1111 webui including your terminal. (If you do not know what is a "terminal", you can reboot your computer to achieve the same effect.)
+7. Completely restart A1111 WebUI including your terminal. (If you do not know what is a "terminal", you can reboot your computer to achieve the same effect.)
 8. Download models (see below).
-9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is right to your "Model" dropdown.
+9. After you put models in the correct folder, you may need to refresh to see the models. The refresh button is to the right of your "Model" dropdown.
 
 # Download Models
 You can find all download links here: https://github.com/Mikubill/sd-webui-controlnet/wiki/Model-download.
@@ -39,15 +39,15 @@ You can find all download links here: https://github.com/Mikubill/sd-webui-contr
 
 ### Perfect Support for All ControlNet 1.0/1.1 and T2I Adapter Models.
 
-Now we have perfect support all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are same, see also YAML files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
+Now we have perfect support for all available models and preprocessors, including perfect support for T2I style adapter and ControlNet 1.1 Shuffle. (Make sure that your YAML file names and model file names are the same, see also YAML files in "stable-diffusion-webui\extensions\sd-webui-controlnet\models".)
 
 ### Perfect Support for A1111 High-Res. Fix
 
-Now if you turn on High-Res Fix in A1111, each controlnet will output two different control images: a small one and a large one. The small one is for your basic generating, and the big one is for your High-Res Fix generating. The two control images are computed by a smart algorithm called "super high-quality control image resampling". This is turned on by default, and you do not need to change any setting.
+Now if you turn on High-Res Fix in A1111, each ControlNet will output two different control images: a small one and a large one. The small one is for your basic generation, and the big one is for your High-Res Fix generation. The two control images are computed by a smart algorithm called "super high-quality control image resampling". This is turned on by default, and you do not need to change any setting.
 
 ### Perfect Support for All A1111 Img2Img or Inpaint Settings and All Mask Types
 
-Now ControlNet is extensively tested with A1111's different types of masks, including "Inpaint masked"/"Inpaint not masked", and "Whole picture"/"Only masked", and "Only masked padding"&"Mask blur". The resizing perfectly matches A1111's "Just resize"/"Crop and resize"/"Resize and fill". This means you can use ControlNet in nearly everywhere in your A1111 UI without difficulty!
+Now ControlNet is extensively tested with A1111's different types of masks, including "Inpaint masked"/"Inpaint not masked", and "Whole picture"/"Only masked", and "Only masked padding"&"Mask blur". The resizing perfectly matches A1111's "Just resize"/"Crop and resize"/"Resize and fill". This means you can use ControlNet nearly everywhere in your A1111 UI without difficulty!
 
 ### The New "Pixel-Perfect" Mode
 
@@ -55,7 +55,7 @@ Now if you turn on pixel-perfect mode, you do not need to set preprocessor (anno
 
 ### User-Friendly GUI and Preprocessor Preview
 
-We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your a1111 GUI will not be messed up anymore!
+We reorganized some previously confusing UI like "canvas width/height for new canvas" and it is in the 📝 button now. Now the preview GUI is controlled by the "allow preview" option and the trigger button 💥. The preview image size is better than before, and you do not need to scroll up and down - your A1111 GUI will not be messed up anymore!
 
 ### Support for Almost All Upscaling Scripts
 
@@ -118,7 +118,7 @@ https://github.com/lllyasviel/ControlNet-v1-1-nightly#model-specification
 
 # Default Setting
 
-This is my setting. If you run into any problem, you can use this setting as a sanity check
+This is my setting. If you run into any problems, you can use this setting as a sanity check
 
 ![image](https://user-images.githubusercontent.com/19834515/235620638-17937171-8ac1-45bc-a3cb-3aebf605b4ef.png)
 
@@ -192,9 +192,9 @@ This option allows multiple ControlNet inputs for a single generation. To enable
 
 # Control Weight/Start/End
 
-Weight is the weight of the controlnet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
+Weight is the weight of the ControlNet "influence". It's analogous to prompt attention/emphasis. E.g. (myprompt: 1.2). Technically, it's the factor by which to multiply the ControlNet outputs before merging them with original SD Unet.
 
-Guidance Start/End is the percentage of total steps the controlnet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
+Guidance Start/End is the percentage of total steps the ControlNet applies (guidance strength = guidance end). It's analogous to prompt editing/shifting. E.g. \[myprompt::0.8\] (It applies from the beginning until 80% of total steps)
 
 # Batch Mode
 
@@ -204,15 +204,15 @@ Note that this feature is only available in the gradio user interface. Call the 
 
 # API and Script Access
 
-This extension can accept txt2img or img2img tasks via API or external extension call. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
+This extension can accept txt2img or img2img tasks via API or external extension calls. Note that you may need to enable `Allow other scripts to control this extension` in settings for external calls.
 
-To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documents or checkout [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/txt2img_example/api_txt2img.py).
+To use the API: start WebUI with argument `--api` and go to `http://webui-address/docs` for documentation or check out [examples](https://github.com/Mikubill/sd-webui-controlnet/blob/main/example/txt2img_example/api_txt2img.py).
 
-To use external call: Checkout [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
+To use external calls: check out the [Wiki](https://github.com/Mikubill/sd-webui-controlnet/wiki/API)
 
 # Command Line Arguments
 
-This extension adds these command line arguments to the webui:
+This extension adds these command line arguments to the WebUI:
 
 ```
     --controlnet-dir <path to directory with controlnet models>                                ADD a controlnet models directory
@@ -225,9 +225,9 @@ This extension adds these command line arguments to the webui:
 
 # MacOS Support
 
-Tested with pytorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
+Tested with PyTorch nightly: https://github.com/Mikubill/sd-webui-controlnet/pull/143#issuecomment-1435058285
 
-To use this extension with mps and normal pytorch, currently you may need to start WebUI with `--no-half`.
+To use this extension with mps and normal PyTorch, currently you may need to start WebUI with `--no-half`.
 
 # Archive of Deprecated Versions
 

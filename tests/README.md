@@ -1,10 +1,10 @@
 # Tests
 There are 2 types of tests:
-- unittest: backend based tests that directly import A1111 shared modules
-- api test: test functionality through A1111 web API
+- unittest: backend-based tests that directly import A1111 shared modules
+- API tests: test functionality through the A1111 web API
 
 # Run tests locally
-Make sure the current working directory is A1111 root.
+Make sure the current working directory is the A1111 root.
 
 ## Install test dependencies
 `pip install -r requirements-test.txt`
@@ -25,12 +25,12 @@ python -m coverage run
 ```
 
 ## Setting environment variables
-Setting `CONTROLNET_TEST_SD_VERSION` for stable diffusion model family used during testing.
+Setting `CONTROLNET_TEST_SD_VERSION` for the Stable Diffusion model family used during testing.
 - 1 for SD1.x
 - 2 for SD2.x
 - 3 for SDXL
 
-## Run test
+## Run tests
 ```shell
 python -m pytest -vv --junitxml=test/results.xml --cov ./extensions/sd-webui-controlnet --cov-report=xml --verify-base-url ./extensions/sd-webui-controlnet/tests
 ```

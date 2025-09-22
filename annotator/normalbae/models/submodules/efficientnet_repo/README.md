@@ -47,7 +47,7 @@ All models are implemented by GenEfficientNet or MobileNetV3 classes, with strin
 ### Oct 30, 2019
  * Many of the models will now work with torch.jit.script, MixNet being the biggest exception
  * Improved interface for enabling torchscript or ONNX export compatible modes (via config)
- * Add JIT optimized mem-efficient Swish/Mish autograd.fn in addition to memory-efficient autgrad.fn
+* Add JIT optimized mem-efficient Swish/Mish autograd.fn in addition to memory-efficient autograd.fn
  * Activation factory to select best version of activation by name or override one globally
  * Add pretrained checkpoint load helper that handles input conv and classifier changes
  
